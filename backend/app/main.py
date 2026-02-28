@@ -22,6 +22,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _migrate_schedule_created_at()
     _migrate_production_plan_v2()
     _migrate_production_plan_v3()
+    _migrate_departments_description()
     # Migrate schedule customer names → Customer table (runs once, idempotent)
     _seed_customers_from_schedules()
     yield
@@ -36,6 +37,18 @@ def _migrate_schedule_created_at() -> None:
         cols = [row[1] for row in conn.execute(text("PRAGMA table_info(schedule)")).fetchall()]
         if "created_at" not in cols:
             conn.execute(text("ALTER TABLE schedule ADD COLUMN created_at TEXT"))
+            conn.commit()
+
+
+def _migrate_departments_description() -> None:
+    """Add description column to departments table if it doesn't exist."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        cols = [row[1] for row in conn.execute(text("PRAGMA table_info(departments)")).fetchall()]
+        if "description" not in cols:
+            conn.execute(text("ALTER TABLE departments ADD COLUMN description TEXT"))
             conn.commit()
 
 

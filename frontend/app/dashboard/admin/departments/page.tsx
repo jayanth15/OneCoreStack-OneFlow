@@ -25,13 +25,15 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiFetchJson } from "@/lib/api";
 import { getCurrentUser } from "@/lib/user";
-import { PlusIcon, Pencil, Trash2 } from "lucide-react";
+import { PlusIcon, Pencil, Trash2, Users } from "lucide-react";
 
 interface Department {
   id: number;
   code: string;
   name: string;
+  description: string | null;
   is_active: boolean;
+  user_count: number;
 }
 
 export default function DepartmentsPage() {
@@ -39,7 +41,7 @@ export default function DepartmentsPage() {
 
   useEffect(() => {
     const user = getCurrentUser();
-    if (!user || user.role !== "admin") router.replace("/dashboard");
+    if (!user || (user.role !== "admin" && user.role !== "super_admin")) router.replace("/dashboard");
   }, [router]);
 
   const [depts, setDepts] = useState<Department[]>([]);
@@ -83,13 +85,17 @@ export default function DepartmentsPage() {
     }
   }
 
+  const deleteDept = depts.find((d) => d.id === deleteId);
+  const activeDepts = depts.filter((d) => d.is_active).length;
+  const totalUsers = depts.reduce((sum, d) => sum + d.user_count, 0);
+
   return (
     <>
       <header className="flex h-16 shrink-0 items-center gap-2 border-b px-6">
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href="/dashboard/admin/users">Admin</BreadcrumbLink>
+              <BreadcrumbLink href="/dashboard">Dashboard</BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator className="hidden md:block" />
             <BreadcrumbItem>
@@ -99,12 +105,13 @@ export default function DepartmentsPage() {
         </Breadcrumb>
       </header>
 
-      <div className="p-6 space-y-4">
-        <div className="flex items-center justify-between gap-4">
+      <div className="p-4 md:p-6 space-y-4">
+        {/* ── Header ─────────────────────────────────────────────────────── */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h1 className="text-xl font-semibold">Departments</h1>
             <p className="text-sm text-muted-foreground">
-              Manage departments. A user can belong to multiple departments.
+              Manage organizational departments. Users can belong to multiple departments.
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -124,14 +131,35 @@ export default function DepartmentsPage() {
           </div>
         </div>
 
+        {/* ── Summary Cards ──────────────────────────────────────────────── */}
+        {!loading && depts.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="rounded-lg border bg-card p-3">
+              <p className="text-xs text-muted-foreground">Total Departments</p>
+              <p className="text-lg font-semibold">{depts.length}</p>
+            </div>
+            <div className="rounded-lg border bg-card p-3">
+              <p className="text-xs text-muted-foreground">Active</p>
+              <p className="text-lg font-semibold text-green-600">{activeDepts}</p>
+            </div>
+            <div className="rounded-lg border bg-card p-3">
+              <p className="text-xs text-muted-foreground">Total Users Assigned</p>
+              <p className="text-lg font-semibold">{totalUsers}</p>
+            </div>
+          </div>
+        )}
+
         {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
 
+        {/* ── Table ──────────────────────────────────────────────────────── */}
         <div className="rounded-lg border overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/40">
                 <th className="px-4 py-3 text-left font-medium">Code</th>
                 <th className="px-4 py-3 text-left font-medium">Name</th>
+                <th className="px-4 py-3 text-left font-medium hidden md:table-cell">Description</th>
+                <th className="px-4 py-3 text-center font-medium">Users</th>
                 <th className="px-4 py-3 text-left font-medium">Status</th>
                 <th className="px-4 py-3 text-right font-medium">Actions</th>
               </tr>
@@ -142,21 +170,34 @@ export default function DepartmentsPage() {
                   <tr key={i} className="border-b">
                     <td className="px-4 py-3"><Skeleton className="h-4 w-16" /></td>
                     <td className="px-4 py-3"><Skeleton className="h-4 w-36" /></td>
+                    <td className="px-4 py-3 hidden md:table-cell"><Skeleton className="h-4 w-44" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-8 mx-auto" /></td>
                     <td className="px-4 py-3"><Skeleton className="h-5 w-14 rounded-full" /></td>
                     <td className="px-4 py-3 text-right"><Skeleton className="h-7 w-16 ml-auto" /></td>
                   </tr>
                 ))
               ) : depts.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
                     No departments yet. Click &quot;Add Department&quot; to create one.
                   </td>
                 </tr>
               ) : (
                 depts.map((dept) => (
                   <tr key={dept.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                    <td className="px-4 py-3 font-mono font-medium">{dept.code}</td>
-                    <td className="px-4 py-3">{dept.name}</td>
+                    <td className="px-4 py-3 font-mono font-medium text-xs">
+                      {dept.code}
+                    </td>
+                    <td className="px-4 py-3 font-medium">{dept.name}</td>
+                    <td className="px-4 py-3 text-muted-foreground text-xs hidden md:table-cell max-w-[200px] truncate">
+                      {dept.description || "—"}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                        <Users className="size-3" />
+                        {dept.user_count}
+                      </span>
+                    </td>
                     <td className="px-4 py-3">
                       <Badge variant={dept.is_active ? "default" : "secondary"}>
                         {dept.is_active ? "Active" : "Inactive"}
@@ -179,6 +220,7 @@ export default function DepartmentsPage() {
                           className="size-8 text-destructive hover:text-destructive"
                           onClick={() => setDeleteId(dept.id)}
                           title="Deactivate"
+                          disabled={!dept.is_active}
                         >
                           <Trash2 className="size-3.5" />
                         </Button>
@@ -196,13 +238,19 @@ export default function DepartmentsPage() {
         </p>
       </div>
 
+      {/* ── Delete Confirmation Dialog ─────────────────────────────────── */}
       <AlertDialog open={deleteId !== null} onOpenChange={(o) => !o && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Deactivate department?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will mark the department as inactive. It will no longer appear in
-              lists but existing records are kept.
+              This will mark <strong>{deleteDept?.name ?? "this department"}</strong> as inactive.
+              It will no longer appear in lists but existing records are kept.
+              {(deleteDept?.user_count ?? 0) > 0 && (
+                <span className="block mt-1 text-amber-600">
+                  This department has {deleteDept?.user_count} user{deleteDept?.user_count !== 1 ? "s" : ""} assigned.
+                </span>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

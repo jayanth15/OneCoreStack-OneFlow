@@ -23,10 +23,10 @@ export default function NewDepartmentPage() {
 
   useEffect(() => {
     const user = getCurrentUser();
-    if (!user || user.role !== "admin") router.replace("/dashboard");
+    if (!user || (user.role !== "admin" && user.role !== "super_admin")) router.replace("/dashboard");
   }, [router]);
 
-  const [form, setForm] = useState({ code: "", name: "", is_active: true });
+  const [form, setForm] = useState({ code: "", name: "", description: "", is_active: true });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const codeRef = useRef<HTMLInputElement>(null);
@@ -46,7 +46,10 @@ export default function NewDepartmentPage() {
     try {
       await apiFetchJson("/api/v1/admin/departments", {
         method: "POST",
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          description: form.description.trim() || null,
+        }),
       });
       router.push("/dashboard/admin/departments");
     } catch (e: unknown) {
@@ -113,6 +116,18 @@ export default function NewDepartmentPage() {
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               disabled={saving}
             />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="dept-desc">Description</Label>
+            <Input
+              id="dept-desc"
+              placeholder="e.g. Handles all manufacturing operations"
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              disabled={saving}
+            />
+            <p className="text-xs text-muted-foreground">Optional — brief purpose of this department.</p>
           </div>
 
           <div className="space-y-1.5">
