@@ -118,10 +118,28 @@ export default function EditPlanPage() {
     if (!id) return;
     Promise.all([
       apiFetchJson<PlanData>(`/api/v1/production/plans/${id}`),
-      apiFetchJson<PaginatedSchedules>("/api/v1/schedules?page_size=200&include_inactive=false"),
+      apiFetchJson<PaginatedSchedules>("/api/v1/schedules?page_size=200&include_inactive=false&status_filter=pending"),
     ])
       .then(([plan, schedResp]) => {
-        setSchedules(schedResp.items);
+        let schedList = schedResp.items;
+
+        // If this plan is linked to a schedule that is no longer pending,
+        // synthesise a ScheduleOption from the plan data so it still shows in the dropdown.
+        if (plan.schedule_id != null && !schedList.some((s) => s.id === plan.schedule_id) && plan.schedule_number) {
+          const synth: ScheduleOption = {
+            id: plan.schedule_id,
+            schedule_number: plan.schedule_number,
+            customer_name: plan.customer_name ?? "",
+            description: plan.product_description ?? "",
+            scheduled_date: plan.scheduled_date ?? null,
+            scheduled_qty: plan.scheduled_qty ?? 0,
+            backlog_qty: plan.backlog_qty ?? 0,
+            status: plan.schedule_status ?? "confirmed",
+          };
+          schedList = [synth, ...schedList];
+        }
+
+        setSchedules(schedList);
         setPlanNumber(plan.plan_number);
         setForm({
           title: plan.title,
@@ -137,7 +155,7 @@ export default function EditPlanPage() {
           (plan.processes ?? []).map((p) => ({ ...p, _editName: p.name, _editNotes: p.notes ?? "" }))
         );
         if (plan.schedule_id != null) {
-          const found = schedResp.items.find((s) => s.id === plan.schedule_id) ?? null;
+          const found = schedList.find((s) => s.id === plan.schedule_id) ?? null;
           setSelectedSched(found);
         }
       })

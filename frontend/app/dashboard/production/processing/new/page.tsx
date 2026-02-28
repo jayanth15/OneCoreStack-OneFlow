@@ -19,6 +19,10 @@ interface ProductionPlan {
   title: string;
 }
 
+interface PaginatedPlans {
+  items: ProductionPlan[];
+}
+
 const BLANK = {
   title: "",
   production_plan_id: "",
@@ -38,8 +42,8 @@ export default function NewJobCardPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    apiFetchJson<ProductionPlan[]>("/api/v1/production/plans")
-      .then(setPlans)
+    apiFetchJson<PaginatedPlans>("/api/v1/production/plans?page_size=200")
+      .then((r) => setPlans(r.items))
       .catch(() => { /* non-critical */ });
     document.getElementById("title")?.focus();
   }, []);

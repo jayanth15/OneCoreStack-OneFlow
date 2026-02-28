@@ -49,7 +49,7 @@ export default function EditJobCardPage() {
     if (!id) return;
     Promise.all([
       apiFetchJson<JobForm & { id: number; card_number: string; production_plan_id: number | null }>(`/api/v1/production/jobs/${id}`),
-      apiFetchJson<ProductionPlan[]>("/api/v1/production/plans?include_inactive=true"),
+      apiFetchJson<{ items: ProductionPlan[] }>("/api/v1/production/plans?include_inactive=true&page_size=200"),
     ])
       .then(([d, planList]) => {
         setCardNumber(d.card_number);
@@ -63,7 +63,7 @@ export default function EditJobCardPage() {
           status: d.status,
           is_active: d.is_active,
         });
-        setPlans(planList);
+        setPlans(planList.items);
       })
       .catch((e: unknown) => setLoadError(e instanceof Error ? e.message : "Not found"))
       .finally(() => setLoading(false));

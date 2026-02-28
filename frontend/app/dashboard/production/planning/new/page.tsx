@@ -86,7 +86,7 @@ export default function NewPlanPage() {
   const [matsError, setMatsError] = useState<string | null>(null);
 
   useEffect(() => {
-    apiFetchJson<PaginatedSchedules>("/api/v1/schedules?page_size=200&include_inactive=false")
+    apiFetchJson<PaginatedSchedules>("/api/v1/schedules?page_size=200&include_inactive=false&status_filter=pending")
       .then((r) => setSchedules(r.items))
       .catch(() => setSchedules([]))
       .finally(() => setSchedLoading(false));
