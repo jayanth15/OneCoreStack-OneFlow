@@ -412,6 +412,7 @@ def list_plans(
     _: Annotated[User, Depends(get_current_user)],
     status_filter: Optional[str] = None,
     include_inactive: bool = False,
+    available_for_orders: bool = False,
     search: Optional[str] = None,
     page: int = 1,
     page_size: int = 20,
@@ -424,6 +425,13 @@ def list_plans(
         q = q.where(ProductionPlan.is_active == True)  # noqa: E712
     if status_filter:
         q = q.where(ProductionPlan.status == status_filter)
+    if available_for_orders:
+        # Only approved plans that don't already have an active production order
+        q = q.where(ProductionPlan.status == "approved")
+        busy_ids = select(ProductionOrder.production_plan_id).where(
+            ProductionOrder.is_active == True,  # noqa: E712
+        )
+        q = q.where(ProductionPlan.id.not_in(busy_ids))  # type: ignore[union-attr]
     if search:
         term = f"%{search}%"
         q = q.where(
@@ -849,16 +857,24 @@ def create_order(
     plan = session.get(ProductionPlan, body.production_plan_id)
     if not plan:
         raise HTTPException(status_code=404, detail="Production plan not found")
-    # Must be approved or already in_progress to create an order
-    if plan.status == "draft":
+    # Must be approved to create an order
+    if plan.status != "approved":
         raise HTTPException(
-            status_code=422,
-            detail="Cannot create a production order for a draft plan. Approve the plan first.",
+            status_code=409,
+            detail=f"Plan must be in 'approved' status to start production (current: {plan.status})",
         )
-    if plan.status == "completed":
+    # Prevent duplicate: only one active order per plan
+    existing = session.exec(
+        select(ProductionOrder).where(
+            ProductionOrder.production_plan_id == body.production_plan_id,
+            ProductionOrder.is_active == True,  # noqa: E712
+        )
+    ).first()
+    if existing:
         raise HTTPException(
-            status_code=422,
-            detail="Cannot create a production order for an already-completed plan.",
+            status_code=409,
+            detail=f"Plan already has an active production order ({existing.order_number}). "
+                   f"Deactivate it before creating a new one.",
         )
     order = ProductionOrder(
         order_number=_next_order_number(session),

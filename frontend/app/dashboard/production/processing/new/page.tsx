@@ -53,13 +53,9 @@ export default function NewProductionOrderPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    apiFetchJson<PaginatedPlans>("/api/v1/production/plans?page_size=200&include_inactive=false&status_filter=approved")
-      .then((r) => {
-        // Also include in_progress plans (may need additional orders)
-        apiFetchJson<PaginatedPlans>("/api/v1/production/plans?page_size=200&include_inactive=false&status_filter=in_progress")
-          .then((r2) => setPlans([...r.items, ...r2.items]))
-          .catch(() => setPlans(r.items));
-      })
+    // Load only approved plans that don't already have an active production order
+    apiFetchJson<PaginatedPlans>("/api/v1/production/plans?page_size=200&available_for_orders=true")
+      .then((r) => setPlans(r.items))
       .catch(() => setPlans([]));
   }, []);
 
@@ -134,6 +130,9 @@ export default function NewProductionOrderPage() {
                 </option>
               ))}
             </select>
+            {plans.length === 0 && (
+              <p className="text-xs text-amber-600 mt-1">No plans available — all approved plans already have active production orders.</p>
+            )}
           </div>
 
           {/* Plan preview */}
