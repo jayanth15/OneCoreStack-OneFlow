@@ -22,7 +22,7 @@ const SECTIONS = [
   {
     title: "Production Processing",
     description:
-      "Manage job cards to track and execute production work orders through the shop floor.",
+      "Create production orders, assign job cards per process step, and track worker output, hours & pending quantities.",
     icon: ClipboardList,
     href: "/dashboard/production/processing",
     color: "text-emerald-600 bg-emerald-50",

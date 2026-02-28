@@ -19,6 +19,10 @@ from app.models.user_department import UserDepartment
 from app.models.inventory import InventoryItem
 from app.models.bom_item import BomItem
 from app.models.schedule import Schedule
+from app.models.production_plan import ProductionPlan
+from app.models.production_process import ProductionProcess
+from app.models.production_order import ProductionOrder
+from app.models.job_card import JobCard
 
 # ── wipe old DB ──────────────────────────────────────────────────────────────
 DB_PATH = os.path.join(os.path.dirname(__file__), "oneflow.db")
@@ -182,6 +186,95 @@ with Session(engine) as s:
             is_active=True,
         ))
     print(f"  Schedules    : {len(schedules_seed)}")
+
+    s.flush()
+
+    # ── Production Plans with Processes ──────────────────────────────────────
+    plan1 = ProductionPlan(
+        plan_number="PP-0001",
+        title="Bracket Assembly – Tata Q1 Batch",
+        schedule_id=1,  # Tata Motors confirmed
+        planned_qty=200,
+        start_date=future_date(2),
+        end_date=future_date(25),
+        status="approved",
+        is_active=True,
+    )
+    plan2 = ProductionPlan(
+        plan_number="PP-0002",
+        title="Support Frame – Mahindra Trial",
+        schedule_id=3,  # Mahindra pending
+        planned_qty=80,
+        start_date=future_date(10),
+        end_date=future_date(55),
+        status="draft",
+        is_active=True,
+    )
+    s.add(plan1); s.add(plan2); s.flush()
+
+    # Processes for Plan 1 (Bracket Assembly)
+    pp1_processes = [
+        ("Blanking", 1, "Laser-cut steel sheets to bracket blanks"),
+        ("Forming", 2, "Press-brake forming"),
+        ("Welding", 3, "TIG weld bracket joints"),
+        ("Painting", 4, "Black paint finish coat"),
+        ("Quality Check", 5, "Dimensional inspection + visual"),
+    ]
+    for name, seq, notes in pp1_processes:
+        s.add(ProductionProcess(plan_id=plan1.id, name=name, sequence=seq, notes=notes))
+
+    # Processes for Plan 2 (Support Frame)
+    pp2_processes = [
+        ("Cutting", 1, "Cut aluminium rods to length"),
+        ("Welding", 2, "MIG weld frame assembly"),
+        ("Primer Coat", 3, "Zinc primer pre-treatment"),
+        ("Assembly", 4, "Bolt-up sub-assemblies"),
+    ]
+    for name, seq, notes in pp2_processes:
+        s.add(ProductionProcess(plan_id=plan2.id, name=name, sequence=seq, notes=notes))
+
+    s.flush()
+    print(f"  Plans        : 2")
+    print(f"  Processes    : {len(pp1_processes) + len(pp2_processes)}")
+
+    # ── Production Orders ────────────────────────────────────────────────────
+    order1 = ProductionOrder(
+        order_number="PO-0001",
+        production_plan_id=plan1.id,
+        start_date=future_date(2),
+        end_date=future_date(25),
+        notes="First batch for Tata Motors",
+        status="in_progress",
+        is_active=True,
+    )
+    s.add(order1); s.flush()
+
+    # Job Cards for Order 1 – one per process
+    job_seeds = [
+        ("Blanking",       "Die Set A-12",  "Laser CNC #3",   "Raju",   6.5, 120, 80),
+        ("Forming",        "Die Set B-07",  "Press Brake #1",  "Kumar",  4.0,  80, 120),
+        ("Welding",        None,            "TIG Station #2",  "Suresh", 0.0,   0, 200),
+    ]
+    for i, (proc, td, machine, worker, hours, produced, pending) in enumerate(job_seeds, 1):
+        status = "in_progress" if produced > 0 else "open"
+        s.add(JobCard(
+            card_number=f"JC-{i:04d}",
+            production_order_id=order1.id,
+            process_name=proc,
+            tool_die_number=td,
+            machine_name=machine,
+            worker_name=worker,
+            hours_worked=hours,
+            qty_produced=produced,
+            qty_pending=pending,
+            start_date=future_date(2) if produced > 0 else None,
+            status=status,
+            is_active=True,
+        ))
+
+    s.flush()
+    print(f"  Orders       : 1")
+    print(f"  Job Cards    : {len(job_seeds)}")
 
     s.commit()
 
