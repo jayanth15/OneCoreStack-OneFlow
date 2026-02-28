@@ -449,23 +449,29 @@ def create_plan(
     session: Annotated[Session, Depends(get_session)],
     _: Annotated[User, Depends(get_current_user)],
 ) -> PlanResponse:
-    if body.schedule_id is not None:
-        sched = session.get(Schedule, body.schedule_id)
-        if not sched:
-            raise HTTPException(status_code=404, detail="Schedule not found")
-        # Prevent duplicate: only one active plan per schedule
-        existing = session.exec(
-            select(ProductionPlan).where(
-                ProductionPlan.schedule_id == body.schedule_id,
-                ProductionPlan.is_active == True,  # noqa: E712
-            )
-        ).first()
-        if existing:
-            raise HTTPException(
-                status_code=409,
-                detail=f"Schedule already has an active plan ({existing.plan_number}). "
-                       f"Deactivate it before creating a new one.",
-            )
+    if body.schedule_id is None:
+        raise HTTPException(status_code=422, detail="schedule_id is required")
+    sched = session.get(Schedule, body.schedule_id)
+    if not sched:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    if sched.status != "confirmed":
+        raise HTTPException(
+            status_code=409,
+            detail=f"Schedule must be in 'confirmed' status (current: {sched.status})",
+        )
+    # Prevent duplicate: only one active plan per schedule
+    existing = session.exec(
+        select(ProductionPlan).where(
+            ProductionPlan.schedule_id == body.schedule_id,
+            ProductionPlan.is_active == True,  # noqa: E712
+        )
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Schedule already has an active plan ({existing.plan_number}). "
+                   f"Deactivate it before creating a new one.",
+        )
     plan = ProductionPlan(
         plan_number=_next_plan_number(session),
         **body.model_dump(),
@@ -473,12 +479,9 @@ def create_plan(
     session.add(plan)
     session.flush()
 
-    # Auto-advance schedule: pending → confirmed (plan exists)
-    if body.schedule_id is not None:
-        sched = session.get(Schedule, body.schedule_id)  # type: ignore[assignment]
-        if sched and sched.status == "pending":
-            sched.status = "confirmed"
-            session.add(sched)
+    # Auto-advance schedule: confirmed → in_production
+    sched.status = "in_production"
+    session.add(sched)
 
     session.commit()
     session.refresh(plan)

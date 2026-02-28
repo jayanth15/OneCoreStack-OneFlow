@@ -148,6 +148,7 @@ export default function NewPlanPage() {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
+    if (!form.schedule_id) { setError("Select a customer schedule"); return; }
     if (!form.title.trim()) { setError("Title is required"); return; }
     setSaving(true);
     setError(null);
@@ -233,6 +234,9 @@ export default function NewPlanPage() {
                 ))}
               </select>
               {schedLoading && <p className="text-xs text-muted-foreground">Loading schedules…</p>}
+              {!schedLoading && schedules.length === 0 && (
+                <p className="text-xs text-amber-600 mt-1">No schedules available — all confirmed schedules already have active production plans.</p>
+              )}
             </div>
 
             {selectedSched && (
