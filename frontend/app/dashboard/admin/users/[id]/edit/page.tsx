@@ -1,0 +1,311 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter, useParams } from "next/navigation";
+import Link from "next/link";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+  BreadcrumbLink,
+} from "@/components/ui/breadcrumb";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+import { apiFetchJson } from "@/lib/api";
+import { getCurrentUser } from "@/lib/user";
+import { ArrowLeft, Eye, EyeOff } from "lucide-react";
+
+interface DeptRef {
+  id: number;
+  code: string;
+  name: string;
+}
+
+interface UserData {
+  id: number;
+  username: string;
+  role: string;
+  is_active: boolean;
+  departments: DeptRef[];
+}
+
+interface UserForm {
+  username: string;
+  password: string;
+  role: string;
+  is_active: boolean;
+  department_ids: number[];
+}
+
+export default function EditUserPage() {
+  const router = useRouter();
+  const { id } = useParams<{ id: string }>();
+
+  useEffect(() => {
+    const user = getCurrentUser();
+    if (!user || (user.role !== "admin" && user.role !== "super_admin")) router.replace("/dashboard");
+  }, [router]);
+
+  const [form, setForm] = useState<UserForm>({
+    username: "",
+    password: "",
+    role: "worker",
+    is_active: true,
+    department_ids: [],
+  });
+  const [allDepts, setAllDepts] = useState<DeptRef[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!id) return;
+    Promise.all([
+      apiFetchJson<UserData>(`/api/v1/admin/users/${id}`),
+      apiFetchJson<DeptRef[]>("/api/v1/admin/departments?include_inactive=false"),
+    ])
+      .then(([userData, deptsData]) => {
+        setForm({
+          username: userData.username,
+          password: "",
+          role: userData.role,
+          is_active: userData.is_active,
+          department_ids: userData.departments.map((d) => d.id),
+        });
+        setAllDepts(deptsData);
+      })
+      .catch((e: unknown) => {
+        setLoadError(e instanceof Error ? e.message : "Failed to load");
+      })
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  function toggleDept(deptId: number) {
+    setForm((prev) => ({
+      ...prev,
+      department_ids: prev.department_ids.includes(deptId)
+        ? prev.department_ids.filter((d) => d !== deptId)
+        : [...prev.department_ids, deptId],
+    }));
+  }
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.username.trim()) { setSaveError("Username is required"); return; }
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const payload: Partial<UserForm> = {
+        username: form.username.trim(),
+        role: form.role,
+        is_active: form.is_active,
+        department_ids: form.department_ids,
+      };
+      if (form.password) payload.password = form.password;
+
+      await apiFetchJson(`/api/v1/admin/users/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      });
+      router.push("/dashboard/admin/users");
+    } catch (e: unknown) {
+      setSaveError(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <>
+      <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4 md:px-6">
+        <Link
+          href="/dashboard/admin/users"
+          className="p-1.5 rounded-md hover:bg-muted transition-colors"
+          aria-label="Back"
+        >
+          <ArrowLeft className="size-4" />
+        </Link>
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem className="hidden md:block">
+              <BreadcrumbLink href="/dashboard/admin/users">Users</BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator className="hidden md:block" />
+            <BreadcrumbItem>
+              <BreadcrumbPage>
+                {loading ? "Edit…" : `Edit ${form.username}`}
+              </BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+      </header>
+
+      <div className="p-4 md:p-8 max-w-lg mx-auto">
+        <div className="mb-6">
+          <h1 className="text-xl font-semibold">Edit User</h1>
+          {!loading && (
+            <p className="text-sm text-muted-foreground mt-1">
+              Editing <span className="font-medium">{form.username}</span>
+            </p>
+          )}
+        </div>
+
+        {loadError ? (
+          <p className="text-sm text-destructive" role="alert">{loadError}</p>
+        ) : loading ? (
+          <div className="space-y-5">
+            <Skeleton className="h-9 w-full" />
+            <Skeleton className="h-9 w-full" />
+            <Skeleton className="h-9 w-full" />
+            <Skeleton className="h-9 w-1/2" />
+            <Skeleton className="h-32 w-full" />
+          </div>
+        ) : (
+          <form onSubmit={handleSave} className="space-y-5">
+            {/* Username */}
+            <div className="space-y-1.5">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                placeholder="e.g. john.doe"
+                value={form.username}
+                onChange={(e) => setForm({ ...form, username: e.target.value })}
+                disabled={saving}
+                autoComplete="off"
+              />
+            </div>
+
+            {/* Password */}
+            <div className="space-y-1.5">
+              <Label htmlFor="password">
+                Password{" "}
+                <span className="text-muted-foreground font-normal">(leave blank to keep current)</span>
+              </Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="New password (optional)"
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  disabled={saving}
+                  className="pr-10"
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Role */}
+            <div className="space-y-1.5">
+              <Label htmlFor="role">Role</Label>
+              <select
+                id="role"
+                value={form.role}
+                onChange={(e) => setForm({ ...form, role: e.target.value })}
+                disabled={saving}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+              >
+                <option value="worker">Worker</option>
+                <option value="manager">Manager</option>
+                <option value="admin">Admin</option>
+                <option value="super_admin">Super Admin</option>
+              </select>
+            </div>
+
+            {/* Status */}
+            <div className="space-y-1.5">
+              <Label htmlFor="status">Status</Label>
+              <select
+                id="status"
+                value={form.is_active ? "active" : "inactive"}
+                onChange={(e) => setForm({ ...form, is_active: e.target.value === "active" })}
+                disabled={saving}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+
+            {/* Departments */}
+            <div className="space-y-2">
+              <Label>
+                Departments
+                <span className="text-muted-foreground font-normal ml-1">(select one or more)</span>
+              </Label>
+              {allDepts.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-2">
+                  No departments available.{" "}
+                  <Link href="/dashboard/admin/departments/new" className="underline underline-offset-2">
+                    Create one first.
+                  </Link>
+                </p>
+              ) : (
+                <div className="rounded-md border divide-y">
+                  {allDepts.map((dept) => {
+                    const checked = form.department_ids.includes(dept.id);
+                    return (
+                      <label
+                        key={dept.id}
+                        className="flex items-center gap-3 px-3 py-3 cursor-pointer hover:bg-muted/40 transition-colors"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleDept(dept.id)}
+                          disabled={saving}
+                          className="size-4 rounded accent-primary"
+                        />
+                        <span className="font-mono text-xs font-medium text-muted-foreground w-14 shrink-0">
+                          {dept.code}
+                        </span>
+                        <span className="text-sm">{dept.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+              {form.department_ids.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {form.department_ids.length} department{form.department_ids.length !== 1 ? "s" : ""} selected
+                </p>
+              )}
+            </div>
+
+            {saveError && (
+              <p className="text-sm text-destructive" role="alert">{saveError}</p>
+            )}
+
+            <div className="flex gap-3 pt-2">
+              <Button type="submit" disabled={saving} className="flex-1 sm:flex-none">
+                {saving ? "Saving…" : "Save Changes"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.push("/dashboard/admin/users")}
+                disabled={saving}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        )}
+      </div>
+    </>
+  );
+}
