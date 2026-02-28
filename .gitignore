@@ -48,10 +48,11 @@ backend/.env
 backend/.env.local
 backend/.env.*.local
 
-# Database files
+# Database files — exclude by default, except the bundled demo db
 backend/*.db
 backend/*.sqlite
 backend/*.sqlite3
+!backend/oneflow.db
 
 # Logs
 backend/**/*.log
