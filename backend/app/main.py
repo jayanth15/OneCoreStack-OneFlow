@@ -9,6 +9,7 @@ from app.core.database import init_db
 from app.routers import auth as auth_router
 from app.routers import bom as bom_router
 from app.routers import customers as customers_router
+from app.routers import dashboard as dashboard_router
 from app.routers import departments as departments_router
 from app.routers import inventory as inventory_router
 from app.routers import production as production_router
@@ -213,6 +214,7 @@ app.add_middleware(
 app.include_router(auth_router.router)
 app.include_router(bom_router.router)
 app.include_router(customers_router.router)
+app.include_router(dashboard_router.router)
 app.include_router(departments_router.router)
 app.include_router(inventory_router.router)
 app.include_router(production_router.router)
