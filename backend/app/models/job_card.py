@@ -23,8 +23,7 @@ class JobCard(SQLModel, table=True):
     qty_produced: float = Field(default=0.0)   # quantity produced in this job card
     qty_pending: float = Field(default=0.0)    # remaining quantity
 
-    start_date: Optional[str] = None           # ISO date "YYYY-MM-DD"
-    end_date: Optional[str] = None
+    work_date: Optional[str] = None             # ISO date "YYYY-MM-DD" – the date hours were logged
 
     notes: Optional[str] = None
     status: str = Field(default="open")        # open | in_progress | completed | cancelled

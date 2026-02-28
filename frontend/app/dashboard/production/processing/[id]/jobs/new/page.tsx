@@ -43,10 +43,8 @@ function NewJobCardInner() {
   const [worker, setWorker] = useState("");
   const [hoursWorked, setHoursWorked] = useState("0");
   const [qtyProduced, setQtyProduced] = useState("0");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [workDate, setWorkDate] = useState("");
   const [notes, setNotes] = useState("");
-  const [status, setStatus] = useState("open");
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -82,10 +80,8 @@ function NewJobCardInner() {
         worker_name: worker || null,
         hours_worked: parseFloat(hoursWorked) || 0,
         qty_produced: parseFloat(qtyProduced) || 0,
-        start_date: startDate || null,
-        end_date: endDate || null,
+        work_date: workDate || null,
         notes: notes || null,
-        status,
       };
       await apiFetchJson(`/api/v1/production/orders/${id}/jobs`, {
         method: "POST",
@@ -201,31 +197,11 @@ function NewJobCardInner() {
               </p>
             )}
 
-            {/* Dates */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="start_date">Start Date</Label>
-                <Input id="start_date" type="date" value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)} disabled={saving} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="end_date">End Date</Label>
-                <Input id="end_date" type="date" value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)} disabled={saving} />
-              </div>
-            </div>
-
-            {/* Status */}
+            {/* Work Date */}
             <div className="space-y-1.5">
-              <Label htmlFor="status">Status</Label>
-              <select id="status" value={status}
-                onChange={(e) => setStatus(e.target.value)} disabled={saving}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
-                <option value="open">Open</option>
-                <option value="in_progress">In Progress</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
+              <Label htmlFor="work_date">Work Date</Label>
+              <Input id="work_date" type="date" value={workDate}
+                onChange={(e) => setWorkDate(e.target.value)} disabled={saving} />
             </div>
 
             {/* Notes */}

@@ -713,8 +713,7 @@ class JobCardResponse(BaseModel):
     hours_worked: float
     qty_produced: float
     qty_pending: float
-    start_date: Optional[str]
-    end_date: Optional[str]
+    work_date: Optional[str]
     notes: Optional[str]
     status: str
     is_active: bool
@@ -949,18 +948,9 @@ class JobCardCreate(BaseModel):
     worker_name: Optional[str] = None
     hours_worked: float = 0.0
     qty_produced: float = 0.0
-    start_date: Optional[str] = None
-    end_date: Optional[str] = None
+    work_date: Optional[str] = None
     notes: Optional[str] = None
-    status: str = "open"
     is_active: bool = True
-
-    @field_validator("status")
-    @classmethod
-    def validate_status(cls, v: str) -> str:
-        if v not in JOB_STATUSES:
-            raise ValueError(f"status must be one of {sorted(JOB_STATUSES)}")
-        return v
 
 
 class JobCardUpdate(BaseModel):
@@ -970,18 +960,9 @@ class JobCardUpdate(BaseModel):
     worker_name: Optional[str] = None
     hours_worked: Optional[float] = None
     qty_produced: Optional[float] = None
-    start_date: Optional[str] = None
-    end_date: Optional[str] = None
+    work_date: Optional[str] = None
     notes: Optional[str] = None
-    status: Optional[str] = None
     is_active: Optional[bool] = None
-
-    @field_validator("status")
-    @classmethod
-    def validate_status(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None and v not in JOB_STATUSES:
-            raise ValueError(f"status must be one of {sorted(JOB_STATUSES)}")
-        return v
 
 
 class PaginatedJobs(BaseModel):
@@ -1019,15 +1000,24 @@ def create_job(
     if not order:
         raise HTTPException(status_code=404, detail="Production order not found")
 
-    # Get plan's planned_qty to auto-compute qty_pending
+    # Get plan's planned_qty to auto-compute qty_pending and status
     plan = session.get(ProductionPlan, order.production_plan_id)
     planned_qty = plan.planned_qty if plan else 0.0
     qty_pending = max(0.0, round(planned_qty - body.qty_produced, 4))
+
+    # Auto-compute status from qty_produced
+    if body.qty_produced <= 0:
+        auto_status = "open"
+    elif planned_qty > 0 and body.qty_produced >= planned_qty:
+        auto_status = "completed"
+    else:
+        auto_status = "in_progress"
 
     job = JobCard(
         card_number=_next_card_number(session),
         production_order_id=order_id,
         qty_pending=qty_pending,
+        status=auto_status,
         **body.model_dump(),
     )
     session.add(job)
@@ -1074,10 +1064,6 @@ def update_job(
         raise HTTPException(status_code=404, detail="Job card not found")
     data = body.model_dump(exclude_unset=True)
 
-    # Backward status guard
-    if "status" in data and data["status"] is not None:
-        _check_backward_status(job.status, data["status"], _JOB_RANK, "job card")
-
     # Track old qty_produced for BOM delta
     old_qty_produced = job.qty_produced
     old_status = job.status
@@ -1085,12 +1071,19 @@ def update_job(
     for k, v in data.items():
         setattr(job, k, v)
 
-    # Auto-compute qty_pending from plan's planned_qty
+    # Auto-compute qty_pending and status from plan's planned_qty
     order = session.get(ProductionOrder, job.production_order_id)
     if order:
         plan = session.get(ProductionPlan, order.production_plan_id)
         if plan:
             job.qty_pending = max(0.0, round(plan.planned_qty - job.qty_produced, 4))
+            # Auto-compute status from qty_produced
+            if job.qty_produced <= 0:
+                job.status = "open"
+            elif plan.planned_qty > 0 and job.qty_produced >= plan.planned_qty:
+                job.status = "completed"
+            else:
+                job.status = "in_progress"
 
     session.add(job)
     session.flush()

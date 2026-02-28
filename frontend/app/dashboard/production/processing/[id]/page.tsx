@@ -41,8 +41,7 @@ interface JobCard {
   hours_worked: number;
   qty_produced: number;
   qty_pending: number;
-  start_date: string | null;
-  end_date: string | null;
+  work_date: string | null;
   notes: string | null;
   status: string;
   is_active: boolean;

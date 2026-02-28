@@ -328,7 +328,7 @@ with Session(engine) as s:
             hours_worked=hours,
             qty_produced=produced,
             qty_pending=pending,
-            start_date=future_date(2) if produced > 0 else None,
+            work_date=future_date(2) if produced > 0 else None,
             status=jc_status,
             is_active=True,
         ))
@@ -351,7 +351,7 @@ with Session(engine) as s:
             hours_worked=hours,
             qty_produced=produced,
             qty_pending=pending,
-            start_date=future_date(5) if produced > 0 else None,
+            work_date=future_date(5) if produced > 0 else None,
             status=jc_status,
             is_active=True,
         ))
