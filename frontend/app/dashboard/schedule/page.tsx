@@ -241,19 +241,65 @@ function SchedulePageInner() {
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
-        {/* Table */}
-        <div className="rounded-lg border overflow-hidden">
+        {/* Mobile cards */}
+        <div className="md:hidden space-y-3">
+          {loading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="rounded-lg border p-4"><Skeleton className="h-24 w-full" /></div>
+            ))
+          ) : schedules.length === 0 ? (
+            <div className="rounded-lg border px-4 py-12 text-center text-muted-foreground text-sm">
+              No schedules found. Click &quot;New Schedule&quot; to add one.
+            </div>
+          ) : (
+            schedules.map((s) => (
+              <div key={s.id} className={`rounded-lg border p-4 space-y-2.5 ${!s.is_active ? "opacity-60" : ""}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-mono text-xs font-medium">{s.schedule_number}</p>
+                    <p className="font-medium truncate">{s.customer_name}</p>
+                  </div>
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${STATUS_COLOR[s.status] ?? "bg-muted"}`}>
+                    {STATUS_LABELS[s.status] ?? s.status}
+                  </span>
+                </div>
+                <p className="text-sm text-muted-foreground truncate">{s.description}</p>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                  <div><span className="text-muted-foreground">Delivery:</span> {fmtDate(s.scheduled_date)}</div>
+                  <div><span className="text-muted-foreground">Sch. Qty:</span> <span className="font-medium">{fmt(s.scheduled_qty)}</span></div>
+                  {s.backlog_qty > 0 && (
+                    <div className="text-amber-600"><AlertTriangle className="size-3 inline mr-0.5" />Backlog: {fmt(s.backlog_qty)}</div>
+                  )}
+                  <div><span className="text-muted-foreground">Total:</span> <span className="font-semibold">{fmt(s.total_qty)}</span></div>
+                </div>
+                <div className="flex justify-end gap-1 pt-1 border-t">
+                  <Button variant="ghost" size="icon" className="size-8"
+                    onClick={() => router.push(`/dashboard/schedule/${s.id}/edit`)} title="Edit">
+                    <Pencil className="size-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive"
+                    onClick={() => setDeleteId(s.id)} title="Deactivate">
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Table (desktop) */}
+        <div className="hidden md:block rounded-lg border overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[800px]">
+            <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/40">
                   <th className="px-4 py-3 text-left font-medium">Sch #</th>
                   <th className="px-4 py-3 text-left font-medium">Customer</th>
                   <th className="px-4 py-3 text-left font-medium">Product</th>
-                  <th className="px-4 py-3 text-left font-medium hidden lg:table-cell">Created</th>
-                  <th className="px-4 py-3 text-left font-medium hidden sm:table-cell">Delivery</th>
+                  <th className="px-4 py-3 text-left font-medium">Created</th>
+                  <th className="px-4 py-3 text-left font-medium">Delivery</th>
                   <th className="px-4 py-3 text-right font-medium">Sch. Qty</th>
-                  <th className="px-4 py-3 text-right font-medium hidden md:table-cell">Backlog</th>
+                  <th className="px-4 py-3 text-right font-medium">Backlog</th>
                   <th className="px-4 py-3 text-right font-medium">Total Qty</th>
                   <th className="px-4 py-3 text-left font-medium">Status</th>
                   <th className="px-4 py-3 text-right font-medium">Actions</th>
@@ -285,14 +331,14 @@ function SchedulePageInner() {
                       <td className="px-4 py-3 text-muted-foreground max-w-[180px] truncate" title={s.description}>
                         {s.description}
                       </td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground hidden lg:table-cell whitespace-nowrap">
+                      <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
                         {fmtDateTime(s.created_at)}
                       </td>
-                      <td className="px-4 py-3 text-xs hidden sm:table-cell whitespace-nowrap">
+                      <td className="px-4 py-3 text-xs whitespace-nowrap">
                         {fmtDate(s.scheduled_date)}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums">{fmt(s.scheduled_qty)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums hidden md:table-cell">
+                      <td className="px-4 py-3 text-right tabular-nums">
                         {s.backlog_qty > 0 ? (
                           <span className="flex items-center justify-end gap-1 text-amber-600">
                             <AlertTriangle className="size-3" />
@@ -346,7 +392,7 @@ function SchedulePageInner() {
                     <td className="px-4 py-2 text-right text-xs font-semibold tabular-nums">
                       {fmt(schedules.reduce((a, s) => a + s.scheduled_qty, 0))}
                     </td>
-                    <td className="px-4 py-2 text-right text-xs font-semibold tabular-nums hidden md:table-cell">
+                    <td className="px-4 py-2 text-right text-xs font-semibold tabular-nums">
                       {(() => { const b = schedules.reduce((a, s) => a + s.backlog_qty, 0); return b > 0 ? <span className="text-amber-600">{fmt(b)}</span> : "—"; })()}
                     </td>
                     <td className="px-4 py-2 text-right text-xs font-semibold tabular-nums">

@@ -152,14 +152,61 @@ export default function UsersPage() {
 
         {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
 
-        <div className="rounded-lg border overflow-hidden">
+        {/* ── Mobile cards ──────────────────────────────────────────────── */}
+        <div className="md:hidden space-y-3">
+          {loading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="rounded-lg border p-4"><Skeleton className="h-20 w-full" /></div>
+            ))
+          ) : users.length === 0 ? (
+            <div className="rounded-lg border px-4 py-12 text-center text-muted-foreground text-sm">
+              No users yet. Click &quot;Add User&quot; to create one.
+            </div>
+          ) : (
+            users.map((user) => (
+              <div key={user.id} className="rounded-lg border p-4 space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-medium">{user.username}</p>
+                  <Badge variant={user.is_active ? "default" : "secondary"} className="shrink-0">
+                    {user.is_active ? "Active" : "Inactive"}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant={ROLE_BADGE_VARIANT[user.role] ?? "outline"}>
+                    {ROLE_LABELS[user.role] ?? user.role}
+                  </Badge>
+                  {user.departments.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {user.departments.map((d) => (
+                        <Badge key={d.id} variant="outline" className="font-mono text-xs px-1.5">{d.code}</Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="flex justify-end gap-1 pt-1 border-t">
+                  <Button variant="ghost" size="icon" className="size-8"
+                    onClick={() => router.push(`/dashboard/admin/users/${user.id}/edit`)} title="Edit">
+                    <Pencil className="size-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive"
+                    onClick={() => setDeleteId(user.id)} title="Deactivate">
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* ── Table (desktop) ────────────────────────────────────────────── */}
+        <div className="hidden md:block rounded-lg border overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/40">
                 <th className="px-4 py-3 text-left font-medium">Username</th>
-                <th className="px-4 py-3 text-left font-medium hidden sm:table-cell">Role</th>
-                <th className="px-4 py-3 text-left font-medium hidden md:table-cell">Departments</th>
-                <th className="px-4 py-3 text-left font-medium hidden sm:table-cell">Status</th>
+                <th className="px-4 py-3 text-left font-medium">Role</th>
+                <th className="px-4 py-3 text-left font-medium">Departments</th>
+                <th className="px-4 py-3 text-left font-medium">Status</th>
                 <th className="px-4 py-3 text-right font-medium">Actions</th>
               </tr>
             </thead>
@@ -168,9 +215,9 @@ export default function UsersPage() {
                 Array.from({ length: 4 }).map((_, i) => (
                   <tr key={i} className="border-b">
                     <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
-                    <td className="px-4 py-3 hidden sm:table-cell"><Skeleton className="h-5 w-16 rounded-full" /></td>
-                    <td className="px-4 py-3 hidden md:table-cell"><Skeleton className="h-4 w-40" /></td>
-                    <td className="px-4 py-3 hidden sm:table-cell"><Skeleton className="h-5 w-14 rounded-full" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-5 w-16 rounded-full" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-40" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-5 w-14 rounded-full" /></td>
                     <td className="px-4 py-3 text-right"><Skeleton className="h-7 w-16 ml-auto" /></td>
                   </tr>
                 ))
@@ -184,12 +231,12 @@ export default function UsersPage() {
                 users.map((user) => (
                   <tr key={user.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                     <td className="px-4 py-3 font-medium">{user.username}</td>
-                    <td className="px-4 py-3 hidden sm:table-cell">
+                    <td className="px-4 py-3">
                       <Badge variant={ROLE_BADGE_VARIANT[user.role] ?? "outline"}>
                         {ROLE_LABELS[user.role] ?? user.role}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3 hidden md:table-cell">
+                    <td className="px-4 py-3">
                       {user.departments.length === 0 ? (
                         <span className="text-muted-foreground text-xs">—</span>
                       ) : (
@@ -202,7 +249,7 @@ export default function UsersPage() {
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-3 hidden sm:table-cell">
+                    <td className="px-4 py-3">
                       <Badge variant={user.is_active ? "default" : "secondary"}>
                         {user.is_active ? "Active" : "Inactive"}
                       </Badge>

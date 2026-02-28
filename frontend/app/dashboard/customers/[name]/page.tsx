@@ -329,10 +329,55 @@ export default function CustomerDetailPage() {
 
             <Separator />
 
-            {/* ── All schedules table ── */}
+            {/* ── All schedules ── */}
             <div className="rounded-xl border bg-card p-5">
               <SectionHeader icon={CalendarDays} title="All Schedules" />
-              <div className="overflow-x-auto -mx-1">
+
+              {/* Mobile cards */}
+              <div className="md:hidden space-y-3">
+                {data.schedules.map((s) => {
+                  const days = daysUntil(s.scheduled_date);
+                  return (
+                    <div key={s.id} className="rounded-lg border p-3 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-mono text-xs">{s.schedule_number}</p>
+                          <p className="font-medium text-sm truncate">{s.description}</p>
+                        </div>
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${STATUS_BADGE[s.status] ?? "bg-muted"}`}>
+                          {STATUS_LABEL[s.status] ?? s.status}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                        <div><span className="text-muted-foreground">Ordered:</span> <span className="font-medium">{fmt(s.scheduled_qty)}</span></div>
+                        <div>
+                          <span className="text-muted-foreground">Backlog:</span>{" "}
+                          {s.backlog_qty > 0 ? <span className="text-amber-600">{fmt(s.backlog_qty)}</span> : "—"}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-muted-foreground">Delivery:</span> {fmtDate(s.scheduled_date)}
+                          {days !== null && days <= 7 && days >= 0 && <Clock className="size-3 text-amber-500" />}
+                        </div>
+                      </div>
+                      <div className="flex justify-end pt-1 border-t">
+                        <Button variant="ghost" size="sm" className="h-7 text-xs"
+                          onClick={() => router.push(`/dashboard/schedule/${s.id}/edit`)}>Edit</Button>
+                      </div>
+                    </div>
+                  );
+                })}
+                {data.total_active_qty > 0 && (
+                  <div className="flex items-center justify-between text-xs px-1 pt-1 border-t">
+                    <span className="text-muted-foreground font-medium">Active Total</span>
+                    <span className="font-semibold">{fmt(data.total_active_qty)}
+                      {data.total_backlog > 0 && <span className="ml-2 text-amber-600">(backlog: {fmt(data.total_backlog)})</span>}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Desktop table */}
+              <div className="hidden md:block overflow-x-auto -mx-1">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b text-muted-foreground text-xs">

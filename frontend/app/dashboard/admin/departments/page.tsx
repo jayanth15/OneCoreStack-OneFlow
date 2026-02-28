@@ -152,14 +152,57 @@ export default function DepartmentsPage() {
 
         {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
 
-        {/* ── Table ──────────────────────────────────────────────────────── */}
-        <div className="rounded-lg border overflow-hidden">
+        {/* ── Mobile cards ──────────────────────────────────────────────── */}
+        <div className="md:hidden space-y-3">
+          {loading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="rounded-lg border p-4"><Skeleton className="h-20 w-full" /></div>
+            ))
+          ) : depts.length === 0 ? (
+            <div className="rounded-lg border px-4 py-12 text-center text-muted-foreground text-sm">
+              No departments yet. Click &quot;Add Department&quot; to create one.
+            </div>
+          ) : (
+            depts.map((dept) => (
+              <div key={dept.id} className="rounded-lg border p-4 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-medium truncate">{dept.name}</p>
+                    <p className="text-xs text-muted-foreground font-mono">{dept.code}</p>
+                  </div>
+                  <Badge variant={dept.is_active ? "default" : "secondary"} className="shrink-0">
+                    {dept.is_active ? "Active" : "Inactive"}
+                  </Badge>
+                </div>
+                {dept.description && <p className="text-xs text-muted-foreground line-clamp-2">{dept.description}</p>}
+                <div className="flex items-center justify-between pt-2 border-t">
+                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                    <Users className="size-3" />{dept.user_count} user{dept.user_count !== 1 ? "s" : ""}
+                  </span>
+                  <div className="inline-flex gap-1">
+                    <Button variant="ghost" size="icon" className="size-8"
+                      onClick={() => router.push(`/dashboard/admin/departments/${dept.id}/edit`)} title="Edit">
+                      <Pencil className="size-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive"
+                      onClick={() => setDeleteId(dept.id)} title="Deactivate" disabled={!dept.is_active}>
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* ── Table (desktop) ────────────────────────────────────────────── */}
+        <div className="hidden md:block rounded-lg border overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/40">
                 <th className="px-4 py-3 text-left font-medium">Code</th>
                 <th className="px-4 py-3 text-left font-medium">Name</th>
-                <th className="px-4 py-3 text-left font-medium hidden md:table-cell">Description</th>
+                <th className="px-4 py-3 text-left font-medium">Description</th>
                 <th className="px-4 py-3 text-center font-medium">Users</th>
                 <th className="px-4 py-3 text-left font-medium">Status</th>
                 <th className="px-4 py-3 text-right font-medium">Actions</th>
@@ -171,7 +214,7 @@ export default function DepartmentsPage() {
                   <tr key={i} className="border-b">
                     <td className="px-4 py-3"><Skeleton className="h-4 w-16" /></td>
                     <td className="px-4 py-3"><Skeleton className="h-4 w-36" /></td>
-                    <td className="px-4 py-3 hidden md:table-cell"><Skeleton className="h-4 w-44" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-44" /></td>
                     <td className="px-4 py-3"><Skeleton className="h-4 w-8 mx-auto" /></td>
                     <td className="px-4 py-3"><Skeleton className="h-5 w-14 rounded-full" /></td>
                     <td className="px-4 py-3 text-right"><Skeleton className="h-7 w-16 ml-auto" /></td>
@@ -190,7 +233,7 @@ export default function DepartmentsPage() {
                       {dept.code}
                     </td>
                     <td className="px-4 py-3 font-medium">{dept.name}</td>
-                    <td className="px-4 py-3 text-muted-foreground text-xs hidden md:table-cell max-w-[200px] truncate">
+                    <td className="px-4 py-3 text-muted-foreground text-xs max-w-[200px] truncate">
                       {dept.description || "—"}
                     </td>
                     <td className="px-4 py-3 text-center">

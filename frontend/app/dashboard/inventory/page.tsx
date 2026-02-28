@@ -371,8 +371,100 @@ function InventoryPageInner() {
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
-        {/* Table */}
-        <div className="rounded-lg border overflow-hidden">
+        {/* Mobile cards */}
+        <div className="md:hidden space-y-3">
+          {loading ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="rounded-lg border p-4"><Skeleton className="h-28 w-full" /></div>
+            ))
+          ) : items.length === 0 ? (
+            <div className="rounded-lg border px-4 py-12 text-center text-muted-foreground text-sm">
+              {search ? `No items matching "${search}".` : `No items found. Click "Add Item" to create one.`}
+            </div>
+          ) : (
+            items.map((item) => {
+              const low   = isLow(item);
+              const short = isShortfall(item);
+              return (
+                <div key={item.id}
+                  className={`rounded-lg border p-4 space-y-2.5 ${!item.is_active ? "opacity-60" : ""}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <Link href={`/dashboard/inventory/${item.id}`}
+                        className="font-medium text-sm hover:underline">{item.name}</Link>
+                      <div className="text-xs text-muted-foreground font-mono">{item.code}</div>
+                      {!item.is_active && <span className="text-xs text-muted-foreground">(inactive)</span>}
+                    </div>
+                    {showTypCol && (
+                      <Badge variant="outline" className="text-xs shrink-0">
+                        {TYPE_LABELS[item.item_type] ?? item.item_type}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+                    <div className="flex items-center gap-1">
+                      <span className="text-muted-foreground">Available:</span>
+                      <span className={`font-medium ${low ? "text-amber-600" : short ? "text-red-600" : ""}`}>
+                        {(low || short) && <AlertTriangle className="size-3 inline mr-0.5" />}
+                        {fmtQty(item.quantity_on_hand)} {item.unit}
+                      </span>
+                    </div>
+                    {showRMCols && item.required_qty != null && item.required_qty > 0 && (
+                      <div>
+                        <span className="text-muted-foreground">Required:</span>{" "}
+                        <span className={item.required_qty > item.quantity_on_hand ? "text-red-600 font-medium" : ""}>
+                          {fmtQty(item.required_qty)} {item.unit}
+                        </span>
+                      </div>
+                    )}
+                    {item.linked_schedule_count > 0 && (
+                      <div><span className="text-muted-foreground">Schedules:</span> <Badge variant="secondary" className="text-xs">{item.linked_schedule_count}</Badge></div>
+                    )}
+                    {admin && item.rate != null && (
+                      <div><span className="text-muted-foreground">Rate:</span> ₹{item.rate.toFixed(2)}</div>
+                    )}
+                    <div className="text-muted-foreground">{fmtDate(item.updated_at)}</div>
+                  </div>
+                  {showFGCols && item.customer_names && (
+                    <p className="text-xs text-muted-foreground truncate">{item.customer_names}</p>
+                  )}
+                  <div className="flex justify-end gap-0.5 pt-1 border-t">
+                    <Button variant="ghost" size="icon" className="size-7" title="View Details"
+                      onClick={() => router.push(`/dashboard/inventory/${item.id}`)}>
+                      <Eye className="size-3.5 text-blue-600" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="size-7" title="Add Stock"
+                      onClick={() => { setAdjustType("add"); openAdjust(item); }}>
+                      <PackagePlus className="size-3.5 text-emerald-600" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="size-7" title="Remove Stock"
+                      onClick={() => { setAdjustType("subtract"); openAdjust(item); }}>
+                      <PackageMinus className="size-3.5 text-amber-600" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="size-7" title="Edit"
+                      onClick={() => router.push(`/dashboard/inventory/${item.id}/edit`)}>
+                      <Pencil className="size-3.5" />
+                    </Button>
+                    {admin && (
+                      <Button variant="ghost" size="icon" className="size-7" title="History"
+                        onClick={() => openHistory(item)}>
+                        <History className="size-3.5 text-blue-600" />
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="icon"
+                      className="size-7 text-destructive hover:text-destructive"
+                      title="Deactivate" onClick={() => setDeleteId(item.id)}>
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Table (desktop) */}
+        <div className="hidden md:block rounded-lg border overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm min-w-[800px]">
               <thead>
@@ -382,8 +474,8 @@ function InventoryPageInner() {
                   {showTypCol && <th className="px-4 py-3 text-left font-medium">Type</th>}
                   <th className="px-4 py-3 text-right font-medium">Available</th>
                   {showRMCols && <th className="px-4 py-3 text-right font-medium">Required</th>}
-                  {showFGCols && <th className="px-4 py-3 text-left font-medium hidden lg:table-cell">Customers</th>}
-                  <th className="px-4 py-3 text-left font-medium hidden md:table-cell">Storage</th>
+                  {showFGCols && <th className="px-4 py-3 text-left font-medium">Customers</th>}
+                  <th className="px-4 py-3 text-left font-medium">Storage</th>
                   <th className="px-4 py-3 text-center font-medium w-16">Sched.</th>
                   {admin && <th className="px-4 py-3 text-right font-medium w-24">Rate</th>}
                   <th className="px-4 py-3 text-right font-medium">Actions</th>
@@ -454,13 +546,13 @@ function InventoryPageInner() {
                         )}
                         {/* Customers (FG/SFG) */}
                         {showFGCols && (
-                          <td className="px-4 py-3 text-xs text-muted-foreground max-w-[180px] truncate hidden lg:table-cell"
+                          <td className="px-4 py-3 text-xs text-muted-foreground max-w-[180px] truncate"
                             title={item.customer_names ?? ""}>
                             {item.customer_names ?? "—"}
                           </td>
                         )}
                         {/* Storage */}
-                        <td className="px-4 py-3 text-xs text-muted-foreground hidden md:table-cell">
+                        <td className="px-4 py-3 text-xs text-muted-foreground">
                           {item.storage_type     && <div>{item.storage_type}</div>}
                           {item.storage_location && <div>{item.storage_location}</div>}
                           {!item.storage_type && !item.storage_location && "—"}

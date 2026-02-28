@@ -306,7 +306,25 @@ export default function EditSchedulePage() {
                       )}
                     </div>
                     {availability.rm_requirements.length > 0 && (
-                      <div className="overflow-x-auto">
+                      <>
+                      {/* Mobile cards */}
+                      <div className="md:hidden space-y-2">
+                        {availability.rm_requirements.map((r) => (
+                          <div key={r.raw_material_id} className="rounded-lg border p-2.5 flex flex-col gap-1 text-xs">
+                            <p className="font-medium">{r.raw_material_name}</p>
+                            <div className="grid grid-cols-3 gap-x-3 text-xs">
+                              <div><span className="text-muted-foreground">Have:</span> {r.available_qty} {r.raw_material_unit}</div>
+                              <div><span className="text-muted-foreground">Need:</span> {r.required_qty} {r.raw_material_unit}</div>
+                              <div>{r.shortfall > 0
+                                ? <span className="text-destructive font-medium">Short: {r.shortfall}</span>
+                                : <span className="text-emerald-600">OK</span>}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {/* Desktop table */}
+                      <div className="hidden md:block overflow-x-auto">
                         <table className="w-full text-xs">
                           <thead>
                             <tr className="border-b text-muted-foreground">
@@ -332,6 +350,7 @@ export default function EditSchedulePage() {
                           </tbody>
                         </table>
                       </div>
+                      </>
                     )}
                     {availability.rm_requirements.length === 0 && (
                       <p className="text-xs text-muted-foreground">No BOM defined for this product yet.</p>

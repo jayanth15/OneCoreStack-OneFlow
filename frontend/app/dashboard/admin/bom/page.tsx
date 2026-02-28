@@ -148,12 +148,41 @@ export default function BomPage() {
                   <h3 className="font-medium text-sm">{productName}</h3>
                   <span className="text-xs text-muted-foreground">{lines.length} material{lines.length !== 1 ? "s" : ""}</span>
                 </div>
-                <table className="w-full text-sm">
+                {/* Mobile cards */}
+                <div className="md:hidden divide-y">
+                  {lines.map((line) => (
+                    <div key={line.id} className={`px-4 py-3 space-y-1.5 ${!line.is_active ? "opacity-60" : ""}`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm truncate">{line.raw_material_name}</p>
+                          <p className="text-xs text-muted-foreground font-mono">{line.raw_material_code}</p>
+                        </div>
+                        <div className="inline-flex gap-1 shrink-0">
+                          <Button variant="ghost" size="icon" className="size-7"
+                            onClick={() => router.push(`/dashboard/admin/bom/${line.id}/edit`)}>
+                            <Pencil className="size-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="size-7 text-destructive hover:text-destructive"
+                            onClick={() => setDeleteId(line.id)}>
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="text-xs">
+                        <span className="text-muted-foreground">Qty / Unit:</span>{" "}
+                        <span className="font-medium">{line.qty_per_unit} {line.raw_material_unit}</span>
+                      </div>
+                      {line.notes && <p className="text-xs text-muted-foreground">{line.notes}</p>}
+                    </div>
+                  ))}
+                </div>
+                {/* Desktop table */}
+                <table className="hidden md:table w-full text-sm">
                   <thead>
                     <tr className="border-b bg-muted/10">
                       <th className="px-4 py-2 text-left font-medium text-xs">Raw Material</th>
                       <th className="px-4 py-2 text-right font-medium text-xs">Qty / Unit</th>
-                      <th className="px-4 py-2 text-left font-medium text-xs hidden sm:table-cell">Notes</th>
+                      <th className="px-4 py-2 text-left font-medium text-xs">Notes</th>
                       <th className="px-4 py-2 text-right font-medium text-xs">Actions</th>
                     </tr>
                   </thead>
@@ -167,7 +196,7 @@ export default function BomPage() {
                         <td className="px-4 py-2.5 text-right tabular-nums">
                           {line.qty_per_unit} {line.raw_material_unit}
                         </td>
-                        <td className="px-4 py-2.5 text-muted-foreground text-xs hidden sm:table-cell">
+                        <td className="px-4 py-2.5 text-muted-foreground text-xs">
                           {line.notes ?? "—"}
                         </td>
                         <td className="px-4 py-2.5 text-right">

@@ -237,18 +237,67 @@ function ProcessingPageInner() {
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
-        {/* Table */}
-        <div className="rounded-lg border overflow-hidden">
+        {/* Mobile cards */}
+        <div className="md:hidden space-y-3">
+          {loading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="rounded-lg border p-4"><Skeleton className="h-28 w-full" /></div>
+            ))
+          ) : orders.length === 0 ? (
+            <div className="rounded-lg border px-4 py-10 text-center text-muted-foreground text-sm">
+              {search ? `No production orders matching "${search}".` : 'No production orders yet. Click "Start Production" to begin.'}
+            </div>
+          ) : orders.map((o) => (
+            <div key={o.id}
+              onClick={() => router.push(`/dashboard/production/processing/${o.id}`)}
+              className="rounded-lg border p-4 space-y-2.5 cursor-pointer active:bg-muted/30">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-mono text-xs font-medium">{o.order_number}</p>
+                  <p className="text-sm font-medium truncate">
+                    {o.plan_number && <span className="font-mono mr-1">{o.plan_number}</span>}
+                    {o.plan_title}
+                  </p>
+                  {!o.is_active && <span className="text-xs text-muted-foreground">(inactive)</span>}
+                </div>
+                <Badge variant={STATUS_BADGE[o.status] ?? "outline"} className="text-xs shrink-0">
+                  {STATUS_LABELS[o.status] ?? o.status}
+                </Badge>
+              </div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                {o.customer_name && <div className="truncate"><span className="text-muted-foreground">Customer:</span> {o.customer_name}</div>}
+                {o.product_description && <div className="truncate"><span className="text-muted-foreground">Product:</span> {o.product_description}</div>}
+                {o.planned_qty != null && <div><span className="text-muted-foreground">Planned:</span> <span className="font-mono">{o.planned_qty}</span></div>}
+                <div><span className="text-muted-foreground">FG Done:</span> <span className="font-mono text-green-600 font-medium">{o.effective_qty}</span></div>
+                <div><span className="text-muted-foreground">Jobs:</span> <span className="font-medium">{o.job_cards.length}</span></div>
+                {o.start_date && <div><span className="text-muted-foreground">Dates:</span> {o.start_date}{o.end_date ? ` → ${o.end_date}` : ""}</div>}
+              </div>
+              <div className="flex justify-end gap-1 pt-1 border-t" onClick={(e) => e.stopPropagation()}>
+                <Button variant="ghost" size="icon" className="size-8"
+                  onClick={() => router.push(`/dashboard/production/processing/${o.id}`)} title="View">
+                  <Eye className="size-3.5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive"
+                  onClick={() => setDeleteId(o.id)} title="Deactivate">
+                  <Trash2 className="size-3.5" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Table (desktop) */}
+        <div className="hidden md:block rounded-lg border overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[640px]">
+            <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/40">
                   <th className="px-4 py-3 text-left font-medium">Order #</th>
                   <th className="px-4 py-3 text-left font-medium">Plan</th>
-                  <th className="px-4 py-3 text-left font-medium hidden sm:table-cell">Customer</th>
-                  <th className="px-4 py-3 text-left font-medium hidden md:table-cell">Product</th>
-                  <th className="px-4 py-3 text-right font-medium hidden md:table-cell">Planned Qty</th>
-                  <th className="px-4 py-3 text-right font-medium hidden md:table-cell">FG Done</th>
+                  <th className="px-4 py-3 text-left font-medium">Customer</th>
+                  <th className="px-4 py-3 text-left font-medium">Product</th>
+                  <th className="px-4 py-3 text-right font-medium">Planned Qty</th>
+                  <th className="px-4 py-3 text-right font-medium">FG Done</th>
                   <th className="px-4 py-3 text-left font-medium hidden lg:table-cell">Dates</th>
                   <th className="px-4 py-3 text-center font-medium">Jobs</th>
                   <th className="px-4 py-3 text-left font-medium">Status</th>
@@ -284,10 +333,10 @@ function ProcessingPageInner() {
                       </div>
                       {!o.is_active && <span className="text-xs text-muted-foreground">(inactive)</span>}
                     </td>
-                    <td className="px-4 py-3 hidden sm:table-cell text-xs text-muted-foreground">{o.customer_name ?? "—"}</td>
-                    <td className="px-4 py-3 hidden md:table-cell text-xs text-muted-foreground">{o.product_description ?? "—"}</td>
-                    <td className="px-4 py-3 hidden md:table-cell text-xs text-right font-mono">{o.planned_qty ?? "—"}</td>
-                    <td className="px-4 py-3 hidden md:table-cell text-xs text-right font-mono text-green-600 font-medium">{o.effective_qty}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{o.customer_name ?? "—"}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{o.product_description ?? "—"}</td>
+                    <td className="px-4 py-3 text-xs text-right font-mono">{o.planned_qty ?? "—"}</td>
+                    <td className="px-4 py-3 text-xs text-right font-mono text-green-600 font-medium">{o.effective_qty}</td>
                     <td className="px-4 py-3 hidden lg:table-cell text-xs text-muted-foreground">
                       {o.start_date ?? "—"}{o.end_date ? ` → ${o.end_date}` : ""}
                     </td>

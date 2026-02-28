@@ -536,13 +536,41 @@ export default function EditPlanPage() {
                   </div>
                 ) : (
                   <div className="rounded-lg border overflow-hidden">
-                    <div className="overflow-x-auto">
+                    {/* Mobile cards */}
+                    <div className="md:hidden divide-y">
+                      {materials.map((m) => (
+                        <div key={m.item_id} className="p-3 space-y-1.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="font-medium text-sm truncate">{m.name}</p>
+                              <p className="font-mono text-xs text-muted-foreground">{m.code} <span className="capitalize">· {m.item_type.replace("_", " ")}</span></p>
+                            </div>
+                            {m.to_purchase > 0 ? (
+                              <span className="inline-flex items-center gap-1 text-amber-700 text-xs font-semibold shrink-0">
+                                <AlertTriangle className="size-3" />{m.to_purchase.toLocaleString()} {m.unit}
+                              </span>
+                            ) : (
+                              <span className="text-emerald-700 text-xs shrink-0">Sufficient</span>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-3 gap-x-3 text-xs">
+                            <div><span className="text-muted-foreground">Per Unit:</span> {m.qty_per_unit} {m.unit}</div>
+                            <div><span className="text-muted-foreground">Required:</span> <span className="font-medium">{m.required_qty.toLocaleString()}</span></div>
+                            <div><span className="text-muted-foreground">In Stock:</span>{" "}
+                              <span className={m.available_qty >= m.required_qty ? "text-emerald-700 font-medium" : "text-amber-600 font-medium"}>{m.available_qty.toLocaleString()}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Desktop table */}
+                    <div className="hidden md:block overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b bg-muted/40">
                             <th className="px-3 py-2 text-left font-medium text-xs">Code</th>
                             <th className="px-3 py-2 text-left font-medium text-xs">Material</th>
-                            <th className="px-3 py-2 text-left font-medium text-xs hidden sm:table-cell">Type</th>
+                              <th className="px-3 py-2 text-left font-medium text-xs">Type</th>
                             <th className="px-3 py-2 text-right font-medium text-xs">Per Unit</th>
                             <th className="px-3 py-2 text-right font-medium text-xs">Required</th>
                             <th className="px-3 py-2 text-right font-medium text-xs">In Stock</th>
@@ -554,7 +582,7 @@ export default function EditPlanPage() {
                             <tr key={m.item_id} className="border-b last:border-0 hover:bg-muted/20">
                               <td className="px-3 py-2 font-mono text-xs">{m.code}</td>
                               <td className="px-3 py-2 font-medium">{m.name}</td>
-                              <td className="px-3 py-2 hidden sm:table-cell">
+                              <td className="px-3 py-2">
                                 <span className="text-xs capitalize text-muted-foreground">{m.item_type.replace("_", " ")}</span>
                               </td>
                               <td className="px-3 py-2 text-right text-xs text-muted-foreground">{m.qty_per_unit} {m.unit}</td>

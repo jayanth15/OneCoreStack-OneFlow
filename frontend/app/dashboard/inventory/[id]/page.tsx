@@ -300,7 +300,43 @@ export default function InventoryDetailPage() {
                 ) : (
                   <div className="rounded-xl border bg-card p-5">
                     <SectionHeader icon={Factory} title="Used in Products" />
-                    <div className="overflow-x-auto -mx-1">
+
+                    {/* Mobile cards */}
+                    <div className="md:hidden space-y-3">
+                      {item.bom_usage.map((b) => (
+                        <div key={b.bom_id} className="rounded-lg border p-3 space-y-2">
+                          <div className="font-medium text-sm">
+                            {b.fg_item_id ? (
+                              <Link href={`/dashboard/inventory/${b.fg_item_id}`} className="hover:underline text-blue-600">{b.product_name}</Link>
+                            ) : b.product_name}
+                          </div>
+                          {b.fg_available_qty != null && (
+                            <p className="text-xs text-muted-foreground">FG in stock: {fmt(b.fg_available_qty)} {b.fg_unit}</p>
+                          )}
+                          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                            <div><span className="text-muted-foreground">Qty/Unit:</span> <span className="font-medium">{fmt(b.qty_per_unit)} {b.unit}/{b.fg_unit ?? "unit"}</span></div>
+                            <div><span className="text-muted-foreground">Active Orders:</span>{" "}
+                              {b.active_schedule_count > 0 ? <span className="font-medium">{fmt(b.total_active_demand)} {b.fg_unit ?? "pcs"}</span> : "—"}
+                            </div>
+                            <div><span className="text-muted-foreground">RM Needed:</span>{" "}
+                              {b.active_schedule_count > 0 ? <span className="font-medium">{fmt(b.rm_needed_for_demand)} {b.unit}</span> : "—"}
+                            </div>
+                            <div><span className="text-muted-foreground">Shortfall:</span>{" "}
+                              {b.rm_shortfall > 0
+                                ? <span className="text-destructive font-medium">{fmt(b.rm_shortfall)} {b.unit}</span>
+                                : <span className="text-emerald-600">OK</span>}
+                            </div>
+                          </div>
+                          <div className="text-xs pt-1 border-t">
+                            <span className="text-muted-foreground">Can Produce:</span>{" "}
+                            <span className="font-semibold">{fmt(b.can_produce)} {b.fg_unit ?? "units"}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Desktop table */}
+                    <div className="hidden md:block overflow-x-auto -mx-1">
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b text-muted-foreground text-xs">
@@ -414,7 +450,42 @@ export default function InventoryDetailPage() {
                   {(!item.schedules || item.schedules.length === 0) ? (
                     <p className="text-sm text-muted-foreground">No schedules found for this product.</p>
                   ) : (
-                    <div className="overflow-x-auto -mx-1">
+                    <>
+                      {/* Mobile cards */}
+                      <div className="md:hidden space-y-3">
+                        {item.schedules.map((s) => (
+                          <div key={s.id} className="rounded-lg border p-3 space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <Link href={`/dashboard/schedule/${s.id}/edit`} className="font-mono text-xs hover:underline text-blue-600">{s.schedule_number}</Link>
+                                <p className="font-medium text-sm truncate">{s.customer_name}</p>
+                              </div>
+                              <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${STATUS_BADGE[s.status] ?? "bg-muted"}`}>
+                                {STATUS_LABEL[s.status] ?? s.status}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                              <div><span className="text-muted-foreground">Ordered:</span> <span className="font-medium">{fmt(s.scheduled_qty)} {item.unit}</span></div>
+                              <div>
+                                <span className="text-muted-foreground">Backlog:</span>{" "}
+                                {s.backlog_qty > 0 ? <span className="text-amber-600 font-medium">{fmt(s.backlog_qty)}</span> : "—"}
+                              </div>
+                              <div><span className="text-muted-foreground">Delivery:</span> {new Date(s.scheduled_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</div>
+                            </div>
+                          </div>
+                        ))}
+                        {(item.total_ordered ?? 0) > 0 && (
+                          <div className="flex items-center justify-between text-xs px-1 pt-1 border-t">
+                            <span className="text-muted-foreground font-medium">Active Total</span>
+                            <span className="font-semibold">{fmt(item.total_ordered ?? 0)} {item.unit}
+                              {(item.total_backlog ?? 0) > 0 && <span className="ml-2 text-amber-600">(backlog: {fmt(item.total_backlog ?? 0)})</span>}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Desktop table */}
+                      <div className="hidden md:block overflow-x-auto -mx-1">
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b text-muted-foreground text-xs">
@@ -464,6 +535,7 @@ export default function InventoryDetailPage() {
                         )}
                       </table>
                     </div>
+                    </>
                   )}
                 </div>
 
@@ -493,7 +565,42 @@ export default function InventoryDetailPage() {
                         )}
                       </div>
                     ) : (
-                      <div className="overflow-x-auto -mx-1">
+                      <>
+                      {/* Mobile cards */}
+                      <div className="md:hidden space-y-3">
+                        {item.bom_requirements.map((r) => (
+                          <div key={r.bom_id} className="rounded-lg border p-3 space-y-2">
+                            <div>
+                              <Link href={`/dashboard/inventory/${r.raw_material_id}`} className="font-medium text-sm hover:underline text-blue-600">
+                                {r.raw_material_name}
+                              </Link>
+                              <p className="text-xs text-muted-foreground font-mono">{r.raw_material_code}</p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                              <div><span className="text-muted-foreground">Qty/Unit:</span> <span className="font-medium">{fmt(r.qty_per_unit)} {r.unit}</span></div>
+                              <div>
+                                <span className="text-muted-foreground">In Stock:</span>{" "}
+                                <span className={r.available_qty <= r.reorder_level ? "text-amber-600 font-medium" : "font-medium"}>{fmt(r.available_qty)} {r.unit}</span>
+                              </div>
+                              <div><span className="text-muted-foreground">Need:</span>{" "}
+                                {(item.total_ordered ?? 0) > 0 ? <span className="font-medium">{fmt(r.required_for_demand)} {r.unit}</span> : "—"}
+                              </div>
+                              <div><span className="text-muted-foreground">Shortfall:</span>{" "}
+                                {r.shortfall > 0
+                                  ? <span className="text-destructive font-medium">{fmt(r.shortfall)} {r.unit}</span>
+                                  : <span className="text-emerald-600">OK</span>}
+                              </div>
+                            </div>
+                            <div className="text-xs pt-1 border-t">
+                              <span className="text-muted-foreground">Can Produce:</span>{" "}
+                              <span className="font-semibold">{fmt(r.can_produce)} {item.unit}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Desktop table */}
+                      <div className="hidden md:block overflow-x-auto -mx-1">
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="border-b text-muted-foreground text-xs">
@@ -554,6 +661,7 @@ export default function InventoryDetailPage() {
                           </p>
                         </div>
                       </div>
+                      </>
                     )}
                   </div>
                 )}

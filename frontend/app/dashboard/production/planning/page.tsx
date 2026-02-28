@@ -240,18 +240,75 @@ function PlanningPageInner() {
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
-        {/* Table */}
-        <div className="rounded-lg border overflow-hidden">
+        {/* Mobile cards */}
+        <div className="md:hidden space-y-3">
+          {loading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="rounded-lg border p-4"><Skeleton className="h-28 w-full" /></div>
+            ))
+          ) : plans.length === 0 ? (
+            <div className="rounded-lg border px-4 py-10 text-center text-muted-foreground text-sm">
+              {search ? `No plans matching "${search}".` : `No plans found. Click "New Plan" to get started.`}
+            </div>
+          ) : plans.map((plan) => (
+            <div key={plan.id} className="rounded-lg border p-4 space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-mono text-xs font-medium">{plan.plan_number}</p>
+                  <p className="font-medium truncate">{plan.title}</p>
+                  {!plan.is_active && <span className="text-xs text-muted-foreground">(inactive)</span>}
+                </div>
+                <Badge variant={STATUS_BADGE[plan.status] ?? "outline"}
+                  className={`text-xs shrink-0 ${STATUS_COLOR[plan.status] ?? ""}`}>
+                  {STATUS_LABELS[plan.status] ?? plan.status}
+                </Badge>
+              </div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                {plan.schedule_number && (
+                  <div><span className="text-muted-foreground">Schedule:</span> <span className="font-mono">{plan.schedule_number}</span></div>
+                )}
+                {plan.customer_name && (
+                  <div className="truncate"><span className="text-muted-foreground">Customer:</span> {plan.customer_name}</div>
+                )}
+                <div><span className="text-muted-foreground">Qty:</span> <span className="font-medium">{plan.planned_qty.toLocaleString()}</span></div>
+                {plan.start_date && (
+                  <div><span className="text-muted-foreground">Dates:</span> {plan.start_date}{plan.end_date ? ` → ${plan.end_date}` : ""}</div>
+                )}
+              </div>
+              {plan.processes.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {plan.processes.slice(0, 4).map((p) => (
+                    <span key={p.id} className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-xs font-medium">{p.name}</span>
+                  ))}
+                  {plan.processes.length > 4 && <span className="text-xs text-muted-foreground">+{plan.processes.length - 4}</span>}
+                </div>
+              )}
+              <div className="flex justify-end gap-1 pt-1 border-t">
+                <Button variant="ghost" size="icon" className="size-8"
+                  onClick={() => router.push(`/dashboard/production/planning/${plan.id}/edit`)} title="Edit">
+                  <Pencil className="size-3.5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive"
+                  onClick={() => setDeleteId(plan.id)} title="Deactivate">
+                  <Trash2 className="size-3.5" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Table (desktop) */}
+        <div className="hidden md:block rounded-lg border overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[640px]">
+            <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/40">
                   <th className="px-4 py-3 text-left font-medium">Plan #</th>
                   <th className="px-4 py-3 text-left font-medium">Title</th>
-                  <th className="px-4 py-3 text-left font-medium hidden md:table-cell">Schedule</th>
-                  <th className="px-4 py-3 text-left font-medium hidden lg:table-cell">Customer / Product</th>
-                  <th className="px-4 py-3 text-left font-medium hidden sm:table-cell">Qty</th>
-                  <th className="px-4 py-3 text-left font-medium hidden md:table-cell">Dates</th>
+                  <th className="px-4 py-3 text-left font-medium">Schedule</th>
+                  <th className="px-4 py-3 text-left font-medium">Customer / Product</th>
+                  <th className="px-4 py-3 text-left font-medium">Qty</th>
+                  <th className="px-4 py-3 text-left font-medium">Dates</th>
                   <th className="px-4 py-3 text-left font-medium hidden lg:table-cell">Processes</th>
                   <th className="px-4 py-3 text-left font-medium">Status</th>
                   <th className="px-4 py-3 text-right font-medium">Actions</th>
@@ -282,14 +339,14 @@ function PlanningPageInner() {
                       <div className="font-medium">{plan.title}</div>
                       {!plan.is_active && <span className="text-xs text-muted-foreground">(inactive)</span>}
                     </td>
-                    <td className="px-4 py-3 hidden md:table-cell">
+                    <td className="px-4 py-3">
                       {plan.schedule_number ? (
                         <span className="font-mono text-xs font-medium">{plan.schedule_number}</span>
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 hidden lg:table-cell">
+                    <td className="px-4 py-3">
                       {plan.customer_name ? (
                         <div>
                           <div className="text-sm font-medium">{plan.customer_name}</div>
@@ -303,7 +360,7 @@ function PlanningPageInner() {
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 hidden sm:table-cell text-xs">
+                    <td className="px-4 py-3 text-xs">
                       <div className="font-medium">{plan.planned_qty.toLocaleString()}</div>
                       {plan.scheduled_qty != null && (
                         <div className="text-muted-foreground">
@@ -311,7 +368,7 @@ function PlanningPageInner() {
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-3 hidden md:table-cell text-xs text-muted-foreground">
+                    <td className="px-4 py-3 text-xs text-muted-foreground">
                       {plan.start_date ?? "—"}
                       {plan.end_date && <> → {plan.end_date}</>}
                     </td>
