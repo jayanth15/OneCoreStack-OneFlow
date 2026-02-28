@@ -291,6 +291,9 @@ with Session(engine) as s:
         notes="First batch for Tata Motors",
         status="in_progress",
         is_active=True,
+        # effective_qty=0 because MIN(120,80,0)=0 (Welding not started)
+        effective_qty=0.0,
+        fg_credited=0.0,
     )
     order2 = ProductionOrder(
         order_number="PO-0002",
@@ -300,6 +303,9 @@ with Session(engine) as s:
         notes="Batch for Maruti Suzuki",
         status="in_progress",
         is_active=True,
+        # effective_qty=0 because MIN(50,0)=0 (Forming not started)
+        effective_qty=0.0,
+        fg_credited=0.0,
     )
     s.add(order1); s.add(order2); s.flush()
 

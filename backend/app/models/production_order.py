@@ -23,3 +23,9 @@ class ProductionOrder(SQLModel, table=True):
     notes: Optional[str] = None
     status: str = Field(default="open")  # open | in_progress | completed | cancelled
     is_active: bool = Field(default=True)
+
+    # Process-aware FG tracking:
+    # effective_qty = MIN(qty_produced) across all active job cards (FG through ALL processes)
+    # fg_credited   = how much FG has been added to inventory so far for this order
+    effective_qty: float = Field(default=0.0)
+    fg_credited: float = Field(default=0.0)

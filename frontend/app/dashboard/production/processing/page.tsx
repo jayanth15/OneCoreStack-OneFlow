@@ -47,6 +47,7 @@ interface ProductionOrder {
   customer_name: string | null;
   product_description: string | null;
   planned_qty: number | null;
+  effective_qty: number;
   job_cards: JobCardSummary[];
 }
 
@@ -247,6 +248,7 @@ function ProcessingPageInner() {
                   <th className="px-4 py-3 text-left font-medium hidden sm:table-cell">Customer</th>
                   <th className="px-4 py-3 text-left font-medium hidden md:table-cell">Product</th>
                   <th className="px-4 py-3 text-right font-medium hidden md:table-cell">Planned Qty</th>
+                  <th className="px-4 py-3 text-right font-medium hidden md:table-cell">FG Done</th>
                   <th className="px-4 py-3 text-left font-medium hidden lg:table-cell">Dates</th>
                   <th className="px-4 py-3 text-center font-medium">Jobs</th>
                   <th className="px-4 py-3 text-left font-medium">Status</th>
@@ -257,14 +259,14 @@ function ProcessingPageInner() {
                 {loading ? (
                   Array.from({ length: 4 }).map((_, i) => (
                     <tr key={i} className="border-b">
-                      {Array.from({ length: 9 }).map((__, j) => (
+                      {Array.from({ length: 10 }).map((__, j) => (
                         <td key={j} className="px-4 py-3"><Skeleton className="h-4 w-full" /></td>
                       ))}
                     </tr>
                   ))
                 ) : orders.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-4 py-10 text-center text-muted-foreground">
+                    <td colSpan={10} className="px-4 py-10 text-center text-muted-foreground">
                       {search
                         ? `No production orders matching "${search}".`
                         : 'No production orders yet. Click "Start Production" to begin.'}
@@ -285,6 +287,7 @@ function ProcessingPageInner() {
                     <td className="px-4 py-3 hidden sm:table-cell text-xs text-muted-foreground">{o.customer_name ?? "—"}</td>
                     <td className="px-4 py-3 hidden md:table-cell text-xs text-muted-foreground">{o.product_description ?? "—"}</td>
                     <td className="px-4 py-3 hidden md:table-cell text-xs text-right font-mono">{o.planned_qty ?? "—"}</td>
+                    <td className="px-4 py-3 hidden md:table-cell text-xs text-right font-mono text-green-600 font-medium">{o.effective_qty}</td>
                     <td className="px-4 py-3 hidden lg:table-cell text-xs text-muted-foreground">
                       {o.start_date ?? "—"}{o.end_date ? ` → ${o.end_date}` : ""}
                     </td>
@@ -313,7 +316,7 @@ function ProcessingPageInner() {
               {!loading && orders.length > 0 && (
                 <tfoot>
                   <tr className="border-t bg-muted/20">
-                    <td colSpan={9} className="px-4 py-2 text-xs text-muted-foreground">
+                    <td colSpan={10} className="px-4 py-2 text-xs text-muted-foreground">
                       Showing {pageStart}–{pageEnd} of {total}
                     </td>
                   </tr>

@@ -17,7 +17,7 @@ import {
 import { apiFetchJson } from "@/lib/api";
 import {
   ArrowLeft, PlusIcon, Pencil, Trash2,
-  Factory, Clock, User, Wrench, Package, Hash,
+  Factory, Clock, User, Wrench, Package, Hash, CheckCircle,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -64,6 +64,8 @@ interface ProductionOrder {
   customer_name: string | null;
   product_description: string | null;
   planned_qty: number | null;
+  effective_qty: number;    // MIN(qty_produced) across all processes
+  fg_credited: number;      // FG already added to inventory
   processes: ProcessItem[];
   job_cards: JobCard[];
 }
@@ -146,6 +148,7 @@ export default function ProductionOrderDetailPage() {
   const totalProduced = order?.job_cards.reduce((s, jc) => s + jc.qty_produced, 0) ?? 0;
   const totalPending  = order?.job_cards.reduce((s, jc) => s + jc.qty_pending, 0) ?? 0;
   const totalHours    = order?.job_cards.reduce((s, jc) => s + jc.hours_worked, 0) ?? 0;
+  const effectiveQty  = order?.effective_qty ?? 0;
 
   return (
     <>
@@ -238,11 +241,12 @@ export default function ProductionOrderDetailPage() {
             </div>
 
             {/* ── Summary Stats ────────────────────────────────────────────── */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               {[
+                { label: "FG Completed", val: effectiveQty, icon: CheckCircle, color: "text-green-600 bg-green-50" },
                 { label: "Job Cards", val: order.job_cards.length, icon: Factory, color: "text-blue-600 bg-blue-50" },
-                { label: "Qty Produced", val: totalProduced, icon: Package, color: "text-emerald-600 bg-emerald-50" },
-                { label: "Qty Pending", val: totalPending, icon: Clock, color: "text-amber-600 bg-amber-50" },
+                { label: "Sum Produced", val: totalProduced, icon: Package, color: "text-emerald-600 bg-emerald-50" },
+                { label: "Sum Pending", val: totalPending, icon: Clock, color: "text-amber-600 bg-amber-50" },
                 { label: "Total Hours", val: totalHours.toFixed(1), icon: Clock, color: "text-purple-600 bg-purple-50" },
               ].map((c) => (
                 <div key={c.label} className="rounded-lg border p-3 flex items-center gap-3">
@@ -253,6 +257,18 @@ export default function ProductionOrderDetailPage() {
                   </div>
                 </div>
               ))}
+            </div>
+
+            {/* FG explanation note */}
+            <div className="rounded-lg border border-dashed bg-green-50/50 p-3 text-xs text-muted-foreground">
+              <span className="font-medium text-green-700">FG Completed = MIN(produced) across all processes.</span>{" "}
+              A unit is only finished when it has passed through every process step.
+              {order.planned_qty != null && effectiveQty < order.planned_qty && (
+                <span className="ml-1">
+                  Remaining: <span className="font-mono font-medium text-foreground">{order.planned_qty - effectiveQty}</span> of{" "}
+                  <span className="font-mono">{order.planned_qty}</span> planned.
+                </span>
+              )}
             </div>
 
             {/* ── Process Steps & Job Cards ─────────────────────────────────── */}

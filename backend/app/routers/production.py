@@ -120,8 +120,6 @@ def _propagate_statuses(order_id: int, session: Session) -> None:
         if all_orders_completed and plan.status != "completed":
             plan.status = "completed"
             session.add(plan)
-            # ── FG inventory increase on plan completion ──
-            _increment_fg_inventory(plan, session)
         elif any_order_active and plan.status in ("draft", "approved"):
             plan.status = "in_progress"
             session.add(plan)
@@ -182,29 +180,51 @@ def _consume_bom_materials(
         ))
 
 
-def _increment_fg_inventory(plan: ProductionPlan, session: Session) -> None:
-    """When a plan completes, add produced quantity to FG inventory."""
-    if plan.schedule_id is None:
+def _recalc_fg_for_order(order: ProductionOrder, session: Session) -> None:
+    """Incrementally update FG inventory based on process-aware production.
+
+    A finished good is only complete when it has passed through ALL process
+    steps.  Therefore:
+
+        effective_qty = MIN(qty_produced) across all active job cards in the order
+
+    If the order has no job cards yet, effective_qty stays at 0.
+    We track how much FG has already been credited (order.fg_credited) and
+    only add/subtract the delta so inventory stays accurate as production
+    progresses.
+    """
+    cards = list(session.exec(
+        select(JobCard)
+        .where(
+            JobCard.production_order_id == order.id,
+            JobCard.is_active == True,  # noqa: E712
+        )
+    ).all())
+
+    if not cards:
+        return
+
+    new_effective = min(c.qty_produced for c in cards)
+    new_effective = round(max(0.0, new_effective), 4)
+
+    old_effective = order.effective_qty
+    delta = round(new_effective - order.fg_credited, 4)
+
+    # Persist effective_qty on the order regardless of FG item existing
+    order.effective_qty = new_effective
+    session.add(order)
+
+    if delta == 0:
+        return
+
+    # Resolve FG inventory item via Order → Plan → Schedule
+    plan = session.get(ProductionPlan, order.production_plan_id)
+    if not plan or plan.schedule_id is None:
         return
     sched = session.get(Schedule, plan.schedule_id)
     if not sched:
         return
 
-    # Sum actual qty_produced across all active orders/cards for this plan
-    total_produced = session.exec(
-        select(func.coalesce(func.sum(JobCard.qty_produced), 0.0))
-        .join(ProductionOrder, JobCard.production_order_id == ProductionOrder.id)
-        .where(
-            ProductionOrder.production_plan_id == plan.id,
-            ProductionOrder.is_active == True,  # noqa: E712
-            JobCard.is_active == True,  # noqa: E712
-        )
-    ).one()
-
-    if total_produced <= 0:
-        return
-
-    # Find FG item matching schedule product name
     fg_item = session.exec(
         select(InventoryItem).where(
             InventoryItem.name == sched.description,
@@ -217,19 +237,23 @@ def _increment_fg_inventory(plan: ProductionPlan, session: Session) -> None:
         return
 
     qty_before = fg_item.quantity_on_hand
-    # Use plan's planned_qty as the produced amount (the order fulfilled the plan)
-    fg_item.quantity_on_hand = round(qty_before + plan.planned_qty, 4)
+    fg_item.quantity_on_hand = round(max(0.0, qty_before + delta), 4)
     fg_item.updated_at = datetime.now(tz=timezone.utc)
     session.add(fg_item)
 
+    order.fg_credited = new_effective
+    session.add(order)
+
+    change_type = "add" if delta > 0 else "subtract"
     session.add(InventoryHistory(
         inventory_item_id=fg_item.id,
-        change_type="add",
+        change_type=change_type,
         quantity_before=qty_before,
         quantity_after=fg_item.quantity_on_hand,
-        quantity_delta=plan.planned_qty,
+        quantity_delta=delta,
         schedule_id=plan.schedule_id,
-        notes=f"Production complete: Plan {plan.plan_number}",
+        production_order_id=order.id,
+        notes=f"FG {'increment' if delta > 0 else 'adjustment'}: Order {order.order_number} effective_qty={new_effective}",
     ))
 
 
@@ -715,6 +739,9 @@ class OrderResponse(BaseModel):
     customer_name: Optional[str] = None
     product_description: Optional[str] = None
     planned_qty: Optional[float] = None
+    # Process-aware FG tracking
+    effective_qty: float = 0.0       # MIN(qty_produced) across all job cards
+    fg_credited: float = 0.0         # how much FG added to inventory so far
     # Processes from linked plan
     processes: list[ProcessResponse] = []
     # Job cards inside this order
@@ -767,6 +794,8 @@ def _to_order_response(order: ProductionOrder, session: Session) -> OrderRespons
         customer_name=sched.customer_name if sched else None,
         product_description=sched.description if sched else None,
         planned_qty=plan.planned_qty if plan else None,
+        effective_qty=order.effective_qty,
+        fg_credited=order.fg_credited,
         processes=[ProcessResponse.model_validate(p) for p in processes],
         job_cards=[JobCardResponse.model_validate(c) for c in cards],
     )
@@ -1013,6 +1042,9 @@ def create_job(
     # Propagate status changes up
     _propagate_statuses(order_id, session)
 
+    # Recalculate process-aware FG: effective_qty = MIN(qty_produced) across all job cards
+    _recalc_fg_for_order(order, session)
+
     session.commit()
     session.refresh(job)
     return job
@@ -1073,6 +1105,10 @@ def update_job(
     # Propagate status changes up (order → plan → schedule)
     if order and (job.status != old_status or qty_delta != 0):
         _propagate_statuses(order.id, session)  # type: ignore[arg-type]
+
+    # Recalculate process-aware FG: effective_qty = MIN(qty_produced) across all job cards
+    if order:
+        _recalc_fg_for_order(order, session)
 
     session.commit()
     session.refresh(job)
