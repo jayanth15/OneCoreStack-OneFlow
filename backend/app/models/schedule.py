@@ -10,6 +10,7 @@ class Schedule(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     schedule_number: str = Field(unique=True, index=True)  # e.g. SCH-0001
 
+    customer_id: Optional[int] = Field(default=None, foreign_key="customers.id")
     customer_name: str
     description: str                           # product / work description
     scheduled_date: str                        # delivery date — ISO "YYYY-MM-DD"

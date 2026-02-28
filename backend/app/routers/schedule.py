@@ -8,6 +8,7 @@ from sqlmodel import Session, func, select
 from app.core.database import get_session
 from app.dependencies.auth import get_current_user
 from app.models.bom_item import BomItem
+from app.models.customer import Customer
 from app.models.inventory import InventoryItem
 from app.models.schedule import Schedule
 from app.models.user import User
@@ -18,6 +19,7 @@ router = APIRouter(
 )
 
 VALID_STATUSES = {"pending", "confirmed", "in_production", "delivered", "cancelled"}
+_SCHEDULE_RANK = {"pending": 0, "confirmed": 1, "in_production": 2, "delivered": 3, "cancelled": 4}
 
 
 def _next_schedule_number(session: Session) -> str:
@@ -171,8 +173,13 @@ def create_schedule(
     session: Annotated[Session, Depends(get_session)],
     _: Annotated[User, Depends(get_current_user)],
 ) -> Schedule:
+    # Auto-resolve customer_id from customer_name
+    customer = session.exec(
+        select(Customer).where(Customer.name == body.customer_name)
+    ).first()
     schedule = Schedule(
         schedule_number=_next_schedule_number(session),
+        customer_id=customer.id if customer else None,
         created_at=datetime.now(timezone.utc),
         **body.model_dump(),
     )
@@ -204,7 +211,19 @@ def update_schedule(
     s = session.get(Schedule, schedule_id)
     if not s:
         raise HTTPException(status_code=404, detail="Schedule not found")
-    for k, v in body.model_dump(exclude_unset=True).items():
+    data = body.model_dump(exclude_unset=True)
+    # Backward status guard
+    if "status" in data and data["status"] is not None:
+        proposed = data["status"]
+        if proposed != "cancelled":
+            cur_rank = _SCHEDULE_RANK.get(s.status, 0)
+            new_rank = _SCHEDULE_RANK.get(proposed, 0)
+            if new_rank < cur_rank:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Cannot move schedule backward from '{s.status}' to '{proposed}'",
+                )
+    for k, v in data.items():
         setattr(s, k, v)
     session.add(s)
     session.commit()

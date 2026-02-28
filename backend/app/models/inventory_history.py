@@ -26,4 +26,5 @@ class InventoryHistory(SQLModel, table=True):
 
     # Optional linkage
     schedule_id: Optional[int] = Field(default=None, foreign_key="schedule.id")
+    production_order_id: Optional[int] = Field(default=None, foreign_key="production_order.id")
     notes: Optional[str] = None

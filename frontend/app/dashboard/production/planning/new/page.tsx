@@ -86,8 +86,12 @@ export default function NewPlanPage() {
   const [matsError, setMatsError] = useState<string | null>(null);
 
   useEffect(() => {
-    apiFetchJson<PaginatedSchedules>("/api/v1/schedules?page_size=200&include_inactive=false&status_filter=pending")
-      .then((r) => setSchedules(r.items))
+    // Load pending + confirmed schedules (confirmed may not yet have a plan if status was manually set)
+    Promise.all([
+      apiFetchJson<PaginatedSchedules>("/api/v1/schedules?page_size=200&include_inactive=false&status_filter=pending"),
+      apiFetchJson<PaginatedSchedules>("/api/v1/schedules?page_size=200&include_inactive=false&status_filter=confirmed"),
+    ])
+      .then(([r1, r2]) => setSchedules([...r1.items, ...r2.items]))
       .catch(() => setSchedules([]))
       .finally(() => setSchedLoading(false));
   }, []);

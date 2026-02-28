@@ -23,6 +23,7 @@ interface OrderInfo {
   processes: ProcessItem[];
   planned_qty: number | null;
 }
+interface WorkerOption { id: number; username: string; }
 
 // ── Inner ─────────────────────────────────────────────────────────────────────
 
@@ -33,6 +34,7 @@ function NewJobCardInner() {
   const preSelectedProcess = searchParams.get("process") ?? "";
 
   const [order, setOrder] = useState<OrderInfo | null>(null);
+  const [workers, setWorkers] = useState<WorkerOption[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [processName, setProcessName] = useState(preSelectedProcess);
@@ -41,7 +43,6 @@ function NewJobCardInner() {
   const [worker, setWorker] = useState("");
   const [hoursWorked, setHoursWorked] = useState("0");
   const [qtyProduced, setQtyProduced] = useState("0");
-  const [qtyPending, setQtyPending] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [notes, setNotes] = useState("");
@@ -52,14 +53,15 @@ function NewJobCardInner() {
 
   useEffect(() => {
     if (!id) return;
-    apiFetchJson<OrderInfo>(`/api/v1/production/orders/${id}`)
-      .then((o) => {
+    Promise.all([
+      apiFetchJson<OrderInfo>(`/api/v1/production/orders/${id}`),
+      apiFetchJson<WorkerOption[]>("/api/v1/production/workers"),
+    ])
+      .then(([o, w]) => {
         setOrder(o);
+        setWorkers(w);
         if (!processName && o.processes.length > 0) {
           setProcessName(o.processes[0].name);
-        }
-        if (o.planned_qty && !qtyPending) {
-          setQtyPending(String(o.planned_qty));
         }
       })
       .catch(() => {})
@@ -80,7 +82,6 @@ function NewJobCardInner() {
         worker_name: worker || null,
         hours_worked: parseFloat(hoursWorked) || 0,
         qty_produced: parseFloat(qtyProduced) || 0,
-        qty_pending: parseFloat(qtyPending) || 0,
         start_date: startDate || null,
         end_date: endDate || null,
         notes: notes || null,
@@ -170,21 +171,22 @@ function NewJobCardInner() {
             {/* Worker */}
             <div className="space-y-1.5">
               <Label htmlFor="worker">Worker Name</Label>
-              <Input id="worker" placeholder="e.g. Raju" value={worker}
-                onChange={(e) => setWorker(e.target.value)} disabled={saving} />
+              <select id="worker" value={worker}
+                onChange={(e) => setWorker(e.target.value)} disabled={saving}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
+                <option value="">— Select worker —</option>
+                {workers.map((w) => (
+                  <option key={w.id} value={w.username}>{w.username}</option>
+                ))}
+              </select>
             </div>
 
             {/* Qty + Hours */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="qty_produced">Qty Produced</Label>
                 <Input id="qty_produced" type="number" step="any" value={qtyProduced}
                   onChange={(e) => setQtyProduced(e.target.value)} disabled={saving} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="qty_pending">Qty Pending</Label>
-                <Input id="qty_pending" type="number" step="any" value={qtyPending}
-                  onChange={(e) => setQtyPending(e.target.value)} disabled={saving} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="hours">Hours Worked</Label>
@@ -192,6 +194,12 @@ function NewJobCardInner() {
                   onChange={(e) => setHoursWorked(e.target.value)} disabled={saving} />
               </div>
             </div>
+
+            {order?.planned_qty != null && (
+              <p className="text-xs text-muted-foreground">
+                Qty Pending will be auto-computed: {order.planned_qty} (planned) − qty produced
+              </p>
+            )}
 
             {/* Dates */}
             <div className="grid grid-cols-2 gap-4">

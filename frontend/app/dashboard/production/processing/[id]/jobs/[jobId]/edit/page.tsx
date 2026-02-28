@@ -25,6 +25,8 @@ interface OrderInfo {
   planned_qty: number | null;
 }
 
+interface WorkerOption { id: number; username: string; }
+
 interface JobCardData {
   id: number;
   card_number: string;
@@ -50,6 +52,7 @@ export default function EditJobCardPage() {
   const { id, jobId } = useParams<{ id: string; jobId: string }>();
 
   const [order, setOrder] = useState<OrderInfo | null>(null);
+  const [workers, setWorkers] = useState<WorkerOption[]>([]);
   const [cardNumber, setCardNumber] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -60,7 +63,6 @@ export default function EditJobCardPage() {
   const [worker, setWorker] = useState("");
   const [hoursWorked, setHoursWorked] = useState("0");
   const [qtyProduced, setQtyProduced] = useState("0");
-  const [qtyPending, setQtyPending] = useState("0");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [notes, setNotes] = useState("");
@@ -75,9 +77,11 @@ export default function EditJobCardPage() {
     Promise.all([
       apiFetchJson<OrderInfo>(`/api/v1/production/orders/${id}`),
       apiFetchJson<JobCardData>(`/api/v1/production/jobs/${jobId}`),
+      apiFetchJson<WorkerOption[]>("/api/v1/production/workers"),
     ])
-      .then(([o, jc]) => {
+      .then(([o, jc, w]) => {
         setOrder(o);
+        setWorkers(w);
         setCardNumber(jc.card_number);
         setProcessName(jc.process_name);
         setToolDie(jc.tool_die_number ?? "");
@@ -85,7 +89,6 @@ export default function EditJobCardPage() {
         setWorker(jc.worker_name ?? "");
         setHoursWorked(String(jc.hours_worked));
         setQtyProduced(String(jc.qty_produced));
-        setQtyPending(String(jc.qty_pending));
         setStartDate(jc.start_date ?? "");
         setEndDate(jc.end_date ?? "");
         setNotes(jc.notes ?? "");
@@ -109,7 +112,6 @@ export default function EditJobCardPage() {
         worker_name: worker || null,
         hours_worked: parseFloat(hoursWorked) || 0,
         qty_produced: parseFloat(qtyProduced) || 0,
-        qty_pending: parseFloat(qtyPending) || 0,
         start_date: startDate || null,
         end_date: endDate || null,
         notes: notes || null,
@@ -209,21 +211,25 @@ export default function EditJobCardPage() {
             {/* Worker */}
             <div className="space-y-1.5">
               <Label htmlFor="worker">Worker Name</Label>
-              <Input id="worker" value={worker}
-                onChange={(e) => setWorker(e.target.value)} disabled={saving} />
+              <select id="worker" value={worker}
+                onChange={(e) => setWorker(e.target.value)} disabled={saving}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
+                <option value="">— Select worker —</option>
+                {workers.map((w) => (
+                  <option key={w.id} value={w.username}>{w.username}</option>
+                ))}
+                {worker && !workers.some((w) => w.username === worker) && (
+                  <option value={worker}>{worker} (current)</option>
+                )}
+              </select>
             </div>
 
             {/* Qty + Hours */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="qty_produced">Qty Produced</Label>
                 <Input id="qty_produced" type="number" step="any" value={qtyProduced}
                   onChange={(e) => setQtyProduced(e.target.value)} disabled={saving} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="qty_pending">Qty Pending</Label>
-                <Input id="qty_pending" type="number" step="any" value={qtyPending}
-                  onChange={(e) => setQtyPending(e.target.value)} disabled={saving} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="hours">Hours Worked</Label>
@@ -231,6 +237,12 @@ export default function EditJobCardPage() {
                   onChange={(e) => setHoursWorked(e.target.value)} disabled={saving} />
               </div>
             </div>
+
+            {order?.planned_qty != null && (
+              <p className="text-xs text-muted-foreground">
+                Qty Pending is auto-computed: {order.planned_qty} (planned) − qty produced
+              </p>
+            )}
 
             {/* Dates */}
             <div className="grid grid-cols-2 gap-4">

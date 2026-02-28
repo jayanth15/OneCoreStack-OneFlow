@@ -18,6 +18,7 @@ from app.models.department import Department
 from app.models.user_department import UserDepartment
 from app.models.inventory import InventoryItem
 from app.models.bom_item import BomItem
+from app.models.customer import Customer
 from app.models.schedule import Schedule
 from app.models.production_plan import ProductionPlan
 from app.models.production_process import ProductionProcess
@@ -132,7 +133,22 @@ with Session(engine) as s:
     print(f"  Semi Finished: {len(sfg_seed)}")
 
     s.flush()
-
+    # ── Customers ────────────────────────────────────────────────────────────
+    customer_names = [
+        ("Tata Motors Ltd.", "Rajesh Sharma", "+91-22-6665-8888", "rajesh@tata.com"),
+        ("Maruti Suzuki", "Anita Verma", "+91-124-4410000", "anita@maruti.co.in"),
+        ("Mahindra & Mahindra", "Vikram Singh", "+91-22-2490-1441", "vikram@mahindra.com"),
+        ("Ashok Leyland", "Priya Patel", "+91-44-2256-1000", "priya@ashokleyland.com"),
+        ("Bajaj Auto", "Sunil Kumar", "+91-20-2720-5000", "sunil@bajaj.com"),
+        ("Hero MotoCorp", "Meena Das", "+91-11-4604-6100", "meena@heromotocorp.com"),
+        ("TVS Motor", "Arvind Rao", "+91-44-2852-2200", "arvind@tvs.com"),
+    ]
+    customers: dict[str, Customer] = {}
+    for name, contact, phone, email in customer_names:
+        c = Customer(name=name, contact_person=contact, phone=phone, email=email)
+        s.add(c); s.flush()
+        customers[name] = c
+    print(f"  Customers    : {len(customer_names)}")
     # ── BOM ──────────────────────────────────────────────────────────────────
     # product_name must match InventoryItem.name for a Finished Good
     bom_seed = [
@@ -164,18 +180,26 @@ with Session(engine) as s:
     # ── Schedules ────────────────────────────────────────────────────────────
     # description must match a Finished Good name for the availability check
     schedules_seed = [
-        # customer,             description,                days,  qty, backlog, status
-        ("Tata Motors Ltd.",    "Bracket Assembly TB-4421", 30,   200,  0, "confirmed",     "Monthly order Q1"),
+        # customer,             description,                days,  qty, backlog, status,           notes
+        # SCH-0001: Has Plan PP-0001 (approved) + Order PO-0001 (in_progress) → in_production
+        ("Tata Motors Ltd.",    "Bracket Assembly TB-4421", 30,   200,  0, "in_production", "Monthly order Q1"),
+        # SCH-0002: Has Plan PP-0002 (in_progress via order) → in_production
         ("Maruti Suzuki",       "Bracket Assembly TB-4421", 45,   150, 25, "in_production", "Expedite 25 backlog"),
-        ("Mahindra & Mahindra", "Support Frame SF-200",     60,    80,  0, "pending",       "New OEM trial order"),
-        ("Ashok Leyland",       "Support Frame SF-200",     20,    50, 10, "confirmed",     "Rush order"),
-        ("Bajaj Auto",          "Mounting Plate MP-100",    15,   300,  0, "in_production", "Standard monthly"),
+        # SCH-0003: Has Plan PP-0003 (draft) → confirmed (plan created but not started)
+        ("Mahindra & Mahindra", "Support Frame SF-200",     60,    80,  0, "confirmed",     "New OEM trial order"),
+        # SCH-0004: No plan yet → pending
+        ("Ashok Leyland",       "Support Frame SF-200",     20,    50, 10, "pending",       "Rush order"),
+        # SCH-0005: No plan → pending
+        ("Bajaj Auto",          "Mounting Plate MP-100",    15,   300,  0, "pending",       "Standard monthly"),
+        # SCH-0006: No plan → pending
         ("Hero MotoCorp",       "Mounting Plate MP-100",    90,   500,  0, "pending",       "Bulk order Q2"),
+        # SCH-0007: Completed and delivered
         ("TVS Motor",           "Bracket Assembly TB-4421",  7,    75,  0, "delivered",     "Delivered last week"),
     ]
     for i, (customer, desc, days, qty, backlog, status, notes) in enumerate(schedules_seed, 1):
         s.add(Schedule(
             schedule_number=f"SCH-{i:04d}",
+            customer_id=customers[customer].id if customer in customers else None,
             customer_name=customer,
             description=desc,
             scheduled_date=future_date(days),
@@ -193,26 +217,36 @@ with Session(engine) as s:
     plan1 = ProductionPlan(
         plan_number="PP-0001",
         title="Bracket Assembly – Tata Q1 Batch",
-        schedule_id=1,  # Tata Motors confirmed
+        schedule_id=1,  # SCH-0001 Tata Motors (in_production)
         planned_qty=200,
         start_date=future_date(2),
         end_date=future_date(25),
-        status="approved",
+        status="in_progress",   # has active order
         is_active=True,
     )
     plan2 = ProductionPlan(
         plan_number="PP-0002",
+        title="Bracket Assembly – Maruti Batch",
+        schedule_id=2,  # SCH-0002 Maruti (in_production)
+        planned_qty=175,
+        start_date=future_date(5),
+        end_date=future_date(40),
+        status="in_progress",   # has active order
+        is_active=True,
+    )
+    plan3 = ProductionPlan(
+        plan_number="PP-0003",
         title="Support Frame – Mahindra Trial",
-        schedule_id=3,  # Mahindra pending
+        schedule_id=3,  # SCH-0003 Mahindra (confirmed)
         planned_qty=80,
         start_date=future_date(10),
         end_date=future_date(55),
-        status="draft",
+        status="draft",         # not yet approved
         is_active=True,
     )
-    s.add(plan1); s.add(plan2); s.flush()
+    s.add(plan1); s.add(plan2); s.add(plan3); s.flush()
 
-    # Processes for Plan 1 (Bracket Assembly)
+    # Processes for Plan 1 (Bracket Assembly – Tata)
     pp1_processes = [
         ("Blanking", 1, "Laser-cut steel sheets to bracket blanks"),
         ("Forming", 2, "Press-brake forming"),
@@ -223,19 +257,30 @@ with Session(engine) as s:
     for name, seq, notes in pp1_processes:
         s.add(ProductionProcess(plan_id=plan1.id, name=name, sequence=seq, notes=notes))
 
-    # Processes for Plan 2 (Support Frame)
+    # Processes for Plan 2 (Bracket Assembly – Maruti, same product different batch)
     pp2_processes = [
+        ("Blanking", 1, "Laser-cut steel sheets"),
+        ("Forming", 2, "Press-brake forming"),
+        ("Welding", 3, "TIG weld bracket joints"),
+        ("Painting", 4, "Black paint finish coat"),
+        ("Quality Check", 5, "Dimensional inspection + visual"),
+    ]
+    for name, seq, notes in pp2_processes:
+        s.add(ProductionProcess(plan_id=plan2.id, name=name, sequence=seq, notes=notes))
+
+    # Processes for Plan 3 (Support Frame – Mahindra)
+    pp3_processes = [
         ("Cutting", 1, "Cut aluminium rods to length"),
         ("Welding", 2, "MIG weld frame assembly"),
         ("Primer Coat", 3, "Zinc primer pre-treatment"),
         ("Assembly", 4, "Bolt-up sub-assemblies"),
     ]
-    for name, seq, notes in pp2_processes:
-        s.add(ProductionProcess(plan_id=plan2.id, name=name, sequence=seq, notes=notes))
+    for name, seq, notes in pp3_processes:
+        s.add(ProductionProcess(plan_id=plan3.id, name=name, sequence=seq, notes=notes))
 
     s.flush()
-    print(f"  Plans        : 2")
-    print(f"  Processes    : {len(pp1_processes) + len(pp2_processes)}")
+    print(f"  Plans        : 3")
+    print(f"  Processes    : {len(pp1_processes) + len(pp2_processes) + len(pp3_processes)}")
 
     # ── Production Orders ────────────────────────────────────────────────────
     order1 = ProductionOrder(
@@ -247,18 +292,28 @@ with Session(engine) as s:
         status="in_progress",
         is_active=True,
     )
-    s.add(order1); s.flush()
+    order2 = ProductionOrder(
+        order_number="PO-0002",
+        production_plan_id=plan2.id,
+        start_date=future_date(5),
+        end_date=future_date(40),
+        notes="Batch for Maruti Suzuki",
+        status="in_progress",
+        is_active=True,
+    )
+    s.add(order1); s.add(order2); s.flush()
 
-    # Job Cards for Order 1 – one per process
-    job_seeds = [
-        ("Blanking",       "Die Set A-12",  "Laser CNC #3",   "Raju",   6.5, 120, 80),
-        ("Forming",        "Die Set B-07",  "Press Brake #1",  "Kumar",  4.0,  80, 120),
-        ("Welding",        None,            "TIG Station #2",  "Suresh", 0.0,   0, 200),
+    # Job Cards for Order 1 (Tata – Bracket Assembly)
+    job_seeds_1 = [
+        ("Blanking",       "Die Set A-12",  "Laser CNC #3",   "worker1",  6.5, 120, 80),
+        ("Forming",        "Die Set B-07",  "Press Brake #1",  "worker2",  4.0,  80, 120),
+        ("Welding",        None,            "TIG Station #2",  "worker1",  0.0,   0, 200),
     ]
-    for i, (proc, td, machine, worker, hours, produced, pending) in enumerate(job_seeds, 1):
-        status = "in_progress" if produced > 0 else "open"
+    jc_num = 1
+    for proc, td, machine, worker, hours, produced, pending in job_seeds_1:
+        jc_status = "in_progress" if produced > 0 else "open"
         s.add(JobCard(
-            card_number=f"JC-{i:04d}",
+            card_number=f"JC-{jc_num:04d}",
             production_order_id=order1.id,
             process_name=proc,
             tool_die_number=td,
@@ -268,13 +323,37 @@ with Session(engine) as s:
             qty_produced=produced,
             qty_pending=pending,
             start_date=future_date(2) if produced > 0 else None,
-            status=status,
+            status=jc_status,
             is_active=True,
         ))
+        jc_num += 1
+
+    # Job Cards for Order 2 (Maruti – Bracket Assembly)
+    job_seeds_2 = [
+        ("Blanking",       "Die Set A-12",  "Laser CNC #3",   "worker2",  3.0,  50, 125),
+        ("Forming",        "Die Set B-07",  "Press Brake #1",  "worker1",  0.0,   0, 175),
+    ]
+    for proc, td, machine, worker, hours, produced, pending in job_seeds_2:
+        jc_status = "in_progress" if produced > 0 else "open"
+        s.add(JobCard(
+            card_number=f"JC-{jc_num:04d}",
+            production_order_id=order2.id,
+            process_name=proc,
+            tool_die_number=td,
+            machine_name=machine,
+            worker_name=worker,
+            hours_worked=hours,
+            qty_produced=produced,
+            qty_pending=pending,
+            start_date=future_date(5) if produced > 0 else None,
+            status=jc_status,
+            is_active=True,
+        ))
+        jc_num += 1
 
     s.flush()
-    print(f"  Orders       : 1")
-    print(f"  Job Cards    : {len(job_seeds)}")
+    print(f"  Orders       : 2")
+    print(f"  Job Cards    : {len(job_seeds_1) + len(job_seeds_2)}")
 
     s.commit()
 
