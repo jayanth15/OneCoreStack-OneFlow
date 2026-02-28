@@ -118,12 +118,12 @@ export default function EditPlanPage() {
     if (!id) return;
     Promise.all([
       apiFetchJson<PlanData>(`/api/v1/production/plans/${id}`),
-      apiFetchJson<PaginatedSchedules>("/api/v1/schedules?page_size=200&include_inactive=false&status_filter=pending"),
+      apiFetchJson<PaginatedSchedules>("/api/v1/schedules?page_size=200&available_for_planning=true"),
     ])
       .then(([plan, schedResp]) => {
         let schedList = schedResp.items;
 
-        // If this plan is linked to a schedule that is no longer pending,
+        // If this plan is linked to a schedule that isn't in the available list,
         // synthesise a ScheduleOption from the plan data so it still shows in the dropdown.
         if (plan.schedule_id != null && !schedList.some((s) => s.id === plan.schedule_id) && plan.schedule_number) {
           const synth: ScheduleOption = {

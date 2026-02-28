@@ -10,6 +10,7 @@ from app.dependencies.auth import get_current_user
 from app.models.bom_item import BomItem
 from app.models.customer import Customer
 from app.models.inventory import InventoryItem
+from app.models.production_plan import ProductionPlan
 from app.models.schedule import Schedule
 from app.models.user import User
 
@@ -126,6 +127,7 @@ def list_schedules(
     customer: Optional[str] = None,
     search: Optional[str] = None,
     include_inactive: bool = False,
+    available_for_planning: bool = False,
     page: int = 1,
     page_size: int = 20,
 ) -> PaginatedSchedules:
@@ -137,6 +139,14 @@ def list_schedules(
         q = q.where(Schedule.is_active == True)  # noqa: E712
     if status_filter:
         q = q.where(Schedule.status == status_filter)
+    if available_for_planning:
+        # Only confirmed schedules that don't already have an active plan
+        q = q.where(Schedule.status == "confirmed")
+        busy_ids = select(ProductionPlan.schedule_id).where(
+            ProductionPlan.is_active == True,  # noqa: E712
+            ProductionPlan.schedule_id.is_not(None),  # type: ignore[union-attr]
+        )
+        q = q.where(Schedule.id.not_in(busy_ids))  # type: ignore[union-attr]
     if customer:
         q = q.where(Schedule.customer_name.ilike(f"%{customer}%"))  # type: ignore[union-attr]
     if search:

@@ -86,12 +86,9 @@ export default function NewPlanPage() {
   const [matsError, setMatsError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Load pending + confirmed schedules (confirmed may not yet have a plan if status was manually set)
-    Promise.all([
-      apiFetchJson<PaginatedSchedules>("/api/v1/schedules?page_size=200&include_inactive=false&status_filter=pending"),
-      apiFetchJson<PaginatedSchedules>("/api/v1/schedules?page_size=200&include_inactive=false&status_filter=confirmed"),
-    ])
-      .then(([r1, r2]) => setSchedules([...r1.items, ...r2.items]))
+    // Load only confirmed schedules that don't already have an active production plan
+    apiFetchJson<PaginatedSchedules>("/api/v1/schedules?page_size=200&available_for_planning=true")
+      .then((r) => setSchedules(r.items))
       .catch(() => setSchedules([]))
       .finally(() => setSchedLoading(false));
   }, []);
