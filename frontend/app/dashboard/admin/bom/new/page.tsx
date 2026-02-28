@@ -53,7 +53,8 @@ function NewBomForm() {
       apiFetchJson<PaginatedInventory>("/api/v1/inventory?item_type=raw_material&page_size=500"),
       apiFetchJson<PaginatedInventory>("/api/v1/inventory?item_type=semi_finished&page_size=500"),
     ]).then(([rm, sfg]) => setRawMaterials([...rm.items, ...sfg.items])).catch(() => {});
-  }, [router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Row helpers ─────────────────────────────────────────────────────────────────────────────
 

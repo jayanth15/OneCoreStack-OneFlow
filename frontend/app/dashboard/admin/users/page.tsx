@@ -65,7 +65,8 @@ export default function UsersPage() {
   useEffect(() => {
     const user = getCurrentUser();
     if (!user || (user.role !== "admin" && user.role !== "super_admin")) router.replace("/dashboard");
-  }, [router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);

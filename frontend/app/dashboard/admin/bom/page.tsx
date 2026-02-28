@@ -44,7 +44,8 @@ export default function BomPage() {
     if (!user || (user.role !== "admin" && user.role !== "super_admin")) {
       router.replace("/dashboard");
     }
-  }, [router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function load() {
     setLoading(true);

@@ -33,7 +33,8 @@ export default function EditDepartmentPage() {
   useEffect(() => {
     const user = getCurrentUser();
     if (!user || (user.role !== "admin" && user.role !== "super_admin")) router.replace("/dashboard");
-  }, [router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [form, setForm] = useState<DeptForm>({ code: "", name: "", description: "", is_active: true });
   const [loadError, setLoadError] = useState<string | null>(null);

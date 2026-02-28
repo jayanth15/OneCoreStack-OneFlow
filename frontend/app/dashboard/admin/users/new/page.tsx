@@ -38,7 +38,8 @@ export default function NewUserPage() {
   useEffect(() => {
     const user = getCurrentUser();
     if (!user || (user.role !== "admin" && user.role !== "super_admin")) router.replace("/dashboard");
-  }, [router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [form, setForm] = useState(BLANK);
   const [allDepts, setAllDepts] = useState<DeptRef[]>([]);
