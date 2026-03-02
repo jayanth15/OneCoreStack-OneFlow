@@ -133,7 +133,7 @@ def create_customer(
 @router.get("")
 def list_customers(
     session: Annotated[Session, Depends(get_session)],
-    _: Annotated[User, Depends(get_current_user)],
+    _: Annotated[User, Depends(require_admin)],
     search: str = "",
 ) -> list[dict[str, Any]]:
     """
@@ -197,7 +197,7 @@ def list_customers(
 def get_customer_detail(
     customer_name: str,
     session: Annotated[Session, Depends(get_session)],
-    _: Annotated[User, Depends(get_current_user)],
+    _: Annotated[User, Depends(require_admin)],
 ) -> dict[str, Any]:
     """
     Full detail for a single customer: all schedules + per-product breakdown.

@@ -24,6 +24,8 @@ from app.models.production_plan import ProductionPlan
 from app.models.production_process import ProductionProcess
 from app.models.production_order import ProductionOrder
 from app.models.job_card import JobCard
+from app.models.work_type import WorkType
+from app.models.work_log import WorkLog
 
 # ── wipe old DB ──────────────────────────────────────────────────────────────
 DB_PATH = os.path.join(os.path.dirname(__file__), "oneflow.db")
@@ -360,6 +362,56 @@ with Session(engine) as s:
     s.flush()
     print(f"  Orders       : 2")
     print(f"  Job Cards    : {len(job_seeds_1) + len(job_seeds_2)}")
+
+    # ── Work Types ───────────────────────────────────────────────────────────
+    wt_seed = [
+        ("Blanking / Cutting", "Laser or manual cutting of raw sheets"),
+        ("Forming / Bending", "Press brake, roll forming operations"),
+        ("Welding", "TIG / MIG / spot welding"),
+        ("Painting / Coating", "Primer, paint, powder coat application"),
+        ("Assembly", "Sub-assembly and final assembly"),
+        ("Quality Inspection", "Dimensional checks, visual inspection"),
+        ("Machine Setup", "Tooling changeover, die installation"),
+        ("Rework", "Re-processing rejected parts"),
+    ]
+    work_types: dict[str, WorkType] = {}
+    for name, desc in wt_seed:
+        wt = WorkType(name=name, description=desc, is_active=True)
+        s.add(wt); s.flush()
+        work_types[name] = wt
+    print(f"  Work Types   : {len(wt_seed)}")
+
+    # ── Work Logs (sample time entries) ──────────────────────────────────────
+    # Map username → user id (flush already done so users have ids)
+    user_map: dict[str, int] = {}
+    from sqlmodel import select as sel
+    for u in s.exec(sel(User)).all():
+        user_map[u.username] = u.id  # type: ignore[assignment]
+
+    # job card nums JC-0001..JC-0005 → ids 1..5 (order of insertion)
+    jc_map: dict[str, int] = {}
+    for jc in s.exec(sel(JobCard)).all():
+        jc_map[jc.card_number] = jc.id  # type: ignore[assignment]
+
+    wl_seed = [
+        # card,       worker,     work_type,               hours, date_offset, notes
+        ("JC-0001", "worker1", "Blanking / Cutting",       6.5,  2,  "Completed 120 blanks"),
+        ("JC-0001", "worker1", "Machine Setup",            1.0,  2,  "Die changeover for blanking"),
+        ("JC-0002", "worker2", "Forming / Bending",        4.0,  3,  "80 pcs formed"),
+        ("JC-0002", "worker2", "Machine Setup",            0.5,  3,  "Press brake setup"),
+        ("JC-0004", "worker2", "Blanking / Cutting",       3.0,  5,  "50 pcs Maruti batch"),
+    ]
+    for card, wkr, wt_name, hrs, day_off, notes in wl_seed:
+        s.add(WorkLog(
+            job_card_id=jc_map[card],
+            user_id=user_map[wkr],
+            work_type_id=work_types[wt_name].id,
+            hours_worked=hrs,
+            work_date=future_date(day_off),
+            notes=notes,
+        ))
+    s.flush()
+    print(f"  Work Logs    : {len(wl_seed)}")
 
     s.commit()
 

@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlmodel import Session, func, select
 
 from app.core.database import get_session
-from app.dependencies.auth import get_current_user
+from app.dependencies.auth import get_current_user, is_admin_or_above
 from app.models.customer import Customer
 from app.models.inventory import InventoryItem
 from app.models.inventory_history import InventoryHistory
@@ -66,7 +66,7 @@ class InventoryByType(BaseModel):
     item_type: str
     count: int
     total_qty: float
-    total_value: float  # sum(qty * rate) where rate is set
+    total_value: Optional[float] = None  # sum(qty * rate) where rate is set; null for non-admin
 
 
 class RecentInventoryActivity(BaseModel):
@@ -146,7 +146,7 @@ def _count_status(session: Session, model, statuses: list[str]) -> dict[str, int
 @router.get("", response_model=DashboardResponse)
 def get_dashboard(
     session: Annotated[Session, Depends(get_session)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> DashboardResponse:
 
     # ── Overview counts ────────────────────────────────────────────────────
@@ -209,7 +209,12 @@ def get_dashboard(
         .group_by(InventoryItem.item_type)
     ).all()
     inventory_by_type = [
-        InventoryByType(item_type=r[0], count=r[1], total_qty=float(r[2]), total_value=float(r[3]))
+        InventoryByType(
+            item_type=r[0],
+            count=r[1],
+            total_qty=float(r[2]),
+            total_value=float(r[3]) if is_admin_or_above(current_user) else None,
+        )
         for r in inv_by_type_rows
     ]
 

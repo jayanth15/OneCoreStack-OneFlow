@@ -11,6 +11,7 @@ from app.models.bom_item import BomItem
 from app.models.inventory import InventoryItem
 from app.models.inventory_history import InventoryHistory
 from app.models.job_card import JobCard
+from app.models.job_card_history import JobCardHistory
 from app.models.production_order import ProductionOrder
 from app.models.production_plan import ProductionPlan
 from app.models.production_process import ProductionProcess
@@ -50,6 +51,65 @@ def _next_order_number(session: Session) -> str:
 def _next_card_number(session: Session) -> str:
     count = session.exec(select(func.count()).select_from(JobCard)).one()
     return f"JC-{count + 1:04d}"
+
+
+# ── Job Card history helpers ──────────────────────────────────────────────────
+
+_JOB_CARD_TRACKED_FIELDS = [
+    "process_name", "tool_die_number", "machine_name", "worker_name",
+    "hours_worked", "qty_produced", "qty_pending", "work_date", "notes",
+    "status", "is_active",
+]
+
+
+def _record_job_card_created(
+    job: JobCard, user_id: int | None, session: Session,
+) -> None:
+    """Write a single 'created' history row capturing the initial snapshot."""
+    now = datetime.now(tz=timezone.utc)
+    for field in _JOB_CARD_TRACKED_FIELDS:
+        val = getattr(job, field, None)
+        if val is not None:
+            session.add(JobCardHistory(
+                job_card_id=job.id,  # type: ignore[arg-type]
+                changed_by_user_id=user_id,
+                changed_at=now,
+                change_type="created",
+                field_name=field,
+                old_value=None,
+                new_value=str(val),
+            ))
+
+
+def _record_job_card_changes(
+    old_snapshot: dict[str, str | None],
+    job: JobCard,
+    user_id: int | None,
+    session: Session,
+) -> None:
+    """Compare old_snapshot dict to job's current state, write one row per changed field."""
+    now = datetime.now(tz=timezone.utc)
+    for field in _JOB_CARD_TRACKED_FIELDS:
+        old_val = old_snapshot.get(field)
+        new_val = str(getattr(job, field)) if getattr(job, field, None) is not None else None
+        if old_val != new_val:
+            session.add(JobCardHistory(
+                job_card_id=job.id,  # type: ignore[arg-type]
+                changed_by_user_id=user_id,
+                changed_at=now,
+                change_type="updated",
+                field_name=field,
+                old_value=old_val,
+                new_value=new_val,
+            ))
+
+
+def _snapshot_job_card(job: JobCard) -> dict[str, str | None]:
+    """Capture current field values as strings for later comparison."""
+    return {
+        field: str(getattr(job, field)) if getattr(job, field, None) is not None else None
+        for field in _JOB_CARD_TRACKED_FIELDS
+    }
 
 
 def _check_backward_status(
@@ -996,16 +1056,23 @@ class PaginatedJobs(BaseModel):
 def list_order_jobs(
     order_id: int,
     session: Annotated[Session, Depends(get_session)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> list[JobCard]:
     order = session.get(ProductionOrder, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Production order not found")
-    return list(session.exec(
+    q = (
         select(JobCard)
         .where(JobCard.production_order_id == order_id)
         .order_by(JobCard.id)  # type: ignore[union-attr]
-    ).all())
+    )
+    # Workers see only their own job cards
+    if current_user.role == "worker":
+        q = q.where(
+            (JobCard.worker_id == current_user.id)
+            | (JobCard.worker_name == current_user.username)
+        )
+    return list(session.exec(q).all())
 
 
 @router.post("/orders/{order_id}/jobs", response_model=JobCardResponse, status_code=status.HTTP_201_CREATED)
@@ -1013,11 +1080,15 @@ def create_job(
     order_id: int,
     body: JobCardCreate,
     session: Annotated[Session, Depends(get_session)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> JobCard:
     order = session.get(ProductionOrder, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Production order not found")
+
+    # If worker role, force worker_name to their own username
+    if current_user.role == "worker":
+        body.worker_name = current_user.username
 
     # Get plan's planned_qty to auto-compute qty_pending and status
     plan = session.get(ProductionPlan, order.production_plan_id)
@@ -1039,6 +1110,13 @@ def create_job(
         status=auto_status,
         **body.model_dump(),
     )
+    # Resolve worker_name → worker_id
+    if job.worker_name:
+        matched_user = session.exec(
+            select(User).where(User.username == job.worker_name)
+        ).first()
+        if matched_user:
+            job.worker_id = matched_user.id  # type: ignore[assignment]
     session.add(job)
     session.flush()
 
@@ -1053,6 +1131,9 @@ def create_job(
 
     # Recalculate process-aware FG: effective_qty = MIN(qty_produced) across all job cards
     _recalc_fg_for_order(order, session)
+
+    # Record creation in job card history
+    _record_job_card_created(job, current_user.id, session)
 
     session.commit()
     session.refresh(job)
@@ -1076,12 +1157,19 @@ def update_job(
     job_id: int,
     body: JobCardUpdate,
     session: Annotated[Session, Depends(get_session)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> JobCard:
     job = session.get(JobCard, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job card not found")
     data = body.model_dump(exclude_unset=True)
+
+    # If worker role, force worker_name to their own username
+    if current_user.role == "worker":
+        data["worker_name"] = current_user.username
+
+    # Snapshot before changes for history
+    old_snapshot = _snapshot_job_card(job)
 
     # Track old qty_produced for BOM delta
     old_qty_produced = job.qty_produced
@@ -1089,6 +1177,14 @@ def update_job(
 
     for k, v in data.items():
         setattr(job, k, v)
+
+    # Resolve worker_name → worker_id FK
+    if "worker_name" in data and job.worker_name:
+        matched_user = session.exec(
+            select(User).where(User.username == job.worker_name)
+        ).first()
+        if matched_user:
+            job.worker_id = matched_user.id
 
     # Auto-compute qty_pending and status from plan's planned_qty
     order = session.get(ProductionOrder, job.production_order_id)
@@ -1122,6 +1218,9 @@ def update_job(
     if order:
         _recalc_fg_for_order(order, session)
 
+    # Record changes in job card history
+    _record_job_card_changes(old_snapshot, job, current_user.id, session)
+
     session.commit()
     session.refresh(job)
     return job
@@ -1131,14 +1230,79 @@ def update_job(
 def delete_job(
     job_id: int,
     session: Annotated[Session, Depends(get_session)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> None:
     job = session.get(JobCard, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job card not found")
+
+    # Record deletion in history
+    session.add(JobCardHistory(
+        job_card_id=job.id,  # type: ignore[arg-type]
+        changed_by_user_id=current_user.id,
+        changed_at=datetime.now(tz=timezone.utc),
+        change_type="deleted",
+        field_name="is_active",
+        old_value="True",
+        new_value="False",
+    ))
+
     job.is_active = False
     session.add(job)
     session.commit()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  JOB CARD HISTORY
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class JobCardHistoryResponse(BaseModel):
+    id: int
+    job_card_id: int
+    changed_by_user_id: int | None
+    changed_by_username: str | None = None
+    changed_at: str  # ISO
+    change_type: str
+    field_name: str | None
+    old_value: str | None
+    new_value: str | None
+    notes: str | None
+
+
+@router.get("/jobs/{job_id}/history", response_model=list[JobCardHistoryResponse])
+def get_job_history(
+    job_id: int,
+    session: Annotated[Session, Depends(get_session)],
+    _: Annotated[User, Depends(get_current_user)],
+) -> list[JobCardHistoryResponse]:
+    """Return full audit trail for a job card, newest first."""
+    job = session.get(JobCard, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job card not found")
+
+    rows = list(session.exec(
+        select(JobCardHistory, User)
+        .outerjoin(User, JobCardHistory.changed_by_user_id == User.id)
+        .where(JobCardHistory.job_card_id == job_id)
+        .order_by(JobCardHistory.changed_at.desc())  # type: ignore[union-attr]
+    ).all())
+
+    return [
+        JobCardHistoryResponse(
+            id=h.id,  # type: ignore[arg-type]
+            job_card_id=h.job_card_id,
+            changed_by_user_id=h.changed_by_user_id,
+            changed_by_username=u.username if u else None,
+            changed_at=h.changed_at.isoformat() if h.changed_at else "",
+            change_type=h.change_type,
+            field_name=h.field_name,
+            old_value=h.old_value,
+            new_value=h.new_value,
+            notes=h.notes,
+        )
+        for h, u in rows
+    ]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1165,4 +1329,68 @@ def list_workers(
         .order_by(User.username)
     ).all())
     return [WorkerOption(id=u.id, username=u.username) for u in users]  # type: ignore[arg-type]
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  WORKER TIME REPORTS  (aggregated from job card hours_worked)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class WorkerTimeSummaryItem(BaseModel):
+    user_id: Optional[int]
+    username: str
+    total_hours: float
+    job_card_count: int
+
+
+@router.get("/time-report", response_model=list[WorkerTimeSummaryItem])
+def worker_time_summary(
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    user_id: Optional[int] = None,
+) -> list[WorkerTimeSummaryItem]:
+    """
+    Aggregate job-card hours per worker.
+    Workers/managers see only their own job cards; admin/super_admin see all.
+    """
+    q = select(JobCard).where(JobCard.hours_worked > 0)
+    if date_from:
+        q = q.where(JobCard.work_date >= date_from)  # type: ignore[operator]
+    if date_to:
+        q = q.where(JobCard.work_date <= date_to)  # type: ignore[operator]
+
+    if current_user.role in ("worker", "manager"):
+        q = q.where(
+            (JobCard.worker_id == current_user.id)
+            | (JobCard.worker_name == current_user.username)
+        )
+    elif user_id is not None:
+        target = session.get(User, user_id)
+        if target:
+            q = q.where(
+                (JobCard.worker_id == user_id)
+                | (JobCard.worker_name == target.username)
+            )
+
+    jobs = list(session.exec(q).all())
+
+    from collections import defaultdict
+    by_worker: dict[str, list[JobCard]] = defaultdict(list)
+    for job in jobs:
+        key = job.worker_name or "Unassigned"
+        by_worker[key].append(job)
+
+    result = []
+    for worker_name, cards in by_worker.items():
+        user = session.exec(select(User).where(User.username == worker_name)).first()
+        result.append(WorkerTimeSummaryItem(
+            user_id=user.id if user else None,  # type: ignore[arg-type]
+            username=worker_name,
+            total_hours=round(sum(c.hours_worked for c in cards), 2),
+            job_card_count=len(cards),
+        ))
+
+    return sorted(result, key=lambda x: x.total_hours, reverse=True)
 

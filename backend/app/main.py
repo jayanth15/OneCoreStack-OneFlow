@@ -15,6 +15,7 @@ from app.routers import inventory as inventory_router
 from app.routers import production as production_router
 from app.routers import schedule as schedule_router
 from app.routers import users as users_router
+from app.routers import work_types as work_types_router
 
 
 @asynccontextmanager
@@ -24,6 +25,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _migrate_production_plan_v2()
     _migrate_production_plan_v3()
     _migrate_departments_description()
+    _migrate_job_card_worker_id()
     # Migrate schedule customer names → Customer table (runs once, idempotent)
     _seed_customers_from_schedules()
     yield
@@ -50,6 +52,27 @@ def _migrate_departments_description() -> None:
         cols = [row[1] for row in conn.execute(text("PRAGMA table_info(departments)")).fetchall()]
         if "description" not in cols:
             conn.execute(text("ALTER TABLE departments ADD COLUMN description TEXT"))
+            conn.commit()
+
+
+def _migrate_job_card_worker_id() -> None:
+    """Add worker_id FK column to job_card table if it doesn't exist.
+    Also back-fill from worker_name → users.username."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        cols = [row[1] for row in conn.execute(text("PRAGMA table_info(job_card)")).fetchall()]
+        if "worker_id" not in cols:
+            conn.execute(text("ALTER TABLE job_card ADD COLUMN worker_id INTEGER REFERENCES users(id)"))
+            # Back-fill worker_id from worker_name
+            conn.execute(text("""
+                UPDATE job_card
+                SET worker_id = (
+                    SELECT u.id FROM users u WHERE u.username = job_card.worker_name
+                )
+                WHERE worker_name IS NOT NULL
+            """))
             conn.commit()
 
 
@@ -220,6 +243,7 @@ app.include_router(inventory_router.router)
 app.include_router(production_router.router)
 app.include_router(schedule_router.router)
 app.include_router(users_router.router)
+app.include_router(work_types_router.router)
 
 # ── Optional module routers (enabled by env var) ──────────────────────────────
 # Example:

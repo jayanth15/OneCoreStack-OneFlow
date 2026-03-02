@@ -5,6 +5,7 @@ from app.models.department import Department  # noqa: F401
 from app.models.inventory import InventoryItem  # noqa: F401
 from app.models.inventory_history import InventoryHistory  # noqa: F401
 from app.models.job_card import JobCard  # noqa: F401
+from app.models.job_card_history import JobCardHistory  # noqa: F401
 from app.models.production_order import ProductionOrder  # noqa: F401
 from app.models.production_plan import ProductionPlan  # noqa: F401
 from app.models.production_process import ProductionProcess  # noqa: F401
@@ -12,3 +13,5 @@ from app.models.schedule import Schedule  # noqa: F401
 from app.models.token import RefreshToken  # noqa: F401
 from app.models.user import User  # noqa: F401
 from app.models.user_department import UserDepartment  # noqa: F401
+from app.models.work_log import WorkLog  # noqa: F401
+from app.models.work_type import WorkType  # noqa: F401
