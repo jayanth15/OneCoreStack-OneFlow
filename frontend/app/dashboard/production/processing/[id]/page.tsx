@@ -17,7 +17,7 @@ import {
 import { apiFetchJson } from "@/lib/api";
 import {
   ArrowLeft, PlusIcon, Pencil, Trash2,
-  Factory, Clock, User, Wrench, Package, Hash, CheckCircle,
+  Factory, Clock, User, Wrench, Package, Hash, CheckCircle, History,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -45,6 +45,18 @@ interface JobCard {
   notes: string | null;
   status: string;
   is_active: boolean;
+}
+
+interface HistoryEntry {
+  id: number;
+  job_card_id: number;
+  changed_by_username: string | null;
+  changed_at: string;
+  change_type: string;
+  field_name: string | null;
+  old_value: string | null;
+  new_value: string | null;
+  notes: string | null;
 }
 
 interface ProductionOrder {
@@ -91,6 +103,11 @@ export default function ProductionOrderDetailPage() {
   const [deleteJobId, setDeleteJobId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // History modal state
+  const [historyJobId, setHistoryJobId] = useState<number | null>(null);
+  const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
   const loadOrder = useCallback(() => {
     if (!id) return;
     setLoading(true);
@@ -126,6 +143,17 @@ export default function ProductionOrderDetailPage() {
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Delete failed");
     } finally { setDeleting(false); }
+  }
+
+  async function openHistory(jobId: number) {
+    setHistoryJobId(jobId);
+    setHistoryLoading(true);
+    try {
+      const data = await apiFetchJson<HistoryEntry[]>(`/api/v1/production/jobs/${jobId}/history`);
+      setHistoryEntries(data);
+    } catch {
+      setHistoryEntries([]);
+    } finally { setHistoryLoading(false); }
   }
 
   // Group job cards by process_name
@@ -367,6 +395,11 @@ export default function ProductionOrderDetailPage() {
 
                               <div className="flex gap-1 shrink-0">
                                 <Button variant="ghost" size="icon" className="size-7"
+                                  onClick={() => openHistory(jc.id)}
+                                  title="History">
+                                  <History className="size-3" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="size-7"
                                   onClick={() => router.push(`/dashboard/production/processing/${order.id}/jobs/${jc.id}/edit`)}
                                   title="Edit">
                                   <Pencil className="size-3" />
@@ -445,6 +478,67 @@ export default function ProductionOrderDetailPage() {
             <AlertDialogAction onClick={handleDeleteJob} disabled={deleting}>
               {deleting ? "Deactivating…" : "Deactivate"}
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* History Modal */}
+      <AlertDialog open={historyJobId !== null} onOpenChange={(o) => !o && setHistoryJobId(null)}>
+        <AlertDialogContent className="max-w-lg max-h-[80vh] flex flex-col">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Job Card History
+              {historyJobId && order && (() => {
+                const jc = order.job_cards.find(j => j.id === historyJobId);
+                return jc ? ` — ${jc.card_number}` : "";
+              })()}
+            </AlertDialogTitle>
+            <AlertDialogDescription>Full audit trail of changes.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex-1 overflow-y-auto pr-1 space-y-2 max-h-96">
+            {historyLoading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+              </div>
+            ) : historyEntries.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">No history recorded yet.</p>
+            ) : (
+              historyEntries.map((h) => (
+                <div key={h.id} className="rounded-md border p-3 text-xs space-y-1">
+                  <div className="flex items-center justify-between">
+                    <Badge variant={h.change_type === "created" ? "default" : h.change_type === "deleted" ? "destructive" : "secondary"} className="text-[10px]">
+                      {h.change_type}
+                    </Badge>
+                    <span className="text-muted-foreground">
+                      {h.changed_at ? new Date(h.changed_at).toLocaleString() : "—"}
+                    </span>
+                  </div>
+                  {h.field_name && (
+                    <p>
+                      <span className="font-medium">{h.field_name.replace(/_/g, " ")}</span>
+                      {h.change_type === "created" ? (
+                        <span className="text-muted-foreground"> set to </span>
+                      ) : (
+                        <span className="text-muted-foreground"> changed from </span>
+                      )}
+                      {h.change_type !== "created" && h.old_value != null && (
+                        <span className="font-mono text-red-600 line-through">{h.old_value}</span>
+                      )}
+                      {h.change_type !== "created" && <span className="text-muted-foreground"> → </span>}
+                      {h.new_value != null && (
+                        <span className="font-mono text-green-600">{h.new_value}</span>
+                      )}
+                    </p>
+                  )}
+                  {h.changed_by_username && (
+                    <p className="text-muted-foreground">by {h.changed_by_username}</p>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Close</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

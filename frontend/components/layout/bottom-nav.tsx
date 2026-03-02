@@ -17,7 +17,7 @@ import {
   Contact,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getCurrentUser } from "@/lib/user";
+import { getCurrentUser, isAdminOrAbove } from "@/lib/user";
 import { apiLogout } from "@/lib/auth";
 
 interface NavItem {
@@ -34,12 +34,11 @@ const PRIMARY_NAV: NavItem[] = [
 ];
 
 // Always shown to all users in the More drawer
-const GENERAL_MORE_NAV: NavItem[] = [
-  { label: "Customers", href: "/dashboard/customers", icon: Contact },
-];
+const GENERAL_MORE_NAV: NavItem[] = [];
 
 // Only shown to admin / super_admin in the More drawer
 const ADMIN_MORE_NAV: NavItem[] = [
+  { label: "Customers",   href: "/dashboard/customers",          icon: Contact },
   { label: "Departments", href: "/dashboard/admin/departments", icon: Building2 },
   { label: "Users",       href: "/dashboard/admin/users",       icon: Users },
   { label: "BOM",         href: "/dashboard/admin/bom",         icon: BookOpen },
@@ -52,8 +51,7 @@ export function BottomNav() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    const user = getCurrentUser();
-    setIsAdmin(user?.role === "admin" || user?.role === "super_admin");
+    setIsAdmin(isAdminOrAbove());
   }, []);
 
   // close more menu on route change

@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiFetchJson } from "@/lib/api";
+import { getCurrentUser, isWorker } from "@/lib/user";
 import { ArrowLeft } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -44,6 +45,8 @@ interface JobCardData {
   is_active: boolean;
 }
 
+
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function EditJobCardPage() {
@@ -60,6 +63,7 @@ export default function EditJobCardPage() {
   const [toolDie, setToolDie] = useState("");
   const [machine, setMachine] = useState("");
   const [worker, setWorker] = useState("");
+  const [workerLocked, setWorkerLocked] = useState(false);
   const [hoursWorked, setHoursWorked] = useState("0");
   const [qtyProduced, setQtyProduced] = useState("0");
   const [workDate, setWorkDate] = useState("");
@@ -83,7 +87,14 @@ export default function EditJobCardPage() {
         setProcessName(jc.process_name);
         setToolDie(jc.tool_die_number ?? "");
         setMachine(jc.machine_name ?? "");
-        setWorker(jc.worker_name ?? "");
+        // If worker role, lock to their username; otherwise use saved value
+        const me = getCurrentUser();
+        if (me && isWorker()) {
+          setWorker(me.username);
+          setWorkerLocked(true);
+        } else {
+          setWorker(jc.worker_name ?? "");
+        }
         setHoursWorked(String(jc.hours_worked));
         setQtyProduced(String(jc.qty_produced));
         setWorkDate(jc.work_date ?? "");
@@ -205,7 +216,7 @@ export default function EditJobCardPage() {
             <div className="space-y-1.5">
               <Label htmlFor="worker">Worker Name</Label>
               <select id="worker" value={worker}
-                onChange={(e) => setWorker(e.target.value)} disabled={saving}
+                onChange={(e) => setWorker(e.target.value)} disabled={saving || workerLocked}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
                 <option value="">— Select worker —</option>
                 {workers.map((w) => (
@@ -215,6 +226,9 @@ export default function EditJobCardPage() {
                   <option value={worker}>{worker} (current)</option>
                 )}
               </select>
+              {workerLocked && (
+                <p className="text-xs text-muted-foreground">Auto-assigned to your account.</p>
+              )}
             </div>
 
             {/* Qty + Hours */}

@@ -37,3 +37,16 @@ export function isAdminOrAbove(): boolean {
 export function isSuperAdmin(): boolean {
   return getCurrentUser()?.role === "super_admin";
 }
+
+export function isWorker(): boolean {
+  return getCurrentUser()?.role === "worker";
+}
+
+export function isManager(): boolean {
+  return getCurrentUser()?.role === "manager";
+}
+
+export function isManagerOrWorker(): boolean {
+  const role = getCurrentUser()?.role;
+  return role === "manager" || role === "worker";
+}

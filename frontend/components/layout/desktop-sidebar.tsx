@@ -16,7 +16,7 @@ import {
   Contact,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getCurrentUser } from "@/lib/user";
+import { getCurrentUser, isAdminOrAbove } from "@/lib/user";
 import { apiLogout } from "@/lib/auth";
 
 interface NavItem {
@@ -29,8 +29,12 @@ const CORE_NAV: NavItem[] = [
   { label: "Dashboard",  href: "/dashboard",             icon: LayoutDashboard },
   { label: "Inventory",  href: "/dashboard/inventory",    icon: Package },
   { label: "Schedule",   href: "/dashboard/schedule",     icon: CalendarDays },
-  { label: "Customers",  href: "/dashboard/customers",    icon: Contact },
   { label: "Production", href: "/dashboard/production",   icon: Factory },
+];
+
+// Only shown to admin / super_admin (alongside Departments, Users, BOM)
+const ADMIN_CORE_NAV: NavItem[] = [
+  { label: "Customers",  href: "/dashboard/customers",    icon: Contact },
 ];
 
 const ADMIN_NAV: NavItem[] = [
@@ -48,7 +52,7 @@ export function DesktopSidebar() {
   useEffect(() => {
     const user = getCurrentUser();
     if (user) {
-      setIsAdmin(user.role === "admin" || user.role === "super_admin");
+      setIsAdmin(isAdminOrAbove());
       setUsername(user.username);
     }
   }, []);
@@ -112,7 +116,7 @@ export function DesktopSidebar() {
               Admin
             </p>
             <ul className="space-y-0.5">
-              {ADMIN_NAV.map((item) => (
+              {[...ADMIN_CORE_NAV, ...ADMIN_NAV].map((item) => (
                 <li key={item.href}>
                   <Link
                     href={item.href}

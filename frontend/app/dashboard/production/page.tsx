@@ -8,7 +8,7 @@ import {
   BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
-import { CalendarClock, ClipboardList, ChevronRight } from "lucide-react";
+import { CalendarClock, ClipboardList, Clock, ChevronRight } from "lucide-react";
 
 const SECTIONS = [
   {
@@ -26,6 +26,14 @@ const SECTIONS = [
     icon: ClipboardList,
     href: "/dashboard/production/processing",
     color: "text-emerald-600 bg-emerald-50",
+  },
+  {
+    title: "Worker Time Report",
+    description:
+      "View aggregated work hours per worker, broken down by work type. Filter by date range to analyse productivity.",
+    icon: Clock,
+    href: "/dashboard/production/time-report",
+    color: "text-amber-600 bg-amber-50",
   },
 ];
 

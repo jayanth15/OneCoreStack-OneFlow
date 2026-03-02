@@ -13,7 +13,7 @@ import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter,
 } from "@/components/ui/sheet";
 import { apiFetchJson } from "@/lib/api";
-import { isAdmin as checkIsAdmin } from "@/lib/user";
+import { isAdmin as checkIsAdmin, isAdminOrAbove } from "@/lib/user";
 import {
   Search, Contact, ChevronRight, CalendarDays,
   Package, TrendingUp, Clock, UserPlus,
@@ -89,6 +89,11 @@ export default function CustomersPage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
+
+  // Role gate: only admin/super_admin can see this page
+  useEffect(() => {
+    if (!isAdminOrAbove()) { router.replace("/dashboard"); }
+  }, [router]);
 
   // Admin state
   const [adminUser, setAdminUser] = useState(false);

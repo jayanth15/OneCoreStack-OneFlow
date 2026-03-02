@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiFetchJson } from "@/lib/api";
+import { isAdminOrAbove } from "@/lib/user";
 import {
   Package, Users, Calendar, ClipboardList, Factory, Wrench,
   AlertTriangle, TrendingUp, ArrowUpRight, ArrowDownRight, Minus,
@@ -34,7 +35,7 @@ interface InventoryByType {
   item_type: string;
   count: number;
   total_qty: number;
-  total_value: number;
+  total_value: number | null;
 }
 
 interface RecentInventory {
@@ -536,8 +537,8 @@ export default function DashboardPage() {
 
         </div>
 
-        {/* ── Inventory Value Summary ────────────────────────────────────── */}
-        {data.inventory_by_type.length > 0 && (
+        {/* ── Inventory Value Summary (admin/super_admin only) ───────── */}
+        {isAdminOrAbove() && data.inventory_by_type.length > 0 && (
           <div className="rounded-xl border bg-card p-4 shadow-sm">
             <p className="text-sm font-semibold mb-3">Inventory Value Summary</p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -548,7 +549,7 @@ export default function DashboardPage() {
                   <p className="text-sm text-muted-foreground">
                     {t.total_qty.toLocaleString()} units
                   </p>
-                  {t.total_value > 0 && (
+                  {t.total_value != null && t.total_value > 0 && (
                     <p className="text-sm font-medium text-emerald-600 mt-0.5">
                       ₹{t.total_value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                     </p>

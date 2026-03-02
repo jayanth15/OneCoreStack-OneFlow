@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiFetchJson } from "@/lib/api";
+import { getCurrentUser, isWorker } from "@/lib/user";
 import { ArrowLeft } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -41,6 +42,7 @@ function NewJobCardInner() {
   const [toolDie, setToolDie] = useState("");
   const [machine, setMachine] = useState("");
   const [worker, setWorker] = useState("");
+  const [workerLocked, setWorkerLocked] = useState(false);
   const [hoursWorked, setHoursWorked] = useState("0");
   const [qtyProduced, setQtyProduced] = useState("0");
   const [workDate, setWorkDate] = useState("");
@@ -60,6 +62,12 @@ function NewJobCardInner() {
         setWorkers(w);
         if (!processName && o.processes.length > 0) {
           setProcessName(o.processes[0].name);
+        }
+        // Auto-select worker for worker-role users
+        const me = getCurrentUser();
+        if (me && isWorker()) {
+          setWorker(me.username);
+          setWorkerLocked(true);
         }
       })
       .catch(() => {})
@@ -168,13 +176,16 @@ function NewJobCardInner() {
             <div className="space-y-1.5">
               <Label htmlFor="worker">Worker Name</Label>
               <select id="worker" value={worker}
-                onChange={(e) => setWorker(e.target.value)} disabled={saving}
+                onChange={(e) => setWorker(e.target.value)} disabled={saving || workerLocked}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
                 <option value="">— Select worker —</option>
                 {workers.map((w) => (
                   <option key={w.id} value={w.username}>{w.username}</option>
                 ))}
               </select>
+              {workerLocked && (
+                <p className="text-xs text-muted-foreground">Auto-assigned to your account.</p>
+              )}
             </div>
 
             {/* Qty + Hours */}

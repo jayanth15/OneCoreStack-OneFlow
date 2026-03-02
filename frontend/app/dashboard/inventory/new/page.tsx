@@ -16,6 +16,7 @@ import { ArrowLeft, ImagePlus, X } from "lucide-react";
 
 const STD_UNITS = ["pcs", "kg", "g", "ltr", "ml", "mtr", "cm", "box", "roll", "set"];
 const STORAGE_TYPES = ["Bin", "Tray", "Barrel", "Rack", "Shelf", "Box", "Pallet"];
+const SFG_STORAGE_TYPES = ["Ganny Bag", "Barrel (Big)", "Barrel (Small)", "Floor", "Trolley", "Black Bin", "Small Bin", "Big Bin"];
 
 const BLANK = {
   code: "",
@@ -200,7 +201,7 @@ export default function NewInventoryPage() {
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
               >
                 <option value="">— None —</option>
-                {STORAGE_TYPES.map((s) => <option key={s} value={s}>{s}</option>)}
+                {(form.item_type === "semi_finished" ? SFG_STORAGE_TYPES : STORAGE_TYPES).map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">

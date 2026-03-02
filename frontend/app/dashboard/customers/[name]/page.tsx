@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { apiFetchJson } from "@/lib/api";
+import { isAdminOrAbove } from "@/lib/user";
 import {
   ArrowLeft, Package, PackageCheck, PackageX, CalendarDays,
   TrendingDown, TrendingUp, Clock, Users, Layers,
@@ -113,6 +114,11 @@ export default function CustomerDetailPage() {
   const { name } = useParams<{ name: string }>();
   const router = useRouter();
   const customerName = decodeURIComponent(name);
+
+  // Role gate: only admin/super_admin can see this page
+  useEffect(() => {
+    if (!isAdminOrAbove()) { router.replace("/dashboard"); }
+  }, [router]);
 
   const [data, setData] = useState<CustomerDetail | null>(null);
   const [loading, setLoading] = useState(true);
