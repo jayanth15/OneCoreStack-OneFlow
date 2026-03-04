@@ -475,7 +475,7 @@ function InventoryPageInner() {
                   <th className="px-4 py-3 text-right font-medium">Available</th>
                   {showRMCols && <th className="px-4 py-3 text-right font-medium">Required</th>}
                   {showFGCols && <th className="px-4 py-3 text-left font-medium">Customers</th>}
-                  <th className="px-4 py-3 text-left font-medium">Storage</th>
+                  <th className="px-4 py-3 text-left font-medium">Storage/Location</th>
                   <th className="px-4 py-3 text-center font-medium w-16">Sched.</th>
                   {admin && <th className="px-4 py-3 text-right font-medium w-24">Rate</th>}
                   <th className="px-4 py-3 text-right font-medium">Actions</th>
