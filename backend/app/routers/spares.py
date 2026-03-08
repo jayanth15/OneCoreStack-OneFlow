@@ -30,7 +30,7 @@ from pydantic import BaseModel
 from sqlmodel import Session, func, select
 
 from app.core.database import get_session
-from app.dependencies.auth import get_current_user, is_admin_or_above
+from app.dependencies.auth import get_current_user, require_admin
 from app.models.spare_category import SpareCategory
 from app.models.spare_item import SpareItem
 from app.models.user import User
@@ -39,7 +39,7 @@ router = APIRouter(prefix="/api/v1/spares", tags=["spares"])
 
 SessionDep = Annotated[Session, Depends(get_session)]
 CurrentUser = Annotated[User, Depends(get_current_user)]
-AdminUser = Annotated[User, Depends(is_admin_or_above)]
+AdminUser = Annotated[User, Depends(require_admin)]
 
 
 # ── Pydantic schemas ──────────────────────────────────────────────────────────

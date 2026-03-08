@@ -48,7 +48,7 @@ export default function SparesPage() {
   const [search, setSearch] = useState("");
   const [searchDraft, setSearchDraft] = useState("");
 
-  // Create / Edit sheet
+  // Edit sheet
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editing, setEditing] = useState<SpareCategory | null>(null);
   const [form, setForm] = useState({ name: "", description: "" });
@@ -73,13 +73,6 @@ export default function SparesPage() {
 
   useEffect(() => { fetchCategories(); }, [search]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function openCreate() {
-    setEditing(null);
-    setForm({ name: "", description: "" });
-    setFormError(null);
-    setSheetOpen(true);
-  }
-
   function openEdit(cat: SpareCategory) {
     setEditing(cat);
     setForm({ name: cat.name, description: cat.description ?? "" });
@@ -92,17 +85,10 @@ export default function SparesPage() {
     setSaving(true);
     setFormError(null);
     try {
-      if (editing) {
-        await apiFetchJson(`/api/v1/spares/categories/${editing.id}`, {
-          method: "PUT",
-          body: JSON.stringify({ name: form.name.trim(), description: form.description || null }),
-        });
-      } else {
-        await apiFetchJson("/api/v1/spares/categories", {
-          method: "POST",
-          body: JSON.stringify({ name: form.name.trim(), description: form.description || null }),
-        });
-      }
+      await apiFetchJson(`/api/v1/spares/categories/${editing!.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ name: form.name.trim(), description: form.description || null }),
+      });
       setSheetOpen(false);
       fetchCategories();
     } catch (e: unknown) {
@@ -142,7 +128,7 @@ export default function SparesPage() {
           </BreadcrumbList>
         </Breadcrumb>
         {admin && (
-          <Button size="sm" className="ml-auto" onClick={openCreate}>
+          <Button size="sm" className="ml-auto" onClick={() => router.push("/dashboard/inventory/spares/new")}>
             <PlusIcon className="size-4 mr-1" />
             New Category
           </Button>
@@ -202,7 +188,7 @@ export default function SparesPage() {
               {search ? `No categories matching "${search}".` : "No spare categories yet."}
             </p>
             {admin && !search && (
-              <Button size="sm" onClick={openCreate}>
+              <Button size="sm" onClick={() => router.push("/dashboard/inventory/spares/new")}>
                 <PlusIcon className="size-4 mr-1" /> Create First Category
               </Button>
             )}
@@ -268,11 +254,11 @@ export default function SparesPage() {
         )}
       </div>
 
-      {/* Create / Edit sheet */}
+      {/* Edit sheet */}
       <Sheet open={sheetOpen} onOpenChange={(o) => !o && setSheetOpen(false)}>
         <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
           <SheetHeader className="mb-6">
-            <SheetTitle>{editing ? "Edit Category" : "New Spare Category"}</SheetTitle>
+            <SheetTitle>Edit Category</SheetTitle>
           </SheetHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
@@ -300,7 +286,7 @@ export default function SparesPage() {
             {formError && <p className="text-sm text-destructive">{formError}</p>}
             <div className="flex gap-3 pt-2">
               <Button onClick={handleSave} disabled={saving} className="flex-1">
-                {saving ? "Saving…" : editing ? "Save Changes" : "Create Category"}
+                {saving ? "Saving…" : "Save Changes"}
               </Button>
               <Button variant="outline" onClick={() => setSheetOpen(false)} disabled={saving}>
                 Cancel
