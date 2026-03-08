@@ -28,6 +28,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _migrate_job_card_worker_id()
     # Migrate schedule customer names → Customer table (runs once, idempotent)
     _seed_customers_from_schedules()
+    # Auto-seed a default admin user on a brand-new / empty database
+    _auto_seed_if_empty()
     yield
 
 
@@ -216,6 +218,38 @@ def _seed_customers_from_schedules() -> None:
             if name and name.strip():
                 session.add(Customer(name=name.strip()))
         session.commit()
+
+
+def _auto_seed_if_empty() -> None:
+    """If the database has no users at all (fresh deployment), create a default
+    super_admin account so the app is immediately usable.
+    Credentials: username=admin  password=admin123
+    Change the password immediately after first login.
+    """
+    from app.core.database import engine
+    from app.core.security import hash_password
+    from app.models.user import User
+    from sqlmodel import Session, select
+
+    with Session(engine) as session:
+        existing = session.exec(select(User)).first()
+        if existing:
+            return  # DB already has users — do nothing
+
+        default_admin = User(
+            username="admin",
+            email="admin@oneflow.local",
+            password_hash=hash_password("admin123"),
+            role="super_admin",
+            is_active=True,
+        )
+        session.add(default_admin)
+        session.commit()
+        import logging
+        logging.getLogger("oneflow").warning(
+            "[AUTO-SEED] No users found — created default super_admin: "
+            "username=admin  password=admin123  — CHANGE THIS PASSWORD NOW!"
+        )
 
 
 app = FastAPI(

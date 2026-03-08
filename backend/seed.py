@@ -1,6 +1,6 @@
 """
 OneFlow comprehensive seed script.
-Wipes oneflow.db and re-creates it with realistic sample data.
+Wipes the database and re-creates it with realistic sample data.
 
 Run from backend/ directory:
     venv-linux/bin/python3 seed.py
@@ -11,6 +11,7 @@ from datetime import datetime, timezone, date, timedelta
 sys.path.insert(0, os.path.dirname(__file__))
 
 from sqlmodel import Session
+from app.core.config import settings
 from app.core.database import engine, init_db
 from app.core.security import hash_password
 from app.models.user import User
@@ -27,11 +28,21 @@ from app.models.job_card import JobCard
 from app.models.work_type import WorkType
 from app.models.work_log import WorkLog
 
-# ── wipe old DB ──────────────────────────────────────────────────────────────
-DB_PATH = os.path.join(os.path.dirname(__file__), "oneflow.db")
-if os.path.exists(DB_PATH):
-    os.remove(DB_PATH)
-    print(f"Deleted  {DB_PATH}")
+# ── resolve DB file path from the configured DATABASE_URL ────────────────────
+if settings.database_url.startswith("sqlite:///"):
+    raw = settings.database_url[len("sqlite:///"):]
+    DB_PATH = raw if os.path.isabs(raw) else os.path.join(os.path.dirname(__file__), raw)
+else:
+    DB_PATH = None  # non-SQLite; skip file deletion
+
+print(f"DATABASE_URL : {settings.database_url}")
+if DB_PATH:
+    print(f"DB file path : {DB_PATH}")
+    if os.path.exists(DB_PATH):
+        os.remove(DB_PATH)
+        print(f"Deleted      {DB_PATH}")
+    else:
+        print(f"(file did not exist, creating fresh)")
 
 # ── recreate all tables ───────────────────────────────────────────────────────
 init_db()

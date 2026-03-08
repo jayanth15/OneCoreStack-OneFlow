@@ -3,7 +3,14 @@ from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Always load .env from the backend/ directory, regardless of where uvicorn is launched from
-_ENV_FILE = Path(__file__).resolve().parent.parent.parent / ".env"
+_BACKEND_DIR = Path(__file__).resolve().parent.parent  # backend/
+_ENV_FILE = _BACKEND_DIR.parent / ".env"
+
+# Absolute default DB path — avoids CWD-relative surprises on deployment.
+# DB lives in app/db/ so that directory can be bind-mounted on the VPS.
+_DB_DIR = _BACKEND_DIR / "app" / "db"
+_DB_DIR.mkdir(parents=True, exist_ok=True)  # create the folder if it doesn't exist
+_DEFAULT_DB_URL = f"sqlite:///{_DB_DIR / 'oneflow.db'}"
 
 
 class Settings(BaseSettings):
@@ -17,8 +24,10 @@ class Settings(BaseSettings):
     app_name: str = "OneFlow"
     debug: bool = False
 
-    # Database
-    database_url: str = "sqlite:///./db/oneflow.db"
+    # Database — default is absolute so it is NOT affected by CWD.
+    # For Docker/Dokploy with a volume mount, set DATABASE_URL in the environment:
+    #   DATABASE_URL=sqlite:////data/oneflow.db
+    database_url: str = _DEFAULT_DB_URL
 
     # JWT
     secret_key: str = "change-me-in-production-use-openssl-rand-hex-32"

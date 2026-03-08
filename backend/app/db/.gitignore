@@ -1,0 +1,4 @@
+# Ignore the SQLite database file but keep this directory tracked
+*.db
+*.db-shm
+*.db-wal
