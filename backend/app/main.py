@@ -15,6 +15,7 @@ from app.routers import inventory as inventory_router
 from app.routers import production as production_router
 from app.routers import schedule as schedule_router
 from app.routers import users as users_router
+from app.routers import spares as spares_router
 from app.routers import work_types as work_types_router
 
 
@@ -278,6 +279,7 @@ app.include_router(production_router.router)
 app.include_router(schedule_router.router)
 app.include_router(users_router.router)
 app.include_router(work_types_router.router)
+app.include_router(spares_router.router)
 
 # ── Optional module routers (enabled by env var) ──────────────────────────────
 # Example:

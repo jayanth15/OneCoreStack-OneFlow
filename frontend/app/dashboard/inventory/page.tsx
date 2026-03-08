@@ -22,6 +22,7 @@ import { isAdminOrAbove } from "@/lib/user";
 import {
   PlusIcon, Pencil, Trash2, AlertTriangle, PackagePlus,
   PackageMinus, History, TrendingDown, Eye, Search, ChevronLeft, ChevronRight,
+  Package, Box, Layers, Wrench,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -122,6 +123,127 @@ const isShortfall = (item: InventoryItem) =>
   item.required_qty != null &&
   item.required_qty > 0 &&
   item.quantity_on_hand < item.required_qty;
+
+// ── Inventory Landing (shown when no ?tab param) ─────────────────────────────
+
+function InventoryLanding() {
+  const router = useRouter();
+  const [counts, setCounts] = useState<Record<string, number | null>>({
+    finished_good: null, raw_material: null, semi_finished: null, spares: null,
+  });
+
+  useEffect(() => {
+    const fetchCount = async (type: string) => {
+      try {
+        const d = await apiFetchJson<{ total: number }>(
+          `/api/v1/inventory?item_type=${type}&page_size=1&include_inactive=false`
+        );
+        return d.total;
+      } catch { return null; }
+    };
+    const fetchSpares = async () => {
+      try {
+        const d = await apiFetchJson<unknown[]>(`/api/v1/spares/categories`);
+        return Array.isArray(d) ? d.length : null;
+      } catch { return null; }
+    };
+    Promise.all([
+      fetchCount("finished_good"),
+      fetchCount("raw_material"),
+      fetchCount("semi_finished"),
+      fetchSpares(),
+    ]).then(([fg, rm, sf, sp]) =>
+      setCounts({ finished_good: fg, raw_material: rm, semi_finished: sf, spares: sp })
+    );
+  }, []);
+
+  const CARDS = [
+    {
+      id: "finished_good", label: "Finished Goods", desc: "Final products ready for dispatch",
+      href: "/dashboard/inventory?tab=finished_good",
+      icon: <Package className="size-8" />,
+      accent: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400",
+      border: "hover:border-teal-400",
+    },
+    {
+      id: "raw_material", label: "Raw Materials", desc: "Input materials and components",
+      href: "/dashboard/inventory?tab=raw_material",
+      icon: <Box className="size-8" />,
+      accent: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+      border: "hover:border-orange-400",
+    },
+    {
+      id: "semi_finished", label: "Semi Finished", desc: "Work-in-progress goods",
+      href: "/dashboard/inventory?tab=semi_finished",
+      icon: <Layers className="size-8" />,
+      accent: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
+      border: "hover:border-indigo-400",
+    },
+    {
+      id: "spares", label: "Spares", desc: "Spare parts organised by category",
+      href: "/dashboard/inventory/spares",
+      icon: <Wrench className="size-8" />,
+      accent: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+      border: "hover:border-amber-400",
+    },
+  ];
+
+  return (
+    <>
+      <header className="flex h-16 shrink-0 items-center border-b px-6">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem><BreadcrumbPage>Inventory</BreadcrumbPage></BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+        <Button size="sm" className="ml-auto" onClick={() => router.push("/dashboard/inventory/new")}>
+          <PlusIcon className="size-4 mr-1" />
+          Add Item
+        </Button>
+      </header>
+      <div className="p-4 md:p-6 space-y-4">
+        <div>
+          <h1 className="text-xl font-semibold">Inventory</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Select an inventory type to view and manage items.</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {CARDS.map((c) => {
+            const count = counts[c.id];
+            return (
+              <button
+                key={c.id}
+                onClick={() => router.push(c.href)}
+                className={`text-left rounded-xl border-2 border-transparent p-5 space-y-3 bg-card shadow-sm hover:shadow-md transition-all cursor-pointer ${c.border}`}
+              >
+                <div className={`flex size-14 items-center justify-center rounded-xl ${c.accent}`}>
+                  {c.icon}
+                </div>
+                <div>
+                  <p className="text-base font-semibold">{c.label}</p>
+                  <p className="text-sm text-muted-foreground mt-0.5">{c.desc}</p>
+                </div>
+                <p className="text-2xl font-bold tabular-nums">
+                  {count === null
+                    ? <span className="text-muted-foreground text-base animate-pulse">—</span>
+                    : <>{count}<span className="text-sm font-normal text-muted-foreground ml-1">{c.id === "spares" ? "categories" : "items"}</span></>}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Dispatcher — shows landing or the full table depending on ?tab ────────────
+
+function InventoryDispatcher() {
+  const searchParams = useSearchParams();
+  const tab = searchParams.get("tab");
+  if (!tab) return <InventoryLanding />;
+  return <InventoryPageInner />;
+}
 
 // ── Inner component (reads searchParams) ─────────────────────────────────────
 
@@ -797,7 +919,7 @@ function InventoryPageInner() {
   );
 }
 
-// ── Page export — wraps inner in Suspense so useSearchParams works ─────────────
+// ── Page export — wraps in Suspense so useSearchParams works ────────────────
 
 export default function InventoryPage() {
   return (
@@ -807,7 +929,7 @@ export default function InventoryPage() {
         <Skeleton className="h-64 w-full" />
       </div>
     }>
-      <InventoryPageInner />
+      <InventoryDispatcher />
     </Suspense>
   );
 }

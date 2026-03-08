@@ -13,5 +13,7 @@ from app.models.schedule import Schedule  # noqa: F401
 from app.models.token import RefreshToken  # noqa: F401
 from app.models.user import User  # noqa: F401
 from app.models.user_department import UserDepartment  # noqa: F401
+from app.models.spare_category import SpareCategory  # noqa: F401
+from app.models.spare_item import SpareItem  # noqa: F401
 from app.models.work_log import WorkLog  # noqa: F401
 from app.models.work_type import WorkType  # noqa: F401
