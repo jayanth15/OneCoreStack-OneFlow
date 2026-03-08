@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage,
+  Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -410,7 +410,13 @@ function InventoryPageInner() {
       <header className="flex h-16 shrink-0 items-center border-b px-6">
         <Breadcrumb>
           <BreadcrumbList>
-            <BreadcrumbItem><BreadcrumbPage>Inventory</BreadcrumbPage></BreadcrumbItem>
+            <BreadcrumbItem>
+              <Link href="/dashboard/inventory" className="text-muted-foreground hover:text-foreground text-sm">Inventory</Link>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>{TABS.find((t) => t.id === tab)?.label ?? "Inventory"}</BreadcrumbPage>
+            </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
       </header>
@@ -419,9 +425,9 @@ function InventoryPageInner() {
         {/* Heading */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-xl font-semibold">Inventory</h1>
+            <h1 className="text-xl font-semibold">{TABS.find((t) => t.id === tab)?.label ?? "Inventory"}</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Finished goods, raw materials and semi-finished stock — sorted by last updated.
+              {tab === "raw_material" ? "Input materials and components — sorted by last updated." : tab === "semi_finished" ? "Work-in-progress goods — sorted by last updated." : tab === "all" ? "All inventory items — sorted by last updated." : "Final products ready for dispatch — sorted by last updated."}
             </p>
           </div>
           <Button size="sm" onClick={() => router.push("/dashboard/inventory/new")}>
@@ -448,26 +454,14 @@ function InventoryPageInner() {
           </div>
         )}
 
-        {/* Tabs + Search */}
+        {/* Search + Inactive toggle */}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-          <div className="flex items-center gap-1 border-b overflow-x-auto flex-1">
-            {TABS.map((t) => (
-              <button key={t.id} onClick={() => setTab(t.id)}
-                className={[
-                  "px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors border-b-2 -mb-px",
-                  tab === t.id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground",
-                ].join(" ")}
-              >
-                {t.label}
-              </button>
-            ))}
-            <div className="ml-auto pb-1 shrink-0 pl-2">
-              <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
-                <input type="checkbox" checked={showInactive}
-                  onChange={(e) => toggleInactive(e.target.checked)} className="size-3 rounded" />
-                Show inactive
-              </label>
-            </div>
+          <div className="flex items-center gap-3 ml-auto flex-wrap">
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+              <input type="checkbox" checked={showInactive}
+                onChange={(e) => toggleInactive(e.target.checked)} className="size-3 rounded" />
+              Show inactive
+            </label>
           </div>
           {/* Search form */}
           <form onSubmit={(e) => { e.preventDefault(); submitSearch(); }} className="flex gap-1.5 shrink-0">
