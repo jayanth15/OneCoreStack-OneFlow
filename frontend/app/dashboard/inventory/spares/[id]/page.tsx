@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage,
@@ -71,6 +71,7 @@ const BLANK_FORM = {
 export default function SpareCategoryPage() {
   const params = useParams();
   const catId = Number(params.id);
+  const router = useRouter();
 
   const [category, setCategory] = useState<SpareCategory | null>(null);
   const [items, setItems] = useState<SpareItem[]>([]);
@@ -81,7 +82,7 @@ export default function SpareCategoryPage() {
   const [searchDraft, setSearchDraft] = useState("");
   const [showInactive, setShowInactive] = useState(false);
 
-  // Create / Edit item sheet
+  // Edit item sheet
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<SpareItem | null>(null);
   const [form, setForm] = useState<typeof BLANK_FORM>({ ...BLANK_FORM });
@@ -122,13 +123,6 @@ export default function SpareCategoryPage() {
     setForm((f) => ({ ...f, [key]: val }));
   }
 
-  function openCreate() {
-    setEditingItem(null);
-    setForm({ ...BLANK_FORM });
-    setFormError(null);
-    setSheetOpen(true);
-  }
-
   function openEdit(item: SpareItem) {
     setEditingItem(item);
     setForm({
@@ -160,15 +154,9 @@ export default function SpareCategoryPage() {
       notes: form.notes || null,
     };
     try {
-      if (editingItem) {
-        await apiFetchJson(`/api/v1/spares/items/${editingItem.id}`, {
-          method: "PUT", body: JSON.stringify(body),
-        });
-      } else {
-        await apiFetchJson(`/api/v1/spares/categories/${catId}/items`, {
-          method: "POST", body: JSON.stringify(body),
-        });
-      }
+      await apiFetchJson(`/api/v1/spares/items/${editingItem!.id}`, {
+        method: "PUT", body: JSON.stringify(body),
+      });
       setSheetOpen(false);
       fetchData();
     } catch (e: unknown) {
@@ -246,7 +234,7 @@ export default function SpareCategoryPage() {
           </BreadcrumbList>
         </Breadcrumb>
         {admin && (
-          <Button size="sm" className="ml-auto" onClick={openCreate}>
+          <Button size="sm" className="ml-auto" onClick={() => router.push(`/dashboard/inventory/spares/${catId}/items/new`)}>
             <PlusIcon className="size-4 mr-1" />
             Add Item
           </Button>
@@ -453,11 +441,11 @@ export default function SpareCategoryPage() {
         </div>
       </div>
 
-      {/* ── Create / Edit Item Sheet ──────────────────────────────────────── */}
+      {/* ── Edit Item Sheet ───────────────────────────────────────────────── */}
       <Sheet open={sheetOpen} onOpenChange={(o) => !o && setSheetOpen(false)}>
         <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
           <SheetHeader className="mb-6">
-            <SheetTitle>{editingItem ? `Edit — ${editingItem.name}` : "Add Spare Item"}</SheetTitle>
+            <SheetTitle>Edit — {editingItem?.name}</SheetTitle>
           </SheetHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
@@ -511,7 +499,7 @@ export default function SpareCategoryPage() {
             {formError && <p className="text-sm text-destructive">{formError}</p>}
             <div className="flex gap-3 pt-2">
               <Button onClick={handleSave} disabled={saving} className="flex-1">
-                {saving ? "Saving…" : editingItem ? "Save Changes" : "Add Item"}
+                {saving ? "Saving…" : "Save Changes"}
               </Button>
               <Button variant="outline" onClick={() => setSheetOpen(false)} disabled={saving}>Cancel</Button>
             </div>
