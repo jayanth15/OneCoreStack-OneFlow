@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     debug: bool = False
 
     # Database
-    database_url: str = "sqlite:///./oneflow.db"
+    database_url: str = "sqlite:///./db/oneflow.db"
 
     # JWT
     secret_key: str = "change-me-in-production-use-openssl-rand-hex-32"
