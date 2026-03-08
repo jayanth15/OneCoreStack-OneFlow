@@ -67,22 +67,30 @@ class CategoryOut(BaseModel):
 class ItemCreate(BaseModel):
     name: str
     part_number: Optional[str] = None
-    description: Optional[str] = None
-    quantity_on_hand: float = 0.0
+    part_description: Optional[str] = None
+    variant_model: Optional[str] = None
+    rate: Optional[float] = None
     unit: str = "pcs"
+    opening_qty: float = 0.0
+    recorded_qty: float = 0.0
     reorder_level: float = 0.0
-    storage_location: Optional[str] = None
-    notes: Optional[str] = None
+    storage_type: Optional[str] = None
+    tags: Optional[str] = None
+    image_base64: Optional[str] = None
 
 class ItemUpdate(BaseModel):
     name: Optional[str] = None
     part_number: Optional[str] = None
-    description: Optional[str] = None
-    quantity_on_hand: Optional[float] = None
+    part_description: Optional[str] = None
+    variant_model: Optional[str] = None
+    rate: Optional[float] = None
     unit: Optional[str] = None
+    opening_qty: Optional[float] = None
+    recorded_qty: Optional[float] = None
     reorder_level: Optional[float] = None
-    storage_location: Optional[str] = None
-    notes: Optional[str] = None
+    storage_type: Optional[str] = None
+    tags: Optional[str] = None
+    image_base64: Optional[str] = None
     is_active: Optional[bool] = None
 
 class ItemOut(BaseModel):
@@ -90,13 +98,18 @@ class ItemOut(BaseModel):
     category_id: int
     name: str
     part_number: Optional[str]
-    description: Optional[str]
-    quantity_on_hand: float
+    part_description: Optional[str]
+    variant_model: Optional[str]
+    rate: Optional[float]
     unit: str
+    opening_qty: float
+    recorded_qty: float
     reorder_level: float
-    storage_location: Optional[str]
-    notes: Optional[str]
+    storage_type: Optional[str]
+    tags: Optional[str]
+    image_base64: Optional[str]
     is_active: bool
+    created_at: str
     updated_at: str
 
 class AdjustRequest(BaseModel):
@@ -128,7 +141,7 @@ def _category_out(session: Session, cat: SpareCategory) -> CategoryOut:
             SpareItem.category_id == cat.id,
             SpareItem.is_active == True,
             SpareItem.reorder_level > 0,
-            SpareItem.quantity_on_hand <= SpareItem.reorder_level,
+            SpareItem.recorded_qty <= SpareItem.reorder_level,
         )
     ).one()
     return CategoryOut(
@@ -142,20 +155,34 @@ def _category_out(session: Session, cat: SpareCategory) -> CategoryOut:
         updated_at=cat.updated_at.isoformat(),
     )
 
+def _dt_iso(val: "datetime | None") -> str:
+    """Return ISO string; fall back to 'now' if the value is None (legacy rows)."""
+    if val is None:
+        return datetime.now(tz=timezone.utc).isoformat()
+    if isinstance(val, str):
+        return val
+    return val.isoformat()
+
+
 def _item_out(item: SpareItem) -> ItemOut:
     return ItemOut(
         id=item.id,  # type: ignore
         category_id=item.category_id,
         name=item.name,
         part_number=item.part_number,
-        description=item.description,
-        quantity_on_hand=item.quantity_on_hand,
+        part_description=item.part_description,
+        variant_model=item.variant_model,
+        rate=item.rate,
         unit=item.unit,
+        opening_qty=item.opening_qty,
+        recorded_qty=item.recorded_qty,
         reorder_level=item.reorder_level,
-        storage_location=item.storage_location,
-        notes=item.notes,
+        storage_type=item.storage_type,
+        tags=item.tags,
+        image_base64=item.image_base64,
         is_active=item.is_active,
-        updated_at=item.updated_at.isoformat(),
+        created_at=_dt_iso(item.created_at),
+        updated_at=_dt_iso(item.updated_at),
     )
 
 
@@ -264,12 +291,16 @@ def create_item(
         category_id=cat_id,
         name=body.name.strip(),
         part_number=body.part_number,
-        description=body.description,
-        quantity_on_hand=body.quantity_on_hand,
+        part_description=body.part_description,
+        variant_model=body.variant_model,
+        rate=body.rate,
         unit=body.unit,
+        opening_qty=body.opening_qty,
+        recorded_qty=body.recorded_qty if body.recorded_qty else body.opening_qty,
         reorder_level=body.reorder_level,
-        storage_location=body.storage_location,
-        notes=body.notes,
+        storage_type=body.storage_type,
+        tags=body.tags,
+        image_base64=body.image_base64,
     )
     session.add(item)
     session.commit()
@@ -319,11 +350,11 @@ def adjust_item_stock(
 ) -> ItemOut:
     item = _item_or_404(session, item_id)
     if body.adjustment_type == "add":
-        item.quantity_on_hand += body.quantity
+        item.recorded_qty += body.quantity
     elif body.adjustment_type == "subtract":
-        item.quantity_on_hand = max(0.0, item.quantity_on_hand - body.quantity)
+        item.recorded_qty = max(0.0, item.recorded_qty - body.quantity)
     elif body.adjustment_type == "set":
-        item.quantity_on_hand = body.quantity
+        item.recorded_qty = body.quantity
     else:
         raise HTTPException(status_code=400, detail="adjustment_type must be add | subtract | set")
     item.updated_at = datetime.now(tz=timezone.utc)

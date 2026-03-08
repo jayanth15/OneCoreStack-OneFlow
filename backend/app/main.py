@@ -29,6 +29,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _migrate_job_card_worker_id()
     # Migrate schedule customer names → Customer table (runs once, idempotent)
     _seed_customers_from_schedules()
+    # Migrate spare_item table to v2 schema (new fields)
+    _migrate_spare_item_v2()
     # Auto-seed a default admin user on a brand-new / empty database
     _auto_seed_if_empty()
     yield
@@ -78,6 +80,107 @@ def _migrate_job_card_worker_id() -> None:
             """))
             conn.commit()
 
+
+def _migrate_spare_item_v2() -> None:
+    """
+    Migrate spare_item to v2 schema (idempotent).
+
+    Phase 1 – ADD new columns if missing (fast path for fresh DBs).
+    Phase 2 – If the legacy quantity_on_hand column still exists, rebuild the
+               table to drop it (and its NOT NULL constraint) so that INSERTs
+               from the new SQLModel model no longer fail.
+    """
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    new_columns = [
+        ("part_description", "TEXT"),
+        ("variant_model",    "TEXT"),
+        ("rate",             "REAL"),
+        ("opening_qty",      "REAL NOT NULL DEFAULT 0.0"),
+        ("recorded_qty",     "REAL NOT NULL DEFAULT 0.0"),
+        ("storage_type",     "TEXT"),
+        ("tags",             "TEXT"),
+        ("image_base64",     "TEXT"),
+        ("created_at",       "TEXT"),
+        ("updated_at",       "TEXT"),
+    ]
+    with engine.connect() as conn:
+        existing = [row[1] for row in conn.execute(text("PRAGMA table_info(spare_item)")).fetchall()]
+
+        # Phase 1: add any missing v2 columns
+        for col_name, col_def in new_columns:
+            if col_name not in existing:
+                conn.execute(text(f"ALTER TABLE spare_item ADD COLUMN {col_name} {col_def}"))
+        conn.commit()
+
+        # Refresh column list after phase 1
+        existing = [row[1] for row in conn.execute(text("PRAGMA table_info(spare_item)")).fetchall()]
+
+        # Phase 2: if the old quantity_on_hand column still exists, rebuild the table
+        if "quantity_on_hand" in existing:
+            # Seed recorded_qty from quantity_on_hand before dropping it
+            conn.execute(text("""
+                UPDATE spare_item SET recorded_qty = quantity_on_hand
+                WHERE recorded_qty = 0.0 AND quantity_on_hand > 0
+            """))
+            conn.execute(text("""
+                UPDATE spare_item SET opening_qty = quantity_on_hand
+                WHERE opening_qty = 0.0 AND quantity_on_hand > 0
+            """))
+
+            # SQLite table rebuild to drop quantity_on_hand (and legacy cols)
+            # ── Step 1: create new table with correct schema ──────────────────
+            conn.execute(text("""
+                CREATE TABLE spare_item_new (
+                    id              INTEGER PRIMARY KEY,
+                    category_id     INTEGER NOT NULL REFERENCES spare_category(id),
+                    name            TEXT    NOT NULL,
+                    part_number     TEXT,
+                    part_description TEXT,
+                    variant_model   TEXT,
+                    rate            REAL,
+                    unit            TEXT    NOT NULL DEFAULT 'pcs',
+                    opening_qty     REAL    NOT NULL DEFAULT 0.0,
+                    recorded_qty    REAL    NOT NULL DEFAULT 0.0,
+                    reorder_level   REAL    NOT NULL DEFAULT 0.0,
+                    storage_type    TEXT,
+                    tags            TEXT,
+                    image_base64    TEXT,
+                    is_active       INTEGER NOT NULL DEFAULT 1,
+                    created_at      TEXT,
+                    updated_at      TEXT
+                )
+            """))
+
+            # ── Step 2: copy data, mapping old columns → new ──────────────────
+            # Determine which columns actually exist to build a safe SELECT list
+            copy_cols = [
+                "id", "category_id", "name", "part_number", "part_description",
+                "variant_model", "rate", "unit", "opening_qty", "recorded_qty",
+                "reorder_level", "storage_type", "tags", "image_base64",
+                "is_active", "created_at", "updated_at",
+            ]
+            safe_select = ", ".join(
+                col if col in existing else f"NULL AS {col}"
+                for col in copy_cols
+            )
+            conn.execute(text(f"""
+                INSERT INTO spare_item_new ({', '.join(copy_cols)})
+                SELECT {safe_select} FROM spare_item
+            """))
+
+            # ── Step 3: swap tables ───────────────────────────────────────────
+            conn.execute(text("DROP TABLE spare_item"))
+            conn.execute(text("ALTER TABLE spare_item_new RENAME TO spare_item"))
+            conn.commit()
+    # Phase 3: backfill NULL created_at / updated_at for any legacy rows
+    from datetime import datetime, timezone
+    with engine.connect() as conn:
+        now_str = datetime.now(tz=timezone.utc).isoformat()
+        conn.execute(text(f"UPDATE spare_item SET created_at = '{now_str}' WHERE created_at IS NULL"))
+        conn.execute(text(f"UPDATE spare_item SET updated_at = '{now_str}' WHERE updated_at IS NULL"))
+        conn.commit()
 
 def _migrate_production_plan_v2() -> None:
     """
