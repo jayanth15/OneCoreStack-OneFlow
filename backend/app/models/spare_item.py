@@ -9,6 +9,7 @@ class SpareItem(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     category_id: int = Field(foreign_key="spare_category.id", index=True)
+    sub_category_id: Optional[int] = Field(default=None, foreign_key="spare_sub_category.id", index=True)
 
     # Core identification
     name: str = Field(index=True)              # short item name

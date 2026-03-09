@@ -17,6 +17,9 @@ from app.routers import schedule as schedule_router
 from app.routers import users as users_router
 from app.routers import spares as spares_router
 from app.routers import work_types as work_types_router
+from app.routers import consumables as consumables_router
+from app.models.spare_sub_category import SpareSubCategory  # noqa: F401 — ensures table is created
+from app.models.consumable import Consumable  # noqa: F401 — ensures table is created
 
 
 @asynccontextmanager
@@ -31,6 +34,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _seed_customers_from_schedules()
     # Migrate spare_item table to v2 schema (new fields)
     _migrate_spare_item_v2()
+    # Migrate spare_item to v3: add sub_category_id column
+    _migrate_spare_item_v3()
     # Auto-seed a default admin user on a brand-new / empty database
     _auto_seed_if_empty()
     yield
@@ -181,6 +186,20 @@ def _migrate_spare_item_v2() -> None:
         conn.execute(text(f"UPDATE spare_item SET created_at = '{now_str}' WHERE created_at IS NULL"))
         conn.execute(text(f"UPDATE spare_item SET updated_at = '{now_str}' WHERE updated_at IS NULL"))
         conn.commit()
+
+def _migrate_spare_item_v3() -> None:
+    """Add sub_category_id column to spare_item (idempotent)."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        existing = [row[1] for row in conn.execute(text("PRAGMA table_info(spare_item)")).fetchall()]
+        if "sub_category_id" not in existing:
+            conn.execute(text(
+                "ALTER TABLE spare_item ADD COLUMN sub_category_id INTEGER REFERENCES spare_sub_category(id)"
+            ))
+            conn.commit()
+
 
 def _migrate_production_plan_v2() -> None:
     """
@@ -383,6 +402,7 @@ app.include_router(schedule_router.router)
 app.include_router(users_router.router)
 app.include_router(work_types_router.router)
 app.include_router(spares_router.router)
+app.include_router(consumables_router.router)
 
 # ── Optional module routers (enabled by env var) ──────────────────────────────
 # Example:

@@ -22,7 +22,7 @@ import { isAdminOrAbove } from "@/lib/user";
 import {
   PlusIcon, Pencil, Trash2, AlertTriangle, PackagePlus,
   PackageMinus, History, TrendingDown, Eye, Search, ChevronLeft, ChevronRight,
-  Package, Box, Layers, Wrench,
+  Package, Box, Layers, Wrench, FlaskConical,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -129,7 +129,7 @@ const isShortfall = (item: InventoryItem) =>
 function InventoryLanding() {
   const router = useRouter();
   const [counts, setCounts] = useState<Record<string, number | null>>({
-    finished_good: null, raw_material: null, semi_finished: null, spares: null,
+    finished_good: null, raw_material: null, semi_finished: null, spares: null, consumables: null,
   });
 
   useEffect(() => {
@@ -147,13 +147,20 @@ function InventoryLanding() {
         return Array.isArray(d) ? d.length : null;
       } catch { return null; }
     };
+    const fetchConsumables = async () => {
+      try {
+        const d = await apiFetchJson<{ total: number }>(`/api/v1/consumables?page_size=1&include_inactive=false`);
+        return d.total;
+      } catch { return null; }
+    };
     Promise.all([
       fetchCount("finished_good"),
       fetchCount("raw_material"),
       fetchCount("semi_finished"),
       fetchSpares(),
-    ]).then(([fg, rm, sf, sp]) =>
-      setCounts({ finished_good: fg, raw_material: rm, semi_finished: sf, spares: sp })
+      fetchConsumables(),
+    ]).then(([fg, rm, sf, sp, con]) =>
+      setCounts({ finished_good: fg, raw_material: rm, semi_finished: sf, spares: sp, consumables: con })
     );
   }, []);
 
@@ -185,6 +192,13 @@ function InventoryLanding() {
       icon: <Wrench className="size-8" />,
       accent: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
       border: "hover:border-amber-400",
+    },
+    {
+      id: "consumables", label: "Consumables", desc: "Oils, chemicals & consumable stock",
+      href: "/dashboard/inventory/consumables",
+      icon: <FlaskConical className="size-8" />,
+      accent: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400",
+      border: "hover:border-violet-400",
     },
   ];
 

@@ -1,26 +1,30 @@
-"""Spares router — hierarchical spare parts management.
+"""Spares router — 3-level hierarchy.
 
-Structure:
-  SpareCategory  (e.g. "Engines", "Filters", "Belts")
-    └── SpareItem  (e.g. "68cc baby - 2 stroke weeder", "168 Engine")
+  SpareCategory      (e.g. "2-Wheeler Spares")
+    └── SpareSubCategory  (e.g. "168cc Vehicle", "68cc Weeder")
+          └── SpareItem   (e.g. "Brake Wire", "Chain", "Air Filter")
 
-Endpoints:
-  Categories:
-    GET    /api/v1/spares/categories
-    POST   /api/v1/spares/categories
-    GET    /api/v1/spares/categories/{cat_id}
-    PUT    /api/v1/spares/categories/{cat_id}
-    DELETE /api/v1/spares/categories/{cat_id}
+Category endpoints:
+  GET    /api/v1/spares/categories
+  POST   /api/v1/spares/categories
+  GET    /api/v1/spares/categories/{cat_id}
+  PUT    /api/v1/spares/categories/{cat_id}
+  DELETE /api/v1/spares/categories/{cat_id}
 
-  Items within a category:
-    GET    /api/v1/spares/categories/{cat_id}/items
-    POST   /api/v1/spares/categories/{cat_id}/items
+Sub-category endpoints:
+  GET    /api/v1/spares/categories/{cat_id}/sub-categories
+  POST   /api/v1/spares/categories/{cat_id}/sub-categories
+  GET    /api/v1/spares/sub-categories/{sub_id}
+  PUT    /api/v1/spares/sub-categories/{sub_id}
+  DELETE /api/v1/spares/sub-categories/{sub_id}
 
-  Individual items:
-    GET    /api/v1/spares/items/{item_id}
-    PUT    /api/v1/spares/items/{item_id}
-    DELETE /api/v1/spares/items/{item_id}
-    POST   /api/v1/spares/items/{item_id}/adjust
+Item endpoints (within a sub-category):
+  GET    /api/v1/spares/sub-categories/{sub_id}/items
+  POST   /api/v1/spares/sub-categories/{sub_id}/items
+  GET    /api/v1/spares/items/{item_id}
+  PUT    /api/v1/spares/items/{item_id}
+  DELETE /api/v1/spares/items/{item_id}
+  POST   /api/v1/spares/items/{item_id}/adjust
 """
 from datetime import datetime, timezone
 from typing import Annotated, Optional
@@ -32,6 +36,7 @@ from sqlmodel import Session, func, select
 from app.core.database import get_session
 from app.dependencies.auth import get_current_user, require_admin
 from app.models.spare_category import SpareCategory
+from app.models.spare_sub_category import SpareSubCategory
 from app.models.spare_item import SpareItem
 from app.models.user import User
 
@@ -39,10 +44,10 @@ router = APIRouter(prefix="/api/v1/spares", tags=["spares"])
 
 SessionDep = Annotated[Session, Depends(get_session)]
 CurrentUser = Annotated[User, Depends(get_current_user)]
-AdminUser = Annotated[User, Depends(require_admin)]
+AdminUser   = Annotated[User, Depends(require_admin)]
 
 
-# ── Pydantic schemas ──────────────────────────────────────────────────────────
+# ── Schemas ───────────────────────────────────────────────────────────────────
 
 class CategoryCreate(BaseModel):
     name: str
@@ -58,11 +63,38 @@ class CategoryOut(BaseModel):
     name: str
     description: Optional[str]
     is_active: bool
+    sub_category_count: int = 0
     item_count: int = 0
     low_stock_count: int = 0
     created_at: str
     updated_at: str
 
+# ─────────────────────────────────────────────────────────────────────────────
+
+class SubCategoryCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    image_base64: Optional[str] = None
+
+class SubCategoryUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    image_base64: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class SubCategoryOut(BaseModel):
+    id: int
+    category_id: int
+    name: str
+    description: Optional[str]
+    image_base64: Optional[str]
+    is_active: bool
+    item_count: int = 0
+    low_stock_count: int = 0
+    created_at: str
+    updated_at: str
+
+# ─────────────────────────────────────────────────────────────────────────────
 
 class ItemCreate(BaseModel):
     name: str
@@ -96,6 +128,7 @@ class ItemUpdate(BaseModel):
 class ItemOut(BaseModel):
     id: int
     category_id: int
+    sub_category_id: Optional[int]
     name: str
     part_number: Optional[str]
     part_description: Optional[str]
@@ -121,20 +154,41 @@ class AdjustRequest(BaseModel):
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _cat_or_404(session: Session, cat_id: int) -> SpareCategory:
-    cat = session.get(SpareCategory, cat_id)
-    if not cat:
+    obj = session.get(SpareCategory, cat_id)
+    if not obj:
         raise HTTPException(status_code=404, detail="Category not found")
-    return cat
+    return obj
+
+def _sub_or_404(session: Session, sub_id: int) -> SpareSubCategory:
+    obj = session.get(SpareSubCategory, sub_id)
+    if not obj:
+        raise HTTPException(status_code=404, detail="Sub-category not found")
+    return obj
 
 def _item_or_404(session: Session, item_id: int) -> SpareItem:
-    item = session.get(SpareItem, item_id)
-    if not item:
+    obj = session.get(SpareItem, item_id)
+    if not obj:
         raise HTTPException(status_code=404, detail="Spare item not found")
-    return item
+    return obj
+
+def _dt_iso(val: "datetime | None") -> str:
+    if val is None:
+        return datetime.now(tz=timezone.utc).isoformat()
+    if isinstance(val, str):
+        return val
+    return val.isoformat()
 
 def _category_out(session: Session, cat: SpareCategory) -> CategoryOut:
+    sub_count = session.exec(
+        select(func.count(SpareSubCategory.id)).where(
+            SpareSubCategory.category_id == cat.id,
+            SpareSubCategory.is_active == True,
+        )
+    ).one()
     total = session.exec(
-        select(func.count(SpareItem.id)).where(SpareItem.category_id == cat.id, SpareItem.is_active == True)
+        select(func.count(SpareItem.id)).where(
+            SpareItem.category_id == cat.id, SpareItem.is_active == True,
+        )
     ).one()
     low = session.exec(
         select(func.count(SpareItem.id)).where(
@@ -149,25 +203,45 @@ def _category_out(session: Session, cat: SpareCategory) -> CategoryOut:
         name=cat.name,
         description=cat.description,
         is_active=cat.is_active,
+        sub_category_count=sub_count or 0,
         item_count=total or 0,
         low_stock_count=low or 0,
-        created_at=cat.created_at.isoformat(),
-        updated_at=cat.updated_at.isoformat(),
+        created_at=_dt_iso(cat.created_at),
+        updated_at=_dt_iso(cat.updated_at),
     )
 
-def _dt_iso(val: "datetime | None") -> str:
-    """Return ISO string; fall back to 'now' if the value is None (legacy rows)."""
-    if val is None:
-        return datetime.now(tz=timezone.utc).isoformat()
-    if isinstance(val, str):
-        return val
-    return val.isoformat()
-
+def _sub_out(session: Session, sub: SpareSubCategory) -> SubCategoryOut:
+    total = session.exec(
+        select(func.count(SpareItem.id)).where(
+            SpareItem.sub_category_id == sub.id, SpareItem.is_active == True,
+        )
+    ).one()
+    low = session.exec(
+        select(func.count(SpareItem.id)).where(
+            SpareItem.sub_category_id == sub.id,
+            SpareItem.is_active == True,
+            SpareItem.reorder_level > 0,
+            SpareItem.recorded_qty <= SpareItem.reorder_level,
+        )
+    ).one()
+    return SubCategoryOut(
+        id=sub.id,  # type: ignore
+        category_id=sub.category_id,
+        name=sub.name,
+        description=sub.description,
+        image_base64=sub.image_base64,
+        is_active=sub.is_active,
+        item_count=total or 0,
+        low_stock_count=low or 0,
+        created_at=_dt_iso(sub.created_at),
+        updated_at=_dt_iso(sub.updated_at),
+    )
 
 def _item_out(item: SpareItem) -> ItemOut:
     return ItemOut(
         id=item.id,  # type: ignore
         category_id=item.category_id,
+        sub_category_id=item.sub_category_id,
         name=item.name,
         part_number=item.part_number,
         part_description=item.part_description,
@@ -201,50 +275,29 @@ def list_categories(
     if search:
         stmt = stmt.where(SpareCategory.name.ilike(f"%{search}%"))
     stmt = stmt.order_by(SpareCategory.name)
-    cats = session.exec(stmt).all()
-    return [_category_out(session, c) for c in cats]
+    return [_category_out(session, c) for c in session.exec(stmt).all()]
 
 
 @router.post("/categories", status_code=status.HTTP_201_CREATED)
-def create_category(
-    body: CategoryCreate,
-    session: SessionDep,
-    _: AdminUser,
-) -> CategoryOut:
-    cat = SpareCategory(
-        name=body.name.strip(),
-        description=body.description,
-    )
-    session.add(cat)
-    session.commit()
-    session.refresh(cat)
+def create_category(body: CategoryCreate, session: SessionDep, _: AdminUser) -> CategoryOut:
+    cat = SpareCategory(name=body.name.strip(), description=body.description)
+    session.add(cat); session.commit(); session.refresh(cat)
     return _category_out(session, cat)
 
 
 @router.get("/categories/{cat_id}")
 def get_category(cat_id: int, session: SessionDep, _: CurrentUser) -> CategoryOut:
-    cat = _cat_or_404(session, cat_id)
-    return _category_out(session, cat)
+    return _category_out(session, _cat_or_404(session, cat_id))
 
 
 @router.put("/categories/{cat_id}")
-def update_category(
-    cat_id: int,
-    body: CategoryUpdate,
-    session: SessionDep,
-    _: AdminUser,
-) -> CategoryOut:
+def update_category(cat_id: int, body: CategoryUpdate, session: SessionDep, _: AdminUser) -> CategoryOut:
     cat = _cat_or_404(session, cat_id)
-    if body.name is not None:
-        cat.name = body.name.strip()
-    if body.description is not None:
-        cat.description = body.description
-    if body.is_active is not None:
-        cat.is_active = body.is_active
+    if body.name is not None: cat.name = body.name.strip()
+    if body.description is not None: cat.description = body.description
+    if body.is_active is not None: cat.is_active = body.is_active
     cat.updated_at = datetime.now(tz=timezone.utc)
-    session.add(cat)
-    session.commit()
-    session.refresh(cat)
+    session.add(cat); session.commit(); session.refresh(cat)
     return _category_out(session, cat)
 
 
@@ -253,22 +306,83 @@ def delete_category(cat_id: int, session: SessionDep, _: AdminUser) -> None:
     cat = _cat_or_404(session, cat_id)
     cat.is_active = False
     cat.updated_at = datetime.now(tz=timezone.utc)
-    session.add(cat)
-    session.commit()
+    session.add(cat); session.commit()
 
 
-# ── Item endpoints (within category) ─────────────────────────────────────────
+# ── Sub-category endpoints ────────────────────────────────────────────────────
 
-@router.get("/categories/{cat_id}/items")
-def list_items(
+@router.get("/categories/{cat_id}/sub-categories")
+def list_sub_categories(
     cat_id: int,
     session: SessionDep,
     _: CurrentUser,
     include_inactive: bool = Query(False),
     search: Optional[str] = Query(None),
-) -> list[ItemOut]:
+) -> list[SubCategoryOut]:
     _cat_or_404(session, cat_id)
-    stmt = select(SpareItem).where(SpareItem.category_id == cat_id)
+    stmt = select(SpareSubCategory).where(SpareSubCategory.category_id == cat_id)
+    if not include_inactive:
+        stmt = stmt.where(SpareSubCategory.is_active == True)
+    if search:
+        stmt = stmt.where(SpareSubCategory.name.ilike(f"%{search}%"))
+    stmt = stmt.order_by(SpareSubCategory.name)
+    return [_sub_out(session, s) for s in session.exec(stmt).all()]
+
+
+@router.post("/categories/{cat_id}/sub-categories", status_code=status.HTTP_201_CREATED)
+def create_sub_category(
+    cat_id: int, body: SubCategoryCreate, session: SessionDep, _: AdminUser,
+) -> SubCategoryOut:
+    _cat_or_404(session, cat_id)
+    sub = SpareSubCategory(
+        category_id=cat_id,
+        name=body.name.strip(),
+        description=body.description,
+        image_base64=body.image_base64,
+    )
+    session.add(sub); session.commit(); session.refresh(sub)
+    return _sub_out(session, sub)
+
+
+@router.get("/sub-categories/{sub_id}")
+def get_sub_category(sub_id: int, session: SessionDep, _: CurrentUser) -> SubCategoryOut:
+    return _sub_out(session, _sub_or_404(session, sub_id))
+
+
+@router.put("/sub-categories/{sub_id}")
+def update_sub_category(
+    sub_id: int, body: SubCategoryUpdate, session: SessionDep, _: AdminUser,
+) -> SubCategoryOut:
+    sub = _sub_or_404(session, sub_id)
+    if body.name is not None: sub.name = body.name.strip()
+    if body.description is not None: sub.description = body.description
+    if body.image_base64 is not None: sub.image_base64 = body.image_base64
+    if body.is_active is not None: sub.is_active = body.is_active
+    sub.updated_at = datetime.now(tz=timezone.utc)
+    session.add(sub); session.commit(); session.refresh(sub)
+    return _sub_out(session, sub)
+
+
+@router.delete("/sub-categories/{sub_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_sub_category(sub_id: int, session: SessionDep, _: AdminUser) -> None:
+    sub = _sub_or_404(session, sub_id)
+    sub.is_active = False
+    sub.updated_at = datetime.now(tz=timezone.utc)
+    session.add(sub); session.commit()
+
+
+# ── Item endpoints (within a sub-category) ───────────────────────────────────
+
+@router.get("/sub-categories/{sub_id}/items")
+def list_items(
+    sub_id: int,
+    session: SessionDep,
+    _: CurrentUser,
+    include_inactive: bool = Query(False),
+    search: Optional[str] = Query(None),
+) -> list[ItemOut]:
+    sub = _sub_or_404(session, sub_id)
+    stmt = select(SpareItem).where(SpareItem.sub_category_id == sub_id)
     if not include_inactive:
         stmt = stmt.where(SpareItem.is_active == True)
     if search:
@@ -279,16 +393,14 @@ def list_items(
     return [_item_out(i) for i in session.exec(stmt).all()]
 
 
-@router.post("/categories/{cat_id}/items", status_code=status.HTTP_201_CREATED)
+@router.post("/sub-categories/{sub_id}/items", status_code=status.HTTP_201_CREATED)
 def create_item(
-    cat_id: int,
-    body: ItemCreate,
-    session: SessionDep,
-    _: AdminUser,
+    sub_id: int, body: ItemCreate, session: SessionDep, _: AdminUser,
 ) -> ItemOut:
-    _cat_or_404(session, cat_id)
+    sub = _sub_or_404(session, sub_id)
     item = SpareItem(
-        category_id=cat_id,
+        category_id=sub.category_id,
+        sub_category_id=sub_id,
         name=body.name.strip(),
         part_number=body.part_number,
         part_description=body.part_description,
@@ -302,9 +414,7 @@ def create_item(
         tags=body.tags,
         image_base64=body.image_base64,
     )
-    session.add(item)
-    session.commit()
-    session.refresh(item)
+    session.add(item); session.commit(); session.refresh(item)
     return _item_out(item)
 
 
@@ -316,19 +426,12 @@ def get_item(item_id: int, session: SessionDep, _: CurrentUser) -> ItemOut:
 
 
 @router.put("/items/{item_id}")
-def update_item(
-    item_id: int,
-    body: ItemUpdate,
-    session: SessionDep,
-    _: AdminUser,
-) -> ItemOut:
+def update_item(item_id: int, body: ItemUpdate, session: SessionDep, _: AdminUser) -> ItemOut:
     item = _item_or_404(session, item_id)
     for field, value in body.model_dump(exclude_none=True).items():
         setattr(item, field, value)
     item.updated_at = datetime.now(tz=timezone.utc)
-    session.add(item)
-    session.commit()
-    session.refresh(item)
+    session.add(item); session.commit(); session.refresh(item)
     return _item_out(item)
 
 
@@ -337,16 +440,12 @@ def delete_item(item_id: int, session: SessionDep, _: AdminUser) -> None:
     item = _item_or_404(session, item_id)
     item.is_active = False
     item.updated_at = datetime.now(tz=timezone.utc)
-    session.add(item)
-    session.commit()
+    session.add(item); session.commit()
 
 
 @router.post("/items/{item_id}/adjust")
 def adjust_item_stock(
-    item_id: int,
-    body: AdjustRequest,
-    session: SessionDep,
-    _: CurrentUser,
+    item_id: int, body: AdjustRequest, session: SessionDep, _: CurrentUser,
 ) -> ItemOut:
     item = _item_or_404(session, item_id)
     if body.adjustment_type == "add":
@@ -356,9 +455,7 @@ def adjust_item_stock(
     elif body.adjustment_type == "set":
         item.recorded_qty = body.quantity
     else:
-        raise HTTPException(status_code=400, detail="adjustment_type must be add | subtract | set")
+        raise HTTPException(status_code=400, detail="adjustment_type must be add|subtract|set")
     item.updated_at = datetime.now(tz=timezone.utc)
-    session.add(item)
-    session.commit()
-    session.refresh(item)
+    session.add(item); session.commit(); session.refresh(item)
     return _item_out(item)
