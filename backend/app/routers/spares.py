@@ -67,6 +67,7 @@ class CategoryOut(BaseModel):
     sub_category_count: int = 0
     item_count: int = 0
     low_stock_count: int = 0
+    total_value: Optional[float] = None
     created_at: str
     updated_at: str
 
@@ -92,6 +93,7 @@ class SubCategoryOut(BaseModel):
     is_active: bool
     item_count: int = 0
     low_stock_count: int = 0
+    total_value: Optional[float] = None
     created_at: str
     updated_at: str
 
@@ -141,6 +143,7 @@ class ItemOut(BaseModel):
     reorder_level: float
     storage_type: Optional[str]
     storage_location: Optional[str]
+    total_value: Optional[float] = None
     image_base64: Optional[str]
     is_active: bool
     created_at: str
@@ -199,6 +202,11 @@ def _category_out(session: Session, cat: SpareCategory) -> CategoryOut:
             SpareItem.recorded_qty <= SpareItem.reorder_level,
         )
     ).one()
+    cat_val = session.exec(
+        select(func.sum(SpareItem.rate * SpareItem.recorded_qty)).where(
+            SpareItem.category_id == cat.id, SpareItem.is_active == True,
+        )
+    ).one()
     return CategoryOut(
         id=cat.id,  # type: ignore
         name=cat.name,
@@ -207,6 +215,7 @@ def _category_out(session: Session, cat: SpareCategory) -> CategoryOut:
         sub_category_count=sub_count or 0,
         item_count=total or 0,
         low_stock_count=low or 0,
+        total_value=round(cat_val, 2) if cat_val is not None else None,
         created_at=_dt_iso(cat.created_at),
         updated_at=_dt_iso(cat.updated_at),
     )
@@ -225,6 +234,11 @@ def _sub_out(session: Session, sub: SpareSubCategory) -> SubCategoryOut:
             SpareItem.recorded_qty <= SpareItem.reorder_level,
         )
     ).one()
+    sub_val = session.exec(
+        select(func.sum(SpareItem.rate * SpareItem.recorded_qty)).where(
+            SpareItem.sub_category_id == sub.id, SpareItem.is_active == True,
+        )
+    ).one()
     return SubCategoryOut(
         id=sub.id,  # type: ignore
         category_id=sub.category_id,
@@ -234,11 +248,13 @@ def _sub_out(session: Session, sub: SpareSubCategory) -> SubCategoryOut:
         is_active=sub.is_active,
         item_count=total or 0,
         low_stock_count=low or 0,
+        total_value=round(sub_val, 2) if sub_val is not None else None,
         created_at=_dt_iso(sub.created_at),
         updated_at=_dt_iso(sub.updated_at),
     )
 
 def _item_out(item: SpareItem) -> ItemOut:
+    tv = round(item.rate * item.recorded_qty, 2) if item.rate is not None else None
     return ItemOut(
         id=item.id,  # type: ignore
         category_id=item.category_id,
@@ -254,6 +270,7 @@ def _item_out(item: SpareItem) -> ItemOut:
         reorder_level=item.reorder_level,
         storage_type=item.storage_type,
         storage_location=item.storage_location,
+        total_value=tv,
         image_base64=item.image_base64,
         is_active=item.is_active,
         created_at=_dt_iso(item.created_at),

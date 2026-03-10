@@ -30,12 +30,14 @@ import {
 interface SpareCategory {
   id: number; name: string; description: string | null; is_active: boolean;
   sub_category_count: number; item_count: number; low_stock_count: number;
+  total_value: number | null;
   created_at: string; updated_at: string;
 }
 interface SpareSubCategory {
   id: number; category_id: number; name: string; description: string | null;
   image_base64: string | null; is_active: boolean;
   item_count: number; low_stock_count: number;
+  total_value: number | null;
   created_at: string; updated_at: string;
 }
 interface SpareItem {
@@ -44,6 +46,7 @@ interface SpareItem {
   variant_model: string | null; rate: number | null; unit: string;
   opening_qty: number; recorded_qty: number; reorder_level: number;
   storage_type: string | null; storage_location: string | null; image_base64: string | null;
+  total_value: number | null;
   is_active: boolean; created_at: string; updated_at: string;
 }
 
@@ -433,6 +436,9 @@ export default function SparesPage() {
                       <span>{cat.sub_category_count} sub</span>
                       <span>·</span>
                       <span>{cat.item_count} items</span>
+                      {cat.total_value != null && (
+                        <span className="font-medium text-foreground">{fmtRate(cat.total_value)}</span>
+                      )}
                       {cat.low_stock_count > 0 && (
                         <Badge variant="outline" className="text-amber-600 border-amber-300">
                           <AlertTriangle className="size-3 mr-1" />{cat.low_stock_count} low
@@ -479,6 +485,9 @@ export default function SparesPage() {
                                   </div>
                                   <div className="flex items-center gap-2 shrink-0 text-xs text-muted-foreground">
                                     <span>{sub.item_count} items</span>
+                                    {sub.total_value != null && (
+                                      <span className="font-medium text-foreground">{fmtRate(sub.total_value)}</span>
+                                    )}
                                     {sub.low_stock_count > 0 && (
                                       <Badge variant="outline" className="text-amber-600 border-amber-300">
                                         <AlertTriangle className="size-3 mr-1" />{sub.low_stock_count} low
@@ -519,6 +528,7 @@ export default function SparesPage() {
                                                 <th className="px-3 py-2 text-left font-medium">Description</th>
                                                 <th className="px-3 py-2 text-left font-medium">Variant/Model</th>
                                                 <th className="px-3 py-2 text-right font-medium">Rate</th>
+                                                <th className="px-3 py-2 text-right font-medium">Total Value</th>
                                                 <th className="px-3 py-2 text-center font-medium">UOM</th>
                                                 <th className="px-3 py-2 text-right font-medium">Opening</th>
                                                 <th className="px-3 py-2 text-right font-medium">Recorded</th>
@@ -542,6 +552,7 @@ export default function SparesPage() {
                                                     <td className="px-3 py-2 text-muted-foreground max-w-[140px]"><p className="truncate">{item.part_description??"—"}</p></td>
                                                     <td className="px-3 py-2 text-muted-foreground">{item.variant_model??"—"}</td>
                                                     <td className="px-3 py-2 text-right tabular-nums">{fmtRate(item.rate)}</td>
+                                                    <td className="px-3 py-2 text-right tabular-nums font-medium">{item.total_value != null ? fmtRate(item.total_value) : "—"}</td>
                                                     <td className="px-3 py-2 text-center">{item.unit}</td>
                                                     <td className="px-3 py-2 text-right tabular-nums">{fmtQty(item.opening_qty)}</td>
                                                     <td className={`px-3 py-2 text-right tabular-nums font-medium ${low?"text-amber-600":""}`}>
@@ -596,6 +607,7 @@ export default function SparesPage() {
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
                                                   <div><span className="text-muted-foreground">Rate: </span>{fmtRate(item.rate)}</div>
+                                                  {item.total_value != null && <div className="font-medium"><span className="text-muted-foreground font-normal">Total: </span>{fmtRate(item.total_value)}</div>}
                                                   <div><span className="text-muted-foreground">UOM: </span>{item.unit}</div>
                                                   <div><span className="text-muted-foreground">Opening: </span>{fmtQty(item.opening_qty)}</div>
                                                   <div className={low?"text-amber-600":""}>
