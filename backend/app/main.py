@@ -36,6 +36,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _migrate_spare_item_v2()
     # Migrate spare_item to v3: add sub_category_id column
     _migrate_spare_item_v3()
+    # Migrate spare_item to v4: add storage_location column
+    _migrate_spare_item_v4()
+    # Migrate consumable to v2: add qty column
+    _migrate_consumable_v2()
     # Auto-seed a default admin user on a brand-new / empty database
     _auto_seed_if_empty()
     yield
@@ -198,6 +202,30 @@ def _migrate_spare_item_v3() -> None:
             conn.execute(text(
                 "ALTER TABLE spare_item ADD COLUMN sub_category_id INTEGER REFERENCES spare_sub_category(id)"
             ))
+            conn.commit()
+
+
+def _migrate_spare_item_v4() -> None:
+    """Add storage_location column to spare_item (idempotent)."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        existing = [row[1] for row in conn.execute(text("PRAGMA table_info(spare_item)")).fetchall()]
+        if "storage_location" not in existing:
+            conn.execute(text("ALTER TABLE spare_item ADD COLUMN storage_location TEXT"))
+            conn.commit()
+
+
+def _migrate_consumable_v2() -> None:
+    """Add qty column to consumable table (idempotent)."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        existing = [row[1] for row in conn.execute(text("PRAGMA table_info(consumable)")).fetchall()]
+        if "qty" not in existing:
+            conn.execute(text("ALTER TABLE consumable ADD COLUMN qty REAL NOT NULL DEFAULT 0.0"))
             conn.commit()
 
 

@@ -31,6 +31,7 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
+from sqlalchemy import or_
 from sqlmodel import Session, func, select
 
 from app.core.database import get_session
@@ -107,7 +108,7 @@ class ItemCreate(BaseModel):
     recorded_qty: float = 0.0
     reorder_level: float = 0.0
     storage_type: Optional[str] = None
-    tags: Optional[str] = None
+    storage_location: Optional[str] = None
     image_base64: Optional[str] = None
 
 class ItemUpdate(BaseModel):
@@ -121,7 +122,7 @@ class ItemUpdate(BaseModel):
     recorded_qty: Optional[float] = None
     reorder_level: Optional[float] = None
     storage_type: Optional[str] = None
-    tags: Optional[str] = None
+    storage_location: Optional[str] = None
     image_base64: Optional[str] = None
     is_active: Optional[bool] = None
 
@@ -139,7 +140,7 @@ class ItemOut(BaseModel):
     recorded_qty: float
     reorder_level: float
     storage_type: Optional[str]
-    tags: Optional[str]
+    storage_location: Optional[str]
     image_base64: Optional[str]
     is_active: bool
     created_at: str
@@ -252,7 +253,7 @@ def _item_out(item: SpareItem) -> ItemOut:
         recorded_qty=item.recorded_qty,
         reorder_level=item.reorder_level,
         storage_type=item.storage_type,
-        tags=item.tags,
+        storage_location=item.storage_location,
         image_base64=item.image_base64,
         is_active=item.is_active,
         created_at=_dt_iso(item.created_at),
@@ -273,7 +274,16 @@ def list_categories(
     if not include_inactive:
         stmt = stmt.where(SpareCategory.is_active == True)
     if search:
-        stmt = stmt.where(SpareCategory.name.ilike(f"%{search}%"))
+        pat = f"%{search}%"
+        stmt = stmt.where(or_(
+            SpareCategory.name.ilike(pat),
+            SpareCategory.id.in_(  # type: ignore[union-attr]
+                select(SpareSubCategory.category_id).where(SpareSubCategory.name.ilike(pat))
+            ),
+            SpareCategory.id.in_(  # type: ignore[union-attr]
+                select(SpareItem.category_id).where(SpareItem.name.ilike(pat))
+            ),
+        ))
     stmt = stmt.order_by(SpareCategory.name)
     return [_category_out(session, c) for c in session.exec(stmt).all()]
 
@@ -411,7 +421,7 @@ def create_item(
         recorded_qty=body.recorded_qty if body.recorded_qty else body.opening_qty,
         reorder_level=body.reorder_level,
         storage_type=body.storage_type,
-        tags=body.tags,
+        storage_location=body.storage_location,
         image_base64=body.image_base64,
     )
     session.add(item); session.commit(); session.refresh(item)

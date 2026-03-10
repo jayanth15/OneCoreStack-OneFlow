@@ -21,7 +21,7 @@ interface BreadcrumbInfo { catName: string; subName: string; }
 const BLANK = {
   name:"", part_number:"", part_description:"", variant_model:"",
   rate:"", unit:"pcs", customUnit:"", opening_qty:"0",
-  recorded_qty:"0", reorder_level:"0", storage_type:"", tags:"",
+  recorded_qty:"0", reorder_level:"0", storage_type:"", storage_location:"",
 };
 
 export default function NewSpareItemPage() {
@@ -82,7 +82,7 @@ export default function NewSpareItemPage() {
           recorded_qty: parseFloat(form.recorded_qty) || 0,
           reorder_level: parseFloat(form.reorder_level) || 0,
           storage_type: form.storage_type || null,
-          tags: form.tags || null,
+          storage_location: form.storage_location || null,
           image_base64: imgB64,
         }),
       });
@@ -189,7 +189,7 @@ export default function NewSpareItemPage() {
             ))}
           </div>
 
-          {/* Storage + Tags */}
+          {/* Storage Type + Location */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="i-st">Storage Type</Label>
@@ -200,8 +200,8 @@ export default function NewSpareItemPage() {
               </select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="i-tags">Tags <span className="text-muted-foreground font-normal text-xs">(comma-sep.)</span></Label>
-              <Input id="i-tags" placeholder="Engine, Chain" value={form.tags} onChange={e=>set("tags",e.target.value)} disabled={saving} />
+              <Label htmlFor="i-loc">Storage Location</Label>
+              <Input id="i-loc" placeholder="e.g. Rack B-3" value={form.storage_location} onChange={e=>set("storage_location",e.target.value)} disabled={saving} />
             </div>
           </div>
 

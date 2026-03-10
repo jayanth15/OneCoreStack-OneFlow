@@ -14,6 +14,7 @@ class Consumable(SQLModel, table=True):
     storage_location: Optional[str] = None                  # where it's stored
     supplier_name: Optional[str] = None                     # supplier / vendor
     rate_per_unit: Optional[float] = None                   # price per unit
+    qty: float = Field(default=0.0)                         # current quantity on hand
 
     image_base64: Optional[str] = None
 

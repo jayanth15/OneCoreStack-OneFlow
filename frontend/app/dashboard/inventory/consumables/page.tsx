@@ -33,6 +33,8 @@ interface Consumable {
   storage_location: string | null;
   supplier_name: string | null;
   rate_per_unit: number | null;
+  qty: number;
+  total_price: number | null;
   image_base64: string | null;
   is_active: boolean;
   created_at: string;
@@ -60,7 +62,7 @@ function fmtDate(iso: string) {
 }
 
 const BLANK = {
-  name: "", code: "", storage_location: "", supplier_name: "", rate_per_unit: "",
+  name: "", code: "", storage_location: "", supplier_name: "", rate_per_unit: "", qty: "0",
 };
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -122,7 +124,9 @@ export default function ConsumablesPage() {
     setEditing(item);
     setForm({
       name: item.name, code: item.code ?? "", storage_location: item.storage_location ?? "",
-      supplier_name: item.supplier_name ?? "", rate_per_unit: item.rate_per_unit != null ? String(item.rate_per_unit) : "",
+      supplier_name: item.supplier_name ?? "",
+      rate_per_unit: item.rate_per_unit != null ? String(item.rate_per_unit) : "",
+      qty: String(item.qty),
     });
     setImgPreview(item.image_base64 ? `data:image/jpeg;base64,${item.image_base64}` : null);
     setImgB64(item.image_base64 ?? null);
@@ -147,6 +151,7 @@ export default function ConsumablesPage() {
       storage_location: form.storage_location || null,
       supplier_name: form.supplier_name || null,
       rate_per_unit: form.rate_per_unit ? parseFloat(form.rate_per_unit) : null,
+      qty: parseFloat(form.qty) || 0,
       image_base64: imgB64,
     };
     try {
@@ -249,6 +254,8 @@ export default function ConsumablesPage() {
                     <th className="px-4 py-2.5 text-left font-medium">Storage Location</th>
                     <th className="px-4 py-2.5 text-left font-medium">Supplier</th>
                     <th className="px-4 py-2.5 text-right font-medium">Rate / Unit</th>
+                    <th className="px-4 py-2.5 text-right font-medium">Qty</th>
+                    <th className="px-4 py-2.5 text-right font-medium">Total Value</th>
                     <th className="px-4 py-2.5 text-center font-medium">Image</th>
                     <th className="px-4 py-2.5 text-left font-medium">Updated</th>
                     {admin && <th className="px-4 py-2.5 text-right font-medium">Actions</th>}
@@ -265,6 +272,8 @@ export default function ConsumablesPage() {
                       <td className="px-4 py-3 text-muted-foreground">{item.storage_location ?? "—"}</td>
                       <td className="px-4 py-3 text-muted-foreground">{item.supplier_name ?? "—"}</td>
                       <td className="px-4 py-3 text-right tabular-nums font-medium">{fmtRate(item.rate_per_unit)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{item.qty % 1 === 0 ? item.qty.toFixed(0) : item.qty.toFixed(2)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums font-medium">{item.total_price != null ? fmtRate(item.total_price) : "—"}</td>
                       <td className="px-4 py-3 text-center">
                         {item.image_base64
                           ? <img src={`data:image/jpeg;base64,${item.image_base64}`} alt={item.name} className="size-9 rounded object-cover mx-auto" /> // eslint-disable-line @next/next/no-img-element
@@ -301,9 +310,11 @@ export default function ConsumablesPage() {
                       <p className="font-semibold text-sm">{item.name}</p>
                       {item.code && <p className="text-xs font-mono text-muted-foreground">{item.code}</p>}
                       <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                        {item.storage_location && <span>📍 {item.storage_location}</span>}
-                        {item.supplier_name && <span>🏭 {item.supplier_name}</span>}
-                        {item.rate_per_unit != null && <span className="font-medium text-foreground">{fmtRate(item.rate_per_unit)}</span>}
+                      {item.storage_location && <span>📍 {item.storage_location}</span>}
+                        {item.supplier_name && <span>🏢 {item.supplier_name}</span>}
+                        {item.rate_per_unit != null && <span>{fmtRate(item.rate_per_unit)} / unit</span>}
+                        <span className="font-semibold text-foreground">Qty: {item.qty % 1 === 0 ? item.qty.toFixed(0) : item.qty.toFixed(2)}</span>
+                        {item.total_price != null && <span className="font-medium text-foreground">Total: {fmtRate(item.total_price)}</span>}
                         <span>{fmtDate(item.updated_at)}</span>
                       </div>
                     </div>
@@ -369,10 +380,17 @@ export default function ConsumablesPage() {
                   onChange={e => setForm(f => ({ ...f, rate_per_unit: e.target.value }))} disabled={saving} />
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="c-supplier">Supplier Name</Label>
-              <Input id="c-supplier" placeholder="e.g. Ravi Traders" value={form.supplier_name}
-                onChange={e => setForm(f => ({ ...f, supplier_name: e.target.value }))} disabled={saving} />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="c-supplier">Supplier Name</Label>
+                <Input id="c-supplier" placeholder="e.g. Ravi Traders" value={form.supplier_name}
+                  onChange={e => setForm(f => ({ ...f, supplier_name: e.target.value }))} disabled={saving} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="c-qty">Quantity on Hand</Label>
+                <Input id="c-qty" type="number" min="0" step="any" placeholder="0" value={form.qty}
+                  onChange={e => setForm(f => ({ ...f, qty: e.target.value }))} disabled={saving} />
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label>Picture <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>

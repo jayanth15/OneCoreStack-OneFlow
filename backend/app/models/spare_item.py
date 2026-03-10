@@ -27,10 +27,11 @@ class SpareItem(SQLModel, table=True):
     reorder_level: float = Field(default=0.0)
 
     # Storage
-    storage_type: Optional[str] = None         # storage type
+    storage_type: Optional[str] = None         # storage type (Rack/Bin/etc)
+    storage_location: Optional[str] = None     # exact location (e.g. "Rack B-3, Shelf 2")
 
     # Categorisation
-    tags: Optional[str] = None                 # comma-separated tags shown as badges
+    tags: Optional[str] = None                 # comma-separated tags (kept for DB compat)
 
     # Media
     image_base64: Optional[str] = None         # base-64 encoded image

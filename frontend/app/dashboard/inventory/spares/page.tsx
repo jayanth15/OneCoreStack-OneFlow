@@ -43,7 +43,7 @@ interface SpareItem {
   name: string; part_number: string | null; part_description: string | null;
   variant_model: string | null; rate: number | null; unit: string;
   opening_qty: number; recorded_qty: number; reorder_level: number;
-  storage_type: string | null; tags: string | null; image_base64: string | null;
+  storage_type: string | null; storage_location: string | null; image_base64: string | null;
   is_active: boolean; created_at: string; updated_at: string;
 }
 
@@ -54,27 +54,16 @@ const STORAGE_TYPES = ["Shelf","Rack","Bin","Drawer","Tray","Cabinet","Box","Pal
 const BLANK_ITEM = {
   name:"", part_number:"", part_description:"", variant_model:"",
   rate:"", unit:"pcs", customUnit:"", opening_qty:"0",
-  recorded_qty:"0", reorder_level:"0", storage_type:"", tags:"",
+  recorded_qty:"0", reorder_level:"0", storage_type:"", storage_location:"",
 };
 const BLANK_SUB = { name:"", description:"" };
 
 function fmtQty(n: number) { return n % 1 === 0 ? n.toFixed(0) : n.toFixed(2); }
 function fmtRate(n: number | null) {
   if (n == null) return "—";
-  return `₹${n.toLocaleString("en-IN", { minimumFractionDigits:0, maximumFractionDigits:2 })}`;
+  return `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 }
-const isLow = (i: SpareItem) => i.reorder_level > 0 && i.recorded_qty <= i.reorder_level;
-
-function TagBadges({ tags }: { tags: string | null }) {
-  if (!tags?.trim()) return null;
-  return (
-    <div className="flex flex-wrap gap-1">
-      {tags.split(",").map(t=>t.trim()).filter(Boolean).map(t=>(
-        <Badge key={t} variant="secondary" className="text-xs px-1.5 py-0">{t}</Badge>
-      ))}
-    </div>
-  );
-}
+function isLow(item: SpareItem) { return item.recorded_qty <= item.reorder_level; }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -146,6 +135,8 @@ export default function SparesPage() {
 
   const fetchCategories = () => {
     setLoading(true);
+    setExpandedCats(new Set()); // collapse on every fetch so stale expanded rows don’t show
+    setExpandedSubs(new Set());
     const p = new URLSearchParams({ include_inactive:"false" });
     if (search) p.set("search", search);
     apiFetchJson<SpareCategory[]>(`/api/v1/spares/categories?${p}`)
@@ -299,7 +290,8 @@ export default function SparesPage() {
       rate:item.rate!=null?String(item.rate):"",
       unit:stdUnit?item.unit:"__custom__", customUnit:stdUnit?"":item.unit,
       opening_qty:String(item.opening_qty), recorded_qty:String(item.recorded_qty),
-      reorder_level:String(item.reorder_level), storage_type:item.storage_type??"", tags:item.tags??"",
+      reorder_level:String(item.reorder_level), storage_type:item.storage_type??"",
+      storage_location:item.storage_location??"",
     });
     setItemError(null); setEditItemSheet(true);
   }
@@ -322,7 +314,8 @@ export default function SparesPage() {
           opening_qty:parseFloat(itemForm.opening_qty)||0,
           recorded_qty:parseFloat(itemForm.recorded_qty)||0,
           reorder_level:parseFloat(itemForm.reorder_level)||0,
-          storage_type:itemForm.storage_type||null, tags:itemForm.tags||null,
+          storage_type:itemForm.storage_type||null,
+          storage_location:itemForm.storage_location||null,
           image_base64:itemImgB64,
         }),
       });
@@ -529,8 +522,8 @@ export default function SparesPage() {
                                                 <th className="px-3 py-2 text-center font-medium">UOM</th>
                                                 <th className="px-3 py-2 text-right font-medium">Opening</th>
                                                 <th className="px-3 py-2 text-right font-medium">Recorded</th>
-                                                <th className="px-3 py-2 text-left font-medium">Storage</th>
-                                                <th className="px-3 py-2 text-left font-medium">Tags</th>
+                                                    <th className="px-3 py-2 text-left font-medium">Storage Type</th>
+                                                    <th className="px-3 py-2 text-left font-medium">Location</th>
                                                 <th className="px-3 py-2 text-center font-medium">Img</th>
                                                 <th className="px-3 py-2 text-right font-medium">Actions</th>
                                               </tr>
@@ -558,7 +551,7 @@ export default function SparesPage() {
                                                       </span>
                                                     </td>
                                                     <td className="px-3 py-2 text-muted-foreground">{item.storage_type??"—"}</td>
-                                                    <td className="px-3 py-2"><TagBadges tags={item.tags} /></td>
+                                                    <td className="px-3 py-2 text-muted-foreground max-w-[120px]"><p className="truncate">{item.storage_location??"\u2014"}</p></td>
                                                     <td className="px-3 py-2 text-center">
                                                       {item.image_base64 ? (
                                                         // eslint-disable-next-line @next/next/no-img-element
@@ -610,9 +603,9 @@ export default function SparesPage() {
                                                     {low && <AlertTriangle className="size-3 inline mr-0.5" />}
                                                     {fmtQty(item.recorded_qty)}
                                                   </div>
-                                                  {item.storage_type && <div className="col-span-2"><span className="text-muted-foreground">Storage: </span>{item.storage_type}</div>}
+                                                  {item.storage_type && <div><span className="text-muted-foreground">Type: </span>{item.storage_type}</div>}
+                                                  {item.storage_location && <div className="col-span-2"><span className="text-muted-foreground">Location: </span>{item.storage_location}</div>}
                                                 </div>
-                                                <TagBadges tags={item.tags} />
                                                 <div className="flex justify-end gap-0.5 pt-1 border-t">
                                                   <Button variant="ghost" size="icon" className="size-7" onClick={()=>openAdjust(item,"add")}><PackagePlus className="size-3.5 text-emerald-600" /></Button>
                                                   <Button variant="ghost" size="icon" className="size-7" onClick={()=>openAdjust(item,"subtract")}><PackageMinus className="size-3.5 text-amber-600" /></Button>
@@ -791,8 +784,8 @@ export default function SparesPage() {
                 </select>
               </div>
               <div className="space-y-1">
-                <Label htmlFor="ei-tags">Tags <span className="text-muted-foreground font-normal text-xs">(comma-sep.)</span></Label>
-                <Input id="ei-tags" placeholder="Engine, Gear-box" value={itemForm.tags} onChange={e=>setItemForm(f=>({...f,tags:e.target.value}))} disabled={itemSaving} />
+                <Label htmlFor="ei-loc">Storage Location</Label>
+                <Input id="ei-loc" placeholder="e.g. Rack B-3" value={itemForm.storage_location} onChange={e=>setItemForm(f=>({...f,storage_location:e.target.value}))} disabled={itemSaving} />
               </div>
             </div>
             <div className="space-y-1">
