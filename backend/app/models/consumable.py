@@ -11,6 +11,7 @@ class Consumable(SQLModel, table=True):
 
     name: str = Field(index=True)
     code: Optional[str] = Field(default=None, index=True)  # optional SKU / code
+    storage_type: Optional[str] = None                      # type of storage (Shelf/Bin/etc)
     storage_location: Optional[str] = None                  # where it's stored
     supplier_name: Optional[str] = None                     # supplier / vendor
     rate_per_unit: Optional[float] = None                   # price per unit

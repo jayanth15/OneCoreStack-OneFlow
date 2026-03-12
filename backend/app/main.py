@@ -20,6 +20,7 @@ from app.routers import work_types as work_types_router
 from app.routers import consumables as consumables_router
 from app.models.spare_sub_category import SpareSubCategory  # noqa: F401 — ensures table is created
 from app.models.consumable import Consumable  # noqa: F401 — ensures table is created
+from app.models.consumable_history import ConsumableHistory  # noqa: F401 — ensures table is created
 
 
 @asynccontextmanager
@@ -40,6 +41,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _migrate_spare_item_v4()
     # Migrate consumable to v2: add qty column
     _migrate_consumable_v2()
+    # Create consumable_history table
+    _migrate_consumable_history()
+    # Migrate consumable to v3: add storage_type column
+    _migrate_consumable_v3()
     # Auto-seed a default admin user on a brand-new / empty database
     _auto_seed_if_empty()
     yield
@@ -226,6 +231,41 @@ def _migrate_consumable_v2() -> None:
         existing = [row[1] for row in conn.execute(text("PRAGMA table_info(consumable)")).fetchall()]
         if "qty" not in existing:
             conn.execute(text("ALTER TABLE consumable ADD COLUMN qty REAL NOT NULL DEFAULT 0.0"))
+            conn.commit()
+
+
+def _migrate_consumable_history() -> None:
+    """Create consumable_history table if it doesn't exist (idempotent)."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS consumable_history (
+                id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+                consumable_id         INTEGER NOT NULL REFERENCES consumable(id),
+                changed_by_user_id    INTEGER REFERENCES users(id),
+                changed_by_username   TEXT,
+                changed_at            TEXT NOT NULL,
+                change_type           TEXT NOT NULL,
+                qty_before            REAL NOT NULL,
+                qty_after             REAL NOT NULL,
+                qty_delta             REAL NOT NULL,
+                note                  TEXT
+            )
+        """))
+        conn.commit()
+
+
+def _migrate_consumable_v3() -> None:
+    """Add storage_type column to consumable table (idempotent)."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        existing = [row[1] for row in conn.execute(text("PRAGMA table_info(consumable)")).fetchall()]
+        if "storage_type" not in existing:
+            conn.execute(text("ALTER TABLE consumable ADD COLUMN storage_type TEXT"))
             conn.commit()
 
 

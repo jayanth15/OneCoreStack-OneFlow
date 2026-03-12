@@ -22,7 +22,7 @@ import { apiFetchJson } from "@/lib/api";
 import { isAdminOrAbove } from "@/lib/user";
 import {
   PlusIcon, Pencil, Trash2, AlertTriangle, Wrench, ChevronRight, ChevronDown,
-  Search, PackagePlus, PackageMinus, ImageIcon, Layers,
+  Search, PackagePlus, PackageMinus, ImageIcon, Layers, Eye,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -112,6 +112,8 @@ export default function SparesPage() {
   const [editingItem, setEditingItem]     = useState<SpareItem | null>(null);
   const [itemForm, setItemForm]           = useState<typeof BLANK_ITEM>({ ...BLANK_ITEM });
   const [itemCustomUnit, setItemCustomUnit] = useState(false);
+  const [itemCustomStorageType, setItemCustomStorageType] = useState(false);
+  const [viewItem, setViewItem] = useState<SpareItem | null>(null);
   const [itemImgPreview, setItemImgPreview] = useState<string | null>(null);
   const [itemImgB64, setItemImgB64]         = useState<string | null>(null);
   const [itemSaving, setItemSaving]         = useState(false);
@@ -285,6 +287,8 @@ export default function SparesPage() {
     setEditingItem(item);
     const stdUnit = STD_UNITS.includes(item.unit);
     setItemCustomUnit(!stdUnit);
+    const stdStorage = STORAGE_TYPES.includes(item.storage_type ?? "");
+    setItemCustomStorageType(!stdStorage && !!item.storage_type);
     setItemImgPreview(item.image_base64 ? `data:image/jpeg;base64,${item.image_base64}` : null);
     setItemImgB64(item.image_base64 ?? null);
     setItemForm({
@@ -572,6 +576,7 @@ export default function SparesPage() {
                                                     </td>
                                                     <td className="px-3 py-2 text-right">
                                                       <div className="inline-flex gap-0.5">
+                                                        <Button variant="ghost" size="icon" className="size-6" title="View details" onClick={()=>setViewItem(item)}><Eye className="size-3 text-blue-600" /></Button>
                                                         <Button variant="ghost" size="icon" className="size-6" title="Add Stock" onClick={()=>openAdjust(item,"add")}><PackagePlus className="size-3 text-emerald-600" /></Button>
                                                         <Button variant="ghost" size="icon" className="size-6" title="Remove Stock" onClick={()=>openAdjust(item,"subtract")}><PackageMinus className="size-3 text-amber-600" /></Button>
                                                         {admin && <>
@@ -735,6 +740,37 @@ export default function SparesPage() {
         </DialogContent>
       </Dialog>
 
+      {/* ── View Item Detail Dialog ──────────────────────────────────── */}
+      <Dialog open={viewItem !== null} onOpenChange={o=>!o&&setViewItem(null)}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>{viewItem?.name}</DialogTitle></DialogHeader>
+          <div className="space-y-4 mt-1">
+            {viewItem?.image_base64 ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={`data:image/jpeg;base64,${viewItem.image_base64}`} alt={viewItem.name}
+                className="w-full max-h-72 object-contain rounded-lg border bg-muted/20" />
+            ) : (
+              <div className="w-full h-32 rounded-lg border-2 border-dashed flex items-center justify-center text-muted-foreground/40">
+                <ImageIcon className="size-10" />
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+              {viewItem?.part_number && <><span className="text-muted-foreground">Part No.</span><span className="font-mono font-medium">{viewItem.part_number}</span></>}
+              {viewItem?.part_description && <><span className="text-muted-foreground">Description</span><span>{viewItem.part_description}</span></>}
+              {viewItem?.variant_model && <><span className="text-muted-foreground">Variant / Model</span><span>{viewItem.variant_model}</span></>}
+              <span className="text-muted-foreground">Rate</span><span>{viewItem?.rate != null ? `₹${viewItem.rate.toLocaleString("en-IN")}` : "—"}</span>
+              <span className="text-muted-foreground">Unit</span><span>{viewItem?.unit ?? "—"}</span>
+              <span className="text-muted-foreground">Opening Qty</span><span>{viewItem?.opening_qty}</span>
+              <span className="text-muted-foreground">Current Qty</span><span className="font-medium">{viewItem?.recorded_qty}</span>
+              <span className="text-muted-foreground">Reorder Level</span><span>{viewItem?.reorder_level}</span>
+              <span className="text-muted-foreground">Total Value</span><span className="font-medium">{viewItem?.total_value != null ? `₹${viewItem.total_value.toLocaleString("en-IN")}` : "—"}</span>
+              {viewItem?.storage_type && <><span className="text-muted-foreground">Storage Type</span><span>{viewItem.storage_type}</span></>}
+              {viewItem?.storage_location && <><span className="text-muted-foreground">Storage Location</span><span>{viewItem.storage_location}</span></>}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* ── Edit Item Dialog ─────────────────────────────────────────── */}
       <Dialog open={editItemSheet} onOpenChange={o=>!o&&setEditItemSheet(false)}>
         <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
@@ -789,11 +825,15 @@ export default function SparesPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>Storage Type</Label>
-                <select value={itemForm.storage_type} onChange={e=>setItemForm(f=>({...f,storage_type:e.target.value}))} disabled={itemSaving}
+                <select value={itemCustomStorageType ? "__custom__" : itemForm.storage_type}
+                  onChange={e=>{const v=e.target.value;if(v==="__custom__"){setItemCustomStorageType(true);setItemForm(f=>({...f,storage_type:""}));}else{setItemCustomStorageType(false);setItemForm(f=>({...f,storage_type:v}));}}}
+                  disabled={itemSaving}
                   className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
                   <option value="">— Select —</option>
                   {STORAGE_TYPES.map(s=><option key={s} value={s}>{s}</option>)}
+                  <option value="__custom__">Other…</option>
                 </select>
+                {itemCustomStorageType && <Input placeholder="Enter storage type" value={itemForm.storage_type} onChange={e=>setItemForm(f=>({...f,storage_type:e.target.value}))} disabled={itemSaving} className="mt-1.5" />}
               </div>
               <div className="space-y-1">
                 <Label htmlFor="ei-loc">Storage Location</Label>

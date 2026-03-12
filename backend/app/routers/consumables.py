@@ -18,6 +18,7 @@ from sqlmodel import Session, func, select
 from app.core.database import get_session
 from app.dependencies.auth import get_current_user, require_admin
 from app.models.consumable import Consumable
+from app.models.consumable_history import ConsumableHistory
 from app.models.user import User
 
 router = APIRouter(prefix="/api/v1/consumables", tags=["consumables"])
@@ -32,6 +33,7 @@ AdminUser   = Annotated[User, Depends(require_admin)]
 class ConsumableCreate(BaseModel):
     name: str
     code: Optional[str] = None
+    storage_type: Optional[str] = None
     storage_location: Optional[str] = None
     supplier_name: Optional[str] = None
     rate_per_unit: Optional[float] = None
@@ -42,6 +44,7 @@ class ConsumableCreate(BaseModel):
 class ConsumableUpdate(BaseModel):
     name: Optional[str] = None
     code: Optional[str] = None
+    storage_type: Optional[str] = None
     storage_location: Optional[str] = None
     supplier_name: Optional[str] = None
     rate_per_unit: Optional[float] = None
@@ -50,10 +53,29 @@ class ConsumableUpdate(BaseModel):
     is_active: Optional[bool] = None
 
 
+class AdjustRequest(BaseModel):
+    adjustment_type: str   # "add" | "subtract" | "set"
+    quantity: float
+    note: Optional[str] = None
+
+
+class HistoryOut(BaseModel):
+    id: int
+    consumable_id: int
+    changed_by_username: Optional[str]
+    changed_at: str
+    change_type: str
+    qty_before: float
+    qty_after: float
+    qty_delta: float
+    note: Optional[str]
+
+
 class ConsumableOut(BaseModel):
     id: int
     name: str
     code: Optional[str]
+    storage_type: Optional[str]
     storage_location: Optional[str]
     supplier_name: Optional[str]
     rate_per_unit: Optional[float]
@@ -77,6 +99,7 @@ def _out(c: Consumable) -> ConsumableOut:
         id=c.id,  # type: ignore[arg-type]
         name=c.name,
         code=c.code,
+        storage_type=c.storage_type,
         storage_location=c.storage_location,
         supplier_name=c.supplier_name,
         rate_per_unit=c.rate_per_unit,
@@ -128,6 +151,7 @@ def create_consumable(body: ConsumableCreate, session: SessionDep, _: AdminUser)
     c = Consumable(
         name=body.name.strip(),
         code=body.code or None,
+        storage_type=body.storage_type or None,
         storage_location=body.storage_location or None,
         supplier_name=body.supplier_name or None,
         rate_per_unit=body.rate_per_unit,
@@ -159,6 +183,8 @@ def update_consumable(item_id: int, body: ConsumableUpdate, session: SessionDep,
         c.name = body.name.strip()
     if body.code is not None:
         c.code = body.code or None
+    if body.storage_type is not None:
+        c.storage_type = body.storage_type or None
     if body.storage_location is not None:
         c.storage_location = body.storage_location or None
     if body.supplier_name is not None:
@@ -187,3 +213,73 @@ def delete_consumable(item_id: int, session: SessionDep, _: AdminUser) -> None:
     c.updated_at = datetime.now(tz=timezone.utc)
     session.add(c)
     session.commit()
+
+
+@router.post("/{item_id}/adjust")
+def adjust_consumable_stock(
+    item_id: int, body: AdjustRequest, session: SessionDep, current_user: CurrentUser,
+) -> ConsumableOut:
+    c = session.get(Consumable, item_id)
+    if not c:
+        raise HTTPException(status_code=404, detail="Consumable not found")
+    qty_before = c.qty
+    if body.adjustment_type == "add":
+        c.qty += body.quantity
+    elif body.adjustment_type == "subtract":
+        c.qty = max(0.0, c.qty - body.quantity)
+    elif body.adjustment_type == "set":
+        c.qty = body.quantity
+    else:
+        raise HTTPException(status_code=400, detail="adjustment_type must be add|subtract|set")
+    qty_after = c.qty
+    c.updated_at = datetime.now(tz=timezone.utc)
+    session.add(c)
+    hist = ConsumableHistory(
+        consumable_id=item_id,
+        changed_by_user_id=current_user.id,  # type: ignore[arg-type]
+        changed_by_username=current_user.username,
+        changed_at=c.updated_at,
+        change_type=body.adjustment_type,
+        qty_before=qty_before,
+        qty_after=qty_after,
+        qty_delta=qty_after - qty_before,
+        note=body.note or None,
+    )
+    session.add(hist)
+    session.commit()
+    session.refresh(c)
+    return _out(c)
+
+
+@router.get("/{item_id}/history")
+def get_consumable_history(
+    item_id: int, session: SessionDep, _: AdminUser,
+    limit: int = Query(default=50, ge=1, le=200),
+) -> list[HistoryOut]:
+    c = session.get(Consumable, item_id)
+    if not c:
+        raise HTTPException(status_code=404, detail="Consumable not found")
+    rows = session.exec(
+        select(ConsumableHistory)
+        .where(ConsumableHistory.consumable_id == item_id)
+        .order_by(ConsumableHistory.changed_at.desc())  # type: ignore[union-attr]
+        .limit(limit)
+    ).all()
+    def _dt(d: datetime) -> str:
+        if d.tzinfo is None:
+            d = d.replace(tzinfo=timezone.utc)
+        return d.isoformat()
+    return [
+        HistoryOut(
+            id=r.id,  # type: ignore[arg-type]
+            consumable_id=r.consumable_id,
+            changed_by_username=r.changed_by_username,
+            changed_at=_dt(r.changed_at),
+            change_type=r.change_type,
+            qty_before=r.qty_before,
+            qty_after=r.qty_after,
+            qty_delta=r.qty_delta,
+            note=r.note,
+        )
+        for r in rows
+    ]

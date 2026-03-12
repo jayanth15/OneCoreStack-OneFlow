@@ -22,6 +22,7 @@ import { apiFetchJson } from "@/lib/api";
 import { isAdminOrAbove } from "@/lib/user";
 import {
   PlusIcon, Pencil, Trash2, Search, FlaskConical, ImageIcon, ChevronLeft, ChevronRight,
+  PackagePlus, PackageMinus, History,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -30,6 +31,7 @@ interface Consumable {
   id: number;
   name: string;
   code: string | null;
+  storage_type: string | null;
   storage_location: string | null;
   supplier_name: string | null;
   rate_per_unit: number | null;
@@ -49,9 +51,22 @@ interface Paginated {
   pages: number;
 }
 
+interface ConsumableHistoryEntry {
+  id: number;
+  consumable_id: number;
+  changed_by_username: string | null;
+  changed_at: string;
+  change_type: string;  // add | subtract | set
+  qty_before: number;
+  qty_after: number;
+  qty_delta: number;
+  note: string | null;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 30;
+const STORAGE_TYPES = ["Shelf","Rack","Bin","Drawer","Tray","Cabinet","Box","Pallet","Floor"];
 
 function fmtRate(n: number | null) {
   if (n == null) return "—";
@@ -62,7 +77,7 @@ function fmtDate(iso: string) {
 }
 
 const BLANK = {
-  name: "", code: "", storage_location: "", supplier_name: "", rate_per_unit: "", qty: "0",
+  name: "", code: "", storage_type: "", storage_location: "", supplier_name: "", rate_per_unit: "", qty: "0",
 };
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -88,11 +103,25 @@ export default function ConsumablesPage() {
   const [imgB64, setImgB64] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [formStorageCustom, setFormStorageCustom] = useState(false);
   const imgRef = useRef<HTMLInputElement>(null);
 
   // delete
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // adjust stock
+  const [adjustItem, setAdjustItem] = useState<Consumable | null>(null);
+  const [adjustType, setAdjustType] = useState<"add" | "subtract">("add");
+  const [adjustQty, setAdjustQty] = useState("");
+  const [adjustNote, setAdjustNote] = useState("");
+  const [adjusting, setAdjusting] = useState(false);
+  const [adjustError, setAdjustError] = useState<string | null>(null);
+
+  // history
+  const [historyItem, setHistoryItem] = useState<Consumable | null>(null);
+  const [historyRows, setHistoryRows] = useState<ConsumableHistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   useEffect(() => { setAdmin(isAdminOrAbove()); }, []);
 
@@ -117,13 +146,18 @@ export default function ConsumablesPage() {
   function openCreate() {
     setEditing(null);
     setForm({ ...BLANK });
+    setFormStorageCustom(false);
     setImgPreview(null); setImgB64(null);
     setFormError(null); setDialog("create");
   }
   function openEdit(item: Consumable) {
     setEditing(item);
+    const isCustom = !!item.storage_type && !STORAGE_TYPES.includes(item.storage_type);
+    setFormStorageCustom(isCustom);
     setForm({
-      name: item.name, code: item.code ?? "", storage_location: item.storage_location ?? "",
+      name: item.name, code: item.code ?? "",
+      storage_type: item.storage_type ?? "",
+      storage_location: item.storage_location ?? "",
       supplier_name: item.supplier_name ?? "",
       rate_per_unit: item.rate_per_unit != null ? String(item.rate_per_unit) : "",
       qty: String(item.qty),
@@ -148,6 +182,7 @@ export default function ConsumablesPage() {
     const body = {
       name: form.name.trim(),
       code: form.code || null,
+      storage_type: form.storage_type || null,
       storage_location: form.storage_location || null,
       supplier_name: form.supplier_name || null,
       rate_per_unit: form.rate_per_unit ? parseFloat(form.rate_per_unit) : null,
@@ -175,6 +210,39 @@ export default function ConsumablesPage() {
       setDeleteId(null); fetchItems(page);
     } catch (e: unknown) { setError(e instanceof Error ? e.message : "Delete failed"); }
     finally { setDeleting(false); }
+  }
+
+  // ── Adjust stock ─────────────────────────────────────────────────────────────
+
+  function openAdjust(item: Consumable, type: "add" | "subtract") {
+    setAdjustItem(item); setAdjustType(type);
+    setAdjustQty(""); setAdjustNote(""); setAdjustError(null);
+  }
+
+  async function doAdjust() {
+    if (!adjustItem) return;
+    const qty = parseFloat(adjustQty);
+    if (isNaN(qty) || qty <= 0) { setAdjustError("Enter a positive quantity"); return; }
+    setAdjusting(true); setAdjustError(null);
+    try {
+      await apiFetchJson(`/api/v1/consumables/${adjustItem.id}/adjust`, {
+        method: "POST",
+        body: JSON.stringify({ adjustment_type: adjustType, quantity: qty, note: adjustNote || null }),
+      });
+      setAdjustItem(null); fetchItems(page);
+    } catch (e: unknown) { setAdjustError(e instanceof Error ? e.message : "Failed"); }
+    finally { setAdjusting(false); }
+  }
+
+  // ── History ───────────────────────────────────────────────────────────────────
+
+  async function openHistory(item: Consumable) {
+    setHistoryItem(item); setHistoryRows([]); setHistoryLoading(true);
+    try {
+      const rows = await apiFetchJson<ConsumableHistoryEntry[]>(`/api/v1/consumables/${item.id}/history`);
+      setHistoryRows(rows);
+    } catch { /* ignore */ }
+    finally { setHistoryLoading(false); }
   }
 
   // ── Render ────────────────────────────────────────────────────────────────────
@@ -251,6 +319,7 @@ export default function ConsumablesPage() {
                     <th className="px-4 py-2.5 text-left font-medium text-muted-foreground w-8">#</th>
                     <th className="px-4 py-2.5 text-left font-medium">Name</th>
                     <th className="px-4 py-2.5 text-left font-medium">Code</th>
+                    <th className="px-4 py-2.5 text-left font-medium">Storage Type</th>
                     <th className="px-4 py-2.5 text-left font-medium">Storage Location</th>
                     <th className="px-4 py-2.5 text-left font-medium">Supplier</th>
                     <th className="px-4 py-2.5 text-right font-medium">Rate / Unit</th>
@@ -258,7 +327,7 @@ export default function ConsumablesPage() {
                     <th className="px-4 py-2.5 text-right font-medium">Total Value</th>
                     <th className="px-4 py-2.5 text-center font-medium">Image</th>
                     <th className="px-4 py-2.5 text-left font-medium">Updated</th>
-                    {admin && <th className="px-4 py-2.5 text-right font-medium">Actions</th>}
+                    <th className="px-4 py-2.5 text-right font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -269,6 +338,7 @@ export default function ConsumablesPage() {
                       <td className="px-4 py-3 text-muted-foreground font-mono text-xs">
                         {item.code ? <Badge variant="secondary" className="font-mono">{item.code}</Badge> : "—"}
                       </td>
+                      <td className="px-4 py-3 text-muted-foreground">{item.storage_type ?? "—"}</td>
                       <td className="px-4 py-3 text-muted-foreground">{item.storage_location ?? "—"}</td>
                       <td className="px-4 py-3 text-muted-foreground">{item.supplier_name ?? "—"}</td>
                       <td className="px-4 py-3 text-right tabular-nums font-medium">{fmtRate(item.rate_per_unit)}</td>
@@ -280,18 +350,31 @@ export default function ConsumablesPage() {
                           : <ImageIcon className="size-4 text-muted-foreground/30 mx-auto" />}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground text-xs">{fmtDate(item.updated_at)}</td>
-                      {admin && (
-                        <td className="px-4 py-3 text-right">
+                      <td className="px-4 py-3 text-right">
                           <div className="inline-flex gap-1">
-                            <Button variant="ghost" size="icon" className="size-7" onClick={() => openEdit(item)}>
-                              <Pencil className="size-3.5" />
+                            <Button variant="ghost" size="icon" className="size-7" title="Add Stock" onClick={() => openAdjust(item, "add")}>
+                              <PackagePlus className="size-3.5 text-emerald-600" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="size-7 text-destructive hover:text-destructive" onClick={() => setDeleteId(item.id)}>
-                              <Trash2 className="size-3.5" />
+                            <Button variant="ghost" size="icon" className="size-7" title="Remove Stock" onClick={() => openAdjust(item, "subtract")}>
+                              <PackageMinus className="size-3.5 text-amber-600" />
                             </Button>
+                            {admin && (
+                              <Button variant="ghost" size="icon" className="size-7" title="History" onClick={() => openHistory(item)}>
+                                <History className="size-3.5 text-muted-foreground" />
+                              </Button>
+                            )}
+                            {admin && (
+                              <Button variant="ghost" size="icon" className="size-7" onClick={() => openEdit(item)}>
+                                <Pencil className="size-3.5" />
+                              </Button>
+                            )}
+                            {admin && (
+                              <Button variant="ghost" size="icon" className="size-7 text-destructive hover:text-destructive" onClick={() => setDeleteId(item.id)}>
+                                <Trash2 className="size-3.5" />
+                              </Button>
+                            )}
                           </div>
                         </td>
-                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -311,6 +394,7 @@ export default function ConsumablesPage() {
                       {item.code && <p className="text-xs font-mono text-muted-foreground">{item.code}</p>}
                       <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                       {item.storage_location && <span>📍 {item.storage_location}</span>}
+                        {item.storage_type && <span>📦 {item.storage_type}</span>}
                         {item.supplier_name && <span>🏢 {item.supplier_name}</span>}
                         {item.rate_per_unit != null && <span>{fmtRate(item.rate_per_unit)} / unit</span>}
                         <span className="font-semibold text-foreground">Qty: {item.qty % 1 === 0 ? item.qty.toFixed(0) : item.qty.toFixed(2)}</span>
@@ -320,6 +404,15 @@ export default function ConsumablesPage() {
                     </div>
                     {admin && (
                       <div className="flex gap-1 shrink-0">
+                        <Button variant="ghost" size="icon" className="size-8" title="Add Stock" onClick={() => openAdjust(item, "add")}>
+                          <PackagePlus className="size-3.5 text-emerald-600" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="size-8" title="Remove Stock" onClick={() => openAdjust(item, "subtract")}>
+                          <PackageMinus className="size-3.5 text-amber-600" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="size-8" title="History" onClick={() => openHistory(item)}>
+                          <History className="size-3.5 text-muted-foreground" />
+                        </Button>
                         <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(item)}>
                           <Pencil className="size-3.5" />
                         </Button>
@@ -370,14 +463,34 @@ export default function ConsumablesPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
+                <Label>Storage Type</Label>
+                <select
+                  value={formStorageCustom ? "__custom__" : (form.storage_type || "")}
+                  onChange={e => {
+                    if (e.target.value === "__custom__") {
+                      setFormStorageCustom(true);
+                      setForm(f => ({ ...f, storage_type: "" }));
+                    } else {
+                      setFormStorageCustom(false);
+                      setForm(f => ({ ...f, storage_type: e.target.value }));
+                    }
+                  }}
+                  disabled={saving}
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                  <option value="">— Select —</option>
+                  {STORAGE_TYPES.map(s => <option key={s} value={s}>{s}</option>)}
+                  <option value="__custom__">Other…</option>
+                </select>
+                {formStorageCustom && (
+                  <Input placeholder="Enter storage type" value={form.storage_type}
+                    onChange={e => setForm(f => ({ ...f, storage_type: e.target.value }))}
+                    disabled={saving} className="mt-1.5" />
+                )}
+              </div>
+              <div className="space-y-1.5">
                 <Label htmlFor="c-storage">Storage Location</Label>
                 <Input id="c-storage" placeholder="e.g. Shelf A3" value={form.storage_location}
                   onChange={e => setForm(f => ({ ...f, storage_location: e.target.value }))} disabled={saving} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="c-rate">Rate / Unit (₹)</Label>
-                <Input id="c-rate" type="number" min="0" step="any" placeholder="0.00" value={form.rate_per_unit}
-                  onChange={e => setForm(f => ({ ...f, rate_per_unit: e.target.value }))} disabled={saving} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -387,10 +500,15 @@ export default function ConsumablesPage() {
                   onChange={e => setForm(f => ({ ...f, supplier_name: e.target.value }))} disabled={saving} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="c-qty">Quantity on Hand</Label>
-                <Input id="c-qty" type="number" min="0" step="any" placeholder="0" value={form.qty}
-                  onChange={e => setForm(f => ({ ...f, qty: e.target.value }))} disabled={saving} />
+                <Label htmlFor="c-rate">Rate / Unit (₹)</Label>
+                <Input id="c-rate" type="number" min="0" step="any" placeholder="0.00" value={form.rate_per_unit}
+                  onChange={e => setForm(f => ({ ...f, rate_per_unit: e.target.value }))} disabled={saving} />
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="c-qty">Quantity on Hand</Label>
+              <Input id="c-qty" type="number" min="0" step="any" placeholder="0" value={form.qty}
+                onChange={e => setForm(f => ({ ...f, qty: e.target.value }))} disabled={saving} />
             </div>
             <div className="space-y-1.5">
               <Label>Picture <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
@@ -422,6 +540,104 @@ export default function ConsumablesPage() {
               <Button variant="outline" onClick={() => setDialog(null)} disabled={saving}>Cancel</Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Adjust Stock Dialog ─────────────────────────────────────── */}
+      <Dialog open={adjustItem !== null} onOpenChange={o => !o && setAdjustItem(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader className="mb-2">
+            <DialogTitle className="flex items-center gap-2">
+              {adjustType === "add"
+                ? <PackagePlus className="size-4 text-emerald-600" />
+                : <PackageMinus className="size-4 text-amber-600" />}
+              {adjustType === "add" ? "Add Stock" : "Remove Stock"} — {adjustItem?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-md bg-muted/50 px-3 py-2 text-sm">
+              Current qty: <span className="font-semibold tabular-nums">
+                {adjustItem ? (adjustItem.qty % 1 === 0 ? adjustItem.qty.toFixed(0) : adjustItem.qty.toFixed(2)) : ""}
+              </span>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="adj-qty">Quantity *</Label>
+              <Input id="adj-qty" type="number" min="0.001" step="any" placeholder="0"
+                value={adjustQty} onChange={e => setAdjustQty(e.target.value)} disabled={adjusting}
+                autoFocus />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="adj-note">Note <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+              <Input id="adj-note" placeholder="e.g. Monthly restock" value={adjustNote}
+                onChange={e => setAdjustNote(e.target.value)} disabled={adjusting} />
+            </div>
+            {adjustError && <p className="text-sm text-destructive">{adjustError}</p>}
+            <div className="flex gap-3 pt-1">
+              <Button onClick={doAdjust} disabled={adjusting} className="flex-1"
+                variant={adjustType === "subtract" ? "destructive" : "default"}>
+                {adjusting ? "Saving…" : adjustType === "add" ? "Add Stock" : "Remove Stock"}
+              </Button>
+              <Button variant="outline" onClick={() => setAdjustItem(null)} disabled={adjusting}>Cancel</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── History Dialog ──────────────────────────────────────────── */}
+      <Dialog open={historyItem !== null} onOpenChange={o => !o && setHistoryItem(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader className="mb-2">
+            <DialogTitle className="flex items-center gap-2">
+              <History className="size-4" /> Stock History — {historyItem?.name}
+            </DialogTitle>
+          </DialogHeader>
+          {historyLoading ? (
+            <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div>
+          ) : historyRows.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">No history yet.</p>
+          ) : (
+            <div className="overflow-x-auto max-h-[60vh] overflow-y-auto">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-background">
+                  <tr className="border-b">
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Date</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Type</th>
+                    <th className="px-3 py-2 text-right font-medium text-muted-foreground">Before</th>
+                    <th className="px-3 py-2 text-right font-medium text-muted-foreground">Change</th>
+                    <th className="px-3 py-2 text-right font-medium text-muted-foreground">After</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">By</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Note</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {historyRows.map(r => (
+                    <tr key={r.id} className="hover:bg-muted/20">
+                      <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{fmtDate(r.changed_at)}</td>
+                      <td className="px-3 py-2">
+                        <span className={`inline-flex items-center gap-1 text-xs font-medium ${
+                          r.change_type === "add" ? "text-emerald-600" :
+                          r.change_type === "subtract" ? "text-amber-600" : "text-blue-600"
+                        }`}>
+                          {r.change_type === "add" && <PackagePlus className="size-3" />}
+                          {r.change_type === "subtract" && <PackageMinus className="size-3" />}
+                          {r.change_type}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{r.qty_before % 1 === 0 ? r.qty_before.toFixed(0) : r.qty_before.toFixed(2)}</td>
+                      <td className={`px-3 py-2 text-right tabular-nums font-medium ${
+                        r.qty_delta > 0 ? "text-emerald-600" : r.qty_delta < 0 ? "text-amber-600" : ""
+                      }`}>
+                        {r.qty_delta > 0 ? "+" : ""}{r.qty_delta % 1 === 0 ? r.qty_delta.toFixed(0) : r.qty_delta.toFixed(2)}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums font-semibold">{r.qty_after % 1 === 0 ? r.qty_after.toFixed(0) : r.qty_after.toFixed(2)}</td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground">{r.changed_by_username ?? "—"}</td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground">{r.note ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
