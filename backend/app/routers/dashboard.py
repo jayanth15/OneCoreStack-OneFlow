@@ -343,3 +343,95 @@ def get_dashboard(
         daily_production_output=daily_production_output,
         low_stock_items=low_stock_items,
     )
+
+
+# ── Spares & Consumables low-stock for dashboard widget ───────────────────────
+
+class SpareLowStockItem(BaseModel):
+    item_id: int
+    item_name: str
+    part_number: Optional[str]
+    category_name: str
+    sub_category_name: Optional[str]
+    recorded_qty: float
+    reorder_level: float
+    unit: str
+
+
+class ConsumableLowStockItem(BaseModel):
+    item_id: int
+    name: str
+    code: Optional[str]
+    qty: float
+    reorder_level: float
+
+
+class LowStockSummary(BaseModel):
+    spares: list[SpareLowStockItem]
+    consumables: list[ConsumableLowStockItem]
+
+
+@router.get("/low-stock", response_model=LowStockSummary)
+def get_low_stock_summary(
+    session: Annotated[Session, Depends(get_session)],
+    _: Annotated[User, Depends(get_current_user)],
+) -> LowStockSummary:
+    from app.models.spare_item import SpareItem
+    from app.models.spare_category import SpareCategory
+    from app.models.spare_sub_category import SpareSubCategory
+    from app.models.consumable import Consumable
+
+    # Spares low stock
+    spare_rows = session.exec(
+        select(SpareItem).where(
+            SpareItem.is_active == True,  # noqa: E712
+            SpareItem.reorder_level > 0,
+            SpareItem.recorded_qty <= SpareItem.reorder_level,
+        ).order_by(SpareItem.name)
+    ).all()
+
+    cat_cache: dict = {}
+    sub_cache: dict = {}
+    spares_out = []
+    for s in spare_rows:
+        if s.category_id not in cat_cache:
+            c = session.get(SpareCategory, s.category_id)
+            cat_cache[s.category_id] = c
+        cat = cat_cache.get(s.category_id)
+        sub = None
+        if s.sub_category_id:
+            if s.sub_category_id not in sub_cache:
+                sc = session.get(SpareSubCategory, s.sub_category_id)
+                sub_cache[s.sub_category_id] = sc
+            sub = sub_cache.get(s.sub_category_id)
+        spares_out.append(SpareLowStockItem(
+            item_id=s.id,  # type: ignore[arg-type]
+            item_name=s.name,
+            part_number=s.part_number,
+            category_name=cat.name if cat else "Unknown",
+            sub_category_name=sub.name if sub else None,
+            recorded_qty=s.recorded_qty,
+            reorder_level=s.reorder_level,
+            unit=s.unit,
+        ))
+
+    # Consumables low stock
+    cons_rows = session.exec(
+        select(Consumable).where(
+            Consumable.is_active == True,  # noqa: E712
+            Consumable.reorder_level > 0,
+            Consumable.qty <= Consumable.reorder_level,
+        ).order_by(Consumable.name)
+    ).all()
+    consumables_out = [
+        ConsumableLowStockItem(
+            item_id=c.id,  # type: ignore[arg-type]
+            name=c.name,
+            code=c.code,
+            qty=c.qty,
+            reorder_level=getattr(c, 'reorder_level', 0.0) or 0.0,
+        )
+        for c in cons_rows
+    ]
+
+    return LowStockSummary(spares=spares_out, consumables=consumables_out)

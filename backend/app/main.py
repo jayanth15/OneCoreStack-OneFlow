@@ -21,6 +21,8 @@ from app.routers import consumables as consumables_router
 from app.models.spare_sub_category import SpareSubCategory  # noqa: F401 — ensures table is created
 from app.models.consumable import Consumable  # noqa: F401 — ensures table is created
 from app.models.consumable_history import ConsumableHistory  # noqa: F401 — ensures table is created
+from app.models.spare_item_history import SpareItemHistory  # noqa: F401 — ensures table is created
+from app.models.spare_item_variant import SpareItemVariant  # noqa: F401 — ensures table is created
 
 
 @asynccontextmanager
@@ -45,6 +47,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _migrate_consumable_history()
     # Migrate consumable to v3: add storage_type column
     _migrate_consumable_v3()
+    # Migrate consumable to v4: add reorder_level column
+    _migrate_consumable_v4()
+    # Create spare_item_history table
+    _migrate_spare_item_history()
+    # Create spare_item_variant table
+    _migrate_spare_item_variant()
     # Auto-seed a default admin user on a brand-new / empty database
     _auto_seed_if_empty()
     yield
@@ -267,6 +275,66 @@ def _migrate_consumable_v3() -> None:
         if "storage_type" not in existing:
             conn.execute(text("ALTER TABLE consumable ADD COLUMN storage_type TEXT"))
             conn.commit()
+
+
+def _migrate_consumable_v4() -> None:
+    """Add reorder_level column to consumable table (idempotent)."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        existing = [row[1] for row in conn.execute(text("PRAGMA table_info(consumable)")).fetchall()]
+        if "reorder_level" not in existing:
+            conn.execute(text("ALTER TABLE consumable ADD COLUMN reorder_level REAL NOT NULL DEFAULT 0.0"))
+            conn.commit()
+
+
+def _migrate_spare_item_history() -> None:
+    """Create spare_item_history table if it doesn't exist (idempotent)."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS spare_item_history (
+                id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+                spare_item_id         INTEGER NOT NULL REFERENCES spare_item(id),
+                changed_by_user_id    INTEGER REFERENCES users(id),
+                changed_by_username   TEXT,
+                changed_at            TEXT NOT NULL,
+                change_type           TEXT NOT NULL,
+                qty_before            REAL NOT NULL,
+                qty_after             REAL NOT NULL,
+                qty_delta             REAL NOT NULL,
+                note                  TEXT
+            )
+        """))
+        conn.commit()
+
+
+def _migrate_spare_item_variant() -> None:
+    """Create spare_item_variant table if it doesn't exist (idempotent)."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS spare_item_variant (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                spare_item_id   INTEGER NOT NULL REFERENCES spare_item(id),
+                serial_number   TEXT,
+                variant_color   TEXT,
+                image_base64    TEXT,
+                qty             REAL NOT NULL DEFAULT 0.0,
+                storage_location TEXT,
+                storage_type    TEXT,
+                rate            REAL,
+                is_active       INTEGER NOT NULL DEFAULT 1,
+                created_at      TEXT,
+                updated_at      TEXT
+            )
+        """))
+        conn.commit()
 
 
 def _migrate_production_plan_v2() -> None:

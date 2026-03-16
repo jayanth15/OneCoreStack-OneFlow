@@ -22,7 +22,7 @@ import { apiFetchJson } from "@/lib/api";
 import { isAdminOrAbove } from "@/lib/user";
 import {
   PlusIcon, Pencil, Trash2, Search, FlaskConical, ImageIcon, ChevronLeft, ChevronRight,
-  PackagePlus, PackageMinus, History,
+  PackagePlus, PackageMinus, History, Eye, AlertTriangle,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -36,6 +36,7 @@ interface Consumable {
   supplier_name: string | null;
   rate_per_unit: number | null;
   qty: number;
+  reorder_level: number;
   total_price: number | null;
   image_base64: string | null;
   is_active: boolean;
@@ -77,7 +78,7 @@ function fmtDate(iso: string) {
 }
 
 const BLANK = {
-  name: "", code: "", storage_type: "", storage_location: "", supplier_name: "", rate_per_unit: "", qty: "0",
+  name: "", code: "", storage_type: "", storage_location: "", supplier_name: "", rate_per_unit: "", qty: "0", reorder_level: "0",
 };
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -117,6 +118,9 @@ export default function ConsumablesPage() {
   const [adjustNote, setAdjustNote] = useState("");
   const [adjusting, setAdjusting] = useState(false);
   const [adjustError, setAdjustError] = useState<string | null>(null);
+
+  // view detail
+  const [viewItem, setViewItem] = useState<Consumable | null>(null);
 
   // history
   const [historyItem, setHistoryItem] = useState<Consumable | null>(null);
@@ -161,6 +165,7 @@ export default function ConsumablesPage() {
       supplier_name: item.supplier_name ?? "",
       rate_per_unit: item.rate_per_unit != null ? String(item.rate_per_unit) : "",
       qty: String(item.qty),
+      reorder_level: String(item.reorder_level ?? 0),
     });
     setImgPreview(item.image_base64 ? `data:image/jpeg;base64,${item.image_base64}` : null);
     setImgB64(item.image_base64 ?? null);
@@ -187,6 +192,7 @@ export default function ConsumablesPage() {
       supplier_name: form.supplier_name || null,
       rate_per_unit: form.rate_per_unit ? parseFloat(form.rate_per_unit) : null,
       qty: parseFloat(form.qty) || 0,
+      reorder_level: parseFloat(form.reorder_level) || 0,
       image_base64: imgB64,
     };
     try {
@@ -322,9 +328,9 @@ export default function ConsumablesPage() {
                     <th className="px-4 py-2.5 text-left font-medium">Storage Type</th>
                     <th className="px-4 py-2.5 text-left font-medium">Storage Location</th>
                     <th className="px-4 py-2.5 text-left font-medium">Supplier</th>
-                    <th className="px-4 py-2.5 text-right font-medium">Rate / Unit</th>
+                    {admin && <th className="px-4 py-2.5 text-right font-medium">Rate / Unit</th>}
                     <th className="px-4 py-2.5 text-right font-medium">Qty</th>
-                    <th className="px-4 py-2.5 text-right font-medium">Total Value</th>
+                    {admin && <th className="px-4 py-2.5 text-right font-medium">Total Value</th>}
                     <th className="px-4 py-2.5 text-center font-medium">Image</th>
                     <th className="px-4 py-2.5 text-left font-medium">Updated</th>
                     <th className="px-4 py-2.5 text-right font-medium">Actions</th>
@@ -341,9 +347,16 @@ export default function ConsumablesPage() {
                       <td className="px-4 py-3 text-muted-foreground">{item.storage_type ?? "—"}</td>
                       <td className="px-4 py-3 text-muted-foreground">{item.storage_location ?? "—"}</td>
                       <td className="px-4 py-3 text-muted-foreground">{item.supplier_name ?? "—"}</td>
-                      <td className="px-4 py-3 text-right tabular-nums font-medium">{fmtRate(item.rate_per_unit)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums">{item.qty % 1 === 0 ? item.qty.toFixed(0) : item.qty.toFixed(2)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums font-medium">{item.total_price != null ? fmtRate(item.total_price) : "—"}</td>
+                      {admin && <td className="px-4 py-3 text-right tabular-nums font-medium">{fmtRate(item.rate_per_unit)}</td>}
+                      <td className={`px-4 py-3 text-right tabular-nums ${item.reorder_level > 0 && item.qty <= item.reorder_level ? "text-amber-600 font-medium" : ""}`}>
+                        <span className="inline-flex items-center gap-1 justify-end">
+                          {item.reorder_level > 0 && item.qty <= item.reorder_level && <AlertTriangle className="size-3" />}
+                          {item.qty % 1 === 0 ? item.qty.toFixed(0) : item.qty.toFixed(2)}
+                          {item.reorder_level > 0 && <span className="text-muted-foreground text-[10px] font-normal"> /{item.reorder_level % 1 === 0 ? item.reorder_level.toFixed(0) : item.reorder_level.toFixed(2)}</span>}
+                        </span>
+                      </td>
+                      {admin && <td className="px-4 py-3 text-right tabular-nums font-medium">{item.total_price != null ? fmtRate(item.total_price) : "—"}</td>}
+                      {/* qty with low-stock indicator injected inline below */}
                       <td className="px-4 py-3 text-center">
                         {item.image_base64
                           ? <img src={`data:image/jpeg;base64,${item.image_base64}`} alt={item.name} className="size-9 rounded object-cover mx-auto" /> // eslint-disable-line @next/next/no-img-element
@@ -352,6 +365,9 @@ export default function ConsumablesPage() {
                       <td className="px-4 py-3 text-muted-foreground text-xs">{fmtDate(item.updated_at)}</td>
                       <td className="px-4 py-3 text-right">
                           <div className="inline-flex gap-1">
+                            <Button variant="ghost" size="icon" className="size-7" title="View details" onClick={() => setViewItem(item)}>
+                              <Eye className="size-3.5 text-blue-600" />
+                            </Button>
                             <Button variant="ghost" size="icon" className="size-7" title="Add Stock" onClick={() => openAdjust(item, "add")}>
                               <PackagePlus className="size-3.5 text-emerald-600" />
                             </Button>
@@ -396,9 +412,12 @@ export default function ConsumablesPage() {
                       {item.storage_location && <span>📍 {item.storage_location}</span>}
                         {item.storage_type && <span>📦 {item.storage_type}</span>}
                         {item.supplier_name && <span>🏢 {item.supplier_name}</span>}
-                        {item.rate_per_unit != null && <span>{fmtRate(item.rate_per_unit)} / unit</span>}
-                        <span className="font-semibold text-foreground">Qty: {item.qty % 1 === 0 ? item.qty.toFixed(0) : item.qty.toFixed(2)}</span>
-                        {item.total_price != null && <span className="font-medium text-foreground">Total: {fmtRate(item.total_price)}</span>}
+                        {admin && item.rate_per_unit != null && <span>{fmtRate(item.rate_per_unit)} / unit</span>}
+                        <span className={`font-semibold ${item.reorder_level > 0 && item.qty <= item.reorder_level ? "text-amber-600" : "text-foreground"}`}>
+                          {item.reorder_level > 0 && item.qty <= item.reorder_level && <AlertTriangle className="size-3 inline mr-0.5" />}Qty: {item.qty % 1 === 0 ? item.qty.toFixed(0) : item.qty.toFixed(2)}
+                          {item.reorder_level > 0 && <span className="text-muted-foreground font-normal text-[10px]"> /{item.reorder_level % 1 === 0 ? item.reorder_level.toFixed(0) : item.reorder_level.toFixed(2)}</span>}
+                        </span>
+                        {admin && item.total_price != null && <span className="font-medium text-foreground">Total: {fmtRate(item.total_price)}</span>}
                         <span>{fmtDate(item.updated_at)}</span>
                       </div>
                     </div>
@@ -505,10 +524,17 @@ export default function ConsumablesPage() {
                   onChange={e => setForm(f => ({ ...f, rate_per_unit: e.target.value }))} disabled={saving} />
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="c-qty">Quantity on Hand</Label>
-              <Input id="c-qty" type="number" min="0" step="any" placeholder="0" value={form.qty}
-                onChange={e => setForm(f => ({ ...f, qty: e.target.value }))} disabled={saving} />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="c-qty">Quantity on Hand</Label>
+                <Input id="c-qty" type="number" min="0" step="any" placeholder="0" value={form.qty}
+                  onChange={e => setForm(f => ({ ...f, qty: e.target.value }))} disabled={saving} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="c-reorder">Reorder Level</Label>
+                <Input id="c-reorder" type="number" min="0" step="any" placeholder="0" value={form.reorder_level}
+                  onChange={e => setForm(f => ({ ...f, reorder_level: e.target.value }))} disabled={saving} />
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label>Picture <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
@@ -578,6 +604,42 @@ export default function ConsumablesPage() {
                 {adjusting ? "Saving…" : adjustType === "add" ? "Add Stock" : "Remove Stock"}
               </Button>
               <Button variant="outline" onClick={() => setAdjustItem(null)} disabled={adjusting}>Cancel</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── View Detail Dialog ───────────────────────────────────────── */}
+      <Dialog open={viewItem !== null} onOpenChange={o => !o && setViewItem(null)}>
+        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>{viewItem?.name}</DialogTitle></DialogHeader>
+          <div className="space-y-4 mt-1">
+            {viewItem?.image_base64 ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={`data:image/jpeg;base64,${viewItem.image_base64}`} alt={viewItem.name}
+                className="w-full max-h-64 object-contain rounded-lg border bg-muted/20" />
+            ) : (
+              <div className="w-full h-28 rounded-lg border-2 border-dashed flex items-center justify-center text-muted-foreground/40">
+                <FlaskConical className="size-10" />
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+              {viewItem?.code && <><span className="text-muted-foreground">Code</span><span className="font-mono font-medium">{viewItem.code}</span></>}
+              {viewItem?.supplier_name && <><span className="text-muted-foreground">Supplier</span><span>{viewItem.supplier_name}</span></>}
+              {viewItem?.storage_type && <><span className="text-muted-foreground">Storage Type</span><span>{viewItem.storage_type}</span></>}
+              {viewItem?.storage_location && <><span className="text-muted-foreground">Location</span><span>{viewItem.storage_location}</span></>}
+              {admin && <><span className="text-muted-foreground">Rate / Unit</span><span className="font-medium">{viewItem ? fmtRate(viewItem.rate_per_unit) : "—"}</span></>}
+              {admin && viewItem?.total_price != null && <><span className="text-muted-foreground">Total Value</span><span className="font-medium">{fmtRate(viewItem.total_price)}</span></>}
+              <span className="text-muted-foreground">Qty</span>
+              <span className={`font-medium ${viewItem && viewItem.reorder_level > 0 && viewItem.qty <= viewItem.reorder_level ? "text-amber-600" : ""}`}>
+                {viewItem && (viewItem.qty % 1 === 0 ? viewItem.qty.toFixed(0) : viewItem.qty.toFixed(2))}
+                {viewItem && viewItem.reorder_level > 0 && viewItem.qty <= viewItem.reorder_level && <AlertTriangle className="size-3 inline ml-1 mb-0.5" />}
+              </span>
+              {viewItem && viewItem.reorder_level > 0 && <>
+                <span className="text-muted-foreground">Reorder Level</span>
+                <span>{viewItem.reorder_level % 1 === 0 ? viewItem.reorder_level.toFixed(0) : viewItem.reorder_level.toFixed(2)}</span>
+              </>}
+              <span className="text-muted-foreground">Updated</span><span className="text-muted-foreground text-xs">{viewItem ? fmtDate(viewItem.updated_at) : ""}</span>
             </div>
           </div>
         </DialogContent>

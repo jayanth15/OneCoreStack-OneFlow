@@ -200,6 +200,13 @@ function InventoryLanding() {
       accent: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400",
       border: "hover:border-violet-400",
     },
+    {
+      id: "stock_alerts", label: "Stock Alerts", desc: "Items below reorder level",
+      href: "/dashboard/inventory/stock-alerts",
+      icon: <AlertTriangle className="size-8" />,
+      accent: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+      border: "hover:border-red-400",
+    },
   ];
 
   return (
@@ -237,9 +244,11 @@ function InventoryLanding() {
                   <p className="text-sm text-muted-foreground mt-0.5">{c.desc}</p>
                 </div>
                 <p className="text-2xl font-bold tabular-nums">
-                  {count === null
-                    ? <span className="text-muted-foreground text-base animate-pulse">—</span>
-                    : <>{count}<span className="text-sm font-normal text-muted-foreground ml-1">{c.id === "spares" ? "categories" : "items"}</span></>}
+                  {c.id === "stock_alerts"
+                    ? <span className="text-sm font-normal text-muted-foreground">View alerts →</span>
+                    : count === null
+                      ? <span className="text-muted-foreground text-base animate-pulse">—</span>
+                      : <>{count}<span className="text-sm font-normal text-muted-foreground ml-1">{c.id === "spares" ? "categories" : "items"}</span></>}
                 </p>
               </button>
             );

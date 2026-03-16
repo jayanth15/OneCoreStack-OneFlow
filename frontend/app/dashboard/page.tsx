@@ -97,6 +97,24 @@ interface LowStockItem {
   unit: string;
 }
 
+interface SpareLowStockItem {
+  item_id: number;
+  item_name: string;
+  part_number: string | null;
+  category_name: string;
+  sub_category_name: string;
+  recorded_qty: number;
+  reorder_level: number;
+  unit: string;
+}
+interface ConsumableLowStockItem {
+  item_id: number;
+  name: string;
+  code: string | null;
+  qty: number;
+  reorder_level: number;
+}
+
 interface DashboardData {
   overview: OverviewCounts;
   schedule_status: StatusBreakdown;
@@ -257,6 +275,7 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [semiFGItems, setSemiFGItems] = useState<SemiFGItem[]>([]);
+  const [lowStockData, setLowStockData] = useState<{spares: SpareLowStockItem[]; consumables: ConsumableLowStockItem[]} | null>(null);
 
   useEffect(() => {
     apiFetchJson<DashboardData>("/api/v1/dashboard")
@@ -264,6 +283,9 @@ export default function DashboardPage() {
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load dashboard"));
     apiFetchJson<PaginatedInventory>("/api/v1/inventory?item_type=semi_finished&page_size=20&include_inactive=false")
       .then((d) => setSemiFGItems(d.items))
+      .catch(() => {});
+    apiFetchJson<{spares: SpareLowStockItem[]; consumables: ConsumableLowStockItem[]}>("/api/v1/dashboard/low-stock")
+      .then(setLowStockData)
       .catch(() => {});
   }, []);
 
@@ -616,6 +638,65 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
+
+        {/* ── Spares & Consumables Low Stock ──────────────────────── */}
+        {lowStockData && (lowStockData.spares.length > 0 || lowStockData.consumables.length > 0) && (
+          <div className="rounded-xl border bg-card shadow-sm">
+            <div className="flex items-center justify-between px-4 pt-4 pb-2">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="size-4 text-amber-500" />
+                <p className="text-sm font-semibold">Spares & Consumables — Low Stock Alerts</p>
+                <span className="text-xs bg-amber-100 text-amber-700 rounded-full px-2 py-0.5 font-medium">
+                  {lowStockData.spares.length + lowStockData.consumables.length} item{lowStockData.spares.length + lowStockData.consumables.length !== 1 ? "s" : ""}
+                </span>
+              </div>
+              <a href="/dashboard/inventory/stock-alerts" className="text-xs text-primary hover:underline">View all</a>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-t border-b bg-muted/40">
+                    <th className="px-4 py-2.5 text-left font-medium text-xs">Type</th>
+                    <th className="px-4 py-2.5 text-left font-medium text-xs">Name</th>
+                    <th className="px-4 py-2.5 text-left font-medium text-xs">Category</th>
+                    <th className="px-4 py-2.5 text-right font-medium text-xs">Qty</th>
+                    <th className="px-4 py-2.5 text-right font-medium text-xs">Reorder Level</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {lowStockData.spares.map(s => (
+                    <tr key={`spare-${s.item_id}`} className="hover:bg-muted/30">
+                      <td className="px-4 py-2.5"><span className="inline-flex items-center gap-1 text-xs bg-violet-100 text-violet-700 rounded-full px-2 py-0.5"><Wrench className="size-3" />Spares</span></td>
+                      <td className="px-4 py-2.5">
+                        <a href="/dashboard/inventory/spares" className="font-medium hover:underline text-sm">{s.item_name}</a>
+                        {s.part_number && <div className="text-[11px] text-muted-foreground font-mono">{s.part_number}</div>}
+                      </td>
+                      <td className="px-4 py-2.5 text-xs text-muted-foreground">{s.category_name} / {s.sub_category_name}</td>
+                      <td className="px-4 py-2.5 text-right text-amber-600 font-medium">
+                        <AlertTriangle className="size-3 inline mr-0.5" />{s.recorded_qty % 1 === 0 ? s.recorded_qty.toFixed(0) : s.recorded_qty.toFixed(2)} {s.unit}
+                      </td>
+                      <td className="px-4 py-2.5 text-right text-xs text-muted-foreground">{s.reorder_level} {s.unit}</td>
+                    </tr>
+                  ))}
+                  {lowStockData.consumables.map(c => (
+                    <tr key={`con-${c.item_id}`} className="hover:bg-muted/30">
+                      <td className="px-4 py-2.5"><span className="inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-700 rounded-full px-2 py-0.5"><Package className="size-3" />Consumables</span></td>
+                      <td className="px-4 py-2.5">
+                        <a href="/dashboard/inventory/consumables" className="font-medium hover:underline text-sm">{c.name}</a>
+                        {c.code && <div className="text-[11px] text-muted-foreground font-mono">{c.code}</div>}
+                      </td>
+                      <td className="px-4 py-2.5 text-xs text-muted-foreground">—</td>
+                      <td className="px-4 py-2.5 text-right text-amber-600 font-medium">
+                        <AlertTriangle className="size-3 inline mr-0.5" />{c.qty % 1 === 0 ? c.qty.toFixed(0) : c.qty.toFixed(2)}
+                      </td>
+                      <td className="px-4 py-2.5 text-right text-xs text-muted-foreground">{c.reorder_level}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* ── Inventory Value Summary (admin/super_admin only) ───────── */}
         {isAdminOrAbove() && data.inventory_by_type.length > 0 && (

@@ -22,7 +22,7 @@ import { apiFetchJson } from "@/lib/api";
 import { isAdminOrAbove } from "@/lib/user";
 import {
   PlusIcon, Pencil, Trash2, AlertTriangle, Wrench, ChevronRight, ChevronDown,
-  Search, PackagePlus, PackageMinus, ImageIcon, Layers, Eye,
+  Search, PackagePlus, PackageMinus, ImageIcon, Layers, Eye, History,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -49,6 +49,17 @@ interface SpareItem {
   total_value: number | null;
   is_active: boolean; created_at: string; updated_at: string;
 }
+interface SpareItemHistoryEntry {
+  id: number; spare_item_id: number; changed_by_username: string | null;
+  changed_at: string; change_type: string;
+  qty_before: number; qty_after: number; qty_delta: number; note: string | null;
+}
+interface SpareVariant {
+  id: number; spare_item_id: number; serial_number: string | null;
+  variant_color: string | null; image_base64: string | null; qty: number;
+  storage_location: string | null; storage_type: string | null; rate: number | null;
+  is_active: boolean; created_at: string; updated_at: string;
+}
 
 // ── Constants / helpers ───────────────────────────────────────────────────────
 
@@ -66,7 +77,14 @@ function fmtRate(n: number | null) {
   if (n == null) return "—";
   return `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 }
-function isLow(item: SpareItem) { return item.recorded_qty <= item.reorder_level; }
+function isLow(item: SpareItem) { return item.reorder_level > 0 && item.recorded_qty <= item.reorder_level; }
+
+function highlight(text: string | null | undefined, q: string): React.ReactNode {
+  if (!q || !text) return text ?? "";
+  const idx = text.toLowerCase().indexOf(q.toLowerCase());
+  if (idx === -1) return text;
+  return <>{text.slice(0, idx)}<mark className="bg-yellow-200 dark:bg-yellow-800/60 rounded-sm px-0.5 not-italic">{text.slice(idx, idx + q.length)}</mark>{text.slice(idx + q.length)}</>;
+}
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -110,15 +128,29 @@ export default function SparesPage() {
   // edit item sheet
   const [editItemSheet, setEditItemSheet] = useState(false);
   const [editingItem, setEditingItem]     = useState<SpareItem | null>(null);
-  const [itemForm, setItemForm]           = useState<typeof BLANK_ITEM>({ ...BLANK_ITEM });
-  const [itemCustomUnit, setItemCustomUnit] = useState(false);
-  const [itemCustomStorageType, setItemCustomStorageType] = useState(false);
-  const [viewItem, setViewItem] = useState<SpareItem | null>(null);
-  const [itemImgPreview, setItemImgPreview] = useState<string | null>(null);
-  const [itemImgB64, setItemImgB64]         = useState<string | null>(null);
+  const [itemForm, setItemForm]           = useState({ name:"", part_number:"", part_description:"" });
+  // history (admin-only)
+  const [historyItem, setHistoryItem] = useState<SpareItem | null>(null);
+  const [historyRows, setHistoryRows] = useState<SpareItemHistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  // variants popup dialog
+  const [variantsDialogItem, setVariantsDialogItem] = useState<SpareItem | null>(null);
+  const [variantsRows, setVariantsRows] = useState<SpareVariant[]>([]);
+  const [variantsLoading, setVariantsLoading] = useState(false);
+  const [variantForm, setVariantForm] = useState({serial_number:"",variant_color:"",qty:"0",unit:"pcs",customUnit:"",storage_type:"",storage_location:"",rate:"",image_base64: null as string | null});
+  const [variantCustomStorage, setVariantCustomStorage] = useState(false);
+  const [variantCustomUnit, setVariantCustomUnit] = useState(false);
+  const [variantSaving, setVariantSaving] = useState(false);
+  const [variantError, setVariantError] = useState<string | null>(null);
+  const [variantImgPreview, setVariantImgPreview] = useState<string | null>(null);
+  const variantImgRef = useRef<HTMLInputElement>(null);
+  // inline edit for existing variants
+  const [editingVariantId, setEditingVariantId] = useState<number | null>(null);
+  const [editVQty, setEditVQty] = useState("");
+  const [editVRate, setEditVRate] = useState("");
+  const [editVSaving, setEditVSaving] = useState(false);
   const [itemSaving, setItemSaving]         = useState(false);
   const [itemError, setItemError]           = useState<string | null>(null);
-  const itemImgRef = useRef<HTMLInputElement>(null);
 
   // adjust stock
   const [adjustItem, setAdjustItem]     = useState<SpareItem | null>(null);
@@ -138,16 +170,43 @@ export default function SparesPage() {
 
   // ── Data fetching ───────────────────────────────────────────────────────────
 
-  const fetchCategories = () => {
+  const fetchCategories = async () => {
     setLoading(true);
-    setExpandedCats(new Set()); // collapse on every fetch so stale expanded rows don’t show
+    setExpandedCats(new Set());
     setExpandedSubs(new Set());
     const p = new URLSearchParams({ include_inactive:"false" });
     if (search) p.set("search", search);
-    apiFetchJson<SpareCategory[]>(`/api/v1/spares/categories?${p}`)
-      .then(setCategories)
-      .catch((e:unknown) => setError(e instanceof Error ? e.message : "Failed"))
-      .finally(() => setLoading(false));
+    try {
+      const cats = await apiFetchJson<SpareCategory[]>(`/api/v1/spares/categories?${p}`);
+      setCategories(cats);
+      if (search && cats.length > 0) {
+        // Auto-expand all matching categories, subs and items so search results are visible
+        setExpandedCats(new Set(cats.map(c => c.id)));
+        const subsResults = await Promise.all(
+          cats.map(c =>
+            apiFetchJson<SpareSubCategory[]>(
+              `/api/v1/spares/categories/${c.id}/sub-categories?include_inactive=false`
+            ).catch(() => [] as SpareSubCategory[])
+          )
+        );
+        const newSubsMap = new Map<number, SpareSubCategory[]>();
+        const allSubs: SpareSubCategory[] = [];
+        subsResults.forEach((subs, i) => { newSubsMap.set(cats[i].id, subs); allSubs.push(...subs); });
+        setSubsMap(newSubsMap);
+        setExpandedSubs(new Set(allSubs.map(s => s.id)));
+        const itemResults = await Promise.all(
+          allSubs.map(sub =>
+            apiFetchJson<SpareItem[]>(
+              `/api/v1/spares/sub-categories/${sub.id}/items?include_inactive=false`
+            ).catch(() => [] as SpareItem[])
+          )
+        );
+        const newItemsMap = new Map<number, SpareItem[]>();
+        itemResults.forEach((items, i) => { newItemsMap.set(allSubs[i].id, items); });
+        setItemsMap(newItemsMap);
+      }
+    } catch(e:unknown) { setError(e instanceof Error ? e.message : "Failed"); }
+    finally { setLoading(false); }
   };
   useEffect(() => { fetchCategories(); }, [search]); // eslint-disable-line
 
@@ -285,45 +344,18 @@ export default function SparesPage() {
 
   function openEditItem(item: SpareItem) {
     setEditingItem(item);
-    const stdUnit = STD_UNITS.includes(item.unit);
-    setItemCustomUnit(!stdUnit);
-    const stdStorage = STORAGE_TYPES.includes(item.storage_type ?? "");
-    setItemCustomStorageType(!stdStorage && !!item.storage_type);
-    setItemImgPreview(item.image_base64 ? `data:image/jpeg;base64,${item.image_base64}` : null);
-    setItemImgB64(item.image_base64 ?? null);
-    setItemForm({
-      name:item.name, part_number:item.part_number??"",
-      part_description:item.part_description??"", variant_model:item.variant_model??"",
-      rate:item.rate!=null?String(item.rate):"",
-      unit:stdUnit?item.unit:"__custom__", customUnit:stdUnit?"":item.unit,
-      opening_qty:String(item.opening_qty), recorded_qty:String(item.recorded_qty),
-      reorder_level:String(item.reorder_level), storage_type:item.storage_type??"",
-      storage_location:item.storage_location??"",
-    });
+    setItemForm({ name:item.name, part_number:item.part_number??"", part_description:item.part_description??"" });
     setItemError(null); setEditItemSheet(true);
-  }
-  function handleItemImg(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]; if (!file) return;
-    const r = new FileReader();
-    r.onload = () => { const d=r.result as string; setItemImgPreview(d); setItemImgB64(d.split(",")[1]??null); };
-    r.readAsDataURL(file);
   }
   async function saveItem() {
     if (!itemForm.name.trim()) { setItemError("Name required"); return; }
-    const unit = itemCustomUnit?(itemForm.customUnit.trim()||"pcs"):itemForm.unit;
     setItemSaving(true); setItemError(null);
     try {
       await apiFetchJson(`/api/v1/spares/items/${editingItem!.id}`, {
         method:"PUT", body:JSON.stringify({
-          name:itemForm.name.trim(), part_number:itemForm.part_number||null,
-          part_description:itemForm.part_description||null, variant_model:itemForm.variant_model||null,
-          rate:itemForm.rate?parseFloat(itemForm.rate):null, unit,
-          opening_qty:parseFloat(itemForm.opening_qty)||0,
-          recorded_qty:parseFloat(itemForm.recorded_qty)||0,
-          reorder_level:parseFloat(itemForm.reorder_level)||0,
-          storage_type:itemForm.storage_type||null,
-          storage_location:itemForm.storage_location||null,
-          image_base64:itemImgB64,
+          name:itemForm.name.trim(),
+          part_number:itemForm.part_number||null,
+          part_description:itemForm.part_description||null,
         }),
       });
       setEditItemSheet(false);
@@ -361,7 +393,119 @@ export default function SparesPage() {
     } catch(e:unknown) { setAdjustError(e instanceof Error ? e.message : "Failed"); }
     finally { setAdjustSaving(false); }
   }
+  // ── History / Variants helpers ───────────────────────────────────────────────
 
+  async function openHistory(item: SpareItem) {
+    setHistoryItem(item); setHistoryRows([]); setHistoryLoading(true);
+    try {
+      const rows = await apiFetchJson<SpareItemHistoryEntry[]>(`/api/v1/spares/items/${item.id}/history?limit=20`);
+      setHistoryRows(rows);
+    } catch { /* ignore */ }
+    finally { setHistoryLoading(false); }
+  }
+
+  function resetVariantForm() {
+    setVariantForm({serial_number:"",variant_color:"",qty:"0",unit:"pcs",customUnit:"",storage_type:"",storage_location:"",rate:"",image_base64:null});
+    setVariantCustomStorage(false); setVariantCustomUnit(false);
+    setVariantImgPreview(null); setVariantError(null);
+  }
+  function handleVariantImg(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]; if (!file) return;
+    const r = new FileReader();
+    r.onload = () => { const d=r.result as string; setVariantImgPreview(d); setVariantForm(f=>({...f,image_base64:d.split(",")[1]??null})); };
+    r.readAsDataURL(file);
+  }
+
+  async function openVariantsDialog(item: SpareItem) {
+    setVariantsDialogItem(item); setVariantsRows([]); setVariantsLoading(true);
+    resetVariantForm(); setEditingVariantId(null);
+    try {
+      const rows = await apiFetchJson<SpareVariant[]>(`/api/v1/spares/items/${item.id}/variants`);
+      setVariantsRows(rows);
+    } catch { /**/ }
+    finally { setVariantsLoading(false); }
+  }
+
+  async function refreshDialogItem(itemId: number, subId: number | null) {
+    if (!subId) return;
+    const items = await apiFetchJson<SpareItem[]>(
+      `/api/v1/spares/sub-categories/${subId}/items?include_inactive=false`
+    ).catch(() => null);
+    if (items) {
+      const fresh = items.find(i => i.id === itemId);
+      if (fresh) setVariantsDialogItem(fresh);
+    }
+  }
+
+  async function saveVariant() {
+    if (!variantsDialogItem) return;
+    setVariantSaving(true); setVariantError(null);
+    const unit = variantCustomUnit ? (variantForm.customUnit.trim() || "pcs") : variantForm.unit;
+    try {
+      const body = {
+        serial_number: variantForm.serial_number || null,
+        variant_color: variantForm.variant_color || null,
+        qty: parseFloat(variantForm.qty) || 0,
+        unit,
+        storage_type: variantForm.storage_type || null,
+        storage_location: variantForm.storage_location || null,
+        rate: variantForm.rate ? parseFloat(variantForm.rate) : null,
+        image_base64: variantForm.image_base64,
+      };
+      await apiFetchJson(`/api/v1/spares/items/${variantsDialogItem.id}/variants`, { method:"POST", body:JSON.stringify(body) });
+      const rows = await apiFetchJson<SpareVariant[]>(`/api/v1/spares/items/${variantsDialogItem.id}/variants`);
+      setVariantsRows(rows);
+      resetVariantForm();
+      if (variantsDialogItem.sub_category_id) {
+        await refreshItems(variantsDialogItem.sub_category_id);
+        await refreshDialogItem(variantsDialogItem.id, variantsDialogItem.sub_category_id);
+      }
+    } catch(e:unknown) { setVariantError(e instanceof Error ? e.message : "Failed"); }
+    finally { setVariantSaving(false); }
+  }
+
+  async function deleteVariant(varId: number) {
+    if (!variantsDialogItem) return;
+    const { id: itemId, sub_category_id: subId } = variantsDialogItem;
+    try {
+      await apiFetchJson(`/api/v1/spares/variants/${varId}`, { method:"DELETE" });
+      setVariantsRows(prev => prev.filter(v => v.id !== varId));
+      if (subId) {
+        await refreshItems(subId);
+        await refreshDialogItem(itemId, subId);
+      }
+    } catch { /**/ }
+  }
+
+  function startEditVariant(v: SpareVariant) {
+    setEditingVariantId(v.id);
+    setEditVQty(String(v.qty));
+    setEditVRate(v.rate != null ? String(v.rate) : "");
+  }
+
+  async function saveEditVariant() {
+    if (!variantsDialogItem || editingVariantId === null) return;
+    const qty = parseFloat(editVQty);
+    if (isNaN(qty) || qty < 0) return;
+    setEditVSaving(true);
+    try {
+      await apiFetchJson(`/api/v1/spares/variants/${editingVariantId}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          qty,
+          rate: editVRate ? parseFloat(editVRate) : null,
+        }),
+      });
+      const rows = await apiFetchJson<SpareVariant[]>(`/api/v1/spares/items/${variantsDialogItem.id}/variants`);
+      setVariantsRows(rows);
+      setEditingVariantId(null);
+      if (variantsDialogItem.sub_category_id) {
+        await refreshItems(variantsDialogItem.sub_category_id);
+        await refreshDialogItem(variantsDialogItem.id, variantsDialogItem.sub_category_id);
+      }
+    } catch { /**/ }
+    finally { setEditVSaving(false); }
+  }
   // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
@@ -440,7 +584,7 @@ export default function SparesPage() {
                       <span>{cat.sub_category_count} sub</span>
                       <span>·</span>
                       <span>{cat.item_count} items</span>
-                      {cat.total_value != null && (
+                      {admin && cat.total_value != null && (
                         <span className="font-medium text-foreground">{fmtRate(cat.total_value)}</span>
                       )}
                       {cat.low_stock_count > 0 && (
@@ -489,7 +633,7 @@ export default function SparesPage() {
                                   </div>
                                   <div className="flex items-center gap-2 shrink-0 text-xs text-muted-foreground">
                                     <span>{sub.item_count} items</span>
-                                    {sub.total_value != null && (
+                                    {admin && sub.total_value != null && (
                                       <span className="font-medium text-foreground">{fmtRate(sub.total_value)}</span>
                                     )}
                                     {sub.low_stock_count > 0 && (
@@ -521,122 +665,42 @@ export default function SparesPage() {
                                         </Button>}
                                       </div>
                                     ) : (
-                                      <>
-                                        {/* Desktop table */}
-                                        <div className="hidden md:block overflow-x-auto">
-                                          <table className="w-full text-xs">
-                                            <thead>
-                                              <tr className="border-b bg-muted/50">
-                                                <th className="pl-12 pr-3 py-2 text-left font-medium text-muted-foreground w-6">#</th>
-                                                <th className="px-3 py-2 text-left font-medium">Name / Part No.</th>
-                                                <th className="px-3 py-2 text-left font-medium">Description</th>
-                                                <th className="px-3 py-2 text-left font-medium">Variant/Model</th>
-                                                <th className="px-3 py-2 text-right font-medium">Rate</th>
-                                                <th className="px-3 py-2 text-right font-medium">Total Value</th>
-                                                <th className="px-3 py-2 text-center font-medium">UOM</th>
-                                                <th className="px-3 py-2 text-right font-medium">Opening</th>
-                                                <th className="px-3 py-2 text-right font-medium">Recorded</th>
-                                                    <th className="px-3 py-2 text-left font-medium">Storage Type</th>
-                                                    <th className="px-3 py-2 text-left font-medium">Location</th>
-                                                <th className="px-3 py-2 text-center font-medium">Img</th>
-                                                <th className="px-3 py-2 text-right font-medium">Actions</th>
-                                              </tr>
-                                            </thead>
-                                            <tbody>
-                                              {items.map((item, ii) => {
-                                                const low = isLow(item);
-                                                return (
-                                                  <tr key={item.id}
-                                                    className={`border-b last:border-0 hover:bg-muted/20 transition-colors ${!item.is_active?"opacity-50":""}`}>
-                                                    <td className="pl-12 pr-3 py-2 text-muted-foreground">{ii+1}</td>
-                                                    <td className="px-3 py-2">
-                                                      <p className="font-medium">{item.name}</p>
-                                                      {item.part_number && <p className="text-muted-foreground font-mono">{item.part_number}</p>}
-                                                    </td>
-                                                    <td className="px-3 py-2 text-muted-foreground max-w-[140px]"><p className="truncate">{item.part_description??"—"}</p></td>
-                                                    <td className="px-3 py-2 text-muted-foreground">{item.variant_model??"—"}</td>
-                                                    <td className="px-3 py-2 text-right tabular-nums">{fmtRate(item.rate)}</td>
-                                                    <td className="px-3 py-2 text-right tabular-nums font-medium">{item.total_value != null ? fmtRate(item.total_value) : "—"}</td>
-                                                    <td className="px-3 py-2 text-center">{item.unit}</td>
-                                                    <td className="px-3 py-2 text-right tabular-nums">{fmtQty(item.opening_qty)}</td>
-                                                    <td className={`px-3 py-2 text-right tabular-nums font-medium ${low?"text-amber-600":""}`}>
-                                                      <span className="inline-flex items-center gap-1 justify-end">
-                                                        {low && <AlertTriangle className="size-3" />}
-                                                        {fmtQty(item.recorded_qty)}
-                                                      </span>
-                                                    </td>
-                                                    <td className="px-3 py-2 text-muted-foreground">{item.storage_type??"—"}</td>
-                                                    <td className="px-3 py-2 text-muted-foreground max-w-[120px]"><p className="truncate">{item.storage_location??"\u2014"}</p></td>
-                                                    <td className="px-3 py-2 text-center">
-                                                      {item.image_base64 ? (
-                                                        // eslint-disable-next-line @next/next/no-img-element
-                                                        <img src={`data:image/jpeg;base64,${item.image_base64}`} alt={item.name}
-                                                          className="size-8 rounded object-cover mx-auto" />
-                                                      ) : <ImageIcon className="size-4 text-muted-foreground/30 mx-auto" />}
-                                                    </td>
-                                                    <td className="px-3 py-2 text-right">
-                                                      <div className="inline-flex gap-0.5">
-                                                        <Button variant="ghost" size="icon" className="size-6" title="View details" onClick={()=>setViewItem(item)}><Eye className="size-3 text-blue-600" /></Button>
-                                                        <Button variant="ghost" size="icon" className="size-6" title="Add Stock" onClick={()=>openAdjust(item,"add")}><PackagePlus className="size-3 text-emerald-600" /></Button>
-                                                        <Button variant="ghost" size="icon" className="size-6" title="Remove Stock" onClick={()=>openAdjust(item,"subtract")}><PackageMinus className="size-3 text-amber-600" /></Button>
-                                                        {admin && <>
-                                                          <Button variant="ghost" size="icon" className="size-6" onClick={()=>openEditItem(item)}><Pencil className="size-3" /></Button>
-                                                          <Button variant="ghost" size="icon" className="size-6 text-destructive hover:text-destructive"
-                                                            onClick={()=>setDeleteItemId({id:item.id,subId:sub.id})}><Trash2 className="size-3" /></Button>
-                                                        </>}
-                                                      </div>
-                                                    </td>
-                                                  </tr>
-                                                );
-                                              })}
-                                            </tbody>
-                                          </table>
-                                        </div>
-
-                                        {/* Mobile cards */}
-                                        <div className="md:hidden space-y-2 p-3 pl-10">
-                                          {items.map(item => {
-                                            const low = isLow(item);
-                                            return (
-                                              <div key={item.id} className={`rounded-lg border bg-card p-3 space-y-2 ${!item.is_active?"opacity-50":""}`}>
-                                                <div className="flex items-start gap-2 justify-between">
-                                                  <div className="flex-1 min-w-0">
-                                                    <p className="font-medium text-sm">{item.name}</p>
-                                                    {item.part_number && <p className="text-xs font-mono text-muted-foreground">{item.part_number}</p>}
-                                                    {item.variant_model && <p className="text-xs text-muted-foreground">{item.variant_model}</p>}
-                                                  </div>
-                                                  {item.image_base64 && (
-                                                    // eslint-disable-next-line @next/next/no-img-element
-                                                    <img src={`data:image/jpeg;base64,${item.image_base64}`} alt={item.name} className="size-10 rounded object-cover shrink-0" />
-                                                  )}
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-                                                  <div><span className="text-muted-foreground">Rate: </span>{fmtRate(item.rate)}</div>
-                                                  {item.total_value != null && <div className="font-medium"><span className="text-muted-foreground font-normal">Total: </span>{fmtRate(item.total_value)}</div>}
-                                                  <div><span className="text-muted-foreground">UOM: </span>{item.unit}</div>
-                                                  <div><span className="text-muted-foreground">Opening: </span>{fmtQty(item.opening_qty)}</div>
-                                                  <div className={low?"text-amber-600":""}>
-                                                    <span className="text-muted-foreground">Recorded: </span>
-                                                    {low && <AlertTriangle className="size-3 inline mr-0.5" />}
-                                                    {fmtQty(item.recorded_qty)}
-                                                  </div>
-                                                  {item.storage_type && <div><span className="text-muted-foreground">Type: </span>{item.storage_type}</div>}
-                                                  {item.storage_location && <div className="col-span-2"><span className="text-muted-foreground">Location: </span>{item.storage_location}</div>}
-                                                </div>
-                                                <div className="flex justify-end gap-0.5 pt-1 border-t">
-                                                  <Button variant="ghost" size="icon" className="size-7" onClick={()=>openAdjust(item,"add")}><PackagePlus className="size-3.5 text-emerald-600" /></Button>
-                                                  <Button variant="ghost" size="icon" className="size-7" onClick={()=>openAdjust(item,"subtract")}><PackageMinus className="size-3.5 text-amber-600" /></Button>
-                                                  {admin && <>
-                                                    <Button variant="ghost" size="icon" className="size-7" onClick={()=>openEditItem(item)}><Pencil className="size-3.5" /></Button>
-                                                    <Button variant="ghost" size="icon" className="size-7 text-destructive hover:text-destructive"
-                                                      onClick={()=>setDeleteItemId({id:item.id,subId:sub.id})}><Trash2 className="size-3.5" /></Button>
-                                                  </>}
-                                                </div>
+                                      <div className="divide-y">
+                                        {items.map((item, ii) => {
+                                          const low = isLow(item);
+                                          return (
+                                            <div key={item.id}
+                                              className={`flex items-center gap-2 pl-12 pr-3 py-2.5 hover:bg-muted/20 cursor-pointer select-none transition-colors ${!item.is_active ? "opacity-50" : ""}`}
+                                              onClick={() => openVariantsDialog(item)}>
+                                              <span className="text-xs text-muted-foreground w-5 shrink-0">{ii+1}</span>
+                                              <div className="flex-1 min-w-0">
+                                                <span className="font-medium text-sm">{highlight(item.name, search)}</span>
+                                                {item.part_number && <span className="ml-2 text-xs font-mono text-muted-foreground">{item.part_number}</span>}
+                                                {item.part_description && <span className="ml-2 text-xs text-muted-foreground hidden lg:inline">{item.part_description}</span>}
                                               </div>
-                                            );
-                                          })}
-                                        </div>
-                                      </>
+                                              <div className="flex items-center gap-2.5 shrink-0 text-xs" onClick={e => e.stopPropagation()}>
+                                                <span className={`tabular-nums ${low ? "text-amber-600 font-medium" : "text-muted-foreground"}`}>
+                                                  {low && <AlertTriangle className="size-3 inline mr-0.5 mb-0.5" />}
+                                                  {fmtQty(item.recorded_qty)} {item.unit}
+                                                </span>
+                                                {admin && item.total_value != null && (
+                                                  <span className="font-medium text-foreground hidden md:inline">{fmtRate(item.total_value)}</span>
+                                                )}
+                                                <span className="flex gap-0.5">
+                                                  {admin && <Button variant="ghost" size="icon" className="size-6" title="Stock history" onClick={()=>openHistory(item)}><History className="size-3 text-slate-500" /></Button>}
+                                                  <Button variant="ghost" size="icon" className="size-6" title="Add Stock" onClick={()=>openAdjust(item,"add")}><PackagePlus className="size-3 text-emerald-600" /></Button>
+                                                  <Button variant="ghost" size="icon" className="size-6" title="Remove Stock" onClick={()=>openAdjust(item,"subtract")}><PackageMinus className="size-3 text-amber-600" /></Button>
+                                                  {admin && <>
+                                                    <Button variant="ghost" size="icon" className="size-6" onClick={()=>openEditItem(item)}><Pencil className="size-3" /></Button>
+                                                    <Button variant="ghost" size="icon" className="size-6 text-destructive hover:text-destructive"
+                                                      onClick={()=>setDeleteItemId({id:item.id,subId:sub.id})}><Trash2 className="size-3" /></Button>
+                                                  </>}
+                                                </span>
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
                                     )}
 
                                     {admin && (
@@ -740,119 +804,202 @@ export default function SparesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── View Item Detail Dialog ──────────────────────────────────── */}
-      <Dialog open={viewItem !== null} onOpenChange={o=>!o&&setViewItem(null)}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>{viewItem?.name}</DialogTitle></DialogHeader>
-          <div className="space-y-4 mt-1">
-            {viewItem?.image_base64 ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={`data:image/jpeg;base64,${viewItem.image_base64}`} alt={viewItem.name}
-                className="w-full max-h-72 object-contain rounded-lg border bg-muted/20" />
+      {/* ── Variants Popup Dialog ────────────────────────────────────── */}
+      <Dialog open={variantsDialogItem !== null} onOpenChange={o=>{ if(!o){ setVariantsDialogItem(null); resetVariantForm(); setEditingVariantId(null); } }}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Layers className="size-4 text-violet-500" />
+              Variants — {variantsDialogItem?.name}
+              {variantsDialogItem?.part_number && <span className="font-mono text-sm text-muted-foreground font-normal">{variantsDialogItem.part_number}</span>}
+            </DialogTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Total qty: <strong>{fmtQty(variantsDialogItem?.recorded_qty ?? 0)} {variantsDialogItem?.unit}</strong>
+              {admin && variantsDialogItem?.total_value != null && <> · Total value: <strong>{fmtRate(variantsDialogItem.total_value)}</strong></>}
+            </p>
+          </DialogHeader>
+
+          {/* Variant Cards */}
+          <div className="mt-2">
+            {variantsLoading ? (
+              <div className="grid grid-cols-2 gap-3">{[1,2,3,4].map(i=><div key={i} className="h-32 rounded-lg bg-muted animate-pulse" />)}</div>
+            ) : variantsRows.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">No variants yet. Add one below.</p>
             ) : (
-              <div className="w-full h-32 rounded-lg border-2 border-dashed flex items-center justify-center text-muted-foreground/40">
-                <ImageIcon className="size-10" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {variantsRows.map(v => (
+                  <div key={v.id} className="rounded-lg border bg-card p-3 flex gap-3">
+                    {/* Image */}
+                    <div className="shrink-0">
+                      {v.image_base64
+                        // eslint-disable-next-line @next/next/no-img-element
+                        ? <img src={`data:image/jpeg;base64,${v.image_base64}`} alt="" className="size-16 rounded-md object-cover border" />
+                        : <div className="size-16 rounded-md border-2 border-dashed flex items-center justify-center bg-muted/30">
+                            <ImageIcon className="size-5 text-muted-foreground/30" />
+                          </div>}
+                    </div>
+                    {/* Details */}
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-start justify-between gap-1">
+                        <div>
+                          <p className="font-medium text-sm leading-tight">{v.variant_color || "—"}</p>
+                          {v.serial_number && <p className="text-xs font-mono text-muted-foreground">{v.serial_number}</p>}
+                        </div>
+                        {admin && (
+                          <span className="flex gap-0.5 shrink-0 -mt-0.5">
+                            <Button variant="ghost" size="icon" className="size-6" title="Edit qty / rate"
+                              onClick={()=>editingVariantId===v.id ? setEditingVariantId(null) : startEditVariant(v)}>
+                              <Pencil className="size-3" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="size-6 text-destructive hover:text-destructive" onClick={()=>deleteVariant(v.id)}><Trash2 className="size-3" /></Button>
+                          </span>
+                        )}
+                      </div>
+                      {editingVariantId === v.id ? (
+                        <div className="space-y-2 pt-1">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-0.5">
+                              <p className="text-xs text-muted-foreground">Qty</p>
+                              <Input type="number" min="0" step="any" value={editVQty}
+                                onChange={e=>setEditVQty(e.target.value)} disabled={editVSaving}
+                                className="h-7 text-xs" />
+                            </div>
+                            <div className="space-y-0.5">
+                              <p className="text-xs text-muted-foreground">Rate (₹)</p>
+                              <Input type="number" min="0" step="any" placeholder="—" value={editVRate}
+                                onChange={e=>setEditVRate(e.target.value)} disabled={editVSaving}
+                                className="h-7 text-xs" />
+                            </div>
+                          </div>
+                          <div className="flex gap-1.5">
+                            <Button size="sm" className="h-7 text-xs flex-1" onClick={saveEditVariant} disabled={editVSaving}>{editVSaving?"Saving…":"Save"}</Button>
+                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={()=>setEditingVariantId(null)} disabled={editVSaving}>Cancel</Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-x-2 text-xs">
+                          <span className="text-muted-foreground">Qty</span>
+                          <span className="font-medium tabular-nums">{fmtQty(v.qty)} {variantsDialogItem?.unit}</span>
+                          {admin && v.rate != null && <>
+                            <span className="text-muted-foreground">Rate</span>
+                            <span className="tabular-nums">{fmtRate(v.rate)}</span>
+                          </>}
+                          {v.storage_type && <>
+                            <span className="text-muted-foreground">Storage</span>
+                            <span className="truncate">{v.storage_type}</span>
+                          </>}
+                          {v.storage_location && <>
+                            <span className="text-muted-foreground">Location</span>
+                            <span className="truncate">{v.storage_location}</span>
+                          </>}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
-            <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-              {viewItem?.part_number && <><span className="text-muted-foreground">Part No.</span><span className="font-mono font-medium">{viewItem.part_number}</span></>}
-              {viewItem?.part_description && <><span className="text-muted-foreground">Description</span><span>{viewItem.part_description}</span></>}
-              {viewItem?.variant_model && <><span className="text-muted-foreground">Variant / Model</span><span>{viewItem.variant_model}</span></>}
-              <span className="text-muted-foreground">Rate</span><span>{viewItem?.rate != null ? `₹${viewItem.rate.toLocaleString("en-IN")}` : "—"}</span>
-              <span className="text-muted-foreground">Unit</span><span>{viewItem?.unit ?? "—"}</span>
-              <span className="text-muted-foreground">Opening Qty</span><span>{viewItem?.opening_qty}</span>
-              <span className="text-muted-foreground">Current Qty</span><span className="font-medium">{viewItem?.recorded_qty}</span>
-              <span className="text-muted-foreground">Reorder Level</span><span>{viewItem?.reorder_level}</span>
-              <span className="text-muted-foreground">Total Value</span><span className="font-medium">{viewItem?.total_value != null ? `₹${viewItem.total_value.toLocaleString("en-IN")}` : "—"}</span>
-              {viewItem?.storage_type && <><span className="text-muted-foreground">Storage Type</span><span>{viewItem.storage_type}</span></>}
-              {viewItem?.storage_location && <><span className="text-muted-foreground">Storage Location</span><span>{viewItem.storage_location}</span></>}
-            </div>
           </div>
+
+          {/* Add Variant Form (admin) */}
+          {admin && (
+            <div className="border rounded-lg p-4 mt-4 space-y-3 bg-muted/10">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Add Variant</p>
+              {/* Image upload row */}
+              <div className="flex items-center gap-3">
+                {variantImgPreview
+                  // eslint-disable-next-line @next/next/no-img-element
+                  ? <img src={variantImgPreview} alt="preview" className="size-14 rounded-md object-cover border" />
+                  : <div className="size-14 rounded-md border-2 border-dashed flex items-center justify-center bg-muted/20">
+                      <ImageIcon className="size-5 text-muted-foreground/30" />
+                    </div>}
+                <div className="flex gap-2">
+                  <Button type="button" size="sm" variant="outline" onClick={()=>variantImgRef.current?.click()} disabled={variantSaving}>
+                    {variantImgPreview ? "Change" : "Upload Image"}
+                  </Button>
+                  {variantImgPreview && <Button type="button" size="sm" variant="ghost" onClick={()=>{setVariantImgPreview(null);setVariantForm(f=>({...f,image_base64:null}));}} disabled={variantSaving}>Remove</Button>}
+                </div>
+                <input ref={variantImgRef} type="file" accept="image/*" className="hidden" onChange={handleVariantImg} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Variant / Colour</Label>
+                  <Input placeholder="e.g. Red, Large" value={variantForm.variant_color}
+                    onChange={e=>setVariantForm(f=>({...f,variant_color:e.target.value}))} disabled={variantSaving} className="h-8 text-sm" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Serial No.</Label>
+                  <Input placeholder="SN-001" value={variantForm.serial_number}
+                    onChange={e=>setVariantForm(f=>({...f,serial_number:e.target.value}))} disabled={variantSaving} className="h-8 text-sm" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Qty</Label>
+                  <Input type="number" min="0" step="any" placeholder="0" value={variantForm.qty}
+                    onChange={e=>setVariantForm(f=>({...f,qty:e.target.value}))} disabled={variantSaving} className="h-8 text-sm" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Unit of Measure</Label>
+                  <select value={variantCustomUnit?"__custom__":(variantForm.unit||"pcs")}
+                    onChange={e=>{if(e.target.value==="__custom__"){setVariantCustomUnit(true);setVariantForm(f=>({...f,unit:""}));}
+                      else{setVariantCustomUnit(false);setVariantForm(f=>({...f,unit:e.target.value,customUnit:""}));}}}
+                    disabled={variantSaving}
+                    className="w-full h-8 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                    {STD_UNITS.map(u=><option key={u} value={u}>{u}</option>)}
+                    <option value="__custom__">Other…</option>
+                  </select>
+                  {variantCustomUnit && <Input placeholder="Enter unit" value={variantForm.customUnit}
+                    onChange={e=>setVariantForm(f=>({...f,customUnit:e.target.value}))} disabled={variantSaving} className="mt-1 h-8 text-sm" />}
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Rate (₹)</Label>
+                  <Input type="number" min="0" step="any" placeholder="0.00" value={variantForm.rate}
+                    onChange={e=>setVariantForm(f=>({...f,rate:e.target.value}))} disabled={variantSaving} className="h-8 text-sm" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Storage Type</Label>
+                  <select value={variantCustomStorage?"__custom__":(variantForm.storage_type||"")}
+                    onChange={e=>{if(e.target.value==="__custom__"){setVariantCustomStorage(true);setVariantForm(f=>({...f,storage_type:""}));}
+                      else{setVariantCustomStorage(false);setVariantForm(f=>({...f,storage_type:e.target.value}));}}}
+                    disabled={variantSaving}
+                    className="w-full h-8 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                    <option value="">— Select —</option>
+                    {STORAGE_TYPES.map(s=><option key={s} value={s}>{s}</option>)}
+                    <option value="__custom__">Other…</option>
+                  </select>
+                  {variantCustomStorage && <Input placeholder="Enter type" value={variantForm.storage_type}
+                    onChange={e=>setVariantForm(f=>({...f,storage_type:e.target.value}))} disabled={variantSaving} className="mt-1 h-8 text-sm" />}
+                </div>
+                <div className="space-y-1 col-span-2">
+                  <Label className="text-xs">Storage Location</Label>
+                  <Input placeholder="Rack A-2" value={variantForm.storage_location}
+                    onChange={e=>setVariantForm(f=>({...f,storage_location:e.target.value}))} disabled={variantSaving} className="h-8 text-sm" />
+                </div>
+              </div>
+              {variantError && <p className="text-xs text-destructive">{variantError}</p>}
+              <Button size="sm" onClick={saveVariant} disabled={variantSaving}>{variantSaving?"Saving…":"Add Variant"}</Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
       {/* ── Edit Item Dialog ─────────────────────────────────────────── */}
       <Dialog open={editItemSheet} onOpenChange={o=>!o&&setEditItemSheet(false)}>
-        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-md">
           <DialogHeader className="mb-2"><DialogTitle>Edit — {editingItem?.name}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1">
               <Label htmlFor="ei-name">Name *</Label>
               <Input id="ei-name" value={itemForm.name} onChange={e=>setItemForm(f=>({...f,name:e.target.value}))} disabled={itemSaving} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label htmlFor="ei-pn">Part No.</Label>
-                <Input id="ei-pn" placeholder="ENG-068" value={itemForm.part_number} onChange={e=>setItemForm(f=>({...f,part_number:e.target.value}))} disabled={itemSaving} />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="ei-vm">Variant / Model</Label>
-                <Input id="ei-vm" placeholder="168cc" value={itemForm.variant_model} onChange={e=>setItemForm(f=>({...f,variant_model:e.target.value}))} disabled={itemSaving} />
-              </div>
+            <div className="space-y-1">
+              <Label htmlFor="ei-pn">Part No.</Label>
+              <Input id="ei-pn" placeholder="ENG-068" value={itemForm.part_number} onChange={e=>setItemForm(f=>({...f,part_number:e.target.value}))} disabled={itemSaving} />
             </div>
             <div className="space-y-1">
               <Label htmlFor="ei-desc">Part Description</Label>
               <textarea id="ei-desc" rows={2} value={itemForm.part_description}
                 onChange={e=>setItemForm(f=>({...f,part_description:e.target.value}))} disabled={itemSaving}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label htmlFor="ei-rate">Rate (₹)</Label>
-                <Input id="ei-rate" type="number" min="0" step="any" placeholder="0.00" value={itemForm.rate} onChange={e=>setItemForm(f=>({...f,rate:e.target.value}))} disabled={itemSaving} />
-              </div>
-              <div className="space-y-1">
-                <Label>Unit</Label>
-                <select value={itemCustomUnit?"__custom__":itemForm.unit}
-                  onChange={e=>{const v=e.target.value;if(v==="__custom__"){setItemCustomUnit(true);setItemForm(f=>({...f,unit:""}));}else{setItemCustomUnit(false);setItemForm(f=>({...f,unit:v,customUnit:""}));}}}
-                  disabled={itemSaving}
-                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                  {STD_UNITS.map(u=><option key={u} value={u}>{u}</option>)}
-                  <option value="__custom__">Other…</option>
-                </select>
-                {itemCustomUnit && <Input placeholder="Enter unit" value={itemForm.customUnit} onChange={e=>setItemForm(f=>({...f,customUnit:e.target.value}))} disabled={itemSaving} className="mt-1.5" />}
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              {["opening_qty","recorded_qty","reorder_level"].map(k=>(
-                <div key={k} className="space-y-1">
-                  <Label htmlFor={`ei-${k}`}>{k==="opening_qty"?"Opening Qty":k==="recorded_qty"?"Recorded Qty":"Reorder Level"}</Label>
-                  <Input id={`ei-${k}`} type="number" min="0" step="any" value={itemForm[k as keyof typeof itemForm]}
-                    onChange={e=>setItemForm(f=>({...f,[k]:e.target.value}))} disabled={itemSaving} />
-                </div>
-              ))}
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>Storage Type</Label>
-                <select value={itemCustomStorageType ? "__custom__" : itemForm.storage_type}
-                  onChange={e=>{const v=e.target.value;if(v==="__custom__"){setItemCustomStorageType(true);setItemForm(f=>({...f,storage_type:""}));}else{setItemCustomStorageType(false);setItemForm(f=>({...f,storage_type:v}));}}}
-                  disabled={itemSaving}
-                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                  <option value="">— Select —</option>
-                  {STORAGE_TYPES.map(s=><option key={s} value={s}>{s}</option>)}
-                  <option value="__custom__">Other…</option>
-                </select>
-                {itemCustomStorageType && <Input placeholder="Enter storage type" value={itemForm.storage_type} onChange={e=>setItemForm(f=>({...f,storage_type:e.target.value}))} disabled={itemSaving} className="mt-1.5" />}
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="ei-loc">Storage Location</Label>
-                <Input id="ei-loc" placeholder="e.g. Rack B-3" value={itemForm.storage_location} onChange={e=>setItemForm(f=>({...f,storage_location:e.target.value}))} disabled={itemSaving} />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <Label>Image</Label>
-              <div className="flex items-center gap-3">
-                {itemImgPreview ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={itemImgPreview} alt="preview" className="size-14 rounded-lg object-cover border" />
-                ) : <div className="size-14 rounded-lg border-2 border-dashed flex items-center justify-center"><ImageIcon className="size-5 text-muted-foreground/40" /></div>}
-                <div className="flex gap-2">
-                  <Button type="button" size="sm" variant="outline" onClick={()=>itemImgRef.current?.click()} disabled={itemSaving}>{itemImgPreview?"Change":"Upload"}</Button>
-                  {itemImgPreview && <Button type="button" size="sm" variant="ghost" onClick={()=>{setItemImgPreview(null);setItemImgB64(null);}} disabled={itemSaving}>Remove</Button>}
-                </div>
-                <input ref={itemImgRef} type="file" accept="image/*" className="hidden" onChange={handleItemImg} />
-              </div>
             </div>
             {itemError && <p className="text-sm text-destructive">{itemError}</p>}
             <div className="flex gap-3 pt-2">
@@ -863,12 +1010,61 @@ export default function SparesPage() {
         </DialogContent>
       </Dialog>
 
+      {/* ── History Dialog (admin-only) ───────────────────────────────── */}
+      <Dialog open={historyItem !== null} onOpenChange={o=>!o&&setHistoryItem(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Stock History — {historyItem?.name}</DialogTitle></DialogHeader>
+          {historyLoading ? (
+            <div className="space-y-2 mt-2">{[1,2,3].map(i=><div key={i} className="h-10 rounded bg-muted animate-pulse" />)}</div>
+          ) : historyRows.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">No stock changes recorded yet.</p>
+          ) : (
+            <div className="overflow-x-auto mt-2">
+              <table className="w-full text-xs">
+                <thead><tr className="border-b bg-muted/50">
+                  <th className="px-3 py-2 text-left">Date</th>
+                  <th className="px-3 py-2 text-left">Who</th>
+                  <th className="px-3 py-2 text-center">Type</th>
+                  <th className="px-3 py-2 text-right">Before</th>
+                  <th className="px-3 py-2 text-right">Change</th>
+                  <th className="px-3 py-2 text-right">After</th>
+                  <th className="px-3 py-2 text-left">Note</th>
+                </tr></thead>
+                <tbody className="divide-y">
+                  {historyRows.map(r => (
+                    <tr key={r.id} className="hover:bg-muted/20">
+                      <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">
+                        {new Date(r.changed_at).toLocaleString("en-IN",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}
+                      </td>
+                      <td className="px-3 py-2">{r.changed_by_username ?? "—"}</td>
+                      <td className="px-3 py-2 text-center">
+                        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                          r.change_type==="add"?"bg-emerald-100 text-emerald-700":
+                          r.change_type==="subtract"?"bg-amber-100 text-amber-700":"bg-blue-100 text-blue-700"}`}>
+                          {r.change_type}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">{fmtQty(r.qty_before)}</td>
+                      <td className={`px-3 py-2 text-right tabular-nums font-medium ${r.qty_delta>0?"text-emerald-600":r.qty_delta<0?"text-red-600":""}`}>
+                        {r.qty_delta > 0 ? "+" : ""}{fmtQty(r.qty_delta)}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums font-medium">{fmtQty(r.qty_after)}</td>
+                      <td className="px-3 py-2 text-muted-foreground max-w-[120px] truncate">{r.note ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* ── Adjust Stock Dialog ──────────────────────────────────────── */}
       <Dialog open={adjustItem!==null} onOpenChange={o=>!o&&setAdjustItem(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader className="mb-2">
             <DialogTitle>Adjust Stock — {adjustItem?.name}</DialogTitle>
-            <p className="text-sm text-muted-foreground">Recorded Qty: <strong>{adjustItem?fmtQty(adjustItem.recorded_qty):0} {adjustItem?.unit}</strong></p>
+            <p className="text-sm text-muted-foreground">Current Qty: <strong>{adjustItem?fmtQty(adjustItem.recorded_qty):0} {adjustItem?.unit}</strong></p>
           </DialogHeader>
           <div className="space-y-4">
             <div className="flex gap-2">

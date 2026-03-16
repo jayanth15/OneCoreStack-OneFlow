@@ -16,6 +16,7 @@ class Consumable(SQLModel, table=True):
     supplier_name: Optional[str] = None                     # supplier / vendor
     rate_per_unit: Optional[float] = None                   # price per unit
     qty: float = Field(default=0.0)                         # current quantity on hand
+    reorder_level: float = Field(default=0.0)               # alert threshold
 
     image_base64: Optional[str] = None
 

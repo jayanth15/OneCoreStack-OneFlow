@@ -38,6 +38,7 @@ class ConsumableCreate(BaseModel):
     supplier_name: Optional[str] = None
     rate_per_unit: Optional[float] = None
     qty: float = 0.0
+    reorder_level: float = 0.0
     image_base64: Optional[str] = None
 
 
@@ -49,6 +50,7 @@ class ConsumableUpdate(BaseModel):
     supplier_name: Optional[str] = None
     rate_per_unit: Optional[float] = None
     qty: Optional[float] = None
+    reorder_level: Optional[float] = None
     image_base64: Optional[str] = None
     is_active: Optional[bool] = None
 
@@ -80,6 +82,7 @@ class ConsumableOut(BaseModel):
     supplier_name: Optional[str]
     rate_per_unit: Optional[float]
     qty: float
+    reorder_level: float
     total_price: Optional[float]  # computed: qty * rate_per_unit
     image_base64: Optional[str]
     is_active: bool
@@ -104,6 +107,7 @@ def _out(c: Consumable) -> ConsumableOut:
         supplier_name=c.supplier_name,
         rate_per_unit=c.rate_per_unit,
         qty=c.qty,
+        reorder_level=getattr(c, 'reorder_level', 0.0) or 0.0,
         total_price=round(c.qty * c.rate_per_unit, 2) if c.rate_per_unit is not None else None,
         image_base64=c.image_base64,
         is_active=c.is_active,
@@ -156,6 +160,7 @@ def create_consumable(body: ConsumableCreate, session: SessionDep, _: AdminUser)
         supplier_name=body.supplier_name or None,
         rate_per_unit=body.rate_per_unit,
         qty=body.qty,
+        reorder_level=body.reorder_level,
         image_base64=body.image_base64,
         created_at=now,
         updated_at=now,
@@ -193,6 +198,8 @@ def update_consumable(item_id: int, body: ConsumableUpdate, session: SessionDep,
         c.rate_per_unit = body.rate_per_unit
     if body.qty is not None:
         c.qty = body.qty
+    if body.reorder_level is not None:
+        c.reorder_level = body.reorder_level
     if body.image_base64 is not None:
         c.image_base64 = body.image_base64 or None
     if body.is_active is not None:
