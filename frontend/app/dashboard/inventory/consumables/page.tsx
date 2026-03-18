@@ -319,15 +319,16 @@ export default function ConsumablesPage() {
           <>
             {/* Desktop table */}
             <div className="hidden md:block rounded-lg border overflow-hidden">
-              <table className="w-full text-sm">
+              <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[1020px]">
                 <thead>
                   <tr className="border-b bg-muted/50">
                     <th className="px-4 py-2.5 text-left font-medium text-muted-foreground w-8">#</th>
-                    <th className="px-4 py-2.5 text-left font-medium">Name</th>
-                    <th className="px-4 py-2.5 text-left font-medium">Code</th>
-                    <th className="px-4 py-2.5 text-left font-medium">Storage Type</th>
-                    <th className="px-4 py-2.5 text-left font-medium">Storage Location</th>
-                    <th className="px-4 py-2.5 text-left font-medium">Supplier</th>
+                    <th className="px-4 py-2.5 text-left font-medium w-[190px]">Name</th>
+                    <th className="px-4 py-2.5 text-left font-medium w-[110px]">Code</th>
+                    <th className="px-4 py-2.5 text-left font-medium w-[120px]">Storage Type</th>
+                    <th className="px-4 py-2.5 text-left font-medium w-[140px]">Storage Location</th>
+                    <th className="px-4 py-2.5 text-left font-medium w-[140px]">Supplier</th>
                     {admin && <th className="px-4 py-2.5 text-right font-medium">Rate / Unit</th>}
                     <th className="px-4 py-2.5 text-right font-medium">Qty</th>
                     {admin && <th className="px-4 py-2.5 text-right font-medium">Total Value</th>}
@@ -340,13 +341,13 @@ export default function ConsumablesPage() {
                   {items.map((item, i) => (
                     <tr key={item.id} className="hover:bg-muted/20 transition-colors">
                       <td className="px-4 py-3 text-muted-foreground text-xs">{(page - 1) * PAGE_SIZE + i + 1}</td>
-                      <td className="px-4 py-3 font-medium">{item.name}</td>
-                      <td className="px-4 py-3 text-muted-foreground font-mono text-xs">
-                        {item.code ? <Badge variant="secondary" className="font-mono">{item.code}</Badge> : "—"}
+                      <td className="px-4 py-3 font-medium max-w-[190px]"><span className="block truncate" title={item.name}>{item.name}</span></td>
+                      <td className="px-4 py-3 text-muted-foreground font-mono text-xs max-w-[110px]">
+                        {item.code ? <Badge variant="secondary" className="font-mono max-w-full truncate block">{item.code}</Badge> : "—"}
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">{item.storage_type ?? "—"}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{item.storage_location ?? "—"}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{item.supplier_name ?? "—"}</td>
+                      <td className="px-4 py-3 text-muted-foreground max-w-[120px]"><span className="block truncate" title={item.storage_type ?? ""}>{item.storage_type ?? "—"}</span></td>
+                      <td className="px-4 py-3 text-muted-foreground max-w-[140px]"><span className="block truncate" title={item.storage_location ?? ""}>{item.storage_location ?? "—"}</span></td>
+                      <td className="px-4 py-3 text-muted-foreground max-w-[140px]"><span className="block truncate" title={item.supplier_name ?? ""}>{item.supplier_name ?? "—"}</span></td>
                       {admin && <td className="px-4 py-3 text-right tabular-nums font-medium">{fmtRate(item.rate_per_unit)}</td>}
                       <td className={`px-4 py-3 text-right tabular-nums ${item.reorder_level > 0 && item.qty <= item.reorder_level ? "text-amber-600 font-medium" : ""}`}>
                         <span className="inline-flex items-center gap-1 justify-end">
@@ -395,6 +396,7 @@ export default function ConsumablesPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
 
             {/* Mobile cards */}
@@ -611,8 +613,8 @@ export default function ConsumablesPage() {
 
       {/* ── View Detail Dialog ───────────────────────────────────────── */}
       <Dialog open={viewItem !== null} onOpenChange={o => !o && setViewItem(null)}>
-        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>{viewItem?.name}</DialogTitle></DialogHeader>
+        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto overflow-x-hidden">
+          <DialogHeader><DialogTitle className="break-words">{viewItem?.name}</DialogTitle></DialogHeader>
           <div className="space-y-4 mt-1">
             {viewItem?.image_base64 ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -623,13 +625,13 @@ export default function ConsumablesPage() {
                 <FlaskConical className="size-10" />
               </div>
             )}
-            <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-              {viewItem?.code && <><span className="text-muted-foreground">Code</span><span className="font-mono font-medium">{viewItem.code}</span></>}
-              {viewItem?.supplier_name && <><span className="text-muted-foreground">Supplier</span><span>{viewItem.supplier_name}</span></>}
-              {viewItem?.storage_type && <><span className="text-muted-foreground">Storage Type</span><span>{viewItem.storage_type}</span></>}
-              {viewItem?.storage_location && <><span className="text-muted-foreground">Location</span><span>{viewItem.storage_location}</span></>}
-              {admin && <><span className="text-muted-foreground">Rate / Unit</span><span className="font-medium">{viewItem ? fmtRate(viewItem.rate_per_unit) : "—"}</span></>}
-              {admin && viewItem?.total_price != null && <><span className="text-muted-foreground">Total Value</span><span className="font-medium">{fmtRate(viewItem.total_price)}</span></>}
+            <div className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
+              {viewItem?.code && <><span className="text-muted-foreground whitespace-nowrap">Code</span><span className="font-mono font-medium break-all">{viewItem.code}</span></>}
+              {viewItem?.supplier_name && <><span className="text-muted-foreground whitespace-nowrap">Supplier</span><span className="break-words">{viewItem.supplier_name}</span></>}
+              {viewItem?.storage_type && <><span className="text-muted-foreground whitespace-nowrap">Storage Type</span><span className="break-words">{viewItem.storage_type}</span></>}
+              {viewItem?.storage_location && <><span className="text-muted-foreground whitespace-nowrap">Location</span><span className="break-words">{viewItem.storage_location}</span></>}
+              {admin && <><span className="text-muted-foreground whitespace-nowrap">Rate / Unit</span><span className="font-medium">{viewItem ? fmtRate(viewItem.rate_per_unit) : "—"}</span></>}
+              {admin && viewItem?.total_price != null && <><span className="text-muted-foreground whitespace-nowrap">Total Value</span><span className="font-medium">{fmtRate(viewItem.total_price)}</span></>}
               <span className="text-muted-foreground">Qty</span>
               <span className={`font-medium ${viewItem && viewItem.reorder_level > 0 && viewItem.qty <= viewItem.reorder_level ? "text-amber-600" : ""}`}>
                 {viewItem && (viewItem.qty % 1 === 0 ? viewItem.qty.toFixed(0) : viewItem.qty.toFixed(2))}

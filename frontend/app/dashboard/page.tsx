@@ -6,7 +6,7 @@ import { isAdminOrAbove } from "@/lib/user";
 import {
   Package, Users, Calendar, ClipboardList, Factory, Wrench,
   AlertTriangle, TrendingUp, ArrowUpRight, ArrowDownRight, Minus,
-  Activity,
+  Activity, FlaskConical,
 } from "lucide-react";
 import {
   BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area,
@@ -113,6 +113,12 @@ interface ConsumableLowStockItem {
   code: string | null;
   qty: number;
   reorder_level: number;
+}
+
+interface SparesCatSummary {
+  categories: number;
+  items: number;
+  total_value: number;
 }
 
 interface DashboardData {
@@ -275,7 +281,8 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [semiFGItems, setSemiFGItems] = useState<SemiFGItem[]>([]);
-  const [lowStockData, setLowStockData] = useState<{spares: SpareLowStockItem[]; consumables: ConsumableLowStockItem[]} | null>(null);
+  const [sparesStats, setSparesStats] = useState<SparesCatSummary | null>(null);
+  const [consumablesTotal, setConsumablesTotal] = useState<number | null>(null);
 
   useEffect(() => {
     apiFetchJson<DashboardData>("/api/v1/dashboard")
@@ -284,8 +291,15 @@ export default function DashboardPage() {
     apiFetchJson<PaginatedInventory>("/api/v1/inventory?item_type=semi_finished&page_size=20&include_inactive=false")
       .then((d) => setSemiFGItems(d.items))
       .catch(() => {});
-    apiFetchJson<{spares: SpareLowStockItem[]; consumables: ConsumableLowStockItem[]}>("/api/v1/dashboard/low-stock")
-      .then(setLowStockData)
+    apiFetchJson<{id: number; item_count: number; total_value: number | null}[]>("/api/v1/spares/categories?include_inactive=false")
+      .then(cats => setSparesStats({
+        categories: cats.length,
+        items: cats.reduce((s, c) => s + c.item_count, 0),
+        total_value: cats.reduce((s, c) => s + (c.total_value ?? 0), 0),
+      }))
+      .catch(() => {});
+    apiFetchJson<{total: number}>("/api/v1/consumables?page_size=1&include_inactive=false")
+      .then(d => setConsumablesTotal(d.total))
       .catch(() => {});
   }, []);
 
@@ -371,6 +385,61 @@ export default function DashboardPage() {
               icon={<AlertTriangle className="size-5" />} accent="bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400" />
           )}
         </div>
+
+        {/* ── Spares & Consumables Overview ─────────────────────────── */}
+        {(sparesStats !== null || consumablesTotal !== null) && (
+          <div className="grid sm:grid-cols-2 gap-4">
+            {sparesStats !== null && (
+              <div className="rounded-xl border bg-card p-4 shadow-sm">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="flex size-8 items-center justify-center rounded-lg bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
+                    <Wrench className="size-4" />
+                  </div>
+                  <p className="text-sm font-semibold">Spares</p>
+                  <a href="/dashboard/inventory/spares" className="ml-auto text-xs text-primary hover:underline">View all</a>
+                </div>
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div>
+                    <p className="text-xl font-bold">{sparesStats.categories}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Categories</p>
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold">{sparesStats.items}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Items</p>
+                  </div>
+                  <div>
+                    {isAdminOrAbove() && sparesStats.total_value > 0 ? (
+                      <>
+                        <p className="text-xl font-bold text-emerald-600">₹{sparesStats.total_value.toLocaleString(undefined, {maximumFractionDigits: 0})}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Value</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-xl font-bold">—</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Value</p>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+            {consumablesTotal !== null && (
+              <div className="rounded-xl border bg-card p-4 shadow-sm">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="flex size-8 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                    <FlaskConical className="size-4" />
+                  </div>
+                  <p className="text-sm font-semibold">Consumables</p>
+                  <a href="/dashboard/inventory/consumables" className="ml-auto text-xs text-primary hover:underline">View all</a>
+                </div>
+                <div className="flex flex-col items-center justify-center py-4">
+                  <p className="text-4xl font-bold">{consumablesTotal}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Total Items</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ── Status Bars ────────────────────────────────────────────────── */}
         <div className="grid md:grid-cols-2 gap-4">
@@ -638,65 +707,6 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
-
-        {/* ── Spares & Consumables Low Stock ──────────────────────── */}
-        {lowStockData && (lowStockData.spares.length > 0 || lowStockData.consumables.length > 0) && (
-          <div className="rounded-xl border bg-card shadow-sm">
-            <div className="flex items-center justify-between px-4 pt-4 pb-2">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="size-4 text-amber-500" />
-                <p className="text-sm font-semibold">Spares & Consumables — Low Stock Alerts</p>
-                <span className="text-xs bg-amber-100 text-amber-700 rounded-full px-2 py-0.5 font-medium">
-                  {lowStockData.spares.length + lowStockData.consumables.length} item{lowStockData.spares.length + lowStockData.consumables.length !== 1 ? "s" : ""}
-                </span>
-              </div>
-              <a href="/dashboard/inventory/stock-alerts" className="text-xs text-primary hover:underline">View all</a>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-t border-b bg-muted/40">
-                    <th className="px-4 py-2.5 text-left font-medium text-xs">Type</th>
-                    <th className="px-4 py-2.5 text-left font-medium text-xs">Name</th>
-                    <th className="px-4 py-2.5 text-left font-medium text-xs">Category</th>
-                    <th className="px-4 py-2.5 text-right font-medium text-xs">Qty</th>
-                    <th className="px-4 py-2.5 text-right font-medium text-xs">Reorder Level</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {lowStockData.spares.map(s => (
-                    <tr key={`spare-${s.item_id}`} className="hover:bg-muted/30">
-                      <td className="px-4 py-2.5"><span className="inline-flex items-center gap-1 text-xs bg-violet-100 text-violet-700 rounded-full px-2 py-0.5"><Wrench className="size-3" />Spares</span></td>
-                      <td className="px-4 py-2.5">
-                        <a href="/dashboard/inventory/spares" className="font-medium hover:underline text-sm">{s.item_name}</a>
-                        {s.part_number && <div className="text-[11px] text-muted-foreground font-mono">{s.part_number}</div>}
-                      </td>
-                      <td className="px-4 py-2.5 text-xs text-muted-foreground">{s.category_name} / {s.sub_category_name}</td>
-                      <td className="px-4 py-2.5 text-right text-amber-600 font-medium">
-                        <AlertTriangle className="size-3 inline mr-0.5" />{s.recorded_qty % 1 === 0 ? s.recorded_qty.toFixed(0) : s.recorded_qty.toFixed(2)} {s.unit}
-                      </td>
-                      <td className="px-4 py-2.5 text-right text-xs text-muted-foreground">{s.reorder_level} {s.unit}</td>
-                    </tr>
-                  ))}
-                  {lowStockData.consumables.map(c => (
-                    <tr key={`con-${c.item_id}`} className="hover:bg-muted/30">
-                      <td className="px-4 py-2.5"><span className="inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-700 rounded-full px-2 py-0.5"><Package className="size-3" />Consumables</span></td>
-                      <td className="px-4 py-2.5">
-                        <a href="/dashboard/inventory/consumables" className="font-medium hover:underline text-sm">{c.name}</a>
-                        {c.code && <div className="text-[11px] text-muted-foreground font-mono">{c.code}</div>}
-                      </td>
-                      <td className="px-4 py-2.5 text-xs text-muted-foreground">—</td>
-                      <td className="px-4 py-2.5 text-right text-amber-600 font-medium">
-                        <AlertTriangle className="size-3 inline mr-0.5" />{c.qty % 1 === 0 ? c.qty.toFixed(0) : c.qty.toFixed(2)}
-                      </td>
-                      <td className="px-4 py-2.5 text-right text-xs text-muted-foreground">{c.reorder_level}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
 
         {/* ── Inventory Value Summary (admin/super_admin only) ───────── */}
         {isAdminOrAbove() && data.inventory_by_type.length > 0 && (

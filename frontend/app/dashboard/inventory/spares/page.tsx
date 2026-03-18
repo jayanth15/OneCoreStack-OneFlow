@@ -144,11 +144,17 @@ export default function SparesPage() {
   const [variantError, setVariantError] = useState<string | null>(null);
   const [variantImgPreview, setVariantImgPreview] = useState<string | null>(null);
   const variantImgRef = useRef<HTMLInputElement>(null);
-  // inline edit for existing variants
-  const [editingVariantId, setEditingVariantId] = useState<number | null>(null);
-  const [editVQty, setEditVQty] = useState("");
-  const [editVRate, setEditVRate] = useState("");
+  // variant dialogs
+  const [addVariantDialog, setAddVariantDialog] = useState(false);
+  const [editVariantDialog, setEditVariantDialog] = useState(false);
+  const [editVariantId, setEditVariantId] = useState<number | null>(null);
+  const [editVForm, setEditVForm] = useState({serial_number:"",variant_color:"",qty:"0",unit:"pcs",customUnit:"",storage_type:"",storage_location:"",rate:"",image_base64:null as string|null});
+  const [editVCustomStorage, setEditVCustomStorage] = useState(false);
+  const [editVCustomUnit, setEditVCustomUnit] = useState(false);
   const [editVSaving, setEditVSaving] = useState(false);
+  const [editVError, setEditVError] = useState<string|null>(null);
+  const [editVImgPreview, setEditVImgPreview] = useState<string|null>(null);
+  const editVImgRef = useRef<HTMLInputElement>(null);
   const [itemSaving, setItemSaving]         = useState(false);
   const [itemError, setItemError]           = useState<string | null>(null);
 
@@ -418,7 +424,7 @@ export default function SparesPage() {
 
   async function openVariantsDialog(item: SpareItem) {
     setVariantsDialogItem(item); setVariantsRows([]); setVariantsLoading(true);
-    resetVariantForm(); setEditingVariantId(null);
+    resetVariantForm();
     try {
       const rows = await apiFetchJson<SpareVariant[]>(`/api/v1/spares/items/${item.id}/variants`);
       setVariantsRows(rows);
@@ -455,6 +461,7 @@ export default function SparesPage() {
       await apiFetchJson(`/api/v1/spares/items/${variantsDialogItem.id}/variants`, { method:"POST", body:JSON.stringify(body) });
       const rows = await apiFetchJson<SpareVariant[]>(`/api/v1/spares/items/${variantsDialogItem.id}/variants`);
       setVariantsRows(rows);
+      setAddVariantDialog(false);
       resetVariantForm();
       if (variantsDialogItem.sub_category_id) {
         await refreshItems(variantsDialogItem.sub_category_id);
@@ -478,34 +485,65 @@ export default function SparesPage() {
   }
 
   function startEditVariant(v: SpareVariant) {
-    setEditingVariantId(v.id);
-    setEditVQty(String(v.qty));
-    setEditVRate(v.rate != null ? String(v.rate) : "");
+    setEditVariantId(v.id);
+    const isCustomSt = !!v.storage_type && !STORAGE_TYPES.includes(v.storage_type);
+    setEditVForm({
+      serial_number: v.serial_number ?? "",
+      variant_color: v.variant_color ?? "",
+      qty: String(v.qty),
+      unit: variantsDialogItem?.unit ?? "pcs",
+      customUnit: "",
+      storage_type: isCustomSt ? "" : (v.storage_type ?? ""),
+      storage_location: v.storage_location ?? "",
+      rate: v.rate != null ? String(v.rate) : "",
+      image_base64: v.image_base64 ?? null,
+    });
+    setEditVCustomStorage(isCustomSt);
+    setEditVCustomUnit(false);
+    setEditVImgPreview(v.image_base64 ? `data:image/jpeg;base64,${v.image_base64}` : null);
+    setEditVError(null);
+    setEditVariantDialog(true);
   }
 
   async function saveEditVariant() {
-    if (!variantsDialogItem || editingVariantId === null) return;
-    const qty = parseFloat(editVQty);
+    if (!variantsDialogItem || editVariantId === null) return;
+    const qty = parseFloat(editVForm.qty);
     if (isNaN(qty) || qty < 0) return;
-    setEditVSaving(true);
+    setEditVSaving(true); setEditVError(null);
+    const unit = editVCustomUnit ? (editVForm.customUnit.trim() || "pcs") : editVForm.unit;
+    const storageType = editVCustomStorage ? (editVForm.storage_type.trim() || null) : (editVForm.storage_type || null);
     try {
-      await apiFetchJson(`/api/v1/spares/variants/${editingVariantId}`, {
+      await apiFetchJson(`/api/v1/spares/variants/${editVariantId}`, {
         method: "PUT",
         body: JSON.stringify({
+          serial_number: editVForm.serial_number || null,
+          variant_color: editVForm.variant_color || null,
           qty,
-          rate: editVRate ? parseFloat(editVRate) : null,
+          unit,
+          storage_type: storageType,
+          storage_location: editVForm.storage_location || null,
+          rate: editVForm.rate ? parseFloat(editVForm.rate) : null,
+          image_base64: editVForm.image_base64,
         }),
       });
       const rows = await apiFetchJson<SpareVariant[]>(`/api/v1/spares/items/${variantsDialogItem.id}/variants`);
       setVariantsRows(rows);
-      setEditingVariantId(null);
+      setEditVariantDialog(false);
       if (variantsDialogItem.sub_category_id) {
         await refreshItems(variantsDialogItem.sub_category_id);
         await refreshDialogItem(variantsDialogItem.id, variantsDialogItem.sub_category_id);
       }
-    } catch { /**/ }
+    } catch(e:unknown) { setEditVError(e instanceof Error ? e.message : "Failed"); }
     finally { setEditVSaving(false); }
   }
+
+  function handleEditVImg(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]; if (!file) return;
+    const r = new FileReader();
+    r.onload = () => { const d=r.result as string; setEditVImgPreview(d); setEditVForm(f=>({...f,image_base64:d.split(",")[1]??null})); };
+    r.readAsDataURL(file);
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
@@ -805,7 +843,7 @@ export default function SparesPage() {
       </Dialog>
 
       {/* ── Variants Popup Dialog ────────────────────────────────────── */}
-      <Dialog open={variantsDialogItem !== null} onOpenChange={o=>{ if(!o){ setVariantsDialogItem(null); resetVariantForm(); setEditingVariantId(null); } }}>
+      <Dialog open={variantsDialogItem !== null} onOpenChange={o=>{ if(!o){ setVariantsDialogItem(null); resetVariantForm(); } }}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -824,7 +862,7 @@ export default function SparesPage() {
             {variantsLoading ? (
               <div className="grid grid-cols-2 gap-3">{[1,2,3,4].map(i=><div key={i} className="h-32 rounded-lg bg-muted animate-pulse" />)}</div>
             ) : variantsRows.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">No variants yet. Add one below.</p>
+              <p className="text-sm text-muted-foreground text-center py-8">No variants yet. Click &quot;Add Variant&quot; to create one.</p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {variantsRows.map(v => (
@@ -847,37 +885,15 @@ export default function SparesPage() {
                         </div>
                         {admin && (
                           <span className="flex gap-0.5 shrink-0 -mt-0.5">
-                            <Button variant="ghost" size="icon" className="size-6" title="Edit qty / rate"
-                              onClick={()=>editingVariantId===v.id ? setEditingVariantId(null) : startEditVariant(v)}>
+                            <Button variant="ghost" size="icon" className="size-6" title="Edit variant"
+                              onClick={()=>startEditVariant(v)}>
                               <Pencil className="size-3" />
                             </Button>
                             <Button variant="ghost" size="icon" className="size-6 text-destructive hover:text-destructive" onClick={()=>deleteVariant(v.id)}><Trash2 className="size-3" /></Button>
                           </span>
                         )}
                       </div>
-                      {editingVariantId === v.id ? (
-                        <div className="space-y-2 pt-1">
-                          <div className="grid grid-cols-2 gap-2">
-                            <div className="space-y-0.5">
-                              <p className="text-xs text-muted-foreground">Qty</p>
-                              <Input type="number" min="0" step="any" value={editVQty}
-                                onChange={e=>setEditVQty(e.target.value)} disabled={editVSaving}
-                                className="h-7 text-xs" />
-                            </div>
-                            <div className="space-y-0.5">
-                              <p className="text-xs text-muted-foreground">Rate (₹)</p>
-                              <Input type="number" min="0" step="any" placeholder="—" value={editVRate}
-                                onChange={e=>setEditVRate(e.target.value)} disabled={editVSaving}
-                                className="h-7 text-xs" />
-                            </div>
-                          </div>
-                          <div className="flex gap-1.5">
-                            <Button size="sm" className="h-7 text-xs flex-1" onClick={saveEditVariant} disabled={editVSaving}>{editVSaving?"Saving…":"Save"}</Button>
-                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={()=>setEditingVariantId(null)} disabled={editVSaving}>Cancel</Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-2 gap-x-2 text-xs">
+                      <div className="grid grid-cols-2 gap-x-2 text-xs">
                           <span className="text-muted-foreground">Qty</span>
                           <span className="font-medium tabular-nums">{fmtQty(v.qty)} {variantsDialogItem?.unit}</span>
                           {admin && v.rate != null && <>
@@ -893,7 +909,6 @@ export default function SparesPage() {
                             <span className="truncate">{v.storage_location}</span>
                           </>}
                         </div>
-                      )}
                     </div>
                   </div>
                 ))}
@@ -901,84 +916,192 @@ export default function SparesPage() {
             )}
           </div>
 
-          {/* Add Variant Form (admin) */}
+          {/* Add Variant button */}
           {admin && (
-            <div className="border rounded-lg p-4 mt-4 space-y-3 bg-muted/10">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Add Variant</p>
-              {/* Image upload row */}
-              <div className="flex items-center gap-3">
-                {variantImgPreview
-                  // eslint-disable-next-line @next/next/no-img-element
-                  ? <img src={variantImgPreview} alt="preview" className="size-14 rounded-md object-cover border" />
-                  : <div className="size-14 rounded-md border-2 border-dashed flex items-center justify-center bg-muted/20">
-                      <ImageIcon className="size-5 text-muted-foreground/30" />
-                    </div>}
-                <div className="flex gap-2">
-                  <Button type="button" size="sm" variant="outline" onClick={()=>variantImgRef.current?.click()} disabled={variantSaving}>
-                    {variantImgPreview ? "Change" : "Upload Image"}
-                  </Button>
-                  {variantImgPreview && <Button type="button" size="sm" variant="ghost" onClick={()=>{setVariantImgPreview(null);setVariantForm(f=>({...f,image_base64:null}));}} disabled={variantSaving}>Remove</Button>}
-                </div>
-                <input ref={variantImgRef} type="file" accept="image/*" className="hidden" onChange={handleVariantImg} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-xs">Variant / Colour</Label>
-                  <Input placeholder="e.g. Red, Large" value={variantForm.variant_color}
-                    onChange={e=>setVariantForm(f=>({...f,variant_color:e.target.value}))} disabled={variantSaving} className="h-8 text-sm" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Serial No.</Label>
-                  <Input placeholder="SN-001" value={variantForm.serial_number}
-                    onChange={e=>setVariantForm(f=>({...f,serial_number:e.target.value}))} disabled={variantSaving} className="h-8 text-sm" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Qty</Label>
-                  <Input type="number" min="0" step="any" placeholder="0" value={variantForm.qty}
-                    onChange={e=>setVariantForm(f=>({...f,qty:e.target.value}))} disabled={variantSaving} className="h-8 text-sm" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Unit of Measure</Label>
-                  <select value={variantCustomUnit?"__custom__":(variantForm.unit||"pcs")}
-                    onChange={e=>{if(e.target.value==="__custom__"){setVariantCustomUnit(true);setVariantForm(f=>({...f,unit:""}));}
-                      else{setVariantCustomUnit(false);setVariantForm(f=>({...f,unit:e.target.value,customUnit:""}));}}}
-                    disabled={variantSaving}
-                    className="w-full h-8 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                    {STD_UNITS.map(u=><option key={u} value={u}>{u}</option>)}
-                    <option value="__custom__">Other…</option>
-                  </select>
-                  {variantCustomUnit && <Input placeholder="Enter unit" value={variantForm.customUnit}
-                    onChange={e=>setVariantForm(f=>({...f,customUnit:e.target.value}))} disabled={variantSaving} className="mt-1 h-8 text-sm" />}
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Rate (₹)</Label>
-                  <Input type="number" min="0" step="any" placeholder="0.00" value={variantForm.rate}
-                    onChange={e=>setVariantForm(f=>({...f,rate:e.target.value}))} disabled={variantSaving} className="h-8 text-sm" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Storage Type</Label>
-                  <select value={variantCustomStorage?"__custom__":(variantForm.storage_type||"")}
-                    onChange={e=>{if(e.target.value==="__custom__"){setVariantCustomStorage(true);setVariantForm(f=>({...f,storage_type:""}));}
-                      else{setVariantCustomStorage(false);setVariantForm(f=>({...f,storage_type:e.target.value}));}}}
-                    disabled={variantSaving}
-                    className="w-full h-8 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                    <option value="">— Select —</option>
-                    {STORAGE_TYPES.map(s=><option key={s} value={s}>{s}</option>)}
-                    <option value="__custom__">Other…</option>
-                  </select>
-                  {variantCustomStorage && <Input placeholder="Enter type" value={variantForm.storage_type}
-                    onChange={e=>setVariantForm(f=>({...f,storage_type:e.target.value}))} disabled={variantSaving} className="mt-1 h-8 text-sm" />}
-                </div>
-                <div className="space-y-1 col-span-2">
-                  <Label className="text-xs">Storage Location</Label>
-                  <Input placeholder="Rack A-2" value={variantForm.storage_location}
-                    onChange={e=>setVariantForm(f=>({...f,storage_location:e.target.value}))} disabled={variantSaving} className="h-8 text-sm" />
-                </div>
-              </div>
-              {variantError && <p className="text-xs text-destructive">{variantError}</p>}
-              <Button size="sm" onClick={saveVariant} disabled={variantSaving}>{variantSaving?"Saving…":"Add Variant"}</Button>
+            <div className="mt-4 pt-4 border-t flex justify-end">
+              <Button size="sm" onClick={()=>setAddVariantDialog(true)}>
+                <PlusIcon className="size-4 mr-1.5" />Add Variant
+              </Button>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Add Variant Dialog ───────────────────────────────────── */}
+      <Dialog open={addVariantDialog} onOpenChange={o=>{ if(!o){ setAddVariantDialog(false); resetVariantForm(); } }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <PlusIcon className="size-4 text-primary" />
+              Add Variant — {variantsDialogItem?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            {/* Image upload */}
+            <div className="flex items-center gap-3">
+              {variantImgPreview
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={variantImgPreview} alt="preview" className="size-14 rounded-md object-cover border" />
+                : <div className="size-14 rounded-md border-2 border-dashed flex items-center justify-center bg-muted/20">
+                    <ImageIcon className="size-5 text-muted-foreground/30" />
+                  </div>}
+              <div className="flex gap-2">
+                <Button type="button" size="sm" variant="outline" onClick={()=>variantImgRef.current?.click()} disabled={variantSaving}>
+                  {variantImgPreview ? "Change" : "Upload Image"}
+                </Button>
+                {variantImgPreview && <Button type="button" size="sm" variant="ghost" onClick={()=>{setVariantImgPreview(null);setVariantForm(f=>({...f,image_base64:null}));}} disabled={variantSaving}>Remove</Button>}
+              </div>
+              <input ref={variantImgRef} type="file" accept="image/*" className="hidden" onChange={handleVariantImg} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Variant / Colour</Label>
+                <Input placeholder="e.g. Red, Large" value={variantForm.variant_color}
+                  onChange={e=>setVariantForm(f=>({...f,variant_color:e.target.value}))} disabled={variantSaving} className="h-8 text-sm" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Serial No.</Label>
+                <Input placeholder="SN-001" value={variantForm.serial_number}
+                  onChange={e=>setVariantForm(f=>({...f,serial_number:e.target.value}))} disabled={variantSaving} className="h-8 text-sm" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Qty</Label>
+                <Input type="number" min="0" step="any" placeholder="0" value={variantForm.qty}
+                  onChange={e=>setVariantForm(f=>({...f,qty:e.target.value}))} disabled={variantSaving} className="h-8 text-sm" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Unit of Measure</Label>
+                <select value={variantCustomUnit?"__custom__":(variantForm.unit||"pcs")}
+                  onChange={e=>{if(e.target.value==="__custom__"){setVariantCustomUnit(true);setVariantForm(f=>({...f,unit:""}));}
+                    else{setVariantCustomUnit(false);setVariantForm(f=>({...f,unit:e.target.value,customUnit:""}));}}}
+                  disabled={variantSaving}
+                  className="w-full h-8 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                  {STD_UNITS.map(u=><option key={u} value={u}>{u}</option>)}
+                  <option value="__custom__">Other…</option>
+                </select>
+                {variantCustomUnit && <Input placeholder="Enter unit" value={variantForm.customUnit}
+                  onChange={e=>setVariantForm(f=>({...f,customUnit:e.target.value}))} disabled={variantSaving} className="mt-1 h-8 text-sm" />}
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Rate (₹)</Label>
+                <Input type="number" min="0" step="any" placeholder="0.00" value={variantForm.rate}
+                  onChange={e=>setVariantForm(f=>({...f,rate:e.target.value}))} disabled={variantSaving} className="h-8 text-sm" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Storage Type</Label>
+                <select value={variantCustomStorage?"__custom__":(variantForm.storage_type||"")}
+                  onChange={e=>{if(e.target.value==="__custom__"){setVariantCustomStorage(true);setVariantForm(f=>({...f,storage_type:""}));}
+                    else{setVariantCustomStorage(false);setVariantForm(f=>({...f,storage_type:e.target.value}));}}}
+                  disabled={variantSaving}
+                  className="w-full h-8 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                  <option value="">— Select —</option>
+                  {STORAGE_TYPES.map(s=><option key={s} value={s}>{s}</option>)}
+                  <option value="__custom__">Other…</option>
+                </select>
+                {variantCustomStorage && <Input placeholder="Enter type" value={variantForm.storage_type}
+                  onChange={e=>setVariantForm(f=>({...f,storage_type:e.target.value}))} disabled={variantSaving} className="mt-1 h-8 text-sm" />}
+              </div>
+              <div className="space-y-1 col-span-2">
+                <Label className="text-xs">Storage Location</Label>
+                <Input placeholder="Rack A-2" value={variantForm.storage_location}
+                  onChange={e=>setVariantForm(f=>({...f,storage_location:e.target.value}))} disabled={variantSaving} className="h-8 text-sm" />
+              </div>
+            </div>
+            {variantError && <p className="text-xs text-destructive">{variantError}</p>}
+            <div className="flex gap-2 pt-2">
+              <Button size="sm" onClick={saveVariant} disabled={variantSaving} className="flex-1">{variantSaving?"Saving…":"Add Variant"}</Button>
+              <Button size="sm" variant="outline" onClick={()=>{setAddVariantDialog(false);resetVariantForm();}} disabled={variantSaving}>Cancel</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit Variant Dialog ──────────────────────────────────── */}
+      <Dialog open={editVariantDialog} onOpenChange={o=>{ if(!o){ setEditVariantDialog(false); setEditVariantId(null); } }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="size-4 text-primary" />
+              Edit Variant
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            {/* Image upload */}
+            <div className="flex items-center gap-3">
+              {editVImgPreview
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={editVImgPreview} alt="preview" className="size-14 rounded-md object-cover border" />
+                : <div className="size-14 rounded-md border-2 border-dashed flex items-center justify-center bg-muted/20">
+                    <ImageIcon className="size-5 text-muted-foreground/30" />
+                  </div>}
+              <div className="flex gap-2">
+                <Button type="button" size="sm" variant="outline" onClick={()=>editVImgRef.current?.click()} disabled={editVSaving}>
+                  {editVImgPreview ? "Change" : "Upload Image"}
+                </Button>
+                {editVImgPreview && <Button type="button" size="sm" variant="ghost" onClick={()=>{setEditVImgPreview(null);setEditVForm(f=>({...f,image_base64:null}));}} disabled={editVSaving}>Remove</Button>}
+              </div>
+              <input ref={editVImgRef} type="file" accept="image/*" className="hidden" onChange={handleEditVImg} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Variant / Colour</Label>
+                <Input placeholder="e.g. Red, Large" value={editVForm.variant_color}
+                  onChange={e=>setEditVForm(f=>({...f,variant_color:e.target.value}))} disabled={editVSaving} className="h-8 text-sm" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Serial No.</Label>
+                <Input placeholder="SN-001" value={editVForm.serial_number}
+                  onChange={e=>setEditVForm(f=>({...f,serial_number:e.target.value}))} disabled={editVSaving} className="h-8 text-sm" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Qty</Label>
+                <Input type="number" min="0" step="any" placeholder="0" value={editVForm.qty}
+                  onChange={e=>setEditVForm(f=>({...f,qty:e.target.value}))} disabled={editVSaving} className="h-8 text-sm" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Unit of Measure</Label>
+                <select value={editVCustomUnit?"__custom__":(editVForm.unit||"pcs")}
+                  onChange={e=>{if(e.target.value==="__custom__"){setEditVCustomUnit(true);setEditVForm(f=>({...f,unit:""}));}
+                    else{setEditVCustomUnit(false);setEditVForm(f=>({...f,unit:e.target.value,customUnit:""}));}}}
+                  disabled={editVSaving}
+                  className="w-full h-8 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                  {STD_UNITS.map(u=><option key={u} value={u}>{u}</option>)}
+                  <option value="__custom__">Other…</option>
+                </select>
+                {editVCustomUnit && <Input placeholder="Enter unit" value={editVForm.customUnit}
+                  onChange={e=>setEditVForm(f=>({...f,customUnit:e.target.value}))} disabled={editVSaving} className="mt-1 h-8 text-sm" />}
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Rate (₹)</Label>
+                <Input type="number" min="0" step="any" placeholder="0.00" value={editVForm.rate}
+                  onChange={e=>setEditVForm(f=>({...f,rate:e.target.value}))} disabled={editVSaving} className="h-8 text-sm" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Storage Type</Label>
+                <select value={editVCustomStorage?"__custom__":(editVForm.storage_type||"")}
+                  onChange={e=>{if(e.target.value==="__custom__"){setEditVCustomStorage(true);setEditVForm(f=>({...f,storage_type:""}));}
+                    else{setEditVCustomStorage(false);setEditVForm(f=>({...f,storage_type:e.target.value}));}}}
+                  disabled={editVSaving}
+                  className="w-full h-8 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                  <option value="">— Select —</option>
+                  {STORAGE_TYPES.map(s=><option key={s} value={s}>{s}</option>)}
+                  <option value="__custom__">Other…</option>
+                </select>
+                {editVCustomStorage && <Input placeholder="Enter type" value={editVForm.storage_type}
+                  onChange={e=>setEditVForm(f=>({...f,storage_type:e.target.value}))} disabled={editVSaving} className="mt-1 h-8 text-sm" />}
+              </div>
+              <div className="space-y-1 col-span-2">
+                <Label className="text-xs">Storage Location</Label>
+                <Input placeholder="Rack A-2" value={editVForm.storage_location}
+                  onChange={e=>setEditVForm(f=>({...f,storage_location:e.target.value}))} disabled={editVSaving} className="h-8 text-sm" />
+              </div>
+            </div>
+            {editVError && <p className="text-xs text-destructive">{editVError}</p>}
+            <div className="flex gap-2 pt-2">
+              <Button size="sm" onClick={saveEditVariant} disabled={editVSaving} className="flex-1">{editVSaving?"Saving…":"Save Changes"}</Button>
+              <Button size="sm" variant="outline" onClick={()=>setEditVariantDialog(false)} disabled={editVSaving}>Cancel</Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 

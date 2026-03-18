@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   Breadcrumb, BreadcrumbItem, BreadcrumbList,
@@ -18,10 +18,25 @@ const STD_UNITS = ["pcs", "kg", "g", "ltr", "ml", "mtr", "cm", "box", "roll", "s
 const STORAGE_TYPES = ["Bin", "Tray", "Barrel", "Rack", "Shelf", "Box", "Pallet"];
 const SFG_STORAGE_TYPES = ["Ganny Bag", "Barrel (Big)", "Barrel (Small)", "Floor", "Trolley", "Black Bin", "Small Bin", "Big Bin"];
 
+const VALID_TYPES = ["raw_material", "finished_good", "semi_finished"] as const;
+type ItemType = typeof VALID_TYPES[number];
+
+const TYPE_LABELS: Record<ItemType, string> = {
+  raw_material:  "Raw Material",
+  finished_good: "Finished Good",
+  semi_finished: "Semi Finished",
+};
+
+const TYPE_PAGES: Record<ItemType, string> = {
+  raw_material:  "/dashboard/inventory/raw-materials",
+  finished_good: "/dashboard/inventory/finished-goods",
+  semi_finished: "/dashboard/inventory/semi-finished",
+};
+
 const BLANK = {
   code: "",
   name: "",
-  item_type: "raw_material",
+  item_type: "raw_material" as ItemType,
   unit: "pcs",
   customUnit: "",
   quantity_on_hand: 0,
@@ -32,9 +47,18 @@ const BLANK = {
   is_active: true,
 };
 
-export default function NewInventoryPage() {
+function NewInventoryInner() {
   const router = useRouter();
-  const [form, setForm] = useState(BLANK);
+  const searchParams = useSearchParams();
+  const typeParam = searchParams.get("type");
+  const lockedType: ItemType | null = VALID_TYPES.includes(typeParam as ItemType)
+    ? (typeParam as ItemType)
+    : null;
+
+  const [form, setForm] = useState(() => ({
+    ...BLANK,
+    item_type: lockedType ?? BLANK.item_type,
+  }));
   const [isCustomUnit, setIsCustomUnit] = useState(false);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -99,7 +123,7 @@ export default function NewInventoryPage() {
           is_active: form.is_active,
         }),
       });
-      router.push("/dashboard/inventory");
+      router.push(lockedType ? TYPE_PAGES[lockedType] : "/dashboard/inventory");
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Save failed");
     } finally {
@@ -110,7 +134,9 @@ export default function NewInventoryPage() {
   return (
     <>
       <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4 md:px-6">
-        <Link href="/dashboard/inventory" className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
+        <Link
+          href={lockedType ? TYPE_PAGES[lockedType] : "/dashboard/inventory"}
+          className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
           <ArrowLeft className="size-4" />
         </Link>
         <Breadcrumb>
@@ -118,6 +144,16 @@ export default function NewInventoryPage() {
             <BreadcrumbItem className="hidden md:block">
               <BreadcrumbLink href="/dashboard/inventory">Inventory</BreadcrumbLink>
             </BreadcrumbItem>
+            {lockedType && (
+              <>
+                <BreadcrumbSeparator className="hidden md:block" />
+                <BreadcrumbItem className="hidden md:block">
+                  <BreadcrumbLink href={TYPE_PAGES[lockedType]}>
+                    {TYPE_LABELS[lockedType]}
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+              </>
+            )}
             <BreadcrumbSeparator className="hidden md:block" />
             <BreadcrumbItem><BreadcrumbPage>New Item</BreadcrumbPage></BreadcrumbItem>
           </BreadcrumbList>
@@ -146,16 +182,25 @@ export default function NewInventoryPage() {
             />
           </div>
           {/* Type */}
-          <div className="space-y-1.5">
-            <Label htmlFor="item_type">Item Type</Label>
-            <select id="item_type" value={form.item_type} onChange={(e) => set("item_type", e.target.value)} disabled={saving}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-            >
-              <option value="raw_material">Raw Material</option>
-              <option value="finished_good">Finished Good</option>
-              <option value="semi_finished">Semi Finished</option>
-            </select>
-          </div>
+          {lockedType ? (
+            <div className="space-y-1.5">
+              <Label>Item Type</Label>
+              <div className="w-full rounded-md border border-input bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+                {TYPE_LABELS[lockedType]}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <Label htmlFor="item_type">Item Type</Label>
+              <select id="item_type" value={form.item_type} onChange={(e) => set("item_type", e.target.value)} disabled={saving}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+              >
+                <option value="raw_material">Raw Material</option>
+                <option value="finished_good">Finished Good</option>
+                <option value="semi_finished">Semi Finished</option>
+              </select>
+            </div>
+          )}
           {/* Unit */}
           <div className="space-y-1.5">
             <Label htmlFor="unit">Unit of Measure <span className="text-destructive">*</span></Label>
@@ -259,12 +304,20 @@ export default function NewInventoryPage() {
             <Button type="submit" disabled={saving} className="flex-1 sm:flex-none">
               {saving ? "Creating…" : "Create Item"}
             </Button>
-            <Button type="button" variant="outline" onClick={() => router.push("/dashboard/inventory")} disabled={saving}>
+            <Button type="button" variant="outline" onClick={() => router.push(lockedType ? TYPE_PAGES[lockedType] : "/dashboard/inventory")} disabled={saving}>
               Cancel
             </Button>
           </div>
         </form>
       </div>
     </>
+  );
+}
+
+export default function NewInventoryPage() {
+  return (
+    <Suspense>
+      <NewInventoryInner />
+    </Suspense>
   );
 }

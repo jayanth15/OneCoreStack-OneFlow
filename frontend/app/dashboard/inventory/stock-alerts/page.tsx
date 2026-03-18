@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator,
@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiFetchJson } from "@/lib/api";
-import { AlertTriangle, Printer, Package, Wrench, RefreshCw } from "lucide-react";
+import { AlertTriangle, Printer, Package, Wrench, RefreshCw, Box, Layers, FlaskConical } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -32,15 +32,55 @@ interface ConsumableLowStockItem {
   reorder_level: number;
 }
 
+interface InventoryLowItem {
+  id: number;
+  code: string;
+  name: string;
+  item_type: "raw_material" | "finished_good" | "semi_finished";
+  unit: string;
+  quantity_on_hand: number;
+  reorder_level: number;
+}
+
+interface PaginatedInventory {
+  items: InventoryLowItem[];
+  total: number;
+  pages: number;
+}
+
 interface UnifiedRow {
   key: string;
-  type: "spare" | "consumable";
+  type: "spare" | "consumable" | "raw_material" | "finished_good" | "semi_finished";
   name: string;
   code: string | null;
   category: string;
   qty: number;
   reorder_level: number;
   unit: string;
+}
+
+// ── TypeBadge ─────────────────────────────────────────────────────────────────
+
+const TYPE_CONFIG: Record<UnifiedRow["type"], { label: string; bg: string; text: string; Icon: React.ElementType }> = {
+  spare:        { label: "Spare",         bg: "bg-violet-100", text: "text-violet-700", Icon: Wrench },
+  consumable:   { label: "Consumable",    bg: "bg-blue-100",   text: "text-blue-700",   Icon: FlaskConical },
+  raw_material:  { label: "Raw Material", bg: "bg-orange-100", text: "text-orange-700", Icon: Box },
+  finished_good: { label: "Finished Good", bg: "bg-teal-100",  text: "text-teal-700",   Icon: Package },
+  semi_finished: { label: "Semi Finished", bg: "bg-indigo-100", text: "text-indigo-700", Icon: Layers },
+};
+
+function TypeBadge({ type, small }: { type: UnifiedRow["type"]; small?: boolean }) {
+  const { label, bg, text, Icon } = TYPE_CONFIG[type];
+  const sz = small ? "size-2.5" : "size-3";
+  const cls = small
+    ? `inline-flex items-center gap-1 text-[10px] rounded-full px-1.5 py-0.5 font-medium ${bg} ${text}`
+    : `inline-flex items-center gap-1 text-xs rounded-full px-2 py-0.5 font-medium ${bg} ${text}`;
+  return (
+    <span className={cls}>
+      <Icon className={sz} />
+      {label}
+    </span>
+  );
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -53,14 +93,49 @@ export default function StockAlertsPage() {
   const [qtyNeeded, setQtyNeeded] = useState<Record<string, string>>({});
   const printRef = useRef<HTMLDivElement>(null);
 
+  const CATEGORY_LABELS: Record<string, string> = {
+    raw_material:  "Raw Materials",
+    finished_good: "Finished Goods",
+    semi_finished: "Semi Finished",
+  };
+
   const fetchData = async () => {
     setLoading(true); setError(null);
     try {
-      const d = await apiFetchJson<{ spares: SpareLowStockItem[]; consumables: ConsumableLowStockItem[] }>(
-        "/api/v1/dashboard/low-stock"
+      const [lowStock, invPage] = await Promise.all([
+        apiFetchJson<{ spares: SpareLowStockItem[]; consumables: ConsumableLowStockItem[] }>(
+          "/api/v1/dashboard/low-stock"
+        ),
+        apiFetchJson<PaginatedInventory>(
+          "/api/v1/inventory?include_inactive=false&page_size=500"
+        ),
+      ]);
+
+      // Fetch remaining inventory pages if needed
+      let invItems = invPage.items;
+      for (let p = 2; p <= invPage.pages; p++) {
+        const extra = await apiFetchJson<PaginatedInventory>(
+          `/api/v1/inventory?include_inactive=false&page_size=500&page=${p}`
+        );
+        invItems = [...invItems, ...extra.items];
+      }
+
+      const lowInv = invItems.filter(
+        (i) => i.reorder_level > 0 && i.quantity_on_hand <= i.reorder_level
       );
+
       const unified: UnifiedRow[] = [
-        ...d.spares.map((s): UnifiedRow => ({
+        ...lowInv.map((i): UnifiedRow => ({
+          key: `inv-${i.id}`,
+          type: i.item_type,
+          name: i.name,
+          code: i.code,
+          category: CATEGORY_LABELS[i.item_type] ?? i.item_type,
+          qty: i.quantity_on_hand,
+          reorder_level: i.reorder_level,
+          unit: i.unit,
+        })),
+        ...lowStock.spares.map((s): UnifiedRow => ({
           key: `spare-${s.item_id}`,
           type: "spare",
           name: s.item_name,
@@ -70,7 +145,7 @@ export default function StockAlertsPage() {
           reorder_level: s.reorder_level,
           unit: s.unit,
         })),
-        ...d.consumables.map((c): UnifiedRow => ({
+        ...lowStock.consumables.map((c): UnifiedRow => ({
           key: `con-${c.item_id}`,
           type: "consumable",
           name: c.name,
@@ -114,6 +189,9 @@ export default function StockAlertsPage() {
         td { padding: 7px 10px; border: 1px solid #e4e4e7; }
         .type-spare { color: #7c3aed; font-weight: 600; }
         .type-consumable { color: #1d4ed8; font-weight: 600; }
+        .type-raw_material { color: #c2410c; font-weight: 600; }
+        .type-finished_good { color: #0f766e; font-weight: 600; }
+        .type-semi_finished { color: #4338ca; font-weight: 600; }
         .low { color: #b45309; font-weight: 600; }
         .qty-needed { color: #15803d; font-weight: 600; }
         @media print { @page { margin: 20mm; } }
@@ -132,7 +210,12 @@ export default function StockAlertsPage() {
           ${selectedRows.map((r, i) => `
             <tr>
               <td>${i + 1}</td>
-              <td class="${r.type === "spare" ? "type-spare" : "type-consumable"}">${r.type === "spare" ? "Spare" : "Consumable"}</td>
+              <td class="type-${r.type}">${
+                r.type === "spare" ? "Spare" :
+                r.type === "consumable" ? "Consumable" :
+                r.type === "raw_material" ? "Raw Material" :
+                r.type === "finished_good" ? "Finished Good" : "Semi Finished"
+              }</td>
               <td><strong>${r.name}</strong>${r.code ? `<br><span style="color:#666;font-family:monospace">${r.code}</span>` : ""}</td>
               <td style="color:#666">${r.category}</td>
               <td style="text-align:right" class="low">${r.qty % 1 === 0 ? r.qty.toFixed(0) : r.qty.toFixed(2)}${r.unit ? " " + r.unit : ""}</td>
@@ -188,7 +271,7 @@ export default function StockAlertsPage() {
             Stock Alerts
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Items below their reorder level in Spares and Consumables.
+            All inventory items below their reorder level.
             Select items and enter quantity needed to print a purchase request.
           </p>
         </div>
@@ -205,7 +288,7 @@ export default function StockAlertsPage() {
               <Package className="size-7 text-emerald-600" />
             </div>
             <p className="text-sm font-medium">All stock levels are healthy!</p>
-            <p className="text-xs text-muted-foreground">No spares or consumables are below their reorder level.</p>
+            <p className="text-xs text-muted-foreground">No inventory items are below their reorder level.</p>
           </div>
         ) : (
           <>
@@ -250,15 +333,7 @@ export default function StockAlertsPage() {
                           className="size-4 rounded border-input accent-primary" />
                       </td>
                       <td className="px-4 py-3">
-                        {r.type === "spare" ? (
-                          <span className="inline-flex items-center gap-1 text-xs bg-violet-100 text-violet-700 rounded-full px-2 py-0.5 font-medium">
-                            <Wrench className="size-3" />Spare
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-700 rounded-full px-2 py-0.5 font-medium">
-                            <Package className="size-3" />Consumable
-                          </span>
-                        )}
+                        <TypeBadge type={r.type} />
                       </td>
                       <td className="px-4 py-3">
                         <p className="font-medium">{r.name}</p>
@@ -296,15 +371,7 @@ export default function StockAlertsPage() {
                       className="mt-0.5 size-4 rounded border-input accent-primary shrink-0" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        {r.type === "spare" ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] bg-violet-100 text-violet-700 rounded-full px-1.5 py-0.5 font-medium">
-                            <Wrench className="size-2.5" />Spare
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-[10px] bg-blue-100 text-blue-700 rounded-full px-1.5 py-0.5 font-medium">
-                            <Package className="size-2.5" />Consumable
-                          </span>
-                        )}
+                        <TypeBadge type={r.type} small />
                         <p className="font-medium text-sm">{r.name}</p>
                       </div>
                       {r.code && <p className="text-xs font-mono text-muted-foreground mt-0.5">{r.code}</p>}

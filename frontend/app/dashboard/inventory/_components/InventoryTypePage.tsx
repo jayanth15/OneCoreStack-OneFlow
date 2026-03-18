@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -22,7 +22,6 @@ import { isAdminOrAbove } from "@/lib/user";
 import {
   PlusIcon, Pencil, Trash2, AlertTriangle, PackagePlus,
   PackageMinus, History, TrendingDown, Eye, Search, ChevronLeft, ChevronRight,
-  Package, Box, Layers, Wrench, FlaskConical,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -78,19 +77,6 @@ interface PaginatedSchedules {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const TABS = [
-  { id: "finished_good",  label: "Finished Goods" },
-  { id: "raw_material",   label: "Raw Materials" },
-  { id: "semi_finished",  label: "Semi Finished" },
-  { id: "all",            label: "All Items" },
-];
-
-const TYPE_LABELS: Record<string, string> = {
-  finished_good: "Finished Good",
-  raw_material:  "Raw Material",
-  semi_finished: "Semi Finished",
-};
-
 const CHANGE_LABELS: Record<string, string> = {
   create:   "Created",
   add:      "Stock Added",
@@ -105,7 +91,9 @@ function fmtQty(n: number | null | undefined) {
 }
 
 function fmtDate(s: string) {
-  return new Date(s).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "2-digit" });
+  return new Date(s).toLocaleDateString("en-IN", {
+    day: "2-digit", month: "short", year: "2-digit",
+  });
 }
 
 function fmtDateTime(s: string) {
@@ -124,218 +112,83 @@ const isShortfall = (item: InventoryItem) =>
   item.required_qty > 0 &&
   item.quantity_on_hand < item.required_qty;
 
-// ── Inventory Landing (shown when no ?tab param) ─────────────────────────────
+// ── Props ─────────────────────────────────────────────────────────────────────
 
-function InventoryLanding() {
-  const router = useRouter();
-  const [counts, setCounts] = useState<Record<string, number | null>>({
-    finished_good: null, raw_material: null, semi_finished: null, spares: null, consumables: null,
-  });
-
-  useEffect(() => {
-    const fetchCount = async (type: string) => {
-      try {
-        const d = await apiFetchJson<{ total: number }>(
-          `/api/v1/inventory?item_type=${type}&page_size=1&include_inactive=false`
-        );
-        return d.total;
-      } catch { return null; }
-    };
-    const fetchSpares = async () => {
-      try {
-        const d = await apiFetchJson<unknown[]>(`/api/v1/spares/categories`);
-        return Array.isArray(d) ? d.length : null;
-      } catch { return null; }
-    };
-    const fetchConsumables = async () => {
-      try {
-        const d = await apiFetchJson<{ total: number }>(`/api/v1/consumables?page_size=1&include_inactive=false`);
-        return d.total;
-      } catch { return null; }
-    };
-    Promise.all([
-      fetchCount("finished_good"),
-      fetchCount("raw_material"),
-      fetchCount("semi_finished"),
-      fetchSpares(),
-      fetchConsumables(),
-    ]).then(([fg, rm, sf, sp, con]) =>
-      setCounts({ finished_good: fg, raw_material: rm, semi_finished: sf, spares: sp, consumables: con })
-    );
-  }, []);
-
-  const CARDS = [
-    {
-      id: "finished_good", label: "Finished Goods", desc: "Final products ready for dispatch",
-      href: "/dashboard/inventory/finished-goods",
-      icon: <Package className="size-8" />,
-      accent: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400",
-      border: "hover:border-teal-400",
-    },
-    {
-      id: "raw_material", label: "Raw Materials", desc: "Input materials and components",
-      href: "/dashboard/inventory/raw-materials",
-      icon: <Box className="size-8" />,
-      accent: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
-      border: "hover:border-orange-400",
-    },
-    {
-      id: "semi_finished", label: "Semi Finished", desc: "Work-in-progress goods",
-      href: "/dashboard/inventory/semi-finished",
-      icon: <Layers className="size-8" />,
-      accent: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
-      border: "hover:border-indigo-400",
-    },
-    {
-      id: "spares", label: "Spares", desc: "Spare parts organised by category",
-      href: "/dashboard/inventory/spares",
-      icon: <Wrench className="size-8" />,
-      accent: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-      border: "hover:border-amber-400",
-    },
-    {
-      id: "consumables", label: "Consumables", desc: "Oils, chemicals & consumable stock",
-      href: "/dashboard/inventory/consumables",
-      icon: <FlaskConical className="size-8" />,
-      accent: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400",
-      border: "hover:border-violet-400",
-    },
-    {
-      id: "stock_alerts", label: "Stock Alerts", desc: "Items below reorder level",
-      href: "/dashboard/inventory/stock-alerts",
-      icon: <AlertTriangle className="size-8" />,
-      accent: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-      border: "hover:border-red-400",
-    },
-  ];
-
-  return (
-    <>
-      <header className="flex h-16 shrink-0 items-center border-b px-6">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem><BreadcrumbPage>Inventory</BreadcrumbPage></BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </header>
-      <div className="p-4 md:p-6 space-y-4">
-        <div>
-          <h1 className="text-xl font-semibold">Inventory</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Select an inventory type to view and manage items.</p>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {CARDS.map((c) => {
-            const count = counts[c.id];
-            return (
-              <button
-                key={c.id}
-                onClick={() => router.push(c.href)}
-                className={`text-left rounded-xl border-2 border-transparent p-5 space-y-3 bg-card shadow-sm hover:shadow-md transition-all cursor-pointer ${c.border}`}
-              >
-                <div className={`flex size-14 items-center justify-center rounded-xl ${c.accent}`}>
-                  {c.icon}
-                </div>
-                <div>
-                  <p className="text-base font-semibold">{c.label}</p>
-                  <p className="text-sm text-muted-foreground mt-0.5">{c.desc}</p>
-                </div>
-                <p className="text-2xl font-bold tabular-nums">
-                  {c.id === "stock_alerts"
-                    ? <span className="text-sm font-normal text-muted-foreground">View alerts →</span>
-                    : count === null
-                      ? <span className="text-muted-foreground text-base animate-pulse">—</span>
-                      : <>{count}<span className="text-sm font-normal text-muted-foreground ml-1">{c.id === "spares" ? "categories" : "items"}</span></>}
-                </p>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    </>
-  );
+interface Props {
+  /** The fixed item_type for this page — drives filtering and the new-item preset */
+  itemType: "finished_good" | "raw_material" | "semi_finished";
+  /** Human-readable label, e.g. "Finished Goods" */
+  label: string;
+  /** Short description shown below the heading */
+  description: string;
+  /** Absolute path of this page, e.g. "/dashboard/inventory/finished-goods" */
+  basePath: string;
 }
 
-// ── Dispatcher — shows landing or the full table depending on ?tab ────────────
+// ── Main component ────────────────────────────────────────────────────────────
 
-function InventoryDispatcher() {
-  const searchParams = useSearchParams();
-  const tab = searchParams.get("tab");
-  if (!tab) return <InventoryLanding />;
-  return <InventoryPageInner />;
-}
-
-// ── Inner component (reads searchParams) ─────────────────────────────────────
-
-function InventoryPageInner() {
+export default function InventoryTypePage({ itemType, label, description, basePath }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const tab          = searchParams.get("tab") ?? "finished_good";
   const page         = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
   const showInactive = searchParams.get("inactive") === "1";
   const search       = searchParams.get("search") ?? "";
 
-  const [data, setData]         = useState<PaginatedInventory | null>(null);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState<string | null>(null);
-  const [admin, setAdmin]       = useState(false);
+  const [data, setData]       = useState<PaginatedInventory | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState<string | null>(null);
+  const [admin, setAdmin]     = useState(false);
   const [searchDraft, setSearchDraft] = useState(search);
 
-  // Delete
-  const [deleteId, setDeleteId]   = useState<number | null>(null);
-  const [deleting, setDeleting]   = useState(false);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
-  // Adjust sheet
-  const [adjustItem, setAdjustItem]               = useState<InventoryItem | null>(null);
-  const [adjustType, setAdjustType]               = useState<"add" | "subtract" | "set">("add");
-  const [adjustQty, setAdjustQty]                 = useState("");
-  const [adjustScheduleId, setAdjustScheduleId]   = useState<string>("");
-  const [adjustNote, setAdjustNote]               = useState("");
-  const [adjustSchedules, setAdjustSchedules]     = useState<ScheduleItem[]>([]);
-  const [adjustSaving, setAdjustSaving]           = useState(false);
-  const [adjustError, setAdjustError]             = useState<string | null>(null);
+  const [adjustItem, setAdjustItem]             = useState<InventoryItem | null>(null);
+  const [adjustType, setAdjustType]             = useState<"add" | "subtract" | "set">("add");
+  const [adjustQty, setAdjustQty]               = useState("");
+  const [adjustScheduleId, setAdjustScheduleId] = useState<string>("");
+  const [adjustNote, setAdjustNote]             = useState("");
+  const [adjustSchedules, setAdjustSchedules]   = useState<ScheduleItem[]>([]);
+  const [adjustSaving, setAdjustSaving]         = useState(false);
+  const [adjustError, setAdjustError]           = useState<string | null>(null);
 
-  // History sheet
-  const [historyItem, setHistoryItem]         = useState<InventoryItem | null>(null);
-  const [historyEntries, setHistoryEntries]   = useState<HistoryEntry[]>([]);
-  const [historyLoading, setHistoryLoading]   = useState(false);
+  const [historyItem, setHistoryItem]       = useState<InventoryItem | null>(null);
+  const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   useEffect(() => { setAdmin(isAdminOrAbove()); }, []);
-
-  // Keep search draft in sync with URL
   useEffect(() => { setSearchDraft(search); }, [search]);
 
-  // ── Fetch — triggered on every URL param change ────────────────────────────
+  // ── Fetch ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     setLoading(true);
     setError(null);
     const params = new URLSearchParams({
+      item_type:        itemType,
       page:             String(page),
       page_size:        "20",
       include_inactive: String(showInactive),
     });
-    if (tab !== "all") params.set("item_type", tab);
-    if (search)        params.set("search", search);
-
+    if (search) params.set("search", search);
     apiFetchJson<PaginatedInventory>(`/api/v1/inventory?${params}`)
       .then(setData)
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load"))
       .finally(() => setLoading(false));
-  }, [tab, page, showInactive, search]);
+  }, [itemType, page, showInactive, search]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Navigation helpers ─────────────────────────────────────────────────────
+  // ── Navigation ─────────────────────────────────────────────────────────────
   function nav(updates: Record<string, string>) {
     const p = new URLSearchParams(searchParams.toString());
     Object.entries(updates).forEach(([k, v]) => {
       if (v === "") p.delete(k); else p.set(k, v);
     });
-    router.push(`?${p.toString()}`);
+    router.push(`${basePath}?${p.toString()}`);
   }
 
-  function setTab(t: string)         { nav({ tab: t, page: "1" }); }
-  function setPage(n: number)        { nav({ page: String(n) }); }
-  function toggleInactive(v: boolean) { nav({ inactive: v ? "1" : "", page: "1" }); }
-  function submitSearch()            { nav({ search: searchDraft.trim(), page: "1" }); }
+  function setPage(n: number)          { nav({ page: String(n) }); }
+  function toggleInactive(v: boolean)  { nav({ inactive: v ? "1" : "", page: "1" }); }
+  function submitSearch()              { nav({ search: searchDraft.trim(), page: "1" }); }
 
   // ── Adjust stock ───────────────────────────────────────────────────────────
   function openAdjust(item: InventoryItem) {
@@ -367,13 +220,12 @@ function InventoryPageInner() {
         }),
       });
       setAdjustItem(null);
-      // Re-fetch current page
       setLoading(true);
       const params = new URLSearchParams({
-        page: String(page), page_size: "20", include_inactive: String(showInactive),
+        item_type: itemType, page: String(page), page_size: "20",
+        include_inactive: String(showInactive),
       });
-      if (tab !== "all") params.set("item_type", tab);
-      if (search)        params.set("search", search);
+      if (search) params.set("search", search);
       apiFetchJson<PaginatedInventory>(`/api/v1/inventory?${params}`)
         .then(setData).catch(() => {}).finally(() => setLoading(false));
     } catch (e: unknown) {
@@ -419,9 +271,8 @@ function InventoryPageInner() {
   const lowCount   = items.filter(isLow).length;
   const shortfall  = items.filter(isShortfall).length;
 
-  const showRMCols = tab === "raw_material";
-  const showFGCols = tab === "finished_good" || tab === "semi_finished";
-  const showTypCol = tab === "all";
+  const showRMCols = itemType === "raw_material";
+  const showFGCols = itemType === "finished_good" || itemType === "semi_finished";
 
   return (
     <>
@@ -430,11 +281,13 @@ function InventoryPageInner() {
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
-              <Link href="/dashboard/inventory" className="text-muted-foreground hover:text-foreground text-sm">Inventory</Link>
+              <Link href="/dashboard/inventory" className="text-muted-foreground hover:text-foreground text-sm">
+                Inventory
+              </Link>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>{TABS.find((t) => t.id === tab)?.label ?? "Inventory"}</BreadcrumbPage>
+              <BreadcrumbPage>{label}</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
@@ -444,15 +297,15 @@ function InventoryPageInner() {
         {/* Heading */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-xl font-semibold">{TABS.find((t) => t.id === tab)?.label ?? "Inventory"}</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {tab === "raw_material" ? "Input materials and components — sorted by last updated." : tab === "semi_finished" ? "Work-in-progress goods — sorted by last updated." : tab === "all" ? "All inventory items — sorted by last updated." : "Final products ready for dispatch — sorted by last updated."}
-            </p>
+            <h1 className="text-xl font-semibold">{label}</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">{description}</p>
           </div>
-          <Button size="sm" onClick={() => router.push("/dashboard/inventory/new")}>
-            <PlusIcon className="size-4 mr-1" />
-            Add Item
-          </Button>
+          {admin && (
+            <Button size="sm" onClick={() => router.push(`/dashboard/inventory/new?type=${itemType}`)}>
+              <PlusIcon className="size-4 mr-1" />
+              Add Item
+            </Button>
+          )}
         </div>
 
         {/* Alerts */}
@@ -482,7 +335,6 @@ function InventoryPageInner() {
               Show inactive
             </label>
           </div>
-          {/* Search form */}
           <form onSubmit={(e) => { e.preventDefault(); submitSearch(); }} className="flex gap-1.5 shrink-0">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
@@ -530,11 +382,6 @@ function InventoryPageInner() {
                       <div className="text-xs text-muted-foreground font-mono">{item.code}</div>
                       {!item.is_active && <span className="text-xs text-muted-foreground">(inactive)</span>}
                     </div>
-                    {showTypCol && (
-                      <Badge variant="outline" className="text-xs shrink-0">
-                        {TYPE_LABELS[item.item_type] ?? item.item_type}
-                      </Badge>
-                    )}
                   </div>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
                     <div className="flex items-center gap-1">
@@ -553,7 +400,10 @@ function InventoryPageInner() {
                       </div>
                     )}
                     {item.linked_schedule_count > 0 && (
-                      <div><span className="text-muted-foreground">Schedules:</span> <Badge variant="secondary" className="text-xs">{item.linked_schedule_count}</Badge></div>
+                      <div>
+                        <span className="text-muted-foreground">Schedules:</span>{" "}
+                        <Badge variant="secondary" className="text-xs">{item.linked_schedule_count}</Badge>
+                      </div>
                     )}
                     {admin && item.rate != null && (
                       <div><span className="text-muted-foreground">Rate:</span> ₹{item.rate.toFixed(2)}</div>
@@ -606,11 +456,10 @@ function InventoryPageInner() {
                 <tr className="border-b bg-muted/40">
                   <th className="px-4 py-3 text-left font-medium w-24">Updated</th>
                   <th className="px-4 py-3 text-left font-medium">Name / Code</th>
-                  {showTypCol && <th className="px-4 py-3 text-left font-medium">Type</th>}
                   <th className="px-4 py-3 text-right font-medium">Available</th>
                   {showRMCols && <th className="px-4 py-3 text-right font-medium">Required</th>}
                   {showFGCols && <th className="px-4 py-3 text-left font-medium">Customers</th>}
-                  <th className="px-4 py-3 text-left font-medium">Storage/Location</th>
+                  <th className="px-4 py-3 text-left font-medium">Storage / Location</th>
                   <th className="px-4 py-3 text-center font-medium w-16">Sched.</th>
                   {admin && <th className="px-4 py-3 text-right font-medium w-24">Rate</th>}
                   <th className="px-4 py-3 text-right font-medium">Actions</th>
@@ -628,9 +477,7 @@ function InventoryPageInner() {
                 ) : items.length === 0 ? (
                   <tr>
                     <td colSpan={10} className="px-4 py-12 text-center text-muted-foreground">
-                      {search
-                        ? `No items matching "${search}". Try a different search.`
-                        : "No items found."}
+                      {search ? `No items matching "${search}". Try a different search.` : "No items found."}
                     </td>
                   </tr>
                 ) : (
@@ -641,26 +488,16 @@ function InventoryPageInner() {
                       <tr key={item.id}
                         className={["border-b last:border-0 hover:bg-muted/30 transition-colors",
                           !item.is_active ? "opacity-60" : ""].join(" ")}>
-                        {/* Updated */}
                         <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
                           {fmtDate(item.updated_at)}
                         </td>
-                        {/* Name / Code */}
                         <td className="px-4 py-3 max-w-[220px]">
                           <Link href={`/dashboard/inventory/${item.id}`}
-                            className="font-medium text-sm hover:underline truncate block" title={item.name}>{item.name}</Link>
+                            className="font-medium text-sm hover:underline truncate block"
+                            title={item.name}>{item.name}</Link>
                           <div className="text-xs text-muted-foreground font-mono truncate">{item.code}</div>
                           {!item.is_active && <span className="text-xs text-muted-foreground">(inactive)</span>}
                         </td>
-                        {/* Type (all tab) */}
-                        {showTypCol && (
-                          <td className="px-4 py-3">
-                            <Badge variant="outline" className="text-xs">
-                              {TYPE_LABELS[item.item_type] ?? item.item_type}
-                            </Badge>
-                          </td>
-                        )}
-                        {/* Available */}
                         <td className={["px-4 py-3 text-right tabular-nums font-medium",
                           low ? "text-amber-600" : short ? "text-red-600" : ""].join(" ")}>
                           <div className="flex items-center justify-end gap-1">
@@ -668,7 +505,6 @@ function InventoryPageInner() {
                             {fmtQty(item.quantity_on_hand)} {item.unit}
                           </div>
                         </td>
-                        {/* Required (RM) */}
                         {showRMCols && (
                           <td className="px-4 py-3 text-right tabular-nums text-xs">
                             {item.required_qty != null && item.required_qty > 0 ? (
@@ -679,26 +515,22 @@ function InventoryPageInner() {
                             ) : <span className="text-muted-foreground">—</span>}
                           </td>
                         )}
-                        {/* Customers (FG/SFG) */}
                         {showFGCols && (
                           <td className="px-4 py-3 text-xs text-muted-foreground max-w-[180px] truncate"
                             title={item.customer_names ?? ""}>
                             {item.customer_names ?? "—"}
                           </td>
                         )}
-                        {/* Storage */}
                         <td className="px-4 py-3 text-xs text-muted-foreground max-w-[160px]">
                           {item.storage_type     && <div className="truncate" title={item.storage_type}>{item.storage_type}</div>}
                           {item.storage_location && <div className="truncate" title={item.storage_location}>{item.storage_location}</div>}
                           {!item.storage_type && !item.storage_location && "—"}
                         </td>
-                        {/* Schedules */}
                         <td className="px-4 py-3 text-center">
                           {item.linked_schedule_count > 0 ? (
                             <Badge variant="secondary" className="text-xs">{item.linked_schedule_count}</Badge>
                           ) : <span className="text-muted-foreground text-xs">—</span>}
                         </td>
-                        {/* Rate */}
                         {admin && (
                           <td className="px-4 py-3 text-right text-xs tabular-nums">
                             {item.rate != null
@@ -706,7 +538,6 @@ function InventoryPageInner() {
                               : <span className="text-muted-foreground">—</span>}
                           </td>
                         )}
-                        {/* Actions */}
                         <td className="px-4 py-3 text-right">
                           <div className="inline-flex gap-0.5">
                             <Button variant="ghost" size="icon" className="size-7" title="View Details"
@@ -746,10 +577,10 @@ function InventoryPageInner() {
               {!loading && items.length > 0 && (
                 <tfoot>
                   <tr className="border-t bg-muted/20">
-                    <td colSpan={showTypCol ? 3 : 2} className="px-4 py-2 text-xs text-muted-foreground">
+                    <td colSpan={2} className="px-4 py-2 text-xs text-muted-foreground">
                       Showing {pageStart}–{pageEnd} of {total}
                     </td>
-                    <td colSpan={admin ? 5 : 4} />
+                    <td colSpan={admin ? 6 : 5} />
                   </tr>
                 </tfoot>
               )}
@@ -929,20 +760,5 @@ function InventoryPageInner() {
         </AlertDialogContent>
       </AlertDialog>
     </>
-  );
-}
-
-// ── Page export — wraps in Suspense so useSearchParams works ────────────────
-
-export default function InventoryPage() {
-  return (
-    <Suspense fallback={
-      <div className="p-6 space-y-4">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-64 w-full" />
-      </div>
-    }>
-      <InventoryDispatcher />
-    </Suspense>
   );
 }
