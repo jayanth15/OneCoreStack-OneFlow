@@ -1,9 +1,35 @@
-fastapi>=0.115.0
-sqlmodel>=0.0.22
-alembic>=1.14.0
-argon2-cffi>=23.1.0
-pyjwt>=2.9.0
-pydantic-settings>=2.7.0
-psycopg2-binary>=2.9.10
-uvicorn[standard]>=0.34.0
-python-multipart>=0.0.20
+# OneFlow Backend — pinned requirements
+# Generated from working venv on Python 3.13
+# Install with: pip install -r requirements.txt
+
+alembic==1.18.4
+annotated-types==0.7.0
+anyio==4.12.1
+argon2-cffi==25.1.0
+argon2-cffi-bindings==25.1.0
+cffi==2.0.0
+click==8.3.1
+fastapi==0.133.1
+greenlet==3.3.2
+h11==0.16.0
+httptools==0.7.1
+idna==3.11
+mako==1.3.10
+markupsafe==3.0.3
+psycopg2-binary==2.9.11
+pycparser==3.0
+pydantic==2.12.5
+pydantic-core==2.41.5
+pydantic-settings==2.13.1
+pyjwt==2.11.0
+python-dotenv==1.2.1
+python-multipart==0.0.22
+pyyaml==6.0.3
+sqlalchemy==2.0.47
+sqlmodel==0.0.37
+starlette==0.52.1
+typing-extensions==4.15.0
+typing-inspection==0.4.2
+uvicorn[standard]==0.41.0
+watchfiles==1.1.1
+websockets==16.0

@@ -19,7 +19,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { apiFetchJson } from "@/lib/api";
-import { isAdminOrAbove } from "@/lib/user";
+import { isAdminOrAbove, canAccessInventory } from "@/lib/user";
 import {
   PlusIcon, Pencil, Trash2, AlertTriangle, Wrench, ChevronRight, ChevronDown,
   Search, PackagePlus, PackageMinus, ImageIcon, Layers, Eye, History,
@@ -172,7 +172,13 @@ export default function SparesPage() {
   const [deleteItemId, setDeleteItemId] = useState<{id:number; subId:number} | null>(null);
   const [deleting, setDeleting]         = useState(false);
 
-  useEffect(() => { setAdmin(isAdminOrAbove()); }, []);
+  useEffect(() => {
+    setAdmin(isAdminOrAbove());
+    if (!canAccessInventory("spare")) {
+      router.replace("/dashboard/inventory");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Data fetching ───────────────────────────────────────────────────────────
 

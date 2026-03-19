@@ -15,6 +15,7 @@ import {
   X,
   BookOpen,
   Contact,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getCurrentUser, isAdminOrAbove } from "@/lib/user";
@@ -42,6 +43,7 @@ const ADMIN_MORE_NAV: NavItem[] = [
   { label: "Departments", href: "/dashboard/admin/departments", icon: Building2 },
   { label: "Users",       href: "/dashboard/admin/users",       icon: Users },
   { label: "BOM",         href: "/dashboard/admin/bom",         icon: BookOpen },
+  { label: "Settings",    href: "/dashboard/admin/settings",    icon: Settings },
 ];
 
 export function BottomNav() {

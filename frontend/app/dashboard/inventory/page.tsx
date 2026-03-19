@@ -18,7 +18,7 @@ import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet";
 import { apiFetchJson } from "@/lib/api";
-import { isAdminOrAbove } from "@/lib/user";
+import { isAdminOrAbove, canAccessInventory } from "@/lib/user";
 import {
   PlusIcon, Pencil, Trash2, AlertTriangle, PackagePlus,
   PackageMinus, History, TrendingDown, Eye, Search, ChevronLeft, ChevronRight,
@@ -224,7 +224,16 @@ function InventoryLanding() {
           <p className="text-sm text-muted-foreground mt-0.5">Select an inventory type to view and manage items.</p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {CARDS.map((c) => {
+          {CARDS.filter((c) => {
+            // stock_alerts is always visible; otherwise check inventory_access
+            if (c.id === "stock_alerts") return true;
+            // map card id → inventory type token
+            const typeMap: Record<string, string> = {
+              spares: "spare",
+              consumables: "consumable",
+            };
+            return canAccessInventory(typeMap[c.id] ?? c.id);
+          }).map((c) => {
             const count = counts[c.id];
             return (
               <button

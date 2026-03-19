@@ -18,7 +18,7 @@ import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet";
 import { apiFetchJson } from "@/lib/api";
-import { isAdminOrAbove } from "@/lib/user";
+import { isAdminOrAbove, canAccessInventory } from "@/lib/user";
 import {
   PlusIcon, Pencil, Trash2, AlertTriangle, PackagePlus,
   PackageMinus, History, TrendingDown, Eye, Search, ChevronLeft, ChevronRight,
@@ -157,7 +157,13 @@ export default function InventoryTypePage({ itemType, label, description, basePa
   const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  useEffect(() => { setAdmin(isAdminOrAbove()); }, []);
+  useEffect(() => {
+    setAdmin(isAdminOrAbove());
+    if (!canAccessInventory(itemType)) {
+      router.replace("/dashboard/inventory");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemType]);
   useEffect(() => { setSearchDraft(search); }, [search]);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────

@@ -12,6 +12,7 @@ import {
   Users,
   Building2,
   LogOut,
+  Settings,
 } from "lucide-react";
 import {
   Sidebar,
@@ -41,6 +42,7 @@ const adminNav = [
   { title: "Departments", url: "/dashboard/admin/departments", icon: Building2 },
   { title: "Users", url: "/dashboard/admin/users", icon: Users },
   { title: "Bill of Materials", url: "/dashboard/admin/bom", icon: BookOpen },
+  { title: "Settings", url: "/dashboard/admin/settings", icon: Settings },
 ];
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {

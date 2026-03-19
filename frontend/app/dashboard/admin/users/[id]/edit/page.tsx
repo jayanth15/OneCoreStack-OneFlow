@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiFetchJson } from "@/lib/api";
-import { getCurrentUser } from "@/lib/user";
+import { getCurrentUser, ALL_INVENTORY_TYPES, INVENTORY_TYPE_LABELS } from "@/lib/user";
 import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 
 interface DeptRef {
@@ -31,6 +31,7 @@ interface UserData {
   role: string;
   is_active: boolean;
   departments: DeptRef[];
+  inventory_access: string[];
 }
 
 interface UserForm {
@@ -39,6 +40,7 @@ interface UserForm {
   role: string;
   is_active: boolean;
   department_ids: number[];
+  inventory_access: string[];
 }
 
 export default function EditUserPage() {
@@ -57,6 +59,7 @@ export default function EditUserPage() {
     role: "worker",
     is_active: true,
     department_ids: [],
+    inventory_access: [],
   });
   const [allDepts, setAllDepts] = useState<DeptRef[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,6 +81,7 @@ export default function EditUserPage() {
           role: userData.role,
           is_active: userData.is_active,
           department_ids: userData.departments.map((d) => d.id),
+          inventory_access: userData.inventory_access ?? [],
         });
         setAllDepts(deptsData);
       })
@@ -96,6 +100,15 @@ export default function EditUserPage() {
     }));
   }
 
+  function toggleInventoryAccess(type: string) {
+    setForm((prev) => ({
+      ...prev,
+      inventory_access: prev.inventory_access.includes(type)
+        ? prev.inventory_access.filter((t) => t !== type)
+        : [...prev.inventory_access, type],
+    }));
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!form.username.trim()) { setSaveError("Username is required"); return; }
@@ -107,6 +120,7 @@ export default function EditUserPage() {
         role: form.role,
         is_active: form.is_active,
         department_ids: form.department_ids,
+        inventory_access: form.inventory_access,
       };
       if (form.password) payload.password = form.password;
 
@@ -286,6 +300,41 @@ export default function EditUserPage() {
                 </p>
               )}
             </div>
+
+            {/* Inventory Access — only relevant for non-admin roles */}
+            {(form.role === "manager" || form.role === "worker") && (
+              <div className="space-y-2">
+                <Label>
+                  Inventory Access
+                  <span className="text-muted-foreground font-normal ml-1">(leave all unchecked = access to all types)</span>
+                </Label>
+                <div className="rounded-md border divide-y">
+                  {ALL_INVENTORY_TYPES.map((type) => {
+                    const checked = form.inventory_access.includes(type);
+                    return (
+                      <label
+                        key={type}
+                        className="flex items-center gap-3 px-3 py-3 cursor-pointer hover:bg-muted/40 transition-colors"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleInventoryAccess(type)}
+                          disabled={saving}
+                          className="size-4 rounded accent-primary"
+                        />
+                        <span className="text-sm">{INVENTORY_TYPE_LABELS[type]}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+                {form.inventory_access.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Access limited to: {form.inventory_access.map((t) => INVENTORY_TYPE_LABELS[t as keyof typeof INVENTORY_TYPE_LABELS] ?? t).join(", ")}
+                  </p>
+                )}
+              </div>
+            )}
 
             {saveError && (
               <p className="text-sm text-destructive" role="alert">{saveError}</p>

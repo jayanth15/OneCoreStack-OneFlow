@@ -42,6 +42,7 @@ class UserMeResponse(BaseModel):
     id: int
     username: str
     role: str
+    inventory_access: list[str] = []
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -167,4 +168,9 @@ def logout(
 
 @router.get("/me", response_model=UserMeResponse)
 def me(user: Annotated[User, Depends(get_current_active_user)]) -> UserMeResponse:
-    return UserMeResponse(id=user.id, username=user.username, role=user.role)
+    return UserMeResponse(
+        id=user.id,
+        username=user.username,
+        role=user.role,
+        inventory_access=[t.strip() for t in (user.inventory_access or "").split(",") if t.strip()],
+    )

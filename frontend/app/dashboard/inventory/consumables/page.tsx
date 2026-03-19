@@ -19,7 +19,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { apiFetchJson } from "@/lib/api";
-import { isAdminOrAbove } from "@/lib/user";
+import { isAdminOrAbove, canAccessInventory } from "@/lib/user";
 import {
   PlusIcon, Pencil, Trash2, Search, FlaskConical, ImageIcon, ChevronLeft, ChevronRight,
   PackagePlus, PackageMinus, History, Eye, AlertTriangle,
@@ -127,7 +127,13 @@ export default function ConsumablesPage() {
   const [historyRows, setHistoryRows] = useState<ConsumableHistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  useEffect(() => { setAdmin(isAdminOrAbove()); }, []);
+  useEffect(() => {
+    setAdmin(isAdminOrAbove());
+    if (!canAccessInventory("consumable")) {
+      router.replace("/dashboard/inventory");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Fetch ───────────────────────────────────────────────────────────────────
 

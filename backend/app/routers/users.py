@@ -33,6 +33,8 @@ class UserCreate(BaseModel):
     role: str = "worker"  # admin | manager | worker
     is_active: bool = True
     department_ids: list[int] = []
+    # Inventory types this user may access (empty = all types allowed)
+    inventory_access: list[str] = []
 
 
 class UserUpdate(BaseModel):
@@ -41,6 +43,7 @@ class UserUpdate(BaseModel):
     role: Optional[str] = None
     is_active: Optional[bool] = None
     department_ids: Optional[list[int]] = None
+    inventory_access: Optional[list[str]] = None
 
 
 class UserResponse(BaseModel):
@@ -49,6 +52,7 @@ class UserResponse(BaseModel):
     role: str
     is_active: bool
     departments: list[DeptRef] = []
+    inventory_access: list[str] = []
     model_config = {"from_attributes": True}
 
 
@@ -86,12 +90,14 @@ def _set_user_departments(session: Session, user_id: int, dept_ids: list[int]) -
 
 def _build_response(session: Session, user: User) -> UserResponse:
     depts = _get_user_departments(session, user.id)  # type: ignore[arg-type]
+    access_list = [t.strip() for t in (user.inventory_access or "").split(",") if t.strip()]
     return UserResponse(
         id=user.id,  # type: ignore[arg-type]
         username=user.username,
         role=user.role,
         is_active=user.is_active,
         departments=[DeptRef(id=d.id, code=d.code, name=d.name) for d in depts],  # type: ignore[arg-type]
+        inventory_access=access_list,
     )
 
 
@@ -125,6 +131,7 @@ def create_user(
         password_hash=hash_password(body.password),
         role=body.role,
         is_active=body.is_active,
+        inventory_access=",".join(body.inventory_access),
     )
     session.add(user)
     session.commit()
@@ -175,6 +182,9 @@ def update_user(
 
     if body.is_active is not None:
         user.is_active = body.is_active
+
+    if body.inventory_access is not None:
+        user.inventory_access = ",".join(body.inventory_access)
 
     session.add(user)
 

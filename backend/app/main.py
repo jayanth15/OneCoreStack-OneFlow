@@ -18,11 +18,13 @@ from app.routers import users as users_router
 from app.routers import spares as spares_router
 from app.routers import work_types as work_types_router
 from app.routers import consumables as consumables_router
+from app.routers import settings as settings_router
 from app.models.spare_sub_category import SpareSubCategory  # noqa: F401 — ensures table is created
 from app.models.consumable import Consumable  # noqa: F401 — ensures table is created
 from app.models.consumable_history import ConsumableHistory  # noqa: F401 — ensures table is created
 from app.models.spare_item_history import SpareItemHistory  # noqa: F401 — ensures table is created
 from app.models.spare_item_variant import SpareItemVariant  # noqa: F401 — ensures table is created
+from app.models.company_settings import CompanySettings  # noqa: F401 — ensures table is created
 
 
 @asynccontextmanager
@@ -53,6 +55,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _migrate_spare_item_history()
     # Create spare_item_variant table
     _migrate_spare_item_variant()
+    # Add inventory_access column to users table
+    _migrate_user_inventory_access()
+    # Create company_settings table
+    _migrate_company_settings()
     # Auto-seed a default admin user on a brand-new / empty database
     _auto_seed_if_empty()
     yield
@@ -479,6 +485,34 @@ def _seed_customers_from_schedules() -> None:
         session.commit()
 
 
+def _migrate_user_inventory_access() -> None:
+    """Add inventory_access column to users table if it doesn't exist."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        cols = [row[1] for row in conn.execute(text("PRAGMA table_info(users)")).fetchall()]
+        if "inventory_access" not in cols:
+            conn.execute(text("ALTER TABLE users ADD COLUMN inventory_access TEXT NOT NULL DEFAULT ''"))
+            conn.commit()
+
+
+def _migrate_company_settings() -> None:
+    """Create company_settings table if it does not exist."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS company_settings (
+                id    INTEGER PRIMARY KEY AUTOINCREMENT,
+                key   TEXT NOT NULL UNIQUE,
+                value TEXT NOT NULL DEFAULT ''
+            )
+        """))
+        conn.commit()
+
+
 def _auto_seed_if_empty() -> None:
     """If the database has no users at all (fresh deployment), create a default
     super_admin account so the app is immediately usable.
@@ -539,6 +573,7 @@ app.include_router(users_router.router)
 app.include_router(work_types_router.router)
 app.include_router(spares_router.router)
 app.include_router(consumables_router.router)
+app.include_router(settings_router.router)
 
 # ── Optional module routers (enabled by env var) ──────────────────────────────
 # Example:

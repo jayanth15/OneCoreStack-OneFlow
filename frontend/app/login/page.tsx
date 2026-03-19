@@ -38,7 +38,7 @@ export default function LoginPage() {
       });
       if (meRes.ok) {
         const me = await meRes.json();
-        setCurrentUser({ id: me.id, username: me.username, role: me.role });
+        setCurrentUser({ id: me.id, username: me.username, role: me.role, inventory_access: me.inventory_access ?? [] });
       }
 
       router.push("/dashboard");
