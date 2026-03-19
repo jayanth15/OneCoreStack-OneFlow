@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiFetchJson } from "@/lib/api";
-import { getCurrentUser, isWorker } from "@/lib/user";
+import { getCurrentUser, isWorker, isAdminOrAbove } from "@/lib/user";
 import { ArrowLeft } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -45,7 +45,8 @@ function NewJobCardInner() {
   const [workerLocked, setWorkerLocked] = useState(false);
   const [hoursWorked, setHoursWorked] = useState("0");
   const [qtyProduced, setQtyProduced] = useState("0");
-  const [workDate, setWorkDate] = useState("");
+  const [workDate, setWorkDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [dateLocked, setDateLocked] = useState(false);
   const [notes, setNotes] = useState("");
 
   const [saving, setSaving] = useState(false);
@@ -68,6 +69,10 @@ function NewJobCardInner() {
         if (me && isWorker()) {
           setWorker(me.username);
           setWorkerLocked(true);
+        }
+        // Lock date for non-admins — always today
+        if (!isAdminOrAbove()) {
+          setDateLocked(true);
         }
       })
       .catch(() => {})
@@ -212,7 +217,12 @@ function NewJobCardInner() {
             <div className="space-y-1.5">
               <Label htmlFor="work_date">Work Date</Label>
               <Input id="work_date" type="date" value={workDate}
-                onChange={(e) => setWorkDate(e.target.value)} disabled={saving} />
+                onChange={(e) => setWorkDate(e.target.value)}
+                disabled={saving || dateLocked}
+                readOnly={dateLocked} />
+              {dateLocked && (
+                <p className="text-xs text-muted-foreground">Date is locked to today. Only admins can change it.</p>
+              )}
             </div>
 
             {/* Notes */}

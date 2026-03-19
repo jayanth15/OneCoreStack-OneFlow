@@ -18,6 +18,7 @@ import { apiFetchJson } from "@/lib/api";
 import {
   ArrowLeft, PlusIcon, Pencil, Trash2,
   Factory, Clock, User, Wrench, Package, Hash, CheckCircle, History,
+  CalendarDays, BarChart2,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -298,6 +299,69 @@ export default function ProductionOrderDetailPage() {
               )}
             </div>
 
+            {/* ── Worker Activity Summary ───────────────────────────────── */}
+            {order.job_cards.length > 0 && (() => {
+              // Aggregate by worker_name
+              const byWorker: Record<string, { hours: number; produced: number; cards: number; dates: Set<string> }> = {};
+              order.job_cards.forEach((jc) => {
+                const w = jc.worker_name ?? "Unassigned";
+                if (!byWorker[w]) byWorker[w] = { hours: 0, produced: 0, cards: 0, dates: new Set() };
+                byWorker[w].hours    += jc.hours_worked;
+                byWorker[w].produced += jc.qty_produced;
+                byWorker[w].cards    += 1;
+                if (jc.work_date) byWorker[w].dates.add(jc.work_date);
+              });
+              const entries = Object.entries(byWorker);
+              if (entries.length === 0) return null;
+              return (
+                <div className="rounded-lg border overflow-hidden">
+                  <div className="bg-muted/40 px-4 py-2.5 flex items-center gap-2">
+                    <User className="size-4 text-muted-foreground" />
+                    <span className="font-medium text-sm">Worker Activity</span>
+                    <span className="text-xs text-muted-foreground">— total across all job cards</span>
+                  </div>
+                  <div className="divide-y">
+                    {entries.map(([name, stats]) => (
+                      <div key={name} className="px-4 py-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs hover:bg-muted/20 transition-colors">
+                        <div className="flex items-center gap-1.5">
+                          <div className="size-7 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">
+                            {name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm">{name}</p>
+                            <p className="text-muted-foreground">{stats.cards} job card{stats.cards !== 1 ? "s" : ""}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Clock className="size-3.5 text-purple-500 shrink-0" />
+                          <div>
+                            <p className="font-mono font-semibold text-purple-700">{stats.hours.toFixed(1)} h</p>
+                            <p className="text-muted-foreground">Hours worked</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Package className="size-3.5 text-emerald-500 shrink-0" />
+                          <div>
+                            <p className="font-mono font-semibold text-emerald-700">{stats.produced}</p>
+                            <p className="text-muted-foreground">Units produced</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <CalendarDays className="size-3.5 text-blue-500 shrink-0" />
+                          <div>
+                            <p className="font-mono font-semibold text-blue-700">{stats.dates.size} day{stats.dates.size !== 1 ? "s" : ""}</p>
+                            <p className="text-muted-foreground truncate max-w-[140px]" title={[...stats.dates].sort().join(", ")}>
+                              {[...stats.dates].sort().slice(-2).join(", ") || "—"}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* ── Process Steps & Job Cards ─────────────────────────────────── */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -463,6 +527,108 @@ export default function ProductionOrderDetailPage() {
                 </div>
               )}
             </div>
+
+            {/* ── Worker Activity Summary ───────────────────────────────────── */}
+            {order.job_cards.length > 0 && (() => {
+              // Group all job cards by worker
+              const byWorker: Record<string, {
+                name: string;
+                totalHours: number;
+                totalQty: number;
+                processes: string[];
+                dates: string[];
+                cards: JobCard[];
+              }> = {};
+              order.job_cards.forEach((jc) => {
+                const key = jc.worker_name ?? "(unassigned)";
+                if (!byWorker[key]) {
+                  byWorker[key] = { name: key, totalHours: 0, totalQty: 0, processes: [], dates: [], cards: [] };
+                }
+                byWorker[key].totalHours += jc.hours_worked;
+                byWorker[key].totalQty   += jc.qty_produced;
+                byWorker[key].cards.push(jc);
+                if (!byWorker[key].processes.includes(jc.process_name))
+                  byWorker[key].processes.push(jc.process_name);
+                if (jc.work_date && !byWorker[key].dates.includes(jc.work_date))
+                  byWorker[key].dates.push(jc.work_date);
+              });
+              const workers = Object.values(byWorker).sort((a, b) => b.totalHours - a.totalHours);
+
+              return (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <User className="size-4 text-muted-foreground" />
+                    <h2 className="text-lg font-semibold">Worker Activity</h2>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {workers.map((w) => (
+                      <div key={w.name} className="rounded-lg border p-4 space-y-3">
+                        {/* Worker header */}
+                        <div className="flex items-center gap-2">
+                          <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                            <User className="size-4 text-primary" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-sm truncate">{w.name}</p>
+                            <p className="text-xs text-muted-foreground">{w.cards.length} job card{w.cards.length !== 1 ? "s" : ""}</p>
+                          </div>
+                        </div>
+
+                        {/* Stats row */}
+                        <div className="grid grid-cols-3 gap-2 text-center">
+                          <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/20 p-2">
+                            <p className="text-lg font-bold text-emerald-600">{w.totalQty}</p>
+                            <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">Pcs Produced</p>
+                          </div>
+                          <div className="rounded-md bg-purple-50 dark:bg-purple-950/20 p-2">
+                            <p className="text-lg font-bold text-purple-600">{w.totalHours.toFixed(1)}</p>
+                            <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">Hours Worked</p>
+                          </div>
+                          <div className="rounded-md bg-blue-50 dark:bg-blue-950/20 p-2">
+                            <p className="text-lg font-bold text-blue-600">
+                              {w.totalHours > 0 ? (w.totalQty / w.totalHours).toFixed(1) : "—"}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">Pcs / Hr</p>
+                          </div>
+                        </div>
+
+                        {/* Processes */}
+                        <div className="space-y-1">
+                          <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wide">Processes</p>
+                          <div className="flex flex-wrap gap-1">
+                            {w.processes.map((p) => (
+                              <Badge key={p} variant="secondary" className="text-[10px] px-1.5 py-0">{p}</Badge>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Per-card detail */}
+                        <div className="space-y-1 border-t pt-2">
+                          <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wide">Session Breakdown</p>
+                          {w.cards.map((jc) => (
+                            <div key={jc.id} className="flex items-center justify-between text-xs py-0.5 border-b border-dashed last:border-0">
+                              <div className="min-w-0">
+                                <span className="font-mono text-muted-foreground mr-1.5">{jc.card_number}</span>
+                                <span className="font-medium">{jc.process_name}</span>
+                                {jc.work_date && (
+                                  <span className="text-muted-foreground ml-1.5">
+                                    {new Date(jc.work_date).toLocaleDateString("en-IN", { day:"2-digit", month:"short" })}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0 ml-2">
+                                <span className="text-emerald-600 font-medium"><Package className="size-2.5 inline mr-0.5" />{jc.qty_produced}</span>
+                                <span className="text-purple-600 font-medium"><Clock className="size-2.5 inline mr-0.5" />{jc.hours_worked}h</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </>
         )}
       </div>
@@ -482,66 +648,155 @@ export default function ProductionOrderDetailPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* History Modal */}
-      <AlertDialog open={historyJobId !== null} onOpenChange={(o) => !o && setHistoryJobId(null)}>
-        <AlertDialogContent className="max-w-lg max-h-[80vh] flex flex-col">
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              Job Card History
-              {historyJobId && order && (() => {
-                const jc = order.job_cards.find(j => j.id === historyJobId);
-                return jc ? ` — ${jc.card_number}` : "";
-              })()}
-            </AlertDialogTitle>
-            <AlertDialogDescription>Full audit trail of changes.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="flex-1 overflow-y-auto pr-1 space-y-2 max-h-96">
-            {historyLoading ? (
-              <div className="space-y-2">
-                {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
-              </div>
-            ) : historyEntries.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-6">No history recorded yet.</p>
-            ) : (
-              historyEntries.map((h) => (
-                <div key={h.id} className="rounded-md border p-3 text-xs space-y-1">
-                  <div className="flex items-center justify-between">
-                    <Badge variant={h.change_type === "created" ? "default" : h.change_type === "deleted" ? "destructive" : "secondary"} className="text-[10px]">
-                      {h.change_type}
-                    </Badge>
-                    <span className="text-muted-foreground">
-                      {h.changed_at ? new Date(h.changed_at).toLocaleString() : "—"}
-                    </span>
+      {/* History Modal — Worker Activity View */}
+      {historyJobId !== null && (() => {
+        const jc = order?.job_cards.find(j => j.id === historyJobId) ?? null;
+        return (
+          <AlertDialog open onOpenChange={(o) => !o && setHistoryJobId(null)}>
+            <AlertDialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2">
+                  <History className="size-4" />
+                  Job Card Activity
+                  {jc && <span className="font-mono text-sm text-muted-foreground ml-1">— {jc.card_number}</span>}
+                </AlertDialogTitle>
+                {jc && (
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground pt-1">
+                    <span className="flex items-center gap-1"><User className="size-3" />{jc.worker_name ?? "No worker"}</span>
+                    <span className="flex items-center gap-1"><Factory className="size-3" />{jc.process_name}</span>
+                    {jc.machine_name && <span className="flex items-center gap-1"><Wrench className="size-3" />{jc.machine_name}</span>}
+                    {jc.work_date && <span className="flex items-center gap-1"><CalendarDays className="size-3" />{jc.work_date}</span>}
                   </div>
-                  {h.field_name && (
-                    <p>
-                      <span className="font-medium">{h.field_name.replace(/_/g, " ")}</span>
-                      {h.change_type === "created" ? (
-                        <span className="text-muted-foreground"> set to </span>
-                      ) : (
-                        <span className="text-muted-foreground"> changed from </span>
-                      )}
-                      {h.change_type !== "created" && h.old_value != null && (
-                        <span className="font-mono text-red-600 line-through">{h.old_value}</span>
-                      )}
-                      {h.change_type !== "created" && <span className="text-muted-foreground"> → </span>}
-                      {h.new_value != null && (
-                        <span className="font-mono text-green-600">{h.new_value}</span>
-                      )}
-                    </p>
-                  )}
-                  {h.changed_by_username && (
-                    <p className="text-muted-foreground">by {h.changed_by_username}</p>
-                  )}
+                )}
+              </AlertDialogHeader>
+
+              {/* Current snapshot */}
+              {jc && (
+                <div className="grid grid-cols-3 gap-3 rounded-lg border bg-muted/30 p-3 text-sm shrink-0">
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-emerald-600">{jc.qty_produced}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Qty Produced</p>
+                  </div>
+                  <div className="text-center border-x">
+                    <p className="text-2xl font-bold text-amber-600">{jc.qty_pending}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Qty Pending</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-purple-600">{jc.hours_worked}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Hours Worked</p>
+                  </div>
                 </div>
-              ))
-            )}
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Close</AlertDialogCancel>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+              )}
+
+              {/* Change log */}
+              <div className="flex-1 overflow-y-auto pr-1 space-y-1.5 min-h-0 max-h-80">
+                {historyLoading ? (
+                  <div className="space-y-2 py-2">
+                    {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
+                  </div>
+                ) : historyEntries.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">No history recorded yet.</p>
+                ) : (
+                  <>
+                    {/* Worker activity summary: group by date */}
+                    {(() => {
+                      // Collect unique (worker, date, qty, hours) snapshots from history
+                      const workerActivity: Record<string, { worker: string; date: string; productions: { qty: string; hours: string; note: string | null }[] }> = {};
+                      historyEntries
+                        .filter(h => h.change_type === "created" || (h.change_type === "updated" && (h.field_name === "qty_produced" || h.field_name === "hours_worked")))
+                        .forEach(h => {
+                          const date = h.changed_at ? new Date(h.changed_at).toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"2-digit" }) : "—";
+                          const worker = h.changed_by_username ?? "Unknown";
+                          const key = `${worker}::${date}`;
+                          if (!workerActivity[key]) workerActivity[key] = { worker, date, productions: [] };
+                          workerActivity[key].productions.push({
+                            qty: h.new_value ?? "—",
+                            hours: "—",
+                            note: h.notes,
+                          });
+                        });
+                      return null; // we just render the raw entries below with better formatting
+                    })()}
+
+                    {historyEntries.map((h) => {
+                      const isCreated = h.change_type === "created";
+                      const isQtyChange = h.field_name === "qty_produced";
+                      const isHoursChange = h.field_name === "hours_worked";
+                      const isWorkerChange = h.field_name === "worker_name";
+                      const isDateChange = h.field_name === "work_date";
+                      const dateStr = h.changed_at
+                        ? new Date(h.changed_at).toLocaleString("en-IN", { day:"2-digit", month:"short", year:"2-digit", hour:"2-digit", minute:"2-digit", hour12:true })
+                        : "—";
+
+                      let icon = <BarChart2 className="size-3.5 text-muted-foreground" />;
+                      let accentColor = "border-l-gray-200";
+                      let summary = "";
+
+                      if (isCreated) {
+                        icon = <CheckCircle className="size-3.5 text-emerald-500" />;
+                        accentColor = "border-l-emerald-400";
+                        summary = "Job card created";
+                      } else if (isQtyChange) {
+                        icon = <Package className="size-3.5 text-blue-500" />;
+                        accentColor = "border-l-blue-400";
+                        const diff = h.new_value && h.old_value
+                          ? parseFloat(h.new_value) - parseFloat(h.old_value)
+                          : null;
+                        summary = `Qty produced: ${h.old_value ?? "—"} → ${h.new_value ?? "—"}${diff !== null ? ` (${diff >= 0 ? "+" : ""}${diff})` : ""}`;
+                      } else if (isHoursChange) {
+                        icon = <Clock className="size-3.5 text-purple-500" />;
+                        accentColor = "border-l-purple-400";
+                        const diff = h.new_value && h.old_value
+                          ? parseFloat(h.new_value) - parseFloat(h.old_value)
+                          : null;
+                        summary = `Hours worked: ${h.old_value ?? "—"} → ${h.new_value ?? "—"}${diff !== null ? ` (${diff >= 0 ? "+" : ""}${diff.toFixed(1)} h)` : ""}`;
+                      } else if (isWorkerChange) {
+                        icon = <User className="size-3.5 text-amber-500" />;
+                        accentColor = "border-l-amber-400";
+                        summary = `Worker: ${h.old_value ?? "—"} → ${h.new_value ?? "—"}`;
+                      } else if (isDateChange) {
+                        icon = <CalendarDays className="size-3.5 text-teal-500" />;
+                        accentColor = "border-l-teal-400";
+                        summary = `Work date: ${h.old_value ?? "—"} → ${h.new_value ?? "—"}`;
+                      } else if (h.field_name) {
+                        summary = `${h.field_name.replace(/_/g, " ")}: ${h.old_value ?? "—"} → ${h.new_value ?? "—"}`;
+                      } else if (h.change_type === "deleted") {
+                        icon = <Trash2 className="size-3.5 text-red-500" />;
+                        accentColor = "border-l-red-400";
+                        summary = "Deactivated";
+                      }
+
+                      return (
+                        <div key={h.id} className={`rounded-md border border-l-4 ${accentColor} bg-card p-3 text-xs`}>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-1.5 font-medium">
+                              {icon}
+                              <span>{summary}</span>
+                            </div>
+                            <span className="text-muted-foreground whitespace-nowrap">{dateStr}</span>
+                          </div>
+                          <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-muted-foreground">
+                            {h.changed_by_username && (
+                              <span className="flex items-center gap-1">
+                                <User className="size-2.5" />{h.changed_by_username}
+                              </span>
+                            )}
+                            {h.notes && <span className="italic">{h.notes}</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+              </div>
+
+              <AlertDialogFooter>
+                <AlertDialogCancel>Close</AlertDialogCancel>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        );
+      })()}
     </>
   );
 }

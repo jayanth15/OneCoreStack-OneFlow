@@ -688,18 +688,34 @@ def create_variant(
 
 @router.put("/variants/{variant_id}")
 def update_variant(
-    variant_id: int, body: VariantUpdate, session: SessionDep, _: AdminUser,
+    variant_id: int, body: VariantUpdate, session: SessionDep, current_user: AdminUser,
 ) -> VariantOut:
     v = session.get(SpareItemVariant, variant_id)
     if not v:
         raise HTTPException(status_code=404, detail="Variant not found")
     parent_item_id = v.spare_item_id
+    parent = _item_or_404(session, parent_item_id)
+    qty_before = parent.recorded_qty
     for field, value in body.model_dump(exclude_none=True).items():
         setattr(v, field, value)
     v.updated_at = datetime.now(tz=timezone.utc)
     session.add(v); session.commit(); session.refresh(v)
-    parent = _item_or_404(session, parent_item_id)
     _sync_item_from_variants(session, parent)
+    qty_after = parent.recorded_qty
+    if qty_after != qty_before:
+        hist = SpareItemHistory(
+            spare_item_id=parent_item_id,
+            changed_by_user_id=current_user.id,  # type: ignore[arg-type]
+            changed_by_username=current_user.username,
+            changed_at=datetime.now(tz=timezone.utc),
+            change_type="edit",
+            qty_before=qty_before,
+            qty_after=qty_after,
+            qty_delta=qty_after - qty_before,
+            note=None,
+        )
+        session.add(hist)
+        session.commit()
     return _variant_out(v)
 
 

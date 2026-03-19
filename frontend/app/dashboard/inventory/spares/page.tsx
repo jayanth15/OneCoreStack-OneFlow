@@ -526,12 +526,15 @@ export default function SparesPage() {
           image_base64: editVForm.image_base64,
         }),
       });
-      const rows = await apiFetchJson<SpareVariant[]>(`/api/v1/spares/items/${variantsDialogItem.id}/variants`);
+      const [rows, freshItem] = await Promise.all([
+        apiFetchJson<SpareVariant[]>(`/api/v1/spares/items/${variantsDialogItem.id}/variants`),
+        apiFetchJson<SpareItem>(`/api/v1/spares/items/${variantsDialogItem.id}`),
+      ]);
       setVariantsRows(rows);
+      setVariantsDialogItem(freshItem);
       setEditVariantDialog(false);
       if (variantsDialogItem.sub_category_id) {
         await refreshItems(variantsDialogItem.sub_category_id);
-        await refreshDialogItem(variantsDialogItem.id, variantsDialogItem.sub_category_id);
       }
     } catch(e:unknown) { setEditVError(e instanceof Error ? e.message : "Failed"); }
     finally { setEditVSaving(false); }
