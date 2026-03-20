@@ -1,6 +1,7 @@
 import { AuthGuard } from "@/components/auth-guard";
 import { DesktopSidebar } from "@/components/layout/desktop-sidebar";
 import { BottomNav } from "@/components/layout/bottom-nav";
+import { TopBar } from "@/components/layout/top-bar";
 
 export default function DashboardLayout({
   children,
@@ -15,6 +16,8 @@ export default function DashboardLayout({
 
         {/* Main content column */}
         <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+          {/* Top bar — shows Install App button when PWA is not yet installed */}
+          <TopBar />
           <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
             {children}
           </main>
