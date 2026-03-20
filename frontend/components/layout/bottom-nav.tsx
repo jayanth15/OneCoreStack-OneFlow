@@ -16,7 +16,12 @@ import {
   BookOpen,
   Contact,
   Settings,
+  Download,
+  Share,
+  ShieldAlert,
+  MonitorSmartphone,
 } from "lucide-react";
+import { usePwaInstall } from "@/hooks/use-pwa-install";
 import { cn } from "@/lib/utils";
 import { getCurrentUser, isAdminOrAbove } from "@/lib/user";
 import { apiLogout } from "@/lib/auth";
@@ -51,6 +56,7 @@ export function BottomNav() {
   const router = useRouter();
   const [moreOpen, setMoreOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const { canInstall, canPrompt, isIOS, isAndroidHTTP, needsCert, isManual, install } = usePwaInstall();
 
   useEffect(() => {
     setIsAdmin(isAdminOrAbove());
@@ -118,7 +124,47 @@ export function BottomNav() {
             </Link>
           ))}
         </nav>
-        <div className="px-3 py-2 border-t">
+        <div className="px-3 py-2 border-t space-y-1">
+          {canPrompt && (
+            <button
+              onClick={() => { install(); setMoreOpen(false); }}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-primary hover:bg-primary/10 transition-colors"
+            >
+              <Download className="size-5 shrink-0" />
+              Install App
+            </button>
+          )}
+          {isIOS && (
+            <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-primary/5 text-xs text-foreground">
+              <Share className="size-4 shrink-0 mt-0.5 text-primary" />
+              <span>Tap <strong>Share</strong> then <strong>Add to Home Screen</strong> to install.</span>
+            </div>
+          )}
+          {(isAndroidHTTP || needsCert) && (
+            <a
+              href={
+                isAndroidHTTP
+                  ? `https://${window.location.hostname}/dashboard`
+                  : `http://${window.location.hostname}:3000/setup`
+              }
+              className="w-full flex items-start gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
+            >
+              <ShieldAlert className="size-5 shrink-0 mt-0.5" />
+              <span className="text-xs leading-snug">
+                {isAndroidHTTP ? (
+                  <><strong>Wrong URL</strong><br />Open <strong>https://{window.location.hostname}</strong> (no port) to install the app.</>
+                ) : (
+                  <><strong>Certificate setup required</strong><br />Android 7+ needs a System cert. As a workaround, use Chrome menu ⋮ → <strong>Add to Home Screen</strong>.</>
+                )}
+              </span>
+            </a>
+          )}
+          {isManual && (
+            <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-primary/5 text-xs text-foreground">
+              <MonitorSmartphone className="size-4 shrink-0 mt-0.5 text-primary" />
+              <span>Tap browser menu <strong>⋮</strong> → <strong>Add to Home Screen</strong> or <strong>Install App</strong> to install OneFlow.</span>
+            </div>
+          )}
           <button
             onClick={handleSignOut}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
@@ -153,8 +199,8 @@ export function BottomNav() {
           </Link>
         ))}
 
-        {/* More button — only shown when there are items (admins) */}
-        {moreNavItems.length > 0 && (
+        {/* More button — shown when there are nav items OR when PWA can be installed */}
+        {(moreNavItems.length > 0 || canInstall) && (
           <button
             onClick={() => setMoreOpen((v) => !v)}
             className={cn(

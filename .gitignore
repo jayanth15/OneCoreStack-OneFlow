@@ -23,6 +23,10 @@ oneflow.db
 *.sqlite
 *.sqlite3
 
+# Runtime / deployment
+logs/
+.oneflow.pids
+
 # ─── Backend (Python / FastAPI) ───────────────────────────────────────────────
 
 # Virtual environments
