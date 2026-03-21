@@ -1,5 +1,8 @@
 # Models package — import all table models here so SQLModel.metadata is populated
 from app.models.bom_item import BomItem  # noqa: F401
+from app.models.company_settings import CompanySettings  # noqa: F401
+from app.models.consumable import Consumable  # noqa: F401
+from app.models.consumable_history import ConsumableHistory  # noqa: F401
 from app.models.customer import Customer  # noqa: F401
 from app.models.department import Department  # noqa: F401
 from app.models.inventory import InventoryItem  # noqa: F401
@@ -14,6 +17,9 @@ from app.models.token import RefreshToken  # noqa: F401
 from app.models.user import User  # noqa: F401
 from app.models.user_department import UserDepartment  # noqa: F401
 from app.models.spare_category import SpareCategory  # noqa: F401
+from app.models.spare_sub_category import SpareSubCategory  # noqa: F401  — must be before SpareItem
 from app.models.spare_item import SpareItem  # noqa: F401
+from app.models.spare_item_history import SpareItemHistory  # noqa: F401
+from app.models.spare_item_variant import SpareItemVariant  # noqa: F401
 from app.models.work_log import WorkLog  # noqa: F401
 from app.models.work_type import WorkType  # noqa: F401

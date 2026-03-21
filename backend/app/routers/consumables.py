@@ -125,7 +125,7 @@ def list_consumables(
     search: Optional[str] = Query(default=None),
     include_inactive: bool = Query(default=False),
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=50, ge=1, le=200),
+    page_size: int = Query(default=50, ge=1, le=1000),
 ) -> dict:
     q = select(Consumable)
     if not include_inactive:
@@ -262,6 +262,7 @@ def adjust_consumable_stock(
 def get_consumable_history(
     item_id: int, session: SessionDep, _: AdminUser,
     limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
 ) -> list[HistoryOut]:
     c = session.get(Consumable, item_id)
     if not c:
@@ -270,7 +271,7 @@ def get_consumable_history(
         select(ConsumableHistory)
         .where(ConsumableHistory.consumable_id == item_id)
         .order_by(ConsumableHistory.changed_at.desc())  # type: ignore[union-attr]
-        .limit(limit)
+        .offset(offset).limit(limit)
     ).all()
     def _dt(d: datetime) -> str:
         if d.tzinfo is None:

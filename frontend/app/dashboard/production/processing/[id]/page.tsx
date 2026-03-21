@@ -108,6 +108,8 @@ export default function ProductionOrderDetailPage() {
   const [historyJobId, setHistoryJobId] = useState<number | null>(null);
   const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyHasMore, setHistoryHasMore] = useState(false);
 
   const loadOrder = useCallback(() => {
     if (!id) return;
@@ -148,13 +150,29 @@ export default function ProductionOrderDetailPage() {
 
   async function openHistory(jobId: number) {
     setHistoryJobId(jobId);
+    setHistoryEntries([]);
+    setHistoryPage(1);
+    setHistoryHasMore(false);
     setHistoryLoading(true);
     try {
-      const data = await apiFetchJson<HistoryEntry[]>(`/api/v1/production/jobs/${jobId}/history`);
+      const data = await apiFetchJson<HistoryEntry[]>(`/api/v1/production/jobs/${jobId}/history?limit=10&offset=0`);
       setHistoryEntries(data);
+      setHistoryHasMore(data.length === 10);
     } catch {
       setHistoryEntries([]);
     } finally { setHistoryLoading(false); }
+  }
+
+  async function changeHistoryPage(newPage: number) {
+    if (!historyJobId) return;
+    setHistoryEntries([]);
+    setHistoryLoading(true);
+    try {
+      const data = await apiFetchJson<HistoryEntry[]>(`/api/v1/production/jobs/${historyJobId}/history?limit=10&offset=${(newPage - 1) * 10}`);
+      setHistoryEntries(data);
+      setHistoryPage(newPage);
+      setHistoryHasMore(data.length === 10);
+    } catch { /* silent */ } finally { setHistoryLoading(false); }
   }
 
   // Group job cards by process_name
@@ -789,6 +807,14 @@ export default function ProductionOrderDetailPage() {
                   </>
                 )}
               </div>
+
+              {(historyPage > 1 || historyHasMore) && (
+                <div className="flex items-center justify-between pt-3 pb-1">
+                  <Button size="sm" variant="outline" disabled={historyPage <= 1 || historyLoading} onClick={() => changeHistoryPage(historyPage - 1)}>← Prev</Button>
+                  <span className="text-sm text-muted-foreground">Page {historyPage}</span>
+                  <Button size="sm" variant="outline" disabled={!historyHasMore || historyLoading} onClick={() => changeHistoryPage(historyPage + 1)}>Next →</Button>
+                </div>
+              )}
 
               <AlertDialogFooter>
                 <AlertDialogCancel>Close</AlertDialogCancel>

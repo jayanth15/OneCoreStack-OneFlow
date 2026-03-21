@@ -472,17 +472,27 @@ def list_items(
     _: CurrentUser,
     include_inactive: bool = Query(False),
     search: Optional[str] = Query(None),
-) -> list[ItemOut]:
-    sub = _sub_or_404(session, sub_id)
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=200),
+) -> dict:
+    _sub_or_404(session, sub_id)
     stmt = select(SpareItem).where(SpareItem.sub_category_id == sub_id)
     if not include_inactive:
-        stmt = stmt.where(SpareItem.is_active == True)
+        stmt = stmt.where(SpareItem.is_active == True)  # noqa: E712
     if search:
         stmt = stmt.where(
             SpareItem.name.ilike(f"%{search}%") | SpareItem.part_number.ilike(f"%{search}%")
         )
     stmt = stmt.order_by(SpareItem.name)
-    return [_item_out(i) for i in session.exec(stmt).all()]
+    total = session.exec(select(func.count()).select_from(stmt.subquery())).one()
+    items = session.exec(stmt.offset((page - 1) * page_size).limit(page_size)).all()
+    return {
+        "items": [_item_out(i) for i in items],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "pages": max(1, -(-total // page_size)),
+    }
 
 
 @router.post("/sub-categories/{sub_id}/items", status_code=status.HTTP_201_CREATED)
@@ -552,6 +562,35 @@ def adjust_item_stock(
     qty_after = item.recorded_qty
     item.updated_at = datetime.now(tz=timezone.utc)
     session.add(item)
+    # If variants exist, propagate the adjustment proportionally so individual
+    # variant cards stay in sync with the new total.
+    active_variants = session.exec(
+        select(SpareItemVariant).where(
+            SpareItemVariant.spare_item_id == item_id,
+            SpareItemVariant.is_active == True,  # noqa: E712
+        )
+    ).all()
+    if active_variants:
+        if len(active_variants) == 1:
+            # Single variant — just set its qty to the new total directly.
+            active_variants[0].qty = qty_after
+            active_variants[0].updated_at = item.updated_at
+            session.add(active_variants[0])
+        else:
+            # Multiple variants — distribute the delta proportionally by qty.
+            delta = qty_after - qty_before
+            if qty_before > 0:
+                for v in active_variants:
+                    v.qty = max(0.0, round(v.qty + delta * (v.qty / qty_before), 4))
+                    v.updated_at = item.updated_at
+                    session.add(v)
+            else:
+                # All variants were 0; spread equally.
+                share = qty_after / len(active_variants)
+                for v in active_variants:
+                    v.qty = round(share, 4)
+                    v.updated_at = item.updated_at
+                    session.add(v)
     hist = SpareItemHistory(
         spare_item_id=item_id,
         changed_by_user_id=current_user.id,  # type: ignore[arg-type]
@@ -571,7 +610,7 @@ def adjust_item_stock(
 @router.get("/items/{item_id}/history")
 def get_item_history(
     item_id: int, session: SessionDep, _: AdminUser,
-    limit: int = Query(default=20, ge=1, le=200),
+    limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> list[ItemHistoryOut]:
     _item_or_404(session, item_id)

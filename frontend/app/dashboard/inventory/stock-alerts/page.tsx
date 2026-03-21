@@ -48,6 +48,18 @@ interface PaginatedInventory {
   pages: number;
 }
 
+interface CompanyInfo {
+  company_name: string;
+  company_address: string;
+  company_phone: string;
+  company_email: string;
+  company_gstin: string;
+  company_city: string;
+  company_state: string;
+  company_country: string;
+  company_pincode: string;
+}
+
 interface UnifiedRow {
   key: string;
   type: "spare" | "consumable" | "raw_material" | "finished_good" | "semi_finished";
@@ -91,6 +103,7 @@ export default function StockAlertsPage() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [qtyNeeded, setQtyNeeded] = useState<Record<string, string>>({});
+  const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
 
   const CATEGORY_LABELS: Record<string, string> = {
@@ -101,6 +114,10 @@ export default function StockAlertsPage() {
 
   const fetchData = async () => {
     setLoading(true); setError(null);
+    // Fetch company info (best-effort, admin only)
+    apiFetchJson<CompanyInfo>("/api/v1/settings/company")
+      .then(info => setCompanyInfo(info))
+      .catch(() => { /* non-admin users won't have access */ });
     try {
       const [lowStock, invPage] = await Promise.all([
         apiFetchJson<{ spares: SpareLowStockItem[]; consumables: ConsumableLowStockItem[] }>(
@@ -179,6 +196,18 @@ export default function StockAlertsPage() {
   const selectedRows = rows.filter(r => selected.has(r.key));
 
   function handlePrint() {
+    // Build company header block
+    const co = companyInfo;
+    const coHtml = (co && co.company_name) ? `
+      <div style="margin-bottom:18px;border-bottom:2px solid #e4e4e7;padding-bottom:14px">
+        <div style="font-size:20px;font-weight:800;color:#111">${co.company_name}</div>
+        ${co.company_address ? `<div style="font-size:12px;color:#555;margin-top:2px">${co.company_address}${co.company_city ? ', ' + co.company_city : ''}${co.company_state ? ', ' + co.company_state : ''}${co.company_pincode ? ' - ' + co.company_pincode : ''}</div>` : ''}
+        <div style="font-size:11px;color:#777;margin-top:4px;display:flex;gap:18px;flex-wrap:wrap">
+          ${co.company_phone ? `<span>&#128222; ${co.company_phone}</span>` : ''}
+          ${co.company_email ? `<span>&#9993; ${co.company_email}</span>` : ''}
+          ${co.company_gstin ? `<span>GSTIN: ${co.company_gstin}</span>` : ''}
+        </div>
+      </div>` : '';
     const style = `
       <style>
         body { font-family: system-ui, sans-serif; margin: 0; padding: 24px; color: #111; }
@@ -197,6 +226,7 @@ export default function StockAlertsPage() {
         @media print { @page { margin: 20mm; } }
       </style>`;
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">${style}</head><body>
+      ${coHtml}
       <h1>&#9888; Stock Alert / Purchase Request</h1>
       <div class="sub">Generated on ${new Date().toLocaleString("en-IN")} &nbsp;|&nbsp; ${selectedRows.length} item${selectedRows.length !== 1 ? "s" : ""}</div>
       <table>

@@ -308,6 +308,8 @@ function InventoryPageInner() {
   const [historyItem, setHistoryItem]         = useState<InventoryItem | null>(null);
   const [historyEntries, setHistoryEntries]   = useState<HistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading]   = useState(false);
+  const [historyPage, setHistoryPage]         = useState(1);
+  const [historyHasMore, setHistoryHasMore]   = useState(false);
 
   useEffect(() => { setAdmin(isAdminOrAbove()); }, []);
 
@@ -396,10 +398,27 @@ function InventoryPageInner() {
   async function openHistory(item: InventoryItem) {
     setHistoryItem(item);
     setHistoryEntries([]);
+    setHistoryPage(1);
+    setHistoryHasMore(false);
     setHistoryLoading(true);
     try {
-      const d = await apiFetchJson<HistoryEntry[]>(`/api/v1/inventory/${item.id}/history`);
+      const d = await apiFetchJson<HistoryEntry[]>(`/api/v1/inventory/${item.id}/history?limit=10&offset=0`);
       setHistoryEntries(d);
+      setHistoryHasMore(d.length === 10);
+    } catch { /* silent */ } finally {
+      setHistoryLoading(false);
+    }
+  }
+
+  async function changeHistoryPage(newPage: number) {
+    if (!historyItem) return;
+    setHistoryEntries([]);
+    setHistoryLoading(true);
+    try {
+      const d = await apiFetchJson<HistoryEntry[]>(`/api/v1/inventory/${historyItem.id}/history?limit=10&offset=${(newPage - 1) * 10}`);
+      setHistoryEntries(d);
+      setHistoryPage(newPage);
+      setHistoryHasMore(d.length === 10);
     } catch { /* silent */ } finally {
       setHistoryLoading(false);
     }
@@ -915,6 +934,13 @@ function InventoryPageInner() {
                   </div>
                 </div>
               ))}
+              {(historyPage > 1 || historyHasMore) && (
+                <div className="flex items-center justify-between pt-3">
+                  <Button size="sm" variant="outline" disabled={historyPage <= 1 || historyLoading} onClick={() => changeHistoryPage(historyPage - 1)}>← Prev</Button>
+                  <span className="text-sm text-muted-foreground">Page {historyPage}</span>
+                  <Button size="sm" variant="outline" disabled={!historyHasMore || historyLoading} onClick={() => changeHistoryPage(historyPage + 1)}>Next →</Button>
+                </div>
+              )}
             </div>
           )}
         </SheetContent>

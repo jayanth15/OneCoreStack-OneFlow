@@ -8,7 +8,7 @@
 from datetime import datetime, timezone
 from typing import Annotated, Any, Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, field_validator
 from sqlmodel import Session, func, select
 
@@ -457,6 +457,8 @@ def get_history(
     item_id: int,
     session: Annotated[Session, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)],
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
 ) -> list[dict[str, Any]]:
     if not is_admin_or_above(current_user):
         raise HTTPException(status_code=403, detail="Admin access required to view history")
@@ -469,6 +471,7 @@ def get_history(
         select(InventoryHistory)
         .where(InventoryHistory.inventory_item_id == item_id)
         .order_by(InventoryHistory.changed_at.desc())  # type: ignore[union-attr]
+        .offset(offset).limit(limit)
     ).all())
 
     from app.models.user import User as UserModel  # local import

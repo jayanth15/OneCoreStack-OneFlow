@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, field_validator
 from sqlmodel import Session, func, select
 
@@ -1275,6 +1275,8 @@ def get_job_history(
     job_id: int,
     session: Annotated[Session, Depends(get_session)],
     _: Annotated[User, Depends(get_current_user)],
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
 ) -> list[JobCardHistoryResponse]:
     """Return full audit trail for a job card, newest first."""
     job = session.get(JobCard, job_id)
@@ -1286,6 +1288,7 @@ def get_job_history(
         .outerjoin(User, JobCardHistory.changed_by_user_id == User.id)
         .where(JobCardHistory.job_card_id == job_id)
         .order_by(JobCardHistory.changed_at.desc())  # type: ignore[union-attr]
+        .offset(offset).limit(limit)
     ).all())
 
     return [

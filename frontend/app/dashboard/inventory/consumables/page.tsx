@@ -126,6 +126,8 @@ export default function ConsumablesPage() {
   const [historyItem, setHistoryItem] = useState<Consumable | null>(null);
   const [historyRows, setHistoryRows] = useState<ConsumableHistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyHasMore, setHistoryHasMore] = useState(false);
 
   useEffect(() => {
     setAdmin(isAdminOrAbove());
@@ -249,10 +251,23 @@ export default function ConsumablesPage() {
   // ── History ───────────────────────────────────────────────────────────────────
 
   async function openHistory(item: Consumable) {
-    setHistoryItem(item); setHistoryRows([]); setHistoryLoading(true);
+    setHistoryItem(item); setHistoryRows([]); setHistoryPage(1); setHistoryHasMore(false); setHistoryLoading(true);
     try {
-      const rows = await apiFetchJson<ConsumableHistoryEntry[]>(`/api/v1/consumables/${item.id}/history`);
+      const rows = await apiFetchJson<ConsumableHistoryEntry[]>(`/api/v1/consumables/${item.id}/history?limit=10&offset=0`);
       setHistoryRows(rows);
+      setHistoryHasMore(rows.length === 10);
+    } catch { /* ignore */ }
+    finally { setHistoryLoading(false); }
+  }
+
+  async function changeHistoryPage(newPage: number) {
+    if (!historyItem) return;
+    setHistoryRows([]); setHistoryLoading(true);
+    try {
+      const rows = await apiFetchJson<ConsumableHistoryEntry[]>(`/api/v1/consumables/${historyItem.id}/history?limit=10&offset=${(newPage - 1) * 10}`);
+      setHistoryRows(rows);
+      setHistoryPage(newPage);
+      setHistoryHasMore(rows.length === 10);
     } catch { /* ignore */ }
     finally { setHistoryLoading(false); }
   }
@@ -600,6 +615,18 @@ export default function ConsumablesPage() {
                 value={adjustQty} onChange={e => setAdjustQty(e.target.value)} disabled={adjusting}
                 autoFocus />
             </div>
+            {adjustType === "subtract" && adjustItem && (() => {
+              const entered = parseFloat(adjustQty);
+              if (!isNaN(entered) && entered > adjustItem.qty) {
+                return (
+                  <div className="flex items-start gap-1.5 rounded-md bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+                    <AlertTriangle className="size-4 shrink-0 mt-0.5" />
+                    <span>Only <strong>{adjustItem.qty % 1 === 0 ? adjustItem.qty.toFixed(0) : adjustItem.qty.toFixed(2)}</strong> qty available — stock will be reduced to 0.</span>
+                  </div>
+                );
+              }
+              return null;
+            })()}
             <div className="space-y-1.5">
               <Label htmlFor="adj-note">Note <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
               <Input id="adj-note" placeholder="e.g. Monthly restock" value={adjustNote}
@@ -706,6 +733,13 @@ export default function ConsumablesPage() {
                   ))}
                 </tbody>
               </table>
+              {(historyPage > 1 || historyHasMore) && (
+                <div className="flex items-center justify-between pt-3 pb-1">
+                  <Button size="sm" variant="outline" disabled={historyPage <= 1 || historyLoading} onClick={() => changeHistoryPage(historyPage - 1)}>← Prev</Button>
+                  <span className="text-sm text-muted-foreground">Page {historyPage}</span>
+                  <Button size="sm" variant="outline" disabled={!historyHasMore || historyLoading} onClick={() => changeHistoryPage(historyPage + 1)}>Next →</Button>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>

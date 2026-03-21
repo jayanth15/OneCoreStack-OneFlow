@@ -22,7 +22,7 @@ import { apiFetchJson } from "@/lib/api";
 import { isAdminOrAbove, canAccessInventory } from "@/lib/user";
 import {
   PlusIcon, Pencil, Trash2, AlertTriangle, Wrench, ChevronRight, ChevronDown,
-  Search, PackagePlus, PackageMinus, ImageIcon, Layers, Eye, History,
+  Search, PackagePlus, PackageMinus, ImageIcon, Layers, Eye, History, ChevronsDown,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -79,6 +79,15 @@ function fmtRate(n: number | null) {
 }
 function isLow(item: SpareItem) { return item.reorder_level > 0 && item.recorded_qty <= item.reorder_level; }
 
+const ITEMS_PAGE_SIZE = 50;
+
+interface ItemsPage {
+  items: SpareItem[];
+  total: number;
+  page: number;
+  pages: number;
+}
+
 function highlight(text: string | null | undefined, q: string): React.ReactNode {
   if (!q || !text) return text ?? "";
   const idx = text.toLowerCase().indexOf(q.toLowerCase());
@@ -104,6 +113,7 @@ export default function SparesPage() {
   // lazy-loaded maps
   const [subsMap, setSubsMap]   = useState<Map<number, SpareSubCategory[]>>(new Map());
   const [itemsMap, setItemsMap] = useState<Map<number, SpareItem[]>>(new Map());
+  const [itemsMeta, setItemsMeta] = useState<Map<number, { total: number; page: number; pages: number }>>(new Map());
   const [subsLoading, setSubsLoading]   = useState<Set<number>>(new Set());
   const [itemsLoading, setItemsLoading] = useState<Set<number>>(new Set());
 
@@ -128,11 +138,13 @@ export default function SparesPage() {
   // edit item sheet
   const [editItemSheet, setEditItemSheet] = useState(false);
   const [editingItem, setEditingItem]     = useState<SpareItem | null>(null);
-  const [itemForm, setItemForm]           = useState({ name:"", part_number:"", part_description:"" });
+  const [itemForm, setItemForm]           = useState({ name:"", part_number:"", part_description:"", reorder_level:"0" });
   // history (admin-only)
   const [historyItem, setHistoryItem] = useState<SpareItem | null>(null);
   const [historyRows, setHistoryRows] = useState<SpareItemHistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyHasMore, setHistoryHasMore] = useState(false);
   // variants popup dialog
   const [variantsDialogItem, setVariantsDialogItem] = useState<SpareItem | null>(null);
   const [variantsRows, setVariantsRows] = useState<SpareVariant[]>([]);
@@ -158,13 +170,23 @@ export default function SparesPage() {
   const [itemSaving, setItemSaving]         = useState(false);
   const [itemError, setItemError]           = useState<string | null>(null);
 
-  // adjust stock
+  // adjust stock (item-level)
   const [adjustItem, setAdjustItem]     = useState<SpareItem | null>(null);
   const [adjustType, setAdjustType]     = useState<"add"|"subtract"|"set">("add");
   const [adjustQty, setAdjustQty]       = useState("");
   const [adjustNote, setAdjustNote]     = useState("");
   const [adjustSaving, setAdjustSaving] = useState(false);
   const [adjustError, setAdjustError]   = useState<string | null>(null);
+  const [adjustItemVariants, setAdjustItemVariants]       = useState<SpareVariant[]>([]);
+  const [adjustSelectedVarId, setAdjustSelectedVarId]     = useState<number | "">("")
+  const [adjustVariantsLoading, setAdjustVariantsLoading] = useState(false);
+  // adjust stock (variant-level)
+  const [adjustVariant, setAdjustVariant]   = useState<SpareVariant | null>(null);
+  const [adjustVType, setAdjustVType]       = useState<"add"|"subtract"|"set">("add");
+  const [adjustVQty, setAdjustVQty]         = useState("");
+  const [adjustVNote, setAdjustVNote]       = useState("");
+  const [adjustVSaving, setAdjustVSaving]   = useState(false);
+  const [adjustVError, setAdjustVError]     = useState<string | null>(null);
 
   // deletes
   const [deleteCatId,  setDeleteCatId]  = useState<number | null>(null);
@@ -206,16 +228,22 @@ export default function SparesPage() {
         subsResults.forEach((subs, i) => { newSubsMap.set(cats[i].id, subs); allSubs.push(...subs); });
         setSubsMap(newSubsMap);
         setExpandedSubs(new Set(allSubs.map(s => s.id)));
-        const itemResults = await Promise.all(
-          allSubs.map(sub =>
-            apiFetchJson<SpareItem[]>(
-              `/api/v1/spares/sub-categories/${sub.id}/items?include_inactive=false`
-            ).catch(() => [] as SpareItem[])
-          )
+        const itemPageResults = await Promise.all(
+          allSubs.map(sub => {
+            const p = new URLSearchParams({ include_inactive: "false", page: "1", page_size: String(ITEMS_PAGE_SIZE) });
+            if (search) p.set("search", search);
+            return apiFetchJson<ItemsPage>(`/api/v1/spares/sub-categories/${sub.id}/items?${p}`)
+              .catch(() => ({ items: [], total: 0, page: 1, pages: 1 } as ItemsPage));
+          })
         );
         const newItemsMap = new Map<number, SpareItem[]>();
-        itemResults.forEach((items, i) => { newItemsMap.set(allSubs[i].id, items); });
+        const newItemsMeta = new Map<number, { total: number; page: number; pages: number }>();
+        itemPageResults.forEach((result, i) => {
+          newItemsMap.set(allSubs[i].id, result.items);
+          newItemsMeta.set(allSubs[i].id, { total: result.total, page: result.page, pages: result.pages });
+        });
         setItemsMap(newItemsMap);
+        setItemsMeta(newItemsMeta);
       }
     } catch(e:unknown) { setError(e instanceof Error ? e.message : "Failed"); }
     finally { setLoading(false); }
@@ -240,12 +268,36 @@ export default function SparesPage() {
     }
   }
 
+  async function refreshCatCounts() {
+    // Refresh category counters without resetting expand states
+    try {
+      const cats = await apiFetchJson<SpareCategory[]>(`/api/v1/spares/categories?include_inactive=false`);
+      setCategories(cats);
+    } catch { /**/ }
+  }
+
   async function refreshSubs(catId: number) {
     const subs = await apiFetchJson<SpareSubCategory[]>(
       `/api/v1/spares/categories/${catId}/sub-categories?include_inactive=false`
     ).catch(() => null);
     if (subs) setSubsMap(prev => new Map(prev).set(catId, subs));
-    fetchCategories();
+    await refreshCatCounts();
+  }
+
+  async function loadItemsPage(subId: number, page: number, append = false, searchTerm?: string) {
+    setItemsLoading(prev => new Set(prev).add(subId));
+    try {
+      const p = new URLSearchParams({ include_inactive: "false", page: String(page), page_size: String(ITEMS_PAGE_SIZE) });
+      if (searchTerm) p.set("search", searchTerm);
+      const result = await apiFetchJson<ItemsPage>(`/api/v1/spares/sub-categories/${subId}/items?${p}`);
+      setItemsMap(prev => {
+        const n = new Map(prev);
+        n.set(subId, append ? [...(prev.get(subId) ?? []), ...result.items] : result.items);
+        return n;
+      });
+      setItemsMeta(prev => new Map(prev).set(subId, { total: result.total, page: result.page, pages: result.pages }));
+    } catch { /**/ }
+    finally { setItemsLoading(prev => { const s = new Set(prev); s.delete(subId); return s; }); }
   }
 
   async function toggleSub(subId: number) {
@@ -255,22 +307,12 @@ export default function SparesPage() {
     }
     setExpandedSubs(prev => new Set(prev).add(subId));
     if (!itemsMap.has(subId)) {
-      setItemsLoading(prev => new Set(prev).add(subId));
-      try {
-        const items = await apiFetchJson<SpareItem[]>(
-          `/api/v1/spares/sub-categories/${subId}/items?include_inactive=false`
-        );
-        setItemsMap(prev => new Map(prev).set(subId, items));
-      } catch { /**/ }
-      finally { setItemsLoading(prev => { const s=new Set(prev); s.delete(subId); return s; }); }
+      await loadItemsPage(subId, 1);
     }
   }
 
   async function refreshItems(subId: number) {
-    const items = await apiFetchJson<SpareItem[]>(
-      `/api/v1/spares/sub-categories/${subId}/items?include_inactive=false`
-    ).catch(() => null);
-    if (items) setItemsMap(prev => new Map(prev).set(subId, items));
+    await loadItemsPage(subId, 1, false);
     // Also refresh sub counts
     const sub = [...subsMap.values()].flat().find(s => s.id === subId);
     if (sub) refreshSubs(sub.category_id);
@@ -356,7 +398,7 @@ export default function SparesPage() {
 
   function openEditItem(item: SpareItem) {
     setEditingItem(item);
-    setItemForm({ name:item.name, part_number:item.part_number??"", part_description:item.part_description??"" });
+    setItemForm({ name:item.name, part_number:item.part_number??"", part_description:item.part_description??"", reorder_level:String(item.reorder_level ?? 0) });
     setItemError(null); setEditItemSheet(true);
   }
   async function saveItem() {
@@ -368,6 +410,7 @@ export default function SparesPage() {
           name:itemForm.name.trim(),
           part_number:itemForm.part_number||null,
           part_description:itemForm.part_description||null,
+          reorder_level:parseFloat(itemForm.reorder_level) || 0,
         }),
       });
       setEditItemSheet(false);
@@ -388,30 +431,105 @@ export default function SparesPage() {
 
   // ── Adjust stock ─────────────────────────────────────────────────────────────
 
-  function openAdjust(item: SpareItem, type: "add"|"subtract") {
+  async function openAdjust(item: SpareItem, type: "add"|"subtract") {
     setAdjustItem(item); setAdjustType(type); setAdjustQty(""); setAdjustNote(""); setAdjustError(null);
+    setAdjustItemVariants([]); setAdjustSelectedVarId(""); setAdjustVariantsLoading(true);
+    try {
+      const variants = await apiFetchJson<SpareVariant[]>(`/api/v1/spares/items/${item.id}/variants`);
+      setAdjustItemVariants(variants);
+      if (variants.length === 1) setAdjustSelectedVarId(variants[0].id);
+    } catch { /**/ }
+    finally { setAdjustVariantsLoading(false); }
   }
   async function submitAdjust() {
     if (!adjustItem) return;
     const qty = parseFloat(adjustQty);
     if (isNaN(qty)||qty<0) { setAdjustError("Enter a valid qty ≥ 0"); return; }
     setAdjustSaving(true); setAdjustError(null);
+    const itemId = adjustItem.id;
+    const subId = adjustItem.sub_category_id;
+    const popupOpenForThis = variantsDialogItem?.id === itemId;
+    // If a specific variant is selected, adjust that variant directly
+    const selectedVariant = adjustSelectedVarId !== "" ? adjustItemVariants.find(v => v.id === adjustSelectedVarId) : undefined;
     try {
-      await apiFetchJson(`/api/v1/spares/items/${adjustItem.id}/adjust`, {
-        method:"POST", body:JSON.stringify({ adjustment_type:adjustType, quantity:qty, note:adjustNote||null }),
-      });
-      if (adjustItem.sub_category_id) await refreshItems(adjustItem.sub_category_id);
+      if (selectedVariant) {
+        let newQty: number;
+        if (adjustType === "add")           newQty = selectedVariant.qty + qty;
+        else if (adjustType === "subtract") newQty = Math.max(0, selectedVariant.qty - qty);
+        else                               newQty = qty;
+        await apiFetchJson(`/api/v1/spares/variants/${selectedVariant.id}`, {
+          method: "PUT", body: JSON.stringify({ qty: newQty }),
+        });
+      } else {
+        await apiFetchJson(`/api/v1/spares/items/${itemId}/adjust`, {
+          method:"POST", body:JSON.stringify({ adjustment_type:adjustType, quantity:qty, note:adjustNote||null }),
+        });
+      }
+      const [freshItem, freshVariants] = await Promise.all([
+        apiFetchJson<SpareItem>(`/api/v1/spares/items/${itemId}`),
+        popupOpenForThis
+          ? apiFetchJson<SpareVariant[]>(`/api/v1/spares/items/${itemId}/variants`)
+          : Promise.resolve(null as SpareVariant[] | null),
+      ]);
+      if (subId) await refreshItems(subId);
+      if (popupOpenForThis && freshVariants) {
+        setVariantsRows(freshVariants);
+        setVariantsDialogItem(freshItem);
+      }
       setAdjustItem(null);
     } catch(e:unknown) { setAdjustError(e instanceof Error ? e.message : "Failed"); }
     finally { setAdjustSaving(false); }
   }
+  async function submitVariantAdjust() {
+    if (!adjustVariant || !variantsDialogItem) return;
+    const qty = parseFloat(adjustVQty);
+    if (isNaN(qty) || qty < 0) { setAdjustVError("Enter a valid qty ≥ 0"); return; }
+    setAdjustVSaving(true); setAdjustVError(null);
+    const varId = adjustVariant.id;
+    const currentQty = adjustVariant.qty;
+    const parentId = variantsDialogItem.id;
+    const subId = variantsDialogItem.sub_category_id;
+    let newQty: number;
+    if (adjustVType === "add")           newQty = currentQty + qty;
+    else if (adjustVType === "subtract") newQty = Math.max(0, currentQty - qty);
+    else                                 newQty = qty;
+    try {
+      await apiFetchJson(`/api/v1/spares/variants/${varId}`, {
+        method: "PUT", body: JSON.stringify({ qty: newQty }),
+      });
+      const [freshRows, freshItem] = await Promise.all([
+        apiFetchJson<SpareVariant[]>(`/api/v1/spares/items/${parentId}/variants`),
+        apiFetchJson<SpareItem>(`/api/v1/spares/items/${parentId}`),
+      ]);
+      setVariantsRows(freshRows);
+      setVariantsDialogItem(freshItem);
+      if (subId) await refreshItems(subId);
+      setAdjustVariant(null);
+      setAdjustVQty(""); setAdjustVNote("");
+    } catch(e: unknown) { setAdjustVError(e instanceof Error ? e.message : "Failed"); }
+    finally { setAdjustVSaving(false); }
+  }
+
   // ── History / Variants helpers ───────────────────────────────────────────────
 
   async function openHistory(item: SpareItem) {
-    setHistoryItem(item); setHistoryRows([]); setHistoryLoading(true);
+    setHistoryItem(item); setHistoryRows([]); setHistoryPage(1); setHistoryHasMore(false); setHistoryLoading(true);
     try {
-      const rows = await apiFetchJson<SpareItemHistoryEntry[]>(`/api/v1/spares/items/${item.id}/history?limit=20`);
+      const rows = await apiFetchJson<SpareItemHistoryEntry[]>(`/api/v1/spares/items/${item.id}/history?limit=10&offset=0`);
       setHistoryRows(rows);
+      setHistoryHasMore(rows.length === 10);
+    } catch { /* ignore */ }
+    finally { setHistoryLoading(false); }
+  }
+
+  async function changeHistoryPage(newPage: number) {
+    if (!historyItem) return;
+    setHistoryRows([]); setHistoryLoading(true);
+    try {
+      const rows = await apiFetchJson<SpareItemHistoryEntry[]>(`/api/v1/spares/items/${historyItem.id}/history?limit=10&offset=${(newPage - 1) * 10}`);
+      setHistoryRows(rows);
+      setHistoryPage(newPage);
+      setHistoryHasMore(rows.length === 10);
     } catch { /* ignore */ }
     finally { setHistoryLoading(false); }
   }
@@ -432,8 +550,12 @@ export default function SparesPage() {
     setVariantsDialogItem(item); setVariantsRows([]); setVariantsLoading(true);
     resetVariantForm();
     try {
-      const rows = await apiFetchJson<SpareVariant[]>(`/api/v1/spares/items/${item.id}/variants`);
+      const [rows, freshItem] = await Promise.all([
+        apiFetchJson<SpareVariant[]>(`/api/v1/spares/items/${item.id}/variants`),
+        apiFetchJson<SpareItem>(`/api/v1/spares/items/${item.id}`),
+      ]);
       setVariantsRows(rows);
+      setVariantsDialogItem(freshItem);
     } catch { /**/ }
     finally { setVariantsLoading(false); }
   }
@@ -465,13 +587,16 @@ export default function SparesPage() {
         image_base64: variantForm.image_base64,
       };
       await apiFetchJson(`/api/v1/spares/items/${variantsDialogItem.id}/variants`, { method:"POST", body:JSON.stringify(body) });
-      const rows = await apiFetchJson<SpareVariant[]>(`/api/v1/spares/items/${variantsDialogItem.id}/variants`);
+      const [rows, freshItem] = await Promise.all([
+        apiFetchJson<SpareVariant[]>(`/api/v1/spares/items/${variantsDialogItem.id}/variants`),
+        apiFetchJson<SpareItem>(`/api/v1/spares/items/${variantsDialogItem.id}`),
+      ]);
       setVariantsRows(rows);
+      setVariantsDialogItem(freshItem);
       setAddVariantDialog(false);
       resetVariantForm();
       if (variantsDialogItem.sub_category_id) {
         await refreshItems(variantsDialogItem.sub_category_id);
-        await refreshDialogItem(variantsDialogItem.id, variantsDialogItem.sub_category_id);
       }
     } catch(e:unknown) { setVariantError(e instanceof Error ? e.message : "Failed"); }
     finally { setVariantSaving(false); }
@@ -483,10 +608,9 @@ export default function SparesPage() {
     try {
       await apiFetchJson(`/api/v1/spares/variants/${varId}`, { method:"DELETE" });
       setVariantsRows(prev => prev.filter(v => v.id !== varId));
-      if (subId) {
-        await refreshItems(subId);
-        await refreshDialogItem(itemId, subId);
-      }
+      const freshItem = await apiFetchJson<SpareItem>(`/api/v1/spares/items/${itemId}`).catch(() => null);
+      if (freshItem) setVariantsDialogItem(freshItem);
+      if (subId) await refreshItems(subId);
     } catch { /**/ }
   }
 
@@ -665,6 +789,7 @@ export default function SparesPage() {
                             const subExpanded = expandedSubs.has(sub.id);
                             const items = itemsMap.get(sub.id) ?? [];
                             const loadingItems = itemsLoading.has(sub.id);
+                            const meta = itemsMeta.get(sub.id);
 
                             return (
                               <div key={sub.id}>
@@ -712,18 +837,21 @@ export default function SparesPage() {
                                         </Button>}
                                       </div>
                                     ) : (
-                                      <div className="divide-y">
-                                        {items.map((item, ii) => {
+                                      <>
+                                        <div className="divide-y">
+                                          {items.map((item, ii) => {
                                           const low = isLow(item);
                                           return (
                                             <div key={item.id}
-                                              className={`flex items-center gap-2 pl-12 pr-3 py-2.5 hover:bg-muted/20 cursor-pointer select-none transition-colors ${!item.is_active ? "opacity-50" : ""}`}
+                                              className={`flex items-start gap-2 pl-12 pr-3 py-2.5 hover:bg-muted/20 cursor-pointer select-none transition-colors ${!item.is_active ? "opacity-50" : ""}`}
                                               onClick={() => openVariantsDialog(item)}>
-                                              <span className="text-xs text-muted-foreground w-5 shrink-0">{ii+1}</span>
+                                              <span className="text-xs text-muted-foreground w-5 shrink-0 mt-0.5">{ii+1}</span>
                                               <div className="flex-1 min-w-0">
-                                                <span className="font-medium text-sm">{highlight(item.name, search)}</span>
-                                                {item.part_number && <span className="ml-2 text-xs font-mono text-muted-foreground">{item.part_number}</span>}
-                                                {item.part_description && <span className="ml-2 text-xs text-muted-foreground hidden lg:inline">{item.part_description}</span>}
+                                                <div className="flex items-baseline gap-1.5 flex-wrap">
+                                                  <span className="font-medium text-sm">{highlight(item.name, search)}</span>
+                                                  {item.part_number && <span className="text-xs font-mono text-muted-foreground">{item.part_number}</span>}
+                                                </div>
+                                                {item.part_description && <p className="text-xs text-muted-foreground truncate mt-0.5">{item.part_description}</p>}
                                               </div>
                                               <div className="flex items-center gap-2.5 shrink-0 text-xs" onClick={e => e.stopPropagation()}>
                                                 <span className={`tabular-nums ${low ? "text-amber-600 font-medium" : "text-muted-foreground"}`}>
@@ -747,7 +875,19 @@ export default function SparesPage() {
                                             </div>
                                           );
                                         })}
-                                      </div>
+                                        </div>
+                                        {meta && (
+                                          <div className="flex items-center justify-between pl-12 pr-4 py-1.5 border-t bg-muted/5 text-xs text-muted-foreground">
+                                            <span className="tabular-nums">{items.length} of {meta.total} items</span>
+                                            {items.length < meta.total && (
+                                              <Button size="sm" variant="ghost" className="h-6 text-xs gap-1 -mr-1"
+                                                onClick={e => { e.stopPropagation(); loadItemsPage(sub.id, meta.page + 1, true); }}>
+                                                <ChevronsDown className="size-3" />Load more ({meta.total - items.length})
+                                              </Button>
+                                            )}
+                                          </div>
+                                        )}
+                                      </>
                                     )}
 
                                     {admin && (
@@ -918,6 +1058,16 @@ export default function SparesPage() {
                             <span className="truncate">{v.storage_location}</span>
                           </>}
                         </div>
+                        <div className="flex gap-1 mt-1.5 pt-1.5 border-t">
+                          <Button variant="ghost" size="sm" className="flex-1 h-6 text-xs gap-1"
+                            onClick={()=>{ setAdjustVariant(v); setAdjustVType("add"); setAdjustVQty(""); setAdjustVNote(""); setAdjustVError(null); }}>
+                            <PackagePlus className="size-3 text-emerald-600" />Add
+                          </Button>
+                          <Button variant="ghost" size="sm" className="flex-1 h-6 text-xs gap-1"
+                            onClick={()=>{ setAdjustVariant(v); setAdjustVType("subtract"); setAdjustVQty(""); setAdjustVNote(""); setAdjustVError(null); }}>
+                            <PackageMinus className="size-3 text-amber-600" />Remove
+                          </Button>
+                        </div>
                     </div>
                   </div>
                 ))}
@@ -925,14 +1075,22 @@ export default function SparesPage() {
             )}
           </div>
 
-          {/* Add Variant button */}
-          {admin && (
-            <div className="mt-4 pt-4 border-t flex justify-end">
+          {/* Footer actions */}
+          <div className="mt-4 pt-4 border-t flex justify-between items-center gap-2">
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={()=>openAdjust(variantsDialogItem!, "add")}>
+                <PackagePlus className="size-3.5 mr-1.5 text-emerald-600" />Add Stock
+              </Button>
+              <Button size="sm" variant="outline" onClick={()=>openAdjust(variantsDialogItem!, "subtract")}>
+                <PackageMinus className="size-3.5 mr-1.5 text-amber-600" />Remove Stock
+              </Button>
+            </div>
+            {admin && (
               <Button size="sm" onClick={()=>setAddVariantDialog(true)}>
                 <PlusIcon className="size-4 mr-1.5" />Add Variant
               </Button>
-            </div>
-          )}
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -1133,6 +1291,11 @@ export default function SparesPage() {
                 onChange={e=>setItemForm(f=>({...f,part_description:e.target.value}))} disabled={itemSaving}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
             </div>
+            <div className="space-y-1">
+              <Label htmlFor="ei-rl">Reorder Level</Label>
+              <Input id="ei-rl" type="number" min="0" step="any" placeholder="0"
+                value={itemForm.reorder_level} onChange={e=>setItemForm(f=>({...f,reorder_level:e.target.value}))} disabled={itemSaving} />
+            </div>
             {itemError && <p className="text-sm text-destructive">{itemError}</p>}
             <div className="flex gap-3 pt-2">
               <Button onClick={saveItem} disabled={itemSaving} className="flex-1">{itemSaving?"Saving…":"Save Changes"}</Button>
@@ -1186,6 +1349,13 @@ export default function SparesPage() {
                   ))}
                 </tbody>
               </table>
+              {(historyPage > 1 || historyHasMore) && (
+                <div className="flex items-center justify-between pt-3 pb-1">
+                  <Button size="sm" variant="outline" disabled={historyPage <= 1 || historyLoading} onClick={() => changeHistoryPage(historyPage - 1)}>← Prev</Button>
+                  <span className="text-sm text-muted-foreground">Page {historyPage}</span>
+                  <Button size="sm" variant="outline" disabled={!historyHasMore || historyLoading} onClick={() => changeHistoryPage(historyPage + 1)}>Next →</Button>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
@@ -1196,9 +1366,33 @@ export default function SparesPage() {
         <DialogContent className="max-w-md">
           <DialogHeader className="mb-2">
             <DialogTitle>Adjust Stock — {adjustItem?.name}</DialogTitle>
-            <p className="text-sm text-muted-foreground">Current Qty: <strong>{adjustItem?fmtQty(adjustItem.recorded_qty):0} {adjustItem?.unit}</strong></p>
+            {(() => {
+              const selV = adjustSelectedVarId !== "" ? adjustItemVariants.find(v => v.id === adjustSelectedVarId) : undefined;
+              const displayQty = selV ? fmtQty(selV.qty) : (adjustItem ? fmtQty(adjustItem.recorded_qty) : 0);
+              const label = selV ? (selV.variant_color || selV.serial_number || `Variant ${selV.id}`) : "Total";
+              return <p className="text-sm text-muted-foreground">Current Qty ({label}): <strong>{displayQty} {adjustItem?.unit}</strong></p>;
+            })()}
           </DialogHeader>
           <div className="space-y-4">
+            {adjustVariantsLoading ? (
+              <div className="h-9 rounded-md bg-muted animate-pulse" />
+            ) : adjustItemVariants.length > 0 && (
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Variant</label>
+                <select
+                  value={adjustSelectedVarId}
+                  onChange={e => setAdjustSelectedVarId(e.target.value === "" ? "" : Number(e.target.value))}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                  {adjustItemVariants.length > 1 && <option value="">All variants (no specific)</option>}
+                  {adjustItemVariants.map(v => (
+                    <option key={v.id} value={v.id}>
+                      {[v.variant_color, v.serial_number].filter(Boolean).join(" / ") || `Variant ${v.id}`}
+                      {" — "}{fmtQty(v.qty)} {adjustItem?.unit}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="flex gap-2">
               {(["add","subtract","set"] as const).map(t=>(
                 <button key={t} onClick={()=>setAdjustType(t)}
@@ -1210,12 +1404,72 @@ export default function SparesPage() {
             </div>
             <input type="number" min="0" step="any" value={adjustQty} onChange={e=>setAdjustQty(e.target.value)} placeholder="Quantity"
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+            {adjustType==="subtract" && adjustItem && (()=>{
+              const entered = parseFloat(adjustQty);
+              const selVar = adjustSelectedVarId !== "" ? adjustItemVariants.find(v=>v.id===adjustSelectedVarId) : undefined;
+              const avail = selVar ? selVar.qty : adjustItem.recorded_qty;
+              if (!isNaN(entered) && entered > avail) {
+                return (
+                  <div className="flex items-start gap-1.5 rounded-md bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+                    <AlertTriangle className="size-4 shrink-0 mt-0.5" />
+                    <span>Only <strong>{avail%1===0?avail.toFixed(0):avail.toFixed(2)} {adjustItem.unit}</strong> available — stock will be reduced to 0.</span>
+                  </div>
+                );
+              }
+              return null;
+            })()}
             <textarea rows={2} value={adjustNote} onChange={e=>setAdjustNote(e.target.value)} placeholder="Reason (optional)"
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
             {adjustError && <p className="text-sm text-destructive">{adjustError}</p>}
             <div className="flex gap-3">
               <Button onClick={submitAdjust} disabled={adjustSaving} className="flex-1">{adjustSaving?"Saving…":"Apply"}</Button>
               <Button variant="outline" onClick={()=>setAdjustItem(null)} disabled={adjustSaving}>Cancel</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Variant Adjust Dialog ────────────────────────────────────── */}
+      <Dialog open={adjustVariant !== null} onOpenChange={o=>!o&&setAdjustVariant(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader className="mb-2">
+            <DialogTitle>
+              Adjust Stock — {variantsDialogItem?.name}
+              {adjustVariant?.variant_color && <span className="ml-1.5 text-base font-normal text-muted-foreground">({adjustVariant.variant_color})</span>}
+              {adjustVariant?.serial_number && !adjustVariant?.variant_color && <span className="ml-1.5 text-base font-normal text-muted-foreground">({adjustVariant.serial_number})</span>}
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground">Current Qty: <strong>{adjustVariant ? fmtQty(adjustVariant.qty) : 0} {variantsDialogItem?.unit}</strong></p>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              {(["add","subtract","set"] as const).map(t=>(
+                <button key={t} onClick={()=>setAdjustVType(t)}
+                  className={["flex-1 py-2 rounded-md text-sm font-medium border transition-colors",
+                    adjustVType===t?"bg-primary text-primary-foreground border-primary":"border-input hover:bg-muted"].join(" ")}>
+                  {t==="add"?"Add +":t==="subtract"?"Remove −":"Set ="}
+                </button>
+              ))}
+            </div>
+            <input type="number" min="0" step="any" value={adjustVQty} onChange={e=>setAdjustVQty(e.target.value)} placeholder="Quantity"
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+            {adjustVType==="subtract" && adjustVariant && (()=>{
+              const entered = parseFloat(adjustVQty);
+              if (!isNaN(entered) && entered > adjustVariant.qty) {
+                return (
+                  <div className="flex items-start gap-1.5 rounded-md bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+                    <AlertTriangle className="size-4 shrink-0 mt-0.5" />
+                    <span>Only <strong>{adjustVariant.qty%1===0?adjustVariant.qty.toFixed(0):adjustVariant.qty.toFixed(2)} {variantsDialogItem?.unit}</strong> available — stock will be reduced to 0.</span>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+            <textarea rows={2} value={adjustVNote} onChange={e=>setAdjustVNote(e.target.value)} placeholder="Reason (optional)"
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
+            {adjustVError && <p className="text-sm text-destructive">{adjustVError}</p>}
+            <div className="flex gap-3">
+              <Button onClick={submitVariantAdjust} disabled={adjustVSaving} className="flex-1">{adjustVSaving?"Saving…":"Apply"}</Button>
+              <Button variant="outline" onClick={()=>setAdjustVariant(null)} disabled={adjustVSaving}>Cancel</Button>
             </div>
           </div>
         </DialogContent>

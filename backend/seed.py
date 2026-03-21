@@ -73,15 +73,21 @@ with Session(engine) as s:
         ("mohan", "mohan@123",  "super_admin", True,  "ADMIN"),
         ("chadran",      "chandran@123",  "super_admin",       True,  "ADMIN"),
     ]
+    created_users = {}
     for u in users_seed:
         user = User(
             username=u[0],
-            hashed_password=hash_password(u[1]),
+            password_hash=hash_password(u[1]),
             role=u[2],
             is_active=u[3],
-            department_id=depts[u[4]].id
         )
         s.add(user)
+        created_users[u[0]] = (user, u[4])
+    s.flush()
+
+    # Link users to departments
+    for username, (user, dept_code) in created_users.items():
+        s.add(UserDepartment(user_id=user.id, department_id=depts[dept_code].id))
     s.flush()
     print(f"  Users       : {len(users_seed)}")
 
@@ -93,8 +99,6 @@ print("""
     Login credentials
     ─────────────────────────────────────
     Role         Username     Password
-    super_admin  superadmin   super@123
-    admin        admin        admin@123
-    manager      manager1     pass@1234
-    worker       worker1      pass@1234
+    super_admin  mohan        mohan@123
+    super_admin  chadran      chandran@123
     """)

@@ -225,7 +225,12 @@ function StatCard({ label, value, icon, accent }: {
 
 function StatusBar({ data, title }: { data: StatusBreakdown; title: string }) {
   const total = Object.values(data).reduce((s, v) => s + v, 0);
-  if (total === 0) return null;
+  if (total === 0) return (
+    <div className="space-y-2">
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{title}</p>
+      <p className="text-xs text-muted-foreground">—</p>
+    </div>
+  );
   return (
     <div className="space-y-2">
       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{title}</p>
@@ -283,6 +288,9 @@ export default function DashboardPage() {
   const [semiFGItems, setSemiFGItems] = useState<SemiFGItem[]>([]);
   const [sparesStats, setSparesStats] = useState<SparesCatSummary | null>(null);
   const [consumablesTotal, setConsumablesTotal] = useState<number | null>(null);
+  const [consumablesValue, setConsumablesValue] = useState<number | null>(null);
+  const [consumablesLowStock, setConsumablesLowStock] = useState<number>(0);
+  const [consumablesLoaded, setConsumablesLoaded] = useState(false);
 
   useEffect(() => {
     apiFetchJson<DashboardData>("/api/v1/dashboard")
@@ -298,9 +306,14 @@ export default function DashboardPage() {
         total_value: cats.reduce((s, c) => s + (c.total_value ?? 0), 0),
       }))
       .catch(() => {});
-    apiFetchJson<{total: number}>("/api/v1/consumables?page_size=1&include_inactive=false")
-      .then(d => setConsumablesTotal(d.total))
-      .catch(() => {});
+    apiFetchJson<{items: {total_price: number | null; qty: number; reorder_level: number}[], total: number}>("/api/v1/consumables?page_size=500&include_inactive=false")
+      .then(d => {
+        setConsumablesTotal(d.total);
+        setConsumablesValue(d.items.reduce((s, c) => s + (c.total_price ?? 0), 0));
+        setConsumablesLowStock(d.items.filter(c => c.reorder_level > 0 && c.qty <= c.reorder_level).length);
+      })
+      .catch(() => { setConsumablesTotal(0); })
+      .finally(() => { setConsumablesLoaded(true); });
   }, []);
 
   if (error) {
@@ -387,59 +400,93 @@ export default function DashboardPage() {
         </div>
 
         {/* ── Spares & Consumables Overview ─────────────────────────── */}
-        {(sparesStats !== null || consumablesTotal !== null) && (
-          <div className="grid sm:grid-cols-2 gap-4">
-            {sparesStats !== null && (
-              <div className="rounded-xl border bg-card p-4 shadow-sm">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="flex size-8 items-center justify-center rounded-lg bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
-                    <Wrench className="size-4" />
-                  </div>
-                  <p className="text-sm font-semibold">Spares</p>
-                  <a href="/dashboard/inventory/spares" className="ml-auto text-xs text-primary hover:underline">View all</a>
-                </div>
-                <div className="grid grid-cols-3 gap-3 text-center">
-                  <div>
-                    <p className="text-xl font-bold">{sparesStats.categories}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">Categories</p>
-                  </div>
-                  <div>
-                    <p className="text-xl font-bold">{sparesStats.items}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">Items</p>
-                  </div>
-                  <div>
-                    {isAdminOrAbove() && sparesStats.total_value > 0 ? (
-                      <>
-                        <p className="text-xl font-bold text-emerald-600">₹{sparesStats.total_value.toLocaleString(undefined, {maximumFractionDigits: 0})}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">Value</p>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-xl font-bold">—</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">Value</p>
-                      </>
-                    )}
-                  </div>
-                </div>
+        <div className="grid sm:grid-cols-2 gap-4">
+          {/* Spares card */}
+          <div className="rounded-xl border bg-card p-4 shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="flex size-8 items-center justify-center rounded-lg bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
+                <Wrench className="size-4" />
               </div>
-            )}
-            {consumablesTotal !== null && (
-              <div className="rounded-xl border bg-card p-4 shadow-sm">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="flex size-8 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                    <FlaskConical className="size-4" />
-                  </div>
-                  <p className="text-sm font-semibold">Consumables</p>
-                  <a href="/dashboard/inventory/consumables" className="ml-auto text-xs text-primary hover:underline">View all</a>
+              <p className="text-sm font-semibold">Spares</p>
+              <a href="/dashboard/inventory/spares" className="ml-auto text-xs text-primary hover:underline">View all</a>
+            </div>
+            {sparesStats === null ? (
+              <p className="text-xs text-muted-foreground text-center py-3">No inventory items</p>
+            ) : sparesStats.items === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-3">No inventory items</p>
+            ) : (
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div>
+                  <p className="text-xl font-bold">{sparesStats.categories}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Categories</p>
                 </div>
-                <div className="flex flex-col items-center justify-center py-4">
-                  <p className="text-4xl font-bold">{consumablesTotal}</p>
-                  <p className="text-xs text-muted-foreground mt-1">Total Items</p>
+                <div>
+                  <p className="text-xl font-bold">{sparesStats.items}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Items</p>
+                </div>
+                <div>
+                  {isAdminOrAbove() && sparesStats.total_value > 0 ? (
+                    <>
+                      <p className="text-xl font-bold text-emerald-600">₹{sparesStats.total_value.toLocaleString(undefined, {maximumFractionDigits: 0})}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Value</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-xl font-bold">—</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Value</p>
+                    </>
+                  )}
                 </div>
               </div>
             )}
           </div>
-        )}
+
+          {/* Consumables card */}
+          <div className="rounded-xl border bg-card p-4 shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="flex size-8 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                <FlaskConical className="size-4" />
+              </div>
+              <p className="text-sm font-semibold">Consumables</p>
+              <a href="/dashboard/inventory/consumables" className="ml-auto text-xs text-primary hover:underline">View all</a>
+            </div>
+            {consumablesLoaded && (consumablesTotal === null || consumablesTotal === 0) ? (
+              <p className="text-xs text-muted-foreground text-center py-3">No inventory items</p>
+            ) : !consumablesLoaded ? (
+              <div className="flex justify-center gap-1.5 py-4">
+                <span className="size-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:0ms]"/>
+                <span className="size-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:150ms]"/>
+                <span className="size-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:300ms]"/>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div>
+                  <p className="text-xl font-bold">{consumablesTotal}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Items</p>
+                </div>
+                <div>
+                  <p className={`text-xl font-bold ${consumablesLowStock > 0 ? "text-amber-600" : ""}`}>
+                    {consumablesLowStock > 0 ? consumablesLowStock : "—"}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Low Stock</p>
+                </div>
+                <div>
+                  {isAdminOrAbove() && consumablesValue !== null && consumablesValue > 0 ? (
+                    <>
+                      <p className="text-xl font-bold text-emerald-600">₹{consumablesValue.toLocaleString(undefined, {maximumFractionDigits: 0})}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Value</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-xl font-bold">—</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Value</p>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* ── Status Bars ────────────────────────────────────────────────── */}
         <div className="grid md:grid-cols-2 gap-4">
