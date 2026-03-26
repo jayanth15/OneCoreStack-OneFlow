@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.core.database import init_db
+from app.core.database import init_db, run_migrations
 from app.routers import auth as auth_router
 from app.routers import bom as bom_router
 from app.routers import customers as customers_router
@@ -30,6 +30,7 @@ from app.models.company_settings import CompanySettings  # noqa: F401 — ensure
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     init_db()
+    run_migrations()
     _migrate_schedule_created_at()
     _migrate_production_plan_v2()
     _migrate_production_plan_v3()

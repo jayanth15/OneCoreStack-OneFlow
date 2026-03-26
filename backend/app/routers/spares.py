@@ -150,6 +150,7 @@ class ItemOut(BaseModel):
     is_active: bool
     created_at: str
     updated_at: str
+    variant_matched: bool = False  # True when found via variant search
 
 class AdjustRequest(BaseModel):
     adjustment_type: str   # "add" | "subtract" | "set"
@@ -167,6 +168,7 @@ class ItemHistoryOut(BaseModel):
     qty_after: float
     qty_delta: float
     note: Optional[str]
+    variant_label: Optional[str] = None  # e.g. "Red / SN-001" for variant-level changes
 
 
 class VariantCreate(BaseModel):
@@ -177,6 +179,7 @@ class VariantCreate(BaseModel):
     storage_location: Optional[str] = None
     storage_type: Optional[str] = None
     rate: Optional[float] = None
+    reorder_level: float = 0.0
 
 
 class VariantUpdate(BaseModel):
@@ -187,6 +190,7 @@ class VariantUpdate(BaseModel):
     storage_location: Optional[str] = None
     storage_type: Optional[str] = None
     rate: Optional[float] = None
+    reorder_level: Optional[float] = None
     is_active: Optional[bool] = None
 
 
@@ -200,6 +204,7 @@ class VariantOut(BaseModel):
     storage_location: Optional[str]
     storage_type: Optional[str]
     rate: Optional[float]
+    reorder_level: float
     is_active: bool
     created_at: str
     updated_at: str
@@ -318,7 +323,7 @@ def _sub_out(session: Session, sub: SpareSubCategory) -> SubCategoryOut:
         updated_at=_dt_iso(sub.updated_at),
     )
 
-def _item_out(item: SpareItem) -> ItemOut:
+def _item_out(item: SpareItem, variant_matched: bool = False) -> ItemOut:
     tv = round(item.rate * item.recorded_qty, 2) if item.rate is not None else None
     return ItemOut(
         id=item.id,  # type: ignore
@@ -340,6 +345,7 @@ def _item_out(item: SpareItem) -> ItemOut:
         is_active=item.is_active,
         created_at=_dt_iso(item.created_at),
         updated_at=_dt_iso(item.updated_at),
+        variant_matched=variant_matched,
     )
 
 
@@ -357,13 +363,27 @@ def list_categories(
         stmt = stmt.where(SpareCategory.is_active == True)
     if search:
         pat = f"%{search}%"
+        # Items that match via variant (serial_number or variant_color)
+        variant_matching_item_ids = select(SpareItemVariant.spare_item_id).where(
+            SpareItemVariant.is_active == True,  # noqa: E712
+            or_(
+                SpareItemVariant.serial_number.ilike(pat),
+                SpareItemVariant.variant_color.ilike(pat),
+            ),
+        )
         stmt = stmt.where(or_(
             SpareCategory.name.ilike(pat),
             SpareCategory.id.in_(  # type: ignore[union-attr]
                 select(SpareSubCategory.category_id).where(SpareSubCategory.name.ilike(pat))
             ),
             SpareCategory.id.in_(  # type: ignore[union-attr]
-                select(SpareItem.category_id).where(SpareItem.name.ilike(pat))
+                select(SpareItem.category_id).where(
+                    or_(
+                        SpareItem.name.ilike(pat),
+                        SpareItem.part_number.ilike(pat),
+                        SpareItem.id.in_(variant_matching_item_ids),
+                    )
+                )
             ),
         ))
     stmt = stmt.order_by(SpareCategory.name)
@@ -479,15 +499,47 @@ def list_items(
     stmt = select(SpareItem).where(SpareItem.sub_category_id == sub_id)
     if not include_inactive:
         stmt = stmt.where(SpareItem.is_active == True)  # noqa: E712
+
+    # Collect IDs of items that have variants matching the search term
+    variant_matched_ids: set[int] = set()
     if search:
+        pat = f"%{search}%"
+        v_ids = session.exec(
+            select(SpareItemVariant.spare_item_id).where(
+                SpareItemVariant.spare_item_id.in_(  # restrict to this sub-category
+                    select(SpareItem.id).where(SpareItem.sub_category_id == sub_id)
+                ),
+                SpareItemVariant.is_active == True,  # noqa: E712
+                or_(
+                    SpareItemVariant.serial_number.ilike(pat),
+                    SpareItemVariant.variant_color.ilike(pat),
+                ),
+            )
+        ).all()
+        variant_matched_ids = set(v_ids)
         stmt = stmt.where(
-            SpareItem.name.ilike(f"%{search}%") | SpareItem.part_number.ilike(f"%{search}%")
+            or_(
+                SpareItem.name.ilike(pat),
+                SpareItem.part_number.ilike(pat),
+                SpareItem.id.in_(variant_matched_ids) if variant_matched_ids else SpareItem.id == -1,
+            )
         )
     stmt = stmt.order_by(SpareItem.name)
     total = session.exec(select(func.count()).select_from(stmt.subquery())).one()
     items = session.exec(stmt.offset((page - 1) * page_size).limit(page_size)).all()
+
+    # Determine variant_matched flag — True when NOT directly matched by name/part_number
+    search_lower = (search or "").lower()
+    def _is_variant_match(item: SpareItem) -> bool:
+        if not search_lower or item.id not in variant_matched_ids:
+            return False
+        direct = search_lower in item.name.lower() or (
+            item.part_number is not None and search_lower in item.part_number.lower()
+        )
+        return not direct
+
     return {
-        "items": [_item_out(i) for i in items],
+        "items": [_item_out(i, variant_matched=_is_variant_match(i)) for i in items],
         "total": total,
         "page": page,
         "page_size": page_size,
@@ -635,6 +687,7 @@ def get_item_history(
             qty_after=r.qty_after,
             qty_delta=r.qty_delta,
             note=r.note,
+            variant_label=getattr(r, 'variant_label', None),
         )
         for r in rows
     ]
@@ -685,6 +738,7 @@ def _variant_out(v: SpareItemVariant) -> VariantOut:
         storage_location=v.storage_location,
         storage_type=v.storage_type,
         rate=v.rate,
+        reorder_level=getattr(v, 'reorder_level', 0.0) or 0.0,
         is_active=v.is_active,
         created_at=_dt(v.created_at),
         updated_at=_dt(v.updated_at),
@@ -705,9 +759,10 @@ def list_variants(
 
 @router.post("/items/{item_id}/variants", status_code=status.HTTP_201_CREATED)
 def create_variant(
-    item_id: int, body: VariantCreate, session: SessionDep, _: AdminUser,
+    item_id: int, body: VariantCreate, session: SessionDep, current_user: AdminUser,
 ) -> VariantOut:
     item = _item_or_404(session, item_id)
+    qty_before = item.recorded_qty
     now = datetime.now(tz=timezone.utc)
     v = SpareItemVariant(
         spare_item_id=item_id,
@@ -718,10 +773,28 @@ def create_variant(
         storage_location=body.storage_location,
         storage_type=body.storage_type,
         rate=body.rate,
+        reorder_level=body.reorder_level,
         created_at=now, updated_at=now,
     )
     session.add(v); session.commit(); session.refresh(v)
     _sync_item_from_variants(session, item)
+    qty_after = item.recorded_qty
+    # Build a human-readable label for the new variant
+    v_parts = [p for p in [body.variant_color, body.serial_number] if p]
+    v_label = " / ".join(v_parts) if v_parts else f"Variant #{v.id}"
+    hist = SpareItemHistory(
+        spare_item_id=item_id,
+        changed_by_user_id=current_user.id,  # type: ignore[arg-type]
+        changed_by_username=current_user.username,
+        changed_at=now,
+        change_type="add_variant",
+        qty_before=qty_before,
+        qty_after=qty_after,
+        qty_delta=qty_after - qty_before,
+        note=None,
+        variant_label=v_label,
+    )
+    session.add(hist); session.commit()
     return _variant_out(v)
 
 
@@ -735,6 +808,9 @@ def update_variant(
     parent_item_id = v.spare_item_id
     parent = _item_or_404(session, parent_item_id)
     qty_before = parent.recorded_qty
+    # Build variant label BEFORE updating (use existing values)
+    v_parts = [p for p in [v.variant_color, v.serial_number] if p]
+    v_label = " / ".join(v_parts) if v_parts else f"Variant #{v.id}"
     for field, value in body.model_dump(exclude_none=True).items():
         setattr(v, field, value)
     v.updated_at = datetime.now(tz=timezone.utc)
@@ -752,6 +828,7 @@ def update_variant(
             qty_after=qty_after,
             qty_delta=qty_after - qty_before,
             note=None,
+            variant_label=v_label,
         )
         session.add(hist)
         session.commit()
@@ -759,15 +836,32 @@ def update_variant(
 
 
 @router.delete("/variants/{variant_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_variant(variant_id: int, session: SessionDep, _: AdminUser) -> None:
+def delete_variant(variant_id: int, session: SessionDep, current_user: AdminUser) -> None:
     v = session.get(SpareItemVariant, variant_id)
     if not v:
         raise HTTPException(status_code=404, detail="Variant not found")
     parent_item_id = v.spare_item_id
+    parent = _item_or_404(session, parent_item_id)
+    qty_before = parent.recorded_qty
+    v_parts = [p for p in [v.variant_color, v.serial_number] if p]
+    v_label = " / ".join(v_parts) if v_parts else f"Variant #{v.id}"
     v.is_active = False
     session.add(v); session.commit()
-    parent = _item_or_404(session, parent_item_id)
     _sync_item_from_variants(session, parent)
+    qty_after = parent.recorded_qty
+    hist = SpareItemHistory(
+        spare_item_id=parent_item_id,
+        changed_by_user_id=current_user.id,  # type: ignore[arg-type]
+        changed_by_username=current_user.username,
+        changed_at=datetime.now(tz=timezone.utc),
+        change_type="remove_variant",
+        qty_before=qty_before,
+        qty_after=qty_after,
+        qty_delta=qty_after - qty_before,
+        note=None,
+        variant_label=v_label,
+    )
+    session.add(hist); session.commit()
 
 
 # ── Global search endpoint ────────────────────────────────────────────────────

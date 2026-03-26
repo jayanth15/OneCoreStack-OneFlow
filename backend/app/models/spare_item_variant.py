@@ -23,6 +23,8 @@ class SpareItemVariant(SQLModel, table=True):
     storage_type: Optional[str] = None
     rate: Optional[float] = None                 # per-variant rate (overrides parent if set)
 
+    reorder_level: float = Field(default=0.0)          # per-variant reorder threshold
+
     is_active: bool = Field(default=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))

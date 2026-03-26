@@ -381,7 +381,7 @@ def get_low_stock_summary(
     from app.models.spare_sub_category import SpareSubCategory
     from app.models.consumable import Consumable
 
-    # Spares low stock
+    # Spares low stock — only items in active categories AND active sub-categories
     spare_rows = session.exec(
         select(SpareItem).where(
             SpareItem.is_active == True,  # noqa: E712
@@ -398,12 +398,18 @@ def get_low_stock_summary(
             c = session.get(SpareCategory, s.category_id)
             cat_cache[s.category_id] = c
         cat = cat_cache.get(s.category_id)
+        # Skip items whose category is inactive
+        if cat and not cat.is_active:
+            continue
         sub = None
         if s.sub_category_id:
             if s.sub_category_id not in sub_cache:
                 sc = session.get(SpareSubCategory, s.sub_category_id)
                 sub_cache[s.sub_category_id] = sc
             sub = sub_cache.get(s.sub_category_id)
+            # Skip items whose sub-category is inactive (i.e. "deleted")
+            if sub and not sub.is_active:
+                continue
         spares_out.append(SpareLowStockItem(
             item_id=s.id,  # type: ignore[arg-type]
             item_name=s.name,

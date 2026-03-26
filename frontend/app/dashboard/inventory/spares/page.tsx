@@ -48,16 +48,19 @@ interface SpareItem {
   storage_type: string | null; storage_location: string | null; image_base64: string | null;
   total_value: number | null;
   is_active: boolean; created_at: string; updated_at: string;
+  variant_matched?: boolean;  // true when item was found via a variant search match
 }
 interface SpareItemHistoryEntry {
   id: number; spare_item_id: number; changed_by_username: string | null;
   changed_at: string; change_type: string;
   qty_before: number; qty_after: number; qty_delta: number; note: string | null;
+  variant_label: string | null;
 }
 interface SpareVariant {
   id: number; spare_item_id: number; serial_number: string | null;
   variant_color: string | null; image_base64: string | null; qty: number;
   storage_location: string | null; storage_type: string | null; rate: number | null;
+  reorder_level: number;
   is_active: boolean; created_at: string; updated_at: string;
 }
 
@@ -109,6 +112,8 @@ export default function SparesPage() {
   // expand states
   const [expandedCats, setExpandedCats] = useState<Set<number>>(new Set());
   const [expandedSubs, setExpandedSubs] = useState<Set<number>>(new Set());
+  // sub-categories whose matched items are ALL via variant (no direct name/part-no match)
+  const [variantMatchedSubs, setVariantMatchedSubs] = useState<Set<number>>(new Set());
 
   // lazy-loaded maps
   const [subsMap, setSubsMap]   = useState<Map<number, SpareSubCategory[]>>(new Map());
@@ -149,7 +154,7 @@ export default function SparesPage() {
   const [variantsDialogItem, setVariantsDialogItem] = useState<SpareItem | null>(null);
   const [variantsRows, setVariantsRows] = useState<SpareVariant[]>([]);
   const [variantsLoading, setVariantsLoading] = useState(false);
-  const [variantForm, setVariantForm] = useState({serial_number:"",variant_color:"",qty:"0",unit:"pcs",customUnit:"",storage_type:"",storage_location:"",rate:"",image_base64: null as string | null});
+  const [variantForm, setVariantForm] = useState({serial_number:"",variant_color:"",qty:"0",unit:"pcs",customUnit:"",storage_type:"",storage_location:"",rate:"",reorder_level:"0",image_base64: null as string | null});
   const [variantCustomStorage, setVariantCustomStorage] = useState(false);
   const [variantCustomUnit, setVariantCustomUnit] = useState(false);
   const [variantSaving, setVariantSaving] = useState(false);
@@ -160,7 +165,7 @@ export default function SparesPage() {
   const [addVariantDialog, setAddVariantDialog] = useState(false);
   const [editVariantDialog, setEditVariantDialog] = useState(false);
   const [editVariantId, setEditVariantId] = useState<number | null>(null);
-  const [editVForm, setEditVForm] = useState({serial_number:"",variant_color:"",qty:"0",unit:"pcs",customUnit:"",storage_type:"",storage_location:"",rate:"",image_base64:null as string|null});
+  const [editVForm, setEditVForm] = useState({serial_number:"",variant_color:"",qty:"0",unit:"pcs",customUnit:"",storage_type:"",storage_location:"",rate:"",reorder_level:"0",image_base64:null as string|null});
   const [editVCustomStorage, setEditVCustomStorage] = useState(false);
   const [editVCustomUnit, setEditVCustomUnit] = useState(false);
   const [editVSaving, setEditVSaving] = useState(false);
@@ -208,6 +213,11 @@ export default function SparesPage() {
     setLoading(true);
     setExpandedCats(new Set());
     setExpandedSubs(new Set());
+    // Always clear cached maps so stale (search-filtered) data is never reused
+    setSubsMap(new Map());
+    setItemsMap(new Map());
+    setItemsMeta(new Map());
+    setVariantMatchedSubs(new Set());
     const p = new URLSearchParams({ include_inactive:"false" });
     if (search) p.set("search", search);
     try {
@@ -227,7 +237,8 @@ export default function SparesPage() {
         const allSubs: SpareSubCategory[] = [];
         subsResults.forEach((subs, i) => { newSubsMap.set(cats[i].id, subs); allSubs.push(...subs); });
         setSubsMap(newSubsMap);
-        setExpandedSubs(new Set(allSubs.map(s => s.id)));
+
+        // Fetch items for every sub — pass the search term
         const itemPageResults = await Promise.all(
           allSubs.map(sub => {
             const p = new URLSearchParams({ include_inactive: "false", page: "1", page_size: String(ITEMS_PAGE_SIZE) });
@@ -238,12 +249,25 @@ export default function SparesPage() {
         );
         const newItemsMap = new Map<number, SpareItem[]>();
         const newItemsMeta = new Map<number, { total: number; page: number; pages: number }>();
+        const newExpandedSubs = new Set<number>();
+        const newVariantMatchedSubs = new Set<number>();
         itemPageResults.forEach((result, i) => {
-          newItemsMap.set(allSubs[i].id, result.items);
-          newItemsMeta.set(allSubs[i].id, { total: result.total, page: result.page, pages: result.pages });
+          const sub = allSubs[i];
+          newItemsMap.set(sub.id, result.items);
+          newItemsMeta.set(sub.id, { total: result.total, page: result.page, pages: result.pages });
+          if (result.items.length > 0) {
+            // Only expand subs that actually have matching items
+            newExpandedSubs.add(sub.id);
+            // If every returned item was matched only via a variant (not name/part-no), mark the sub
+            if (result.items.every(it => it.variant_matched)) {
+              newVariantMatchedSubs.add(sub.id);
+            }
+          }
         });
         setItemsMap(newItemsMap);
         setItemsMeta(newItemsMeta);
+        setExpandedSubs(newExpandedSubs);
+        setVariantMatchedSubs(newVariantMatchedSubs);
       }
     } catch(e:unknown) { setError(e instanceof Error ? e.message : "Failed"); }
     finally { setLoading(false); }
@@ -535,7 +559,7 @@ export default function SparesPage() {
   }
 
   function resetVariantForm() {
-    setVariantForm({serial_number:"",variant_color:"",qty:"0",unit:"pcs",customUnit:"",storage_type:"",storage_location:"",rate:"",image_base64:null});
+    setVariantForm({serial_number:"",variant_color:"",qty:"0",unit:"pcs",customUnit:"",storage_type:"",storage_location:"",rate:"",reorder_level:"0",image_base64:null});
     setVariantCustomStorage(false); setVariantCustomUnit(false);
     setVariantImgPreview(null); setVariantError(null);
   }
@@ -584,6 +608,7 @@ export default function SparesPage() {
         storage_type: variantForm.storage_type || null,
         storage_location: variantForm.storage_location || null,
         rate: variantForm.rate ? parseFloat(variantForm.rate) : null,
+        reorder_level: parseFloat(variantForm.reorder_level) || 0,
         image_base64: variantForm.image_base64,
       };
       await apiFetchJson(`/api/v1/spares/items/${variantsDialogItem.id}/variants`, { method:"POST", body:JSON.stringify(body) });
@@ -626,6 +651,7 @@ export default function SparesPage() {
       storage_type: isCustomSt ? "" : (v.storage_type ?? ""),
       storage_location: v.storage_location ?? "",
       rate: v.rate != null ? String(v.rate) : "",
+      reorder_level: String(v.reorder_level ?? 0),
       image_base64: v.image_base64 ?? null,
     });
     setEditVCustomStorage(isCustomSt);
@@ -653,6 +679,7 @@ export default function SparesPage() {
           storage_type: storageType,
           storage_location: editVForm.storage_location || null,
           rate: editVForm.rate ? parseFloat(editVForm.rate) : null,
+          reorder_level: parseFloat(editVForm.reorder_level) || 0,
           image_base64: editVForm.image_base64,
         }),
       });
@@ -799,9 +826,14 @@ export default function SparesPage() {
                                   <div className="flex size-7 items-center justify-center rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 shrink-0">
                                     <Layers className="size-3.5" />
                                   </div>
-                                  <div className="flex-1 min-w-0">
-                                    <span className="font-medium text-sm">{sub.name}</span>
-                                    {sub.description && <span className="ml-2 text-xs text-muted-foreground hidden sm:inline truncate max-w-[180px]">{sub.description}</span>}
+                                  <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
+                                    <span className="font-medium text-sm">{search ? highlight(sub.name, search) : sub.name}</span>
+                                    {sub.description && <span className="text-xs text-muted-foreground hidden sm:inline truncate max-w-[180px]">{sub.description}</span>}
+                                    {search && variantMatchedSubs.has(sub.id) && (
+                                      <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 font-medium shrink-0">
+                                        <Layers className="size-2.5" />via variant
+                                      </span>
+                                    )}
                                   </div>
                                   <div className="flex items-center gap-2 shrink-0 text-xs text-muted-foreground">
                                     <span>{sub.item_count} items</span>
@@ -849,7 +881,12 @@ export default function SparesPage() {
                                               <div className="flex-1 min-w-0">
                                                 <div className="flex items-baseline gap-1.5 flex-wrap">
                                                   <span className="font-medium text-sm">{highlight(item.name, search)}</span>
-                                                  {item.part_number && <span className="text-xs font-mono text-muted-foreground">{item.part_number}</span>}
+                                                  {item.part_number && <span className="text-xs font-mono text-muted-foreground">{highlight(item.part_number, search)}</span>}
+                                                  {item.variant_matched && (
+                                                    <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 font-medium">
+                                                      <Layers className="size-2.5" />via variant
+                                                    </span>
+                                                  )}
                                                 </div>
                                                 {item.part_description && <p className="text-xs text-muted-foreground truncate mt-0.5">{item.part_description}</p>}
                                               </div>
@@ -1043,8 +1080,20 @@ export default function SparesPage() {
                         )}
                       </div>
                       <div className="grid grid-cols-2 gap-x-2 text-xs">
-                          <span className="text-muted-foreground">Qty</span>
-                          <span className="font-medium tabular-nums">{fmtQty(v.qty)} {variantsDialogItem?.unit}</span>
+                          {(() => {
+                            const varLow = v.reorder_level > 0 && v.qty <= v.reorder_level;
+                            return (<>
+                              <span className="text-muted-foreground">Qty</span>
+                              <span className={`font-medium tabular-nums ${varLow ? "text-amber-600" : ""}`}>
+                                {varLow && <AlertTriangle className="size-3 inline mr-0.5 mb-0.5" />}
+                                {fmtQty(v.qty)} {variantsDialogItem?.unit}
+                              </span>
+                              {v.reorder_level > 0 && <>
+                                <span className="text-muted-foreground">Reorder</span>
+                                <span className="tabular-nums text-muted-foreground">{fmtQty(v.reorder_level)}</span>
+                              </>}
+                            </>);
+                          })()}
                           {admin && v.rate != null && <>
                             <span className="text-muted-foreground">Rate</span>
                             <span className="tabular-nums">{fmtRate(v.rate)}</span>
@@ -1127,7 +1176,7 @@ export default function SparesPage() {
                   onChange={e=>setVariantForm(f=>({...f,variant_color:e.target.value}))} disabled={variantSaving} className="h-8 text-sm" />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Serial No.</Label>
+                <Label className="text-xs">Part No.</Label>
                 <Input placeholder="SN-001" value={variantForm.serial_number}
                   onChange={e=>setVariantForm(f=>({...f,serial_number:e.target.value}))} disabled={variantSaving} className="h-8 text-sm" />
               </div>
@@ -1153,6 +1202,11 @@ export default function SparesPage() {
                 <Label className="text-xs">Rate (₹)</Label>
                 <Input type="number" min="0" step="any" placeholder="0.00" value={variantForm.rate}
                   onChange={e=>setVariantForm(f=>({...f,rate:e.target.value}))} disabled={variantSaving} className="h-8 text-sm" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Reorder Level</Label>
+                <Input type="number" min="0" step="any" placeholder="0" value={variantForm.reorder_level}
+                  onChange={e=>setVariantForm(f=>({...f,reorder_level:e.target.value}))} disabled={variantSaving} className="h-8 text-sm" />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Storage Type</Label>
@@ -1216,7 +1270,7 @@ export default function SparesPage() {
                   onChange={e=>setEditVForm(f=>({...f,variant_color:e.target.value}))} disabled={editVSaving} className="h-8 text-sm" />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Serial No.</Label>
+                <Label className="text-xs">Part No.</Label>
                 <Input placeholder="SN-001" value={editVForm.serial_number}
                   onChange={e=>setEditVForm(f=>({...f,serial_number:e.target.value}))} disabled={editVSaving} className="h-8 text-sm" />
               </div>
@@ -1242,6 +1296,11 @@ export default function SparesPage() {
                 <Label className="text-xs">Rate (₹)</Label>
                 <Input type="number" min="0" step="any" placeholder="0.00" value={editVForm.rate}
                   onChange={e=>setEditVForm(f=>({...f,rate:e.target.value}))} disabled={editVSaving} className="h-8 text-sm" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Reorder Level</Label>
+                <Input type="number" min="0" step="any" placeholder="0" value={editVForm.reorder_level}
+                  onChange={e=>setEditVForm(f=>({...f,reorder_level:e.target.value}))} disabled={editVSaving} className="h-8 text-sm" />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Storage Type</Label>
@@ -1320,6 +1379,7 @@ export default function SparesPage() {
                   <th className="px-3 py-2 text-left">Date</th>
                   <th className="px-3 py-2 text-left">Who</th>
                   <th className="px-3 py-2 text-center">Type</th>
+                  <th className="px-3 py-2 text-left">Variant</th>
                   <th className="px-3 py-2 text-right">Before</th>
                   <th className="px-3 py-2 text-right">Change</th>
                   <th className="px-3 py-2 text-right">After</th>
@@ -1334,10 +1394,17 @@ export default function SparesPage() {
                       <td className="px-3 py-2">{r.changed_by_username ?? "—"}</td>
                       <td className="px-3 py-2 text-center">
                         <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                          r.change_type==="add"?"bg-emerald-100 text-emerald-700":
-                          r.change_type==="subtract"?"bg-amber-100 text-amber-700":"bg-blue-100 text-blue-700"}`}>
-                          {r.change_type}
+                          r.change_type==="add"||r.change_type==="add_variant"?"bg-emerald-100 text-emerald-700":
+                          r.change_type==="subtract"||r.change_type==="remove_variant"?"bg-amber-100 text-amber-700":"bg-blue-100 text-blue-700"}`}>
+                          {r.change_type==="add_variant"?"add variant":r.change_type==="remove_variant"?"remove variant":r.change_type}
                         </span>
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground text-xs">
+                        {r.variant_label ? (
+                          <span className="inline-flex items-center gap-1 font-mono text-violet-700 dark:text-violet-400">
+                            <Layers className="size-3 shrink-0" />{r.variant_label}
+                          </span>
+                        ) : "—"}
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums">{fmtQty(r.qty_before)}</td>
                       <td className={`px-3 py-2 text-right tabular-nums font-medium ${r.qty_delta>0?"text-emerald-600":r.qty_delta<0?"text-red-600":""}`}>

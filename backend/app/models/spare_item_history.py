@@ -24,3 +24,4 @@ class SpareItemHistory(SQLModel, table=True):
     qty_delta: float   # positive = added, negative = removed
 
     note: Optional[str] = None
+    variant_label: Optional[str] = None   # e.g. "Red / SN-001" for variant-level changes
