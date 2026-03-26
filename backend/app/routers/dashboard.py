@@ -349,7 +349,9 @@ def get_dashboard(
 
 class SpareLowStockItem(BaseModel):
     item_id: int
+    variant_id: int
     item_name: str
+    variant_name: str
     part_number: Optional[str]
     category_name: str
     sub_category_name: Optional[str]
@@ -377,49 +379,60 @@ def get_low_stock_summary(
     _: Annotated[User, Depends(get_current_user)],
 ) -> LowStockSummary:
     from app.models.spare_item import SpareItem
+    from app.models.spare_item_variant import SpareItemVariant
     from app.models.spare_category import SpareCategory
     from app.models.spare_sub_category import SpareSubCategory
     from app.models.consumable import Consumable
 
-    # Spares low stock — only items in active categories AND active sub-categories
-    spare_rows = session.exec(
-        select(SpareItem).where(
-            SpareItem.is_active == True,  # noqa: E712
-            SpareItem.reorder_level > 0,
-            SpareItem.recorded_qty <= SpareItem.reorder_level,
-        ).order_by(SpareItem.name)
+    # Spares low stock — variant-level reorder tracking
+    variant_rows = session.exec(
+        select(SpareItemVariant).where(
+            SpareItemVariant.is_active == True,  # noqa: E712
+            SpareItemVariant.reorder_level > 0,
+            SpareItemVariant.qty <= SpareItemVariant.reorder_level,
+        )
     ).all()
 
     cat_cache: dict = {}
     sub_cache: dict = {}
+    item_cache: dict = {}
     spares_out = []
-    for s in spare_rows:
-        if s.category_id not in cat_cache:
-            c = session.get(SpareCategory, s.category_id)
-            cat_cache[s.category_id] = c
-        cat = cat_cache.get(s.category_id)
-        # Skip items whose category is inactive
+    for v in variant_rows:
+        if v.spare_item_id not in item_cache:
+            si = session.get(SpareItem, v.spare_item_id)
+            item_cache[v.spare_item_id] = si
+        si = item_cache.get(v.spare_item_id)
+        if not si or not si.is_active:
+            continue
+        if si.category_id not in cat_cache:
+            c = session.get(SpareCategory, si.category_id)
+            cat_cache[si.category_id] = c
+        cat = cat_cache.get(si.category_id)
         if cat and not cat.is_active:
             continue
         sub = None
-        if s.sub_category_id:
-            if s.sub_category_id not in sub_cache:
-                sc = session.get(SpareSubCategory, s.sub_category_id)
-                sub_cache[s.sub_category_id] = sc
-            sub = sub_cache.get(s.sub_category_id)
-            # Skip items whose sub-category is inactive (i.e. "deleted")
+        if si.sub_category_id:
+            if si.sub_category_id not in sub_cache:
+                sc = session.get(SpareSubCategory, si.sub_category_id)
+                sub_cache[si.sub_category_id] = sc
+            sub = sub_cache.get(si.sub_category_id)
             if sub and not sub.is_active:
                 continue
+        # Build variant label: prefer color, fallback to serial/part number
+        variant_name = v.variant_color or v.serial_number or f"Variant #{v.id}"
         spares_out.append(SpareLowStockItem(
-            item_id=s.id,  # type: ignore[arg-type]
-            item_name=s.name,
-            part_number=s.part_number,
+            item_id=si.id,  # type: ignore[arg-type]
+            variant_id=v.id,  # type: ignore[arg-type]
+            item_name=si.name,
+            variant_name=variant_name,
+            part_number=si.part_number,
             category_name=cat.name if cat else "Unknown",
             sub_category_name=sub.name if sub else None,
-            recorded_qty=s.recorded_qty,
-            reorder_level=s.reorder_level,
-            unit=s.unit,
+            recorded_qty=v.qty,
+            reorder_level=v.reorder_level,
+            unit=si.unit,
         ))
+    spares_out.sort(key=lambda x: (x.item_name, x.variant_name))
 
     # Consumables low stock
     cons_rows = session.exec(

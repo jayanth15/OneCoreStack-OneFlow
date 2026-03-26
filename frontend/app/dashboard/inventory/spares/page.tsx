@@ -143,7 +143,7 @@ export default function SparesPage() {
   // edit item sheet
   const [editItemSheet, setEditItemSheet] = useState(false);
   const [editingItem, setEditingItem]     = useState<SpareItem | null>(null);
-  const [itemForm, setItemForm]           = useState({ name:"", part_number:"", part_description:"", reorder_level:"0" });
+  const [itemForm, setItemForm]           = useState({ name:"", part_number:"", part_description:"" });
   // history (admin-only)
   const [historyItem, setHistoryItem] = useState<SpareItem | null>(null);
   const [historyRows, setHistoryRows] = useState<SpareItemHistoryEntry[]>([]);
@@ -422,7 +422,7 @@ export default function SparesPage() {
 
   function openEditItem(item: SpareItem) {
     setEditingItem(item);
-    setItemForm({ name:item.name, part_number:item.part_number??"", part_description:item.part_description??"", reorder_level:String(item.reorder_level ?? 0) });
+    setItemForm({ name:item.name, part_number:item.part_number??"", part_description:item.part_description??"" });
     setItemError(null); setEditItemSheet(true);
   }
   async function saveItem() {
@@ -434,7 +434,6 @@ export default function SparesPage() {
           name:itemForm.name.trim(),
           part_number:itemForm.part_number||null,
           part_description:itemForm.part_description||null,
-          reorder_level:parseFloat(itemForm.reorder_level) || 0,
         }),
       });
       setEditItemSheet(false);
@@ -1349,11 +1348,6 @@ export default function SparesPage() {
               <textarea id="ei-desc" rows={2} value={itemForm.part_description}
                 onChange={e=>setItemForm(f=>({...f,part_description:e.target.value}))} disabled={itemSaving}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="ei-rl">Reorder Level</Label>
-              <Input id="ei-rl" type="number" min="0" step="any" placeholder="0"
-                value={itemForm.reorder_level} onChange={e=>setItemForm(f=>({...f,reorder_level:e.target.value}))} disabled={itemSaving} />
             </div>
             {itemError && <p className="text-sm text-destructive">{itemError}</p>}
             <div className="flex gap-3 pt-2">

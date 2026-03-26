@@ -15,7 +15,9 @@ import { AlertTriangle, Printer, Package, Wrench, RefreshCw, Box, Layers, FlaskC
 
 interface SpareLowStockItem {
   item_id: number;
+  variant_id: number;
   item_name: string;
+  variant_name: string;
   part_number: string | null;
   category_name: string;
   sub_category_name: string;
@@ -64,6 +66,7 @@ interface UnifiedRow {
   key: string;
   type: "spare" | "consumable" | "raw_material" | "finished_good" | "semi_finished";
   name: string;
+  variant_name?: string;
   code: string | null;
   category: string;
   qty: number;
@@ -153,11 +156,12 @@ export default function StockAlertsPage() {
           unit: i.unit,
         })),
         ...lowStock.spares.map((s): UnifiedRow => ({
-          key: `spare-${s.item_id}`,
+          key: `spare-v-${s.variant_id}`,
           type: "spare",
           name: s.item_name,
+          variant_name: s.variant_name,
           code: s.part_number,
-          category: `${s.category_name} / ${s.sub_category_name}`,
+          category: s.sub_category_name ? `${s.category_name} / ${s.sub_category_name}` : s.category_name,
           qty: s.recorded_qty,
           reorder_level: s.reorder_level,
           unit: s.unit,
@@ -246,7 +250,7 @@ export default function StockAlertsPage() {
                 r.type === "raw_material" ? "Raw Material" :
                 r.type === "finished_good" ? "Finished Good" : "Semi Finished"
               }</td>
-              <td><strong>${r.name}</strong>${r.code ? `<br><span style="color:#666;font-family:monospace">${r.code}</span>` : ""}</td>
+              <td><strong>${r.name}</strong>${r.variant_name ? `<br><span style="color:#7c3aed;font-weight:600">${r.variant_name}</span>` : ""}${r.code ? `<br><span style="color:#666;font-family:monospace">${r.code}</span>` : ""}</td>
               <td style="color:#666">${r.category}</td>
               <td style="text-align:right" class="low">${r.qty % 1 === 0 ? r.qty.toFixed(0) : r.qty.toFixed(2)}${r.unit ? " " + r.unit : ""}</td>
               <td style="text-align:right;color:#666">${r.reorder_level}${r.unit ? " " + r.unit : ""}</td>
@@ -367,6 +371,7 @@ export default function StockAlertsPage() {
                       </td>
                       <td className="px-4 py-3">
                         <p className="font-medium">{r.name}</p>
+                        {r.variant_name && <p className="text-xs text-violet-600 font-medium">{r.variant_name}</p>}
                         {r.code && <p className="text-xs font-mono text-muted-foreground">{r.code}</p>}
                       </td>
                       <td className="px-4 py-3 text-sm text-muted-foreground">{r.category}</td>
@@ -403,8 +408,7 @@ export default function StockAlertsPage() {
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <TypeBadge type={r.type} small />
                         <p className="font-medium text-sm">{r.name}</p>
-                      </div>
-                      {r.code && <p className="text-xs font-mono text-muted-foreground mt-0.5">{r.code}</p>}
+                      </div>                        {r.variant_name && <p className="text-xs text-violet-600 font-medium mt-0.5">{r.variant_name}</p>}                      {r.code && <p className="text-xs font-mono text-muted-foreground mt-0.5">{r.code}</p>}
                       <p className="text-xs text-muted-foreground mt-0.5">{r.category}</p>
                     </div>
                   </div>
