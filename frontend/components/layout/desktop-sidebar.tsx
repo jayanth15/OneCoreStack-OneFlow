@@ -15,6 +15,7 @@ import {
   BookOpen,
   Contact,
   Settings,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getCurrentUser, isAdminOrAbove } from "@/lib/user";
@@ -31,6 +32,7 @@ const CORE_NAV: NavItem[] = [
   { label: "Inventory",  href: "/dashboard/inventory",    icon: Package },
   { label: "Schedule",   href: "/dashboard/schedule",     icon: CalendarDays },
   { label: "Production", href: "/dashboard/production",   icon: Factory },
+  { label: "Requests",   href: "/dashboard/requests",     icon: ClipboardList },
 ];
 
 // Only shown to admin / super_admin (alongside Departments, Users, BOM)

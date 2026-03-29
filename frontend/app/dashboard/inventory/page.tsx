@@ -22,7 +22,7 @@ import { isAdminOrAbove, canAccessInventory } from "@/lib/user";
 import {
   PlusIcon, Pencil, Trash2, AlertTriangle, PackagePlus,
   PackageMinus, History, TrendingDown, Eye, Search, ChevronLeft, ChevronRight,
-  Package, Box, Layers, Wrench, FlaskConical,
+  Package, Box, Layers, Wrench, FlaskConical, Paperclip, Scissors,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -130,6 +130,7 @@ function InventoryLanding() {
   const router = useRouter();
   const [counts, setCounts] = useState<Record<string, number | null>>({
     finished_good: null, raw_material: null, semi_finished: null, spares: null, consumables: null,
+    attachments: null, weeders: null,
   });
 
   useEffect(() => {
@@ -153,14 +154,28 @@ function InventoryLanding() {
         return d.total;
       } catch { return null; }
     };
+    const fetchAttachments = async () => {
+      try {
+        const d = await apiFetchJson<{ total: number }>(`/api/v1/attachments?page_size=1&include_inactive=false`);
+        return d.total;
+      } catch { return null; }
+    };
+    const fetchWeeders = async () => {
+      try {
+        const d = await apiFetchJson<{ total: number }>(`/api/v1/weeders?page_size=1&include_inactive=false`);
+        return d.total;
+      } catch { return null; }
+    };
     Promise.all([
       fetchCount("finished_good"),
       fetchCount("raw_material"),
       fetchCount("semi_finished"),
       fetchSpares(),
       fetchConsumables(),
-    ]).then(([fg, rm, sf, sp, con]) =>
-      setCounts({ finished_good: fg, raw_material: rm, semi_finished: sf, spares: sp, consumables: con })
+      fetchAttachments(),
+      fetchWeeders(),
+    ]).then(([fg, rm, sf, sp, con, att, weed]) =>
+      setCounts({ finished_good: fg, raw_material: rm, semi_finished: sf, spares: sp, consumables: con, attachments: att, weeders: weed })
     );
   }, []);
 
@@ -201,6 +216,20 @@ function InventoryLanding() {
       border: "hover:border-violet-400",
     },
     {
+      id: "attachments", label: "Attachments", desc: "Attachment inventory items",
+      href: "/dashboard/inventory/attachments",
+      icon: <Paperclip className="size-8" />,
+      accent: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400",
+      border: "hover:border-sky-400",
+    },
+    {
+      id: "weeders", label: "Weeders", desc: "Weeder inventory items",
+      href: "/dashboard/inventory/weeders",
+      icon: <Scissors className="size-8" />,
+      accent: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+      border: "hover:border-green-400",
+    },
+    {
       id: "stock_alerts", label: "Stock Alerts", desc: "Items below reorder level",
       href: "/dashboard/inventory/stock-alerts",
       icon: <AlertTriangle className="size-8" />,
@@ -231,6 +260,8 @@ function InventoryLanding() {
             const typeMap: Record<string, string> = {
               spares: "spare",
               consumables: "consumable",
+              attachments: "attachment",
+              weeders: "weeder",
             };
             return canAccessInventory(typeMap[c.id] ?? c.id);
           }).map((c) => {

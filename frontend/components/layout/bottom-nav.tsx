@@ -20,6 +20,7 @@ import {
   Share,
   ShieldAlert,
   MonitorSmartphone,
+  ClipboardList,
 } from "lucide-react";
 import { usePwaInstall } from "@/hooks/use-pwa-install";
 import { cn } from "@/lib/utils";
@@ -40,7 +41,9 @@ const PRIMARY_NAV: NavItem[] = [
 ];
 
 // Always shown to all users in the More drawer
-const GENERAL_MORE_NAV: NavItem[] = [];
+const GENERAL_MORE_NAV: NavItem[] = [
+  { label: "Requests", href: "/dashboard/requests", icon: ClipboardList },
+];
 
 // Only shown to admin / super_admin in the More drawer
 const ADMIN_MORE_NAV: NavItem[] = [

@@ -13,6 +13,7 @@ import {
   Building2,
   LogOut,
   Settings,
+  ClipboardList,
 } from "lucide-react";
 import {
   Sidebar,
@@ -36,6 +37,7 @@ const coreNav = [
   { title: "Inventory", url: "/dashboard/inventory", icon: Package },
   { title: "Jobs", url: "/dashboard/jobs", icon: Briefcase },
   { title: "Production", url: "/dashboard/production", icon: Factory },
+  { title: "Requests", url: "/dashboard/requests", icon: ClipboardList },
 ];
 
 const adminNav = [
@@ -77,7 +79,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarMenu>
               {coreNav.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={pathname === item.url}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={
+                      item.url === "/dashboard"
+                        ? pathname === "/dashboard"
+                        : pathname.startsWith(item.url)
+                    }
+                  >
                     <Link href={item.url}>
                       <item.icon className="size-4" />
                       {item.title}

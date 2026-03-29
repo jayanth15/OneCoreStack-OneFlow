@@ -368,9 +368,27 @@ class ConsumableLowStockItem(BaseModel):
     reorder_level: float
 
 
+class AttachmentLowStockItem(BaseModel):
+    item_id: int
+    sn_no: Optional[str]
+    description: Optional[str]
+    qty: float
+    reorder_level: float
+
+
+class WeederLowStockItem(BaseModel):
+    item_id: int
+    sn_no: Optional[str]
+    description: Optional[str]
+    qty: float
+    reorder_level: float
+
+
 class LowStockSummary(BaseModel):
     spares: list[SpareLowStockItem]
     consumables: list[ConsumableLowStockItem]
+    attachments: list[AttachmentLowStockItem]
+    weeders: list[WeederLowStockItem]
 
 
 @router.get("/low-stock", response_model=LowStockSummary)
@@ -383,6 +401,8 @@ def get_low_stock_summary(
     from app.models.spare_category import SpareCategory
     from app.models.spare_sub_category import SpareSubCategory
     from app.models.consumable import Consumable
+    from app.models.attachment_item import AttachmentItem
+    from app.models.weeder_item import WeederItem
 
     # Spares low stock — variant-level reorder tracking
     variant_rows = session.exec(
@@ -453,4 +473,42 @@ def get_low_stock_summary(
         for c in cons_rows
     ]
 
-    return LowStockSummary(spares=spares_out, consumables=consumables_out)
+    # Attachments low stock
+    att_rows = session.exec(
+        select(AttachmentItem).where(
+            AttachmentItem.is_active == True,  # noqa: E712
+            AttachmentItem.reorder_level > 0,
+            AttachmentItem.qty <= AttachmentItem.reorder_level,
+        ).order_by(AttachmentItem.sn_no)
+    ).all()
+    attachments_out = [
+        AttachmentLowStockItem(
+            item_id=a.id,  # type: ignore[arg-type]
+            sn_no=a.sn_no,
+            description=a.description,
+            qty=a.qty,
+            reorder_level=a.reorder_level,
+        )
+        for a in att_rows
+    ]
+
+    # Weeders low stock
+    weed_rows = session.exec(
+        select(WeederItem).where(
+            WeederItem.is_active == True,  # noqa: E712
+            WeederItem.reorder_level > 0,
+            WeederItem.qty <= WeederItem.reorder_level,
+        ).order_by(WeederItem.sn_no)
+    ).all()
+    weeders_out = [
+        WeederLowStockItem(
+            item_id=w.id,  # type: ignore[arg-type]
+            sn_no=w.sn_no,
+            description=w.description,
+            qty=w.qty,
+            reorder_level=w.reorder_level,
+        )
+        for w in weed_rows
+    ]
+
+    return LowStockSummary(spares=spares_out, consumables=consumables_out, attachments=attachments_out, weeders=weeders_out)

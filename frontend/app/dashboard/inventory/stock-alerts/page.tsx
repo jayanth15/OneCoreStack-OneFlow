@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiFetchJson } from "@/lib/api";
-import { AlertTriangle, Printer, Package, Wrench, RefreshCw, Box, Layers, FlaskConical } from "lucide-react";
+import { AlertTriangle, Printer, Package, Wrench, RefreshCw, Box, Layers, FlaskConical, Paperclip, Scissors } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -30,6 +30,22 @@ interface ConsumableLowStockItem {
   item_id: number;
   name: string;
   code: string | null;
+  qty: number;
+  reorder_level: number;
+}
+
+interface AttachmentLowStockItem {
+  item_id: number;
+  sn_no: string | null;
+  description: string | null;
+  qty: number;
+  reorder_level: number;
+}
+
+interface WeederLowStockItem {
+  item_id: number;
+  sn_no: string | null;
+  description: string | null;
   qty: number;
   reorder_level: number;
 }
@@ -64,7 +80,7 @@ interface CompanyInfo {
 
 interface UnifiedRow {
   key: string;
-  type: "spare" | "consumable" | "raw_material" | "finished_good" | "semi_finished";
+  type: "spare" | "consumable" | "attachment" | "weeder" | "raw_material" | "finished_good" | "semi_finished";
   name: string;
   variant_name?: string;
   code: string | null;
@@ -79,6 +95,8 @@ interface UnifiedRow {
 const TYPE_CONFIG: Record<UnifiedRow["type"], { label: string; bg: string; text: string; Icon: React.ElementType }> = {
   spare:        { label: "Spare",         bg: "bg-violet-100", text: "text-violet-700", Icon: Wrench },
   consumable:   { label: "Consumable",    bg: "bg-blue-100",   text: "text-blue-700",   Icon: FlaskConical },
+  attachment:   { label: "Attachment",    bg: "bg-sky-100",    text: "text-sky-700",    Icon: Paperclip },
+  weeder:       { label: "Weeder",        bg: "bg-green-100",  text: "text-green-700",  Icon: Scissors },
   raw_material:  { label: "Raw Material", bg: "bg-orange-100", text: "text-orange-700", Icon: Box },
   finished_good: { label: "Finished Good", bg: "bg-teal-100",  text: "text-teal-700",   Icon: Package },
   semi_finished: { label: "Semi Finished", bg: "bg-indigo-100", text: "text-indigo-700", Icon: Layers },
@@ -123,7 +141,7 @@ export default function StockAlertsPage() {
       .catch(() => { /* non-admin users won't have access */ });
     try {
       const [lowStock, invPage] = await Promise.all([
-        apiFetchJson<{ spares: SpareLowStockItem[]; consumables: ConsumableLowStockItem[] }>(
+        apiFetchJson<{ spares: SpareLowStockItem[]; consumables: ConsumableLowStockItem[]; attachments: AttachmentLowStockItem[]; weeders: WeederLowStockItem[] }>(
           "/api/v1/dashboard/low-stock"
         ),
         apiFetchJson<PaginatedInventory>(
@@ -174,6 +192,26 @@ export default function StockAlertsPage() {
           category: "Consumables",
           qty: c.qty,
           reorder_level: c.reorder_level,
+          unit: "",
+        })),
+        ...(lowStock.attachments ?? []).map((a): UnifiedRow => ({
+          key: `att-${a.item_id}`,
+          type: "attachment",
+          name: a.sn_no || a.description || `Item #${a.item_id}`,
+          code: a.sn_no,
+          category: "Attachments",
+          qty: a.qty,
+          reorder_level: a.reorder_level,
+          unit: "",
+        })),
+        ...(lowStock.weeders ?? []).map((w): UnifiedRow => ({
+          key: `weed-${w.item_id}`,
+          type: "weeder",
+          name: w.sn_no || w.description || `Item #${w.item_id}`,
+          code: w.sn_no,
+          category: "Weeders",
+          qty: w.qty,
+          reorder_level: w.reorder_level,
           unit: "",
         })),
       ];

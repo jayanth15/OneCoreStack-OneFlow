@@ -23,3 +23,11 @@ from app.models.spare_item_history import SpareItemHistory  # noqa: F401
 from app.models.spare_item_variant import SpareItemVariant  # noqa: F401
 from app.models.work_log import WorkLog  # noqa: F401
 from app.models.work_type import WorkType  # noqa: F401
+from app.models.attachment_item import AttachmentItem  # noqa: F401
+from app.models.attachment_history import AttachmentHistory  # noqa: F401
+from app.models.weeder_item import WeederItem  # noqa: F401
+from app.models.weeder_history import WeederHistory  # noqa: F401
+from app.models.purchase_request import PurchaseRequest  # noqa: F401
+from app.models.purchase_request_history import PurchaseRequestHistory  # noqa: F401
+from app.models.marketing_request import MarketingRequest  # noqa: F401
+from app.models.marketing_request_history import MarketingRequestHistory  # noqa: F401

@@ -6,6 +6,8 @@ export const ALL_INVENTORY_TYPES = [
   "semi_finished",
   "spare",
   "consumable",
+  "attachment",
+  "weeder",
 ] as const;
 
 export type InventoryType = (typeof ALL_INVENTORY_TYPES)[number];
@@ -16,6 +18,8 @@ export const INVENTORY_TYPE_LABELS: Record<InventoryType, string> = {
   semi_finished:  "Semi-Finished",
   spare:          "Spares",
   consumable:     "Consumables",
+  attachment:     "Attachments",
+  weeder:         "Weeders",
 };
 
 export interface CurrentUser {

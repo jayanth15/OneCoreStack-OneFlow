@@ -19,12 +19,24 @@ from app.routers import spares as spares_router
 from app.routers import work_types as work_types_router
 from app.routers import consumables as consumables_router
 from app.routers import settings as settings_router
+from app.routers import attachments as attachments_router
+from app.routers import weeders as weeders_router
+from app.routers import purchase_requests as purchase_requests_router
+from app.routers import marketing_requests as marketing_requests_router
 from app.models.spare_sub_category import SpareSubCategory  # noqa: F401 — ensures table is created
 from app.models.consumable import Consumable  # noqa: F401 — ensures table is created
 from app.models.consumable_history import ConsumableHistory  # noqa: F401 — ensures table is created
 from app.models.spare_item_history import SpareItemHistory  # noqa: F401 — ensures table is created
 from app.models.spare_item_variant import SpareItemVariant  # noqa: F401 — ensures table is created
 from app.models.company_settings import CompanySettings  # noqa: F401 — ensures table is created
+from app.models.attachment_item import AttachmentItem  # noqa: F401 — ensures table is created
+from app.models.attachment_history import AttachmentHistory  # noqa: F401 — ensures table is created
+from app.models.weeder_item import WeederItem  # noqa: F401 — ensures table is created
+from app.models.weeder_history import WeederHistory  # noqa: F401 — ensures table is created
+from app.models.purchase_request import PurchaseRequest  # noqa: F401 — ensures table is created
+from app.models.purchase_request_history import PurchaseRequestHistory  # noqa: F401 — ensures table is created
+from app.models.marketing_request import MarketingRequest  # noqa: F401 — ensures table is created
+from app.models.marketing_request_history import MarketingRequestHistory  # noqa: F401 — ensures table is created
 
 
 @asynccontextmanager
@@ -60,6 +72,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _migrate_user_inventory_access()
     # Create company_settings table
     _migrate_company_settings()
+    # Create attachment_item + attachment_history tables
+    _migrate_attachment_tables()
+    # Create weeder_item + weeder_history tables
+    _migrate_weeder_tables()
+    # Create purchase_request + purchase_request_history tables
+    _migrate_purchase_request_tables()
+    # Create marketing_request + marketing_request_history tables
+    _migrate_marketing_request_tables()
     # Auto-seed a default admin user on a brand-new / empty database
     _auto_seed_if_empty()
     yield
@@ -514,6 +534,183 @@ def _migrate_company_settings() -> None:
         conn.commit()
 
 
+def _migrate_attachment_tables() -> None:
+    """Create attachment_item and attachment_history tables if they don't exist."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS attachment_item (
+                id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                sn_no            TEXT,
+                description      TEXT,
+                qty              REAL NOT NULL DEFAULT 0.0,
+                reorder_level    REAL NOT NULL DEFAULT 0.0,
+                rate_per_unit    REAL,
+                storage_location TEXT,
+                image_base64     TEXT,
+                is_active        INTEGER NOT NULL DEFAULT 1,
+                created_at       TEXT,
+                updated_at       TEXT
+            )
+        """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS attachment_history (
+                id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+                attachment_id         INTEGER NOT NULL REFERENCES attachment_item(id),
+                changed_by_user_id    INTEGER REFERENCES users(id),
+                changed_by_username   TEXT,
+                changed_at            TEXT NOT NULL,
+                change_type           TEXT NOT NULL,
+                qty_before            REAL NOT NULL,
+                qty_after             REAL NOT NULL,
+                qty_delta             REAL NOT NULL,
+                note                  TEXT
+            )
+        """))
+        conn.commit()
+
+
+def _migrate_weeder_tables() -> None:
+    """Create weeder_item and weeder_history tables if they don't exist."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS weeder_item (
+                id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                sn_no            TEXT,
+                description      TEXT,
+                qty              REAL NOT NULL DEFAULT 0.0,
+                reorder_level    REAL NOT NULL DEFAULT 0.0,
+                rate_per_unit    REAL,
+                storage_location TEXT,
+                image_base64     TEXT,
+                is_active        INTEGER NOT NULL DEFAULT 1,
+                created_at       TEXT,
+                updated_at       TEXT
+            )
+        """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS weeder_history (
+                id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+                weeder_id             INTEGER NOT NULL REFERENCES weeder_item(id),
+                changed_by_user_id    INTEGER REFERENCES users(id),
+                changed_by_username   TEXT,
+                changed_at            TEXT NOT NULL,
+                change_type           TEXT NOT NULL,
+                qty_before            REAL NOT NULL,
+                qty_after             REAL NOT NULL,
+                qty_delta             REAL NOT NULL,
+                note                  TEXT
+            )
+        """))
+        conn.commit()
+
+
+def _migrate_purchase_request_tables() -> None:
+    """Create purchase_request and purchase_request_history tables if they don't exist."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS purchase_request (
+                id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+                sn_no                   TEXT NOT NULL,
+                inventory_item_id       INTEGER,
+                item_name               TEXT,
+                item_code               TEXT,
+                item_type               TEXT,
+                description             TEXT,
+                quantity                REAL NOT NULL DEFAULT 1.0,
+                from_whom               TEXT,
+                timeline_days           INTEGER,
+                notes                   TEXT,
+                status                  TEXT NOT NULL DEFAULT 'pending',
+                requested_by_user_id    INTEGER REFERENCES users(id),
+                requested_by_username   TEXT,
+                department              TEXT,
+                reviewed_by_user_id     INTEGER REFERENCES users(id),
+                reviewed_by_username    TEXT,
+                reviewed_at             TEXT,
+                review_note             TEXT,
+                is_active               INTEGER NOT NULL DEFAULT 1,
+                created_at              TEXT NOT NULL,
+                updated_at              TEXT NOT NULL
+            )
+        """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS purchase_request_history (
+                id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+                request_id            INTEGER NOT NULL REFERENCES purchase_request(id),
+                changed_by_user_id    INTEGER REFERENCES users(id),
+                changed_by_username   TEXT,
+                changed_at            TEXT NOT NULL,
+                change_type           TEXT NOT NULL,
+                field_name            TEXT,
+                old_value             TEXT,
+                new_value             TEXT,
+                note                  TEXT
+            )
+        """))
+        conn.commit()
+
+
+def _migrate_marketing_request_tables() -> None:
+    """Create marketing_request and marketing_request_history tables if they don't exist."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS marketing_request (
+                id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+                sn_no                   TEXT NOT NULL,
+                inventory_type          TEXT NOT NULL DEFAULT 'weeder',
+                item_id                 INTEGER,
+                item_sn_no              TEXT,
+                item_description        TEXT,
+                quantity                REAL NOT NULL DEFAULT 1.0,
+                timeline_days           INTEGER,
+                customer_name           TEXT,
+                customer_phone          TEXT,
+                customer_address        TEXT,
+                bought_by               TEXT,
+                delivery_type           TEXT,
+                remarks                 TEXT,
+                status                  TEXT NOT NULL DEFAULT 'pending',
+                requested_by_user_id    INTEGER REFERENCES users(id),
+                requested_by_username   TEXT,
+                department              TEXT,
+                reviewed_by_user_id     INTEGER REFERENCES users(id),
+                reviewed_by_username    TEXT,
+                reviewed_at             TEXT,
+                review_note             TEXT,
+                is_active               INTEGER NOT NULL DEFAULT 1,
+                created_at              TEXT NOT NULL,
+                updated_at              TEXT NOT NULL
+            )
+        """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS marketing_request_history (
+                id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+                request_id            INTEGER NOT NULL REFERENCES marketing_request(id),
+                changed_by_user_id    INTEGER REFERENCES users(id),
+                changed_by_username   TEXT,
+                changed_at            TEXT NOT NULL,
+                change_type           TEXT NOT NULL,
+                field_name            TEXT,
+                old_value             TEXT,
+                new_value             TEXT,
+                note                  TEXT
+            )
+        """))
+        conn.commit()
+
+
 def _auto_seed_if_empty() -> None:
     """If the database has no users at all (fresh deployment), create a default
     super_admin account so the app is immediately usable.
@@ -575,6 +772,10 @@ app.include_router(work_types_router.router)
 app.include_router(spares_router.router)
 app.include_router(consumables_router.router)
 app.include_router(settings_router.router)
+app.include_router(attachments_router.router)
+app.include_router(weeders_router.router)
+app.include_router(purchase_requests_router.router)
+app.include_router(marketing_requests_router.router)
 
 # ── Optional module routers (enabled by env var) ──────────────────────────────
 # Example:

@@ -27,6 +27,8 @@ from app.models.production_order import ProductionOrder
 from app.models.job_card import JobCard
 from app.models.work_type import WorkType
 from app.models.work_log import WorkLog
+from app.models.attachment_item import AttachmentItem
+from app.models.weeder_item import WeederItem
 
 # ── resolve DB file path from the configured DATABASE_URL ────────────────────
 if settings.database_url.startswith("sqlite:///"):
@@ -90,6 +92,38 @@ with Session(engine) as s:
         s.add(UserDepartment(user_id=user.id, department_id=depts[dept_code].id))
     s.flush()
     print(f"  Users       : {len(users_seed)}")
+
+    # ── Attachment Items ─────────────────────────────────────────────────────
+    attachments_seed = [
+        ("ATT-001", "Rotavator Attachment 3-pt",  12.0, 5.0,  28500.0, "Warehouse A - Rack 1"),
+        ("ATT-002", "MB Plough - Single Bottom",  8.0,  3.0,  15000.0, "Warehouse A - Rack 2"),
+        ("ATT-003", "Disc Harrow 16-disc",        5.0,  2.0,  42000.0, "Warehouse B - Bay 1"),
+        ("ATT-004", "Cultivator 9-tine",          3.0,  2.0,  18500.0, "Warehouse B - Bay 2"),
+        ("ATT-005", "Rear Blade / Land Leveller",  7.0,  3.0,  22000.0, "Warehouse A - Rack 3"),
+    ]
+    for sn, desc, qty, rl, rate, loc in attachments_seed:
+        s.add(AttachmentItem(
+            sn_no=sn, description=desc, qty=qty, reorder_level=rl,
+            rate_per_unit=rate, storage_location=loc,
+            is_active=True, created_at=NOW, updated_at=NOW,
+        ))
+    print(f"  Attachments : {len(attachments_seed)}")
+
+    # ── Weeder Items ─────────────────────────────────────────────────────────
+    weeders_seed = [
+        ("WDR-001", "Inter-row Weeder 5-row",       10.0, 4.0,  12000.0, "Shed C - Section 1"),
+        ("WDR-002", "Wheel Hoe Weeder",              6.0,  3.0,   4500.0, "Shed C - Section 2"),
+        ("WDR-003", "Power Weeder 5HP",              4.0,  2.0,  38000.0, "Shed D - Bay A"),
+        ("WDR-004", "Hand-push Row Weeder",         15.0,  5.0,   2800.0, "Shed C - Section 3"),
+        ("WDR-005", "Rotary Weeder Drum Type",       3.0,  2.0,   9500.0, "Shed D - Bay B"),
+    ]
+    for sn, desc, qty, rl, rate, loc in weeders_seed:
+        s.add(WeederItem(
+            sn_no=sn, description=desc, qty=qty, reorder_level=rl,
+            rate_per_unit=rate, storage_location=loc,
+            is_active=True, created_at=NOW, updated_at=NOW,
+        ))
+    print(f"  Weeders     : {len(weeders_seed)}")
 
     s.commit()
 

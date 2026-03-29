@@ -1,0 +1,277 @@
+"""Weeders inventory router.
+
+Endpoints:
+  GET    /api/v1/weeders          — paginated list
+  POST   /api/v1/weeders          — create
+  GET    /api/v1/weeders/{id}     — single item
+  PUT    /api/v1/weeders/{id}     — update
+  DELETE /api/v1/weeders/{id}     — soft-delete (set is_active=False)
+  POST   /api/v1/weeders/{id}/adjust  — stock adjustment
+  GET    /api/v1/weeders/{id}/history — change history
+"""
+from datetime import datetime, timezone
+from typing import Annotated, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
+from sqlalchemy import or_
+from sqlmodel import Session, func, select
+
+from app.core.database import get_session
+from app.dependencies.auth import get_current_user, require_admin
+from app.models.weeder_item import WeederItem
+from app.models.weeder_history import WeederHistory
+from app.models.user import User
+
+router = APIRouter(prefix="/api/v1/weeders", tags=["weeders"])
+
+SessionDep = Annotated[Session, Depends(get_session)]
+CurrentUser = Annotated[User, Depends(get_current_user)]
+AdminUser   = Annotated[User, Depends(require_admin)]
+
+
+# ── Schemas ───────────────────────────────────────────────────────────────────
+
+class WeederCreate(BaseModel):
+    sn_no: Optional[str] = None
+    description: Optional[str] = None
+    qty: float = 0.0
+    reorder_level: float = 0.0
+    rate_per_unit: Optional[float] = None
+    storage_location: Optional[str] = None
+    image_base64: Optional[str] = None
+
+
+class WeederUpdate(BaseModel):
+    sn_no: Optional[str] = None
+    description: Optional[str] = None
+    qty: Optional[float] = None
+    reorder_level: Optional[float] = None
+    rate_per_unit: Optional[float] = None
+    storage_location: Optional[str] = None
+    image_base64: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class AdjustRequest(BaseModel):
+    adjustment_type: str   # "add" | "subtract" | "set"
+    quantity: float
+    note: Optional[str] = None
+
+
+class HistoryOut(BaseModel):
+    id: int
+    weeder_id: int
+    changed_by_username: Optional[str]
+    changed_at: str
+    change_type: str
+    qty_before: float
+    qty_after: float
+    qty_delta: float
+    note: Optional[str]
+
+
+class WeederOut(BaseModel):
+    id: int
+    sn_no: Optional[str]
+    description: Optional[str]
+    qty: float
+    reorder_level: float
+    rate_per_unit: Optional[float]
+    total_rate: Optional[float]     # computed: qty * rate_per_unit
+    storage_location: Optional[str]
+    image_base64: Optional[str]
+    is_active: bool
+    created_at: str
+    updated_at: str
+
+
+def _dt(d: datetime | None) -> str:
+    if d is None:
+        return datetime.now(tz=timezone.utc).isoformat()
+    if d.tzinfo is None:
+        d = d.replace(tzinfo=timezone.utc)
+    return d.isoformat()
+
+
+def _out(w: WeederItem) -> WeederOut:
+    return WeederOut(
+        id=w.id,  # type: ignore[arg-type]
+        sn_no=w.sn_no,
+        description=w.description,
+        qty=w.qty,
+        reorder_level=w.reorder_level,
+        rate_per_unit=w.rate_per_unit,
+        total_rate=round(w.qty * w.rate_per_unit, 2) if w.rate_per_unit is not None else None,
+        storage_location=w.storage_location,
+        image_base64=w.image_base64,
+        is_active=w.is_active,
+        created_at=_dt(w.created_at),
+        updated_at=_dt(w.updated_at),
+    )
+
+
+# ── Endpoints ─────────────────────────────────────────────────────────────────
+
+@router.get("")
+def list_weeders(
+    session: SessionDep,
+    _: CurrentUser,
+    search: Optional[str] = Query(default=None),
+    include_inactive: bool = Query(default=False),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=1000),
+) -> dict:
+    q = select(WeederItem)
+    if not include_inactive:
+        q = q.where(WeederItem.is_active == True)  # noqa: E712
+    if search:
+        pat = f"%{search}%"
+        q = q.where(or_(
+            WeederItem.sn_no.ilike(pat),            # type: ignore[union-attr]
+            WeederItem.description.ilike(pat),      # type: ignore[union-attr]
+            WeederItem.storage_location.ilike(pat), # type: ignore[union-attr]
+        ))
+    total = session.exec(select(func.count()).select_from(q.subquery())).one()
+    items = session.exec(q.order_by(WeederItem.sn_no).offset((page - 1) * page_size).limit(page_size)).all()
+    return {
+        "items": [_out(w) for w in items],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "pages": max(1, -(-total // page_size)),
+    }
+
+
+@router.post("", status_code=status.HTTP_201_CREATED)
+def create_weeder(body: WeederCreate, session: SessionDep, _: AdminUser) -> WeederOut:
+    now = datetime.now(tz=timezone.utc)
+    w = WeederItem(
+        sn_no=body.sn_no or None,
+        description=body.description or None,
+        qty=body.qty,
+        reorder_level=body.reorder_level,
+        rate_per_unit=body.rate_per_unit,
+        storage_location=body.storage_location or None,
+        image_base64=body.image_base64,
+        created_at=now,
+        updated_at=now,
+    )
+    session.add(w)
+    session.commit()
+    session.refresh(w)
+    return _out(w)
+
+
+@router.get("/{item_id}")
+def get_weeder(item_id: int, session: SessionDep, _: CurrentUser) -> WeederOut:
+    w = session.get(WeederItem, item_id)
+    if not w:
+        raise HTTPException(status_code=404, detail="Weeder not found")
+    return _out(w)
+
+
+@router.put("/{item_id}")
+def update_weeder(item_id: int, body: WeederUpdate, session: SessionDep, _: AdminUser) -> WeederOut:
+    w = session.get(WeederItem, item_id)
+    if not w:
+        raise HTTPException(status_code=404, detail="Weeder not found")
+    if body.sn_no is not None:
+        w.sn_no = body.sn_no or None
+    if body.description is not None:
+        w.description = body.description or None
+    if body.qty is not None:
+        w.qty = body.qty
+    if body.reorder_level is not None:
+        w.reorder_level = body.reorder_level
+    if body.rate_per_unit is not None:
+        w.rate_per_unit = body.rate_per_unit
+    if body.storage_location is not None:
+        w.storage_location = body.storage_location or None
+    if body.image_base64 is not None:
+        w.image_base64 = body.image_base64 or None
+    if body.is_active is not None:
+        w.is_active = body.is_active
+    w.updated_at = datetime.now(tz=timezone.utc)
+    session.add(w)
+    session.commit()
+    session.refresh(w)
+    return _out(w)
+
+
+@router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_weeder(item_id: int, session: SessionDep, _: AdminUser) -> None:
+    w = session.get(WeederItem, item_id)
+    if not w:
+        raise HTTPException(status_code=404, detail="Weeder not found")
+    w.is_active = False
+    w.updated_at = datetime.now(tz=timezone.utc)
+    session.add(w)
+    session.commit()
+
+
+@router.post("/{item_id}/adjust")
+def adjust_weeder_stock(
+    item_id: int, body: AdjustRequest, session: SessionDep, current_user: CurrentUser,
+) -> WeederOut:
+    w = session.get(WeederItem, item_id)
+    if not w:
+        raise HTTPException(status_code=404, detail="Weeder not found")
+    qty_before = w.qty
+    if body.adjustment_type == "add":
+        w.qty += body.quantity
+    elif body.adjustment_type == "subtract":
+        w.qty = max(0.0, w.qty - body.quantity)
+    elif body.adjustment_type == "set":
+        w.qty = body.quantity
+    else:
+        raise HTTPException(status_code=400, detail="adjustment_type must be add|subtract|set")
+    qty_after = w.qty
+    w.updated_at = datetime.now(tz=timezone.utc)
+    session.add(w)
+    hist = WeederHistory(
+        weeder_id=item_id,
+        changed_by_user_id=current_user.id,  # type: ignore[arg-type]
+        changed_by_username=current_user.username,
+        changed_at=w.updated_at,
+        change_type=body.adjustment_type,
+        qty_before=qty_before,
+        qty_after=qty_after,
+        qty_delta=qty_after - qty_before,
+        note=body.note or None,
+    )
+    session.add(hist)
+    session.commit()
+    session.refresh(w)
+    return _out(w)
+
+
+@router.get("/{item_id}/history")
+def get_weeder_history(
+    item_id: int, session: SessionDep, _: AdminUser,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+) -> list[HistoryOut]:
+    w = session.get(WeederItem, item_id)
+    if not w:
+        raise HTTPException(status_code=404, detail="Weeder not found")
+    rows = session.exec(
+        select(WeederHistory)
+        .where(WeederHistory.weeder_id == item_id)
+        .order_by(WeederHistory.changed_at.desc())  # type: ignore[union-attr]
+        .offset(offset).limit(limit)
+    ).all()
+    return [
+        HistoryOut(
+            id=r.id,  # type: ignore[arg-type]
+            weeder_id=r.weeder_id,
+            changed_by_username=r.changed_by_username,
+            changed_at=_dt(r.changed_at),
+            change_type=r.change_type,
+            qty_before=r.qty_before,
+            qty_after=r.qty_after,
+            qty_delta=r.qty_delta,
+            note=r.note,
+        )
+        for r in rows
+    ]

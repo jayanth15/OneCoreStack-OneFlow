@@ -1,0 +1,1059 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import {
+  Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage,
+} from "@/components/ui/breadcrumb";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import { apiFetchJson } from "@/lib/api";
+import { isAdminOrAbove } from "@/lib/user";
+import {
+  PlusIcon, Search, ChevronLeft, ChevronRight, CheckCircle, XCircle,
+  Clock, Ban, Eye, Pencil, History, AlertTriangle, ShoppingCart, Megaphone, X,
+} from "lucide-react";
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface PurchaseRequest {
+  id: number; sn_no: string;
+  inventory_item_id: number | null; item_name: string | null;
+  item_code: string | null; item_type: string | null;
+  description: string | null; quantity: number;
+  from_whom: string | null; timeline_days: number | null;
+  notes: string | null; status: string;
+  requested_by_username: string | null; department: string | null;
+  reviewed_by_username: string | null; reviewed_at: string | null;
+  review_note: string | null; deadline_date: string | null;
+  created_at: string; updated_at: string;
+}
+
+interface MarketingRequest {
+  id: number; sn_no: string;
+  inventory_type: string; item_id: number | null;
+  item_sn_no: string | null; item_description: string | null;
+  quantity: number; timeline_days: number | null;
+  customer_name: string | null; customer_phone: string | null;
+  customer_address: string | null; bought_by: string | null;
+  delivery_type: string | null; remarks: string | null;
+  status: string; requested_by_username: string | null;
+  department: string | null; reviewed_by_username: string | null;
+  reviewed_at: string | null; review_note: string | null;
+  deadline_date: string | null; created_at: string; updated_at: string;
+}
+
+interface HistoryEntry {
+  id: number; request_id: number; changed_by_username: string | null;
+  changed_at: string; change_type: string; field_name: string | null;
+  old_value: string | null; new_value: string | null; note: string | null;
+}
+
+interface PaginatedResponse<T> { items: T[]; total: number; page: number; page_size: number; pages: number; }
+
+interface InvItem { id: number; code: string; name: string; item_type: string; unit: string; }
+interface WeedAttItem { id: number; sn_no: string | null; description: string | null; }
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+const STATUS_CONFIG: Record<string, { label: string; color: string; Icon: React.ElementType }> = {
+  pending:      { label: "Pending",      color: "bg-amber-100 text-amber-700 border-amber-200",  Icon: Clock },
+  approved:     { label: "Approved",     color: "bg-green-100 text-green-700 border-green-200",  Icon: CheckCircle },
+  not_approved: { label: "Not Approved", color: "bg-red-100   text-red-700   border-red-200",    Icon: XCircle },
+  cancelled:    { label: "Cancelled",    color: "bg-gray-100  text-gray-600  border-gray-200",   Icon: Ban },
+};
+
+const STATUSES = ["all", "pending", "approved", "not_approved", "cancelled"];
+
+function StatusBadge({ status }: { status: string }) {
+  const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.pending;
+  const { label, color, Icon } = cfg;
+  return (
+    <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${color}`}>
+      <Icon className="size-3" />{label}
+    </span>
+  );
+}
+
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function fmtDateTime(iso: string) {
+  return new Date(iso).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "2-digit", hour: "2-digit", minute: "2-digit", hour12: true });
+}
+
+function DeadlineBadge({ deadlineDate }: { deadlineDate: string | null }) {
+  if (!deadlineDate) return null;
+  const daysLeft = Math.ceil((new Date(deadlineDate).getTime() - Date.now()) / 86400000);
+  if (daysLeft > 0) return <span className="text-xs text-green-600 font-medium">{daysLeft}d left</span>;
+  if (daysLeft === 0) return <span className="text-xs text-amber-600 font-medium">Due today</span>;
+  return <span className="text-xs text-red-600 font-medium">{Math.abs(daysLeft)}d overdue</span>;
+}
+
+// ── SSR Combobox ──────────────────────────────────────────────────────────────
+
+function InvCombobox({ value, onChange }: {
+  value: string;
+  onChange: (item: InvItem) => void;
+}) {
+  const [query, setQuery] = useState(value);
+  const [results, setResults] = useState<InvItem[]>([]);
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => { setQuery(value); }, [value]);
+
+  const search = useCallback((q: string) => {
+    if (timer.current) clearTimeout(timer.current);
+    if (!q.trim()) { setResults([]); return; }
+    timer.current = setTimeout(async () => {
+      setBusy(true);
+      try {
+        const d = await apiFetchJson<PaginatedResponse<InvItem>>(
+          `/api/v1/inventory?search=${encodeURIComponent(q)}&page_size=15&include_inactive=false`
+        );
+        setResults(d.items);
+      } catch { /* ignore */ }
+      finally { setBusy(false); }
+    }, 300);
+  }, []);
+
+  return (
+    <div className="relative">
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+        <Input
+          className="pl-8"
+          placeholder="Search inventory items…"
+          value={query}
+          onFocus={() => setOpen(true)}
+          onChange={e => { setQuery(e.target.value); search(e.target.value); setOpen(true); }}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+        />
+        {busy && <span className="absolute right-2.5 top-1/2 -translate-y-1/2 size-3.5 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />}
+      </div>
+      {open && results.length > 0 && (
+        <div className="absolute z-50 w-full rounded-md border bg-popover shadow-lg mt-1 max-h-56 overflow-y-auto">
+          {results.map(item => (
+            <button key={item.id} type="button"
+              className="w-full text-left px-3 py-2 text-sm hover:bg-accent flex items-center gap-2"
+              onMouseDown={() => { onChange(item); setQuery(`${item.code} — ${item.name}`); setOpen(false); }}>
+              <span className="font-mono text-xs text-muted-foreground w-20 shrink-0 truncate">{item.code}</span>
+              <span className="truncate">{item.name}</span>
+              <span className="ml-auto text-xs text-muted-foreground shrink-0">{item.item_type?.replace("_", " ")}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WeedAttCombobox({ apiBase, value, onChange }: {
+  apiBase: string;
+  value: string;
+  onChange: (item: WeedAttItem) => void;
+}) {
+  const [query, setQuery] = useState(value);
+  const [results, setResults] = useState<WeedAttItem[]>([]);
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => { setQuery(value); }, [value]);
+
+  const search = useCallback((q: string) => {
+    if (timer.current) clearTimeout(timer.current);
+    if (!q.trim()) { setResults([]); return; }
+    timer.current = setTimeout(async () => {
+      setBusy(true);
+      try {
+        const d = await apiFetchJson<PaginatedResponse<WeedAttItem>>(
+          `${apiBase}?search=${encodeURIComponent(q)}&page_size=15&include_inactive=false`
+        );
+        setResults(d.items);
+      } catch { /* ignore */ }
+      finally { setBusy(false); }
+    }, 300);
+  }, [apiBase]);
+
+  return (
+    <div className="relative">
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+        <Input
+          className="pl-8"
+          placeholder="Search by SN No. or description…"
+          value={query}
+          onFocus={() => { setOpen(true); if (!results.length && query) search(query); }}
+          onChange={e => { setQuery(e.target.value); search(e.target.value); setOpen(true); }}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+        />
+        {busy && <span className="absolute right-2.5 top-1/2 -translate-y-1/2 size-3.5 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />}
+      </div>
+      {open && results.length > 0 && (
+        <div className="absolute z-50 w-full rounded-md border bg-popover shadow-lg mt-1 max-h-56 overflow-y-auto">
+          {results.map(item => (
+            <button key={item.id} type="button"
+              className="w-full text-left px-3 py-2 text-sm hover:bg-accent flex items-center gap-2"
+              onMouseDown={() => {
+                onChange(item);
+                setQuery([item.sn_no, item.description].filter(Boolean).join(" — "));
+                setOpen(false);
+              }}>
+              {item.sn_no && <span className="font-mono text-xs text-muted-foreground w-24 shrink-0 truncate">{item.sn_no}</span>}
+              <span className="truncate text-sm">{item.description ?? "—"}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── History Dialog ────────────────────────────────────────────────────────────
+
+const CHANGE_COLORS: Record<string, string> = {
+  created:   "text-blue-600",
+  edited:    "text-amber-600",
+  approved:  "text-green-600",
+  rejected:  "text-red-600",
+  cancelled: "text-gray-500",
+};
+
+function HistoryDialog({ open, onClose, url, title }: { open: boolean; onClose: () => void; url: string; title: string }) {
+  const [rows, setRows] = useState<HistoryEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setLoading(true);
+    apiFetchJson<HistoryEntry[]>(`${url}?limit=50&offset=0`)
+      .then(setRows).catch(() => {}).finally(() => setLoading(false));
+  }, [open, url]);
+
+  return (
+    <Dialog open={open} onOpenChange={o => !o && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader><DialogTitle className="flex items-center gap-2"><History className="size-4" /> History — {title}</DialogTitle></DialogHeader>
+        {loading ? (
+          <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div>
+        ) : rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-6">No history recorded yet.</p>
+        ) : (
+          <div className="max-h-[60vh] overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-background">
+                <tr className="border-b">
+                  <th className="px-3 py-2 text-left text-muted-foreground font-medium">Date</th>
+                  <th className="px-3 py-2 text-left text-muted-foreground font-medium">Action</th>
+                  <th className="px-3 py-2 text-left text-muted-foreground font-medium">Field</th>
+                  <th className="px-3 py-2 text-left text-muted-foreground font-medium">Before</th>
+                  <th className="px-3 py-2 text-left text-muted-foreground font-medium">After</th>
+                  <th className="px-3 py-2 text-left text-muted-foreground font-medium">By</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {rows.map(r => (
+                  <tr key={r.id} className="hover:bg-muted/20">
+                    <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{fmtDateTime(r.changed_at)}</td>
+                    <td className={`px-3 py-2 text-xs font-semibold capitalize ${CHANGE_COLORS[r.change_type] ?? ""}`}>{r.change_type}</td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">{r.field_name ?? (r.note ? <span className="italic">{r.note}</span> : "—")}</td>
+                    <td className="px-3 py-2 text-xs">{r.old_value ?? "—"}</td>
+                    <td className="px-3 py-2 text-xs">{r.new_value ?? "—"}</td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">{r.changed_by_username ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Purchase / Production Tab ─────────────────────────────────────────────────
+
+const P_BLANK = { item_name: "", item_code: "", item_type: "", description: "", quantity: "1", from_whom: "", timeline_days: "", notes: "", department: "" };
+
+function PurchaseTab({ admin }: { admin: boolean }) {
+  const [items, setItems] = useState<PurchaseRequest[]>([]);
+  const [total, setTotal] = useState(0); const [page, setPage] = useState(1); const [pages, setPages] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [search, setSearch] = useState(""); const [searchDraft, setSearchDraft] = useState("");
+
+  const [dialog, setDialog] = useState<"create" | "edit" | "view" | null>(null);
+  const [selected, setSelected] = useState<PurchaseRequest | null>(null);
+  const [form, setForm] = useState({ ...P_BLANK });
+  const [invItemId, setInvItemId] = useState<number | null>(null);
+  const [invLabel, setInvLabel] = useState("");
+  const [saving, setSaving] = useState(false); const [formErr, setFormErr] = useState<string | null>(null);
+
+  const [reviewDialog, setReviewDialog] = useState<"approve" | "reject" | null>(null);
+  const [reviewNote, setReviewNote] = useState("");
+  const [reviewing, setReviewing] = useState(false);
+
+  const [cancelId, setCancelId] = useState<number | null>(null);
+  const [cancelNote, setCancelNote] = useState(""); const [cancelling, setCancelling] = useState(false);
+
+  const [histReq, setHistReq] = useState<PurchaseRequest | null>(null);
+
+  const PAGE_SIZE = 20;
+
+  const fetch = useCallback((p = page) => {
+    setLoading(true);
+    const params = new URLSearchParams({ page: String(p), page_size: String(PAGE_SIZE) });
+    if (statusFilter !== "all") params.set("status", statusFilter);
+    if (search) params.set("search", search);
+    apiFetchJson<PaginatedResponse<PurchaseRequest>>(`/api/v1/purchase-requests?${params}`)
+      .then(d => { setItems(d.items); setTotal(d.total); setPage(d.page); setPages(d.pages); })
+      .catch(() => {}).finally(() => setLoading(false));
+  }, [statusFilter, search, page]); // eslint-disable-line
+
+  useEffect(() => { fetch(1); }, [statusFilter, search]); // eslint-disable-line
+
+  function openCreate() {
+    setSelected(null); setForm({ ...P_BLANK }); setInvItemId(null); setInvLabel(""); setFormErr(null); setDialog("create");
+  }
+  function openEdit(r: PurchaseRequest) {
+    setSelected(r);
+    setForm({
+      item_name: r.item_name ?? "", item_code: r.item_code ?? "", item_type: r.item_type ?? "",
+      description: r.description ?? "", quantity: String(r.quantity),
+      from_whom: r.from_whom ?? "", timeline_days: r.timeline_days != null ? String(r.timeline_days) : "",
+      notes: r.notes ?? "", department: r.department ?? "",
+    });
+    setInvItemId(r.inventory_item_id);
+    setInvLabel(r.item_code && r.item_name ? `${r.item_code} — ${r.item_name}` : r.item_name ?? "");
+    setFormErr(null); setDialog("edit");
+  }
+
+  async function save() {
+    if (!form.item_name.trim() && !invItemId) { setFormErr("Please select or name an item"); return; }
+    setSaving(true); setFormErr(null);
+    const body = {
+      inventory_item_id: invItemId, item_name: form.item_name || null,
+      item_code: form.item_code || null, item_type: form.item_type || null,
+      description: form.description || null, quantity: parseFloat(form.quantity) || 1,
+      from_whom: form.from_whom || null, timeline_days: form.timeline_days ? parseInt(form.timeline_days) : null,
+      notes: form.notes || null, department: form.department || null,
+    };
+    try {
+      if (dialog === "create") await apiFetchJson("/api/v1/purchase-requests", { method: "POST", body: JSON.stringify(body) });
+      else await apiFetchJson(`/api/v1/purchase-requests/${selected!.id}`, { method: "PUT", body: JSON.stringify(body) });
+      setDialog(null); fetch(dialog === "create" ? 1 : page);
+    } catch (e: unknown) { setFormErr(e instanceof Error ? e.message : "Save failed"); }
+    finally { setSaving(false); }
+  }
+
+  async function doReview() {
+    if (!selected || !reviewDialog) return;
+    setReviewing(true);
+    try {
+      await apiFetchJson(`/api/v1/purchase-requests/${selected.id}/${reviewDialog}`, {
+        method: "POST", body: JSON.stringify({ note: reviewNote || null }),
+      });
+      setReviewDialog(null); setReviewNote(""); fetch(page);
+    } catch { /* ignore */ }
+    finally { setReviewing(false); }
+  }
+
+  async function doCancel() {
+    if (!cancelId) return;
+    setCancelling(true);
+    try {
+      await apiFetchJson(`/api/v1/purchase-requests/${cancelId}/cancel`, {
+        method: "POST", body: JSON.stringify({ note: cancelNote || null }),
+      });
+      setCancelId(null); fetch(page);
+    } catch { /* ignore */ }
+    finally { setCancelling(false); }
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Status filter + action row */}
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex gap-1 flex-wrap">
+          {STATUSES.map(s => (
+            <button key={s}
+              className={`text-xs px-3 py-1 rounded-full border font-medium transition-colors ${statusFilter === s ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-muted"}`}
+              onClick={() => { setStatusFilter(s); setPage(1); }}>
+              {s === "all" ? "All" : STATUS_CONFIG[s]?.label ?? s}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-2 items-center">
+          <form onSubmit={e => { e.preventDefault(); setSearch(searchDraft.trim()); setPage(1); }} className="flex gap-1">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+              <input value={searchDraft} onChange={e => setSearchDraft(e.target.value)} placeholder="Search…"
+                className="pl-8 pr-3 py-1.5 text-sm rounded-md border bg-background focus:outline-none focus:ring-2 focus:ring-ring w-44" />
+            </div>
+            <Button type="submit" size="sm" variant="secondary">Search</Button>
+            {search && <Button type="button" size="sm" variant="ghost" onClick={() => { setSearch(""); setSearchDraft(""); }}><X className="size-3.5" /></Button>}
+          </form>
+          <Button size="sm" onClick={openCreate}><PlusIcon className="size-4 mr-1" />New Request</Button>
+        </div>
+      </div>
+
+      {/* Table */}
+      {loading ? <div className="space-y-2">{[1,2,3,4].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div>
+       : items.length === 0 ? (
+        <div className="rounded-xl border p-12 text-center">
+          <ShoppingCart className="size-10 mx-auto text-muted-foreground/30 mb-3" />
+          <p className="text-sm text-muted-foreground">{search ? `No results for "${search}"` : "No purchase requests yet."}</p>
+          {!search && <Button size="sm" className="mt-3" onClick={openCreate}><PlusIcon className="size-4 mr-1" />Create First Request</Button>}
+        </div>
+       ) : (
+        <>
+          <div className="rounded-lg border overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[900px]">
+                <thead><tr className="border-b bg-muted/50">
+                  <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">SN No.</th>
+                  <th className="px-4 py-2.5 text-left font-medium">Item</th>
+                  <th className="px-4 py-2.5 text-right font-medium">Qty</th>
+                  <th className="px-4 py-2.5 text-left font-medium">From Whom</th>
+                  <th className="px-4 py-2.5 text-left font-medium">Timeline</th>
+                  <th className="px-4 py-2.5 text-left font-medium">Status</th>
+                  {admin && <th className="px-4 py-2.5 text-left font-medium">Requested By</th>}
+                  <th className="px-4 py-2.5 text-left font-medium">Date</th>
+                  <th className="px-4 py-2.5 text-right font-medium">Actions</th>
+                </tr></thead>
+                <tbody className="divide-y">
+                  {items.map(r => (
+                    <tr key={r.id} className="hover:bg-muted/20">
+                      <td className="px-4 py-3"><Badge variant="secondary" className="font-mono text-xs">{r.sn_no}</Badge></td>
+                      <td className="px-4 py-3 max-w-[200px]">
+                        <p className="font-medium truncate">{r.item_name ?? "—"}</p>
+                        {r.item_code && <p className="text-xs text-muted-foreground font-mono">{r.item_code}</p>}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums font-medium">{r.quantity}</td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground max-w-[130px] truncate">{r.from_whom ?? "—"}</td>
+                      <td className="px-4 py-3">
+                        {r.timeline_days ? (
+                          <div className="text-xs">
+                            <span className="text-muted-foreground">{r.timeline_days}d</span>
+                            {r.deadline_date && <> · <DeadlineBadge deadlineDate={r.deadline_date} /></>}
+                          </div>
+                        ) : <span className="text-muted-foreground text-xs">—</span>}
+                      </td>
+                      <td className="px-4 py-3"><StatusBadge status={r.status} /></td>
+                      {admin && <td className="px-4 py-3 text-sm text-muted-foreground">{r.requested_by_username ?? "—"}{r.department && <span className="block text-xs">{r.department}</span>}</td>}
+                      <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{fmtDate(r.created_at)}</td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="inline-flex gap-1">
+                          <Button variant="ghost" size="icon" className="size-7" title="View" onClick={() => { setSelected(r); setDialog("view"); }}><Eye className="size-3.5 text-blue-600" /></Button>
+                          {r.status === "pending" && <Button variant="ghost" size="icon" className="size-7" title="Edit" onClick={() => openEdit(r)}><Pencil className="size-3.5" /></Button>}
+                          {admin && r.status === "pending" && <>
+                            <Button variant="ghost" size="icon" className="size-7" title="Approve" onClick={() => { setSelected(r); setReviewNote(""); setReviewDialog("approve"); }}><CheckCircle className="size-3.5 text-green-600" /></Button>
+                            <Button variant="ghost" size="icon" className="size-7" title="Reject" onClick={() => { setSelected(r); setReviewNote(""); setReviewDialog("reject"); }}><XCircle className="size-3.5 text-red-600" /></Button>
+                          </>}
+                          {r.status === "pending" && <Button variant="ghost" size="icon" className="size-7" title="Cancel" onClick={() => { setCancelId(r.id); setCancelNote(""); }}><Ban className="size-3.5 text-amber-600" /></Button>}
+                          <Button variant="ghost" size="icon" className="size-7" title="History" onClick={() => setHistReq(r)}><History className="size-3.5 text-muted-foreground" /></Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {pages > 1 && (
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-xs text-muted-foreground">Page {page} of {pages} · {total} total</span>
+              <div className="flex gap-1">
+                <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => { const p = page-1; setPage(p); fetch(p); }}><ChevronLeft className="size-4 mr-1" />Prev</Button>
+                <Button size="sm" variant="outline" disabled={page >= pages} onClick={() => { const p = page+1; setPage(p); fetch(p); }}>Next<ChevronRight className="size-4 ml-1" /></Button>
+              </div>
+            </div>
+          )}
+        </>
+       )}
+
+      {/* Create / Edit Dialog */}
+      <Dialog open={dialog === "create" || dialog === "edit"} onOpenChange={o => !o && setDialog(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>{dialog === "create" ? "New Purchase Request" : `Edit — ${selected?.sn_no ?? ""}`}</DialogTitle></DialogHeader>
+          <div className="space-y-4 mt-1">
+            <div className="space-y-1.5">
+              <Label>Inventory Item <span className="text-muted-foreground font-normal text-xs">(search to select, or type manually below)</span></Label>
+              <InvCombobox value={invLabel} onChange={item => {
+                setInvItemId(item.id);
+                setInvLabel(`${item.code} — ${item.name}`);
+                setForm(f => ({ ...f, item_name: item.name, item_code: item.code, item_type: item.item_type, description: "" }));
+              }} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Item Name <span className="text-xs text-muted-foreground">(manual)</span></Label>
+                <Input placeholder="Item name" value={form.item_name} onChange={e => setForm(f => ({ ...f, item_name: e.target.value }))} disabled={saving} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Item Code</Label>
+                <Input placeholder="Code / SKU" value={form.item_code} onChange={e => setForm(f => ({ ...f, item_code: e.target.value }))} disabled={saving} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Description</Label>
+              <textarea rows={2} placeholder="Description or specification…" value={form.description}
+                onChange={e => setForm(f => ({ ...f, description: e.target.value }))} disabled={saving}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label>Quantity *</Label>
+                <Input type="number" min="0.001" step="any" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} disabled={saving} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Timeline (days)</Label>
+                <Input type="number" min="1" step="1" placeholder="e.g. 7" value={form.timeline_days} onChange={e => setForm(f => ({ ...f, timeline_days: e.target.value }))} disabled={saving} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Department</Label>
+                <Input placeholder="e.g. Purchase" value={form.department} onChange={e => setForm(f => ({ ...f, department: e.target.value }))} disabled={saving} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>From Whom <span className="text-xs text-muted-foreground">(supplier / vendor)</span></Label>
+              <Input placeholder="Supplier name or source" value={form.from_whom} onChange={e => setForm(f => ({ ...f, from_whom: e.target.value }))} disabled={saving} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Notes</Label>
+              <textarea rows={2} placeholder="Any additional notes…" value={form.notes}
+                onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} disabled={saving}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
+            </div>
+            {formErr && <p className="text-sm text-destructive">{formErr}</p>}
+            <div className="flex gap-3 pt-1">
+              <Button onClick={save} disabled={saving} className="flex-1">{saving ? "Saving…" : dialog === "create" ? "Submit Request" : "Save Changes"}</Button>
+              <Button variant="outline" onClick={() => setDialog(null)} disabled={saving}>Cancel</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Dialog */}
+      <Dialog open={dialog === "view"} onOpenChange={o => !o && setDialog(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>{selected?.sn_no}</DialogTitle></DialogHeader>
+          {selected && (
+            <div className="space-y-3 mt-1 text-sm">
+              <div className="flex items-center gap-2"><StatusBadge status={selected.status} />{selected.deadline_date && <DeadlineBadge deadlineDate={selected.deadline_date} />}</div>
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
+                {selected.item_name && <><dt className="text-muted-foreground">Item</dt><dd className="font-medium">{selected.item_name}{selected.item_code && <span className="ml-2 font-mono text-xs text-muted-foreground">{selected.item_code}</span>}</dd></>}
+                {selected.description && <><dt className="text-muted-foreground">Description</dt><dd>{selected.description}</dd></>}
+                <dt className="text-muted-foreground">Quantity</dt><dd className="font-semibold tabular-nums">{selected.quantity}</dd>
+                {selected.from_whom && <><dt className="text-muted-foreground">From Whom</dt><dd>{selected.from_whom}</dd></>}
+                {selected.timeline_days && <><dt className="text-muted-foreground">Timeline</dt><dd>{selected.timeline_days} days{selected.deadline_date && ` (due ${fmtDate(selected.deadline_date)})`}</dd></>}
+                {selected.department && <><dt className="text-muted-foreground">Department</dt><dd>{selected.department}</dd></>}
+                {selected.notes && <><dt className="text-muted-foreground">Notes</dt><dd>{selected.notes}</dd></>}
+                <dt className="text-muted-foreground">Requested By</dt><dd>{selected.requested_by_username ?? "—"}</dd>
+                <dt className="text-muted-foreground">Date</dt><dd>{fmtDate(selected.created_at)}</dd>
+                {selected.reviewed_by_username && <><dt className="text-muted-foreground">Reviewed By</dt><dd>{selected.reviewed_by_username}{selected.reviewed_at && ` on ${fmtDate(selected.reviewed_at)}`}</dd></>}
+                {selected.review_note && <><dt className="text-muted-foreground">Review Note</dt><dd className="italic">{selected.review_note}</dd></>}
+              </dl>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Approve / Reject Dialog */}
+      <Dialog open={reviewDialog !== null} onOpenChange={o => !o && setReviewDialog(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {reviewDialog === "approve" ? <CheckCircle className="size-4 text-green-600" /> : <XCircle className="size-4 text-red-600" />}
+              {reviewDialog === "approve" ? "Approve" : "Reject"} Request — {selected?.sn_no}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-1">
+            <div className="space-y-1.5">
+              <Label>Note <span className="text-xs text-muted-foreground">(optional)</span></Label>
+              <textarea rows={3} placeholder="Leave a note…" value={reviewNote} onChange={e => setReviewNote(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
+            </div>
+            <div className="flex gap-3">
+              <Button onClick={doReview} disabled={reviewing} className="flex-1"
+                variant={reviewDialog === "reject" ? "destructive" : "default"}>
+                {reviewing ? "Saving…" : reviewDialog === "approve" ? "Approve" : "Reject"}
+              </Button>
+              <Button variant="outline" onClick={() => setReviewDialog(null)} disabled={reviewing}>Cancel</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Alert */}
+      <AlertDialog open={cancelId !== null} onOpenChange={o => !o && setCancelId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel this request?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <div className="space-y-2">
+                <span>This will mark the request as cancelled. You can add a note below.</span>
+                <Input placeholder="Reason (optional)" value={cancelNote} onChange={e => setCancelNote(e.target.value)} />
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cancelling}>Back</AlertDialogCancel>
+            <AlertDialogAction onClick={doCancel} disabled={cancelling}>{cancelling ? "Cancelling…" : "Yes, Cancel"}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* History Dialog */}
+      {histReq && (
+        <HistoryDialog open={!!histReq} onClose={() => setHistReq(null)}
+          url={`/api/v1/purchase-requests/${histReq.id}/history`} title={histReq.sn_no} />
+      )}
+    </div>
+  );
+}
+
+// ── Marketing Tab ─────────────────────────────────────────────────────────────
+
+const M_BLANK = {
+  inventory_type: "weeder", item_sn_no: "", item_description: "", quantity: "1",
+  timeline_days: "", customer_name: "", customer_phone: "", customer_address: "",
+  bought_by: "", delivery_type: "direct", remarks: "", department: "",
+};
+
+function MarketingTab({ admin }: { admin: boolean }) {
+  const [items, setItems] = useState<MarketingRequest[]>([]);
+  const [total, setTotal] = useState(0); const [page, setPage] = useState(1); const [pages, setPages] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [search, setSearch] = useState(""); const [searchDraft, setSearchDraft] = useState("");
+
+  const [dialog, setDialog] = useState<"create" | "edit" | "view" | null>(null);
+  const [selected, setSelected] = useState<MarketingRequest | null>(null);
+  const [form, setForm] = useState({ ...M_BLANK });
+  const [itemId, setItemId] = useState<number | null>(null);
+  const [itemLabel, setItemLabel] = useState("");
+  const [saving, setSaving] = useState(false); const [formErr, setFormErr] = useState<string | null>(null);
+
+  const [reviewDialog, setReviewDialog] = useState<"approve" | "reject" | null>(null);
+  const [reviewNote, setReviewNote] = useState(""); const [reviewing, setReviewing] = useState(false);
+
+  const [cancelId, setCancelId] = useState<number | null>(null);
+  const [cancelNote, setCancelNote] = useState(""); const [cancelling, setCancelling] = useState(false);
+
+  const [histReq, setHistReq] = useState<MarketingRequest | null>(null);
+
+  const PAGE_SIZE = 20;
+
+  const fetch = useCallback((p = page) => {
+    setLoading(true);
+    const params = new URLSearchParams({ page: String(p), page_size: String(PAGE_SIZE) });
+    if (statusFilter !== "all") params.set("status", statusFilter);
+    if (search) params.set("search", search);
+    apiFetchJson<PaginatedResponse<MarketingRequest>>(`/api/v1/marketing-requests?${params}`)
+      .then(d => { setItems(d.items); setTotal(d.total); setPage(d.page); setPages(d.pages); })
+      .catch(() => {}).finally(() => setLoading(false));
+  }, [statusFilter, search, page]); // eslint-disable-line
+
+  useEffect(() => { fetch(1); }, [statusFilter, search]); // eslint-disable-line
+
+  function openCreate() {
+    setSelected(null); setForm({ ...M_BLANK }); setItemId(null); setItemLabel(""); setFormErr(null); setDialog("create");
+  }
+  function openEdit(r: MarketingRequest) {
+    setSelected(r);
+    setForm({
+      inventory_type: r.inventory_type, item_sn_no: r.item_sn_no ?? "", item_description: r.item_description ?? "",
+      quantity: String(r.quantity), timeline_days: r.timeline_days != null ? String(r.timeline_days) : "",
+      customer_name: r.customer_name ?? "", customer_phone: r.customer_phone ?? "",
+      customer_address: r.customer_address ?? "", bought_by: r.bought_by ?? "",
+      delivery_type: r.delivery_type ?? "direct", remarks: r.remarks ?? "", department: r.department ?? "",
+    });
+    setItemId(r.item_id);
+    setItemLabel([r.item_sn_no, r.item_description].filter(Boolean).join(" — "));
+    setFormErr(null); setDialog("edit");
+  }
+
+  async function save() {
+    if (!itemId && !form.item_sn_no.trim() && !form.item_description.trim()) { setFormErr("Please select or describe an item"); return; }
+    setSaving(true); setFormErr(null);
+    const body = {
+      inventory_type: form.inventory_type, item_id: itemId,
+      item_sn_no: form.item_sn_no || null, item_description: form.item_description || null,
+      quantity: parseFloat(form.quantity) || 1,
+      timeline_days: form.timeline_days ? parseInt(form.timeline_days) : null,
+      customer_name: form.customer_name || null, customer_phone: form.customer_phone || null,
+      customer_address: form.customer_address || null, bought_by: form.bought_by || null,
+      delivery_type: form.delivery_type || null, remarks: form.remarks || null,
+      department: form.department || null,
+    };
+    try {
+      if (dialog === "create") await apiFetchJson("/api/v1/marketing-requests", { method: "POST", body: JSON.stringify(body) });
+      else await apiFetchJson(`/api/v1/marketing-requests/${selected!.id}`, { method: "PUT", body: JSON.stringify(body) });
+      setDialog(null); fetch(dialog === "create" ? 1 : page);
+    } catch (e: unknown) { setFormErr(e instanceof Error ? e.message : "Save failed"); }
+    finally { setSaving(false); }
+  }
+
+  async function doReview() {
+    if (!selected || !reviewDialog) return;
+    setReviewing(true);
+    try {
+      await apiFetchJson(`/api/v1/marketing-requests/${selected.id}/${reviewDialog}`, {
+        method: "POST", body: JSON.stringify({ note: reviewNote || null }),
+      });
+      setReviewDialog(null); setReviewNote(""); fetch(page);
+    } catch { /* ignore */ }
+    finally { setReviewing(false); }
+  }
+
+  async function doCancel() {
+    if (!cancelId) return;
+    setCancelling(true);
+    try {
+      await apiFetchJson(`/api/v1/marketing-requests/${cancelId}/cancel`, {
+        method: "POST", body: JSON.stringify({ note: cancelNote || null }),
+      });
+      setCancelId(null); fetch(page);
+    } catch { /* ignore */ }
+    finally { setCancelling(false); }
+  }
+
+  const apiBase = form.inventory_type === "attachment" ? "/api/v1/attachments" : "/api/v1/weeders";
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex gap-1 flex-wrap">
+          {STATUSES.map(s => (
+            <button key={s}
+              className={`text-xs px-3 py-1 rounded-full border font-medium transition-colors ${statusFilter === s ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-muted"}`}
+              onClick={() => { setStatusFilter(s); setPage(1); }}>
+              {s === "all" ? "All" : STATUS_CONFIG[s]?.label ?? s}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-2 items-center">
+          <form onSubmit={e => { e.preventDefault(); setSearch(searchDraft.trim()); setPage(1); }} className="flex gap-1">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+              <input value={searchDraft} onChange={e => setSearchDraft(e.target.value)} placeholder="Search…"
+                className="pl-8 pr-3 py-1.5 text-sm rounded-md border bg-background focus:outline-none focus:ring-2 focus:ring-ring w-44" />
+            </div>
+            <Button type="submit" size="sm" variant="secondary">Search</Button>
+            {search && <Button type="button" size="sm" variant="ghost" onClick={() => { setSearch(""); setSearchDraft(""); }}><X className="size-3.5" /></Button>}
+          </form>
+          <Button size="sm" onClick={openCreate}><PlusIcon className="size-4 mr-1" />New Request</Button>
+        </div>
+      </div>
+
+      {loading ? <div className="space-y-2">{[1,2,3,4].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div>
+       : items.length === 0 ? (
+        <div className="rounded-xl border p-12 text-center">
+          <Megaphone className="size-10 mx-auto text-muted-foreground/30 mb-3" />
+          <p className="text-sm text-muted-foreground">{search ? `No results for "${search}"` : "No marketing requests yet."}</p>
+          {!search && <Button size="sm" className="mt-3" onClick={openCreate}><PlusIcon className="size-4 mr-1" />Create First Request</Button>}
+        </div>
+       ) : (
+        <>
+          <div className="rounded-lg border overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[960px]">
+                <thead><tr className="border-b bg-muted/50">
+                  <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">SN No.</th>
+                  <th className="px-4 py-2.5 text-left font-medium">Type</th>
+                  <th className="px-4 py-2.5 text-left font-medium">Item</th>
+                  <th className="px-4 py-2.5 text-right font-medium">Qty</th>
+                  <th className="px-4 py-2.5 text-left font-medium">Customer</th>
+                  <th className="px-4 py-2.5 text-left font-medium">Delivery</th>
+                  <th className="px-4 py-2.5 text-left font-medium">Timeline</th>
+                  <th className="px-4 py-2.5 text-left font-medium">Status</th>
+                  {admin && <th className="px-4 py-2.5 text-left font-medium">Requested By</th>}
+                  <th className="px-4 py-2.5 text-left font-medium">Date</th>
+                  <th className="px-4 py-2.5 text-right font-medium">Actions</th>
+                </tr></thead>
+                <tbody className="divide-y">
+                  {items.map(r => (
+                    <tr key={r.id} className="hover:bg-muted/20">
+                      <td className="px-4 py-3"><Badge variant="secondary" className="font-mono text-xs">{r.sn_no}</Badge></td>
+                      <td className="px-4 py-3"><Badge variant="outline" className="text-xs capitalize">{r.inventory_type}</Badge></td>
+                      <td className="px-4 py-3 max-w-[180px]">
+                        {r.item_sn_no && <p className="font-mono text-xs text-muted-foreground">{r.item_sn_no}</p>}
+                        <p className="truncate">{r.item_description ?? "—"}</p>
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums font-medium">{r.quantity}</td>
+                      <td className="px-4 py-3 max-w-[150px]">
+                        <p className="font-medium truncate">{r.customer_name ?? "—"}</p>
+                        {r.customer_phone && <p className="text-xs text-muted-foreground">{r.customer_phone}</p>}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground capitalize">{r.delivery_type ?? "—"}</td>
+                      <td className="px-4 py-3">
+                        {r.timeline_days ? (
+                          <div className="text-xs"><span className="text-muted-foreground">{r.timeline_days}d</span>
+                            {r.deadline_date && <> · <DeadlineBadge deadlineDate={r.deadline_date} /></>}</div>
+                        ) : <span className="text-muted-foreground text-xs">—</span>}
+                      </td>
+                      <td className="px-4 py-3"><StatusBadge status={r.status} /></td>
+                      {admin && <td className="px-4 py-3 text-sm text-muted-foreground">{r.requested_by_username ?? "—"}</td>}
+                      <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{fmtDate(r.created_at)}</td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="inline-flex gap-1">
+                          <Button variant="ghost" size="icon" className="size-7" title="View" onClick={() => { setSelected(r); setDialog("view"); }}><Eye className="size-3.5 text-blue-600" /></Button>
+                          {r.status === "pending" && <Button variant="ghost" size="icon" className="size-7" title="Edit" onClick={() => openEdit(r)}><Pencil className="size-3.5" /></Button>}
+                          {admin && r.status === "pending" && <>
+                            <Button variant="ghost" size="icon" className="size-7" title="Approve" onClick={() => { setSelected(r); setReviewNote(""); setReviewDialog("approve"); }}><CheckCircle className="size-3.5 text-green-600" /></Button>
+                            <Button variant="ghost" size="icon" className="size-7" title="Reject" onClick={() => { setSelected(r); setReviewNote(""); setReviewDialog("reject"); }}><XCircle className="size-3.5 text-red-600" /></Button>
+                          </>}
+                          {r.status === "pending" && <Button variant="ghost" size="icon" className="size-7" title="Cancel" onClick={() => { setCancelId(r.id); setCancelNote(""); }}><Ban className="size-3.5 text-amber-600" /></Button>}
+                          <Button variant="ghost" size="icon" className="size-7" title="History" onClick={() => setHistReq(r)}><History className="size-3.5 text-muted-foreground" /></Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {pages > 1 && (
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-xs text-muted-foreground">Page {page} of {pages} · {total} total</span>
+              <div className="flex gap-1">
+                <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => { const p = page-1; setPage(p); fetch(p); }}><ChevronLeft className="size-4" />Prev</Button>
+                <Button size="sm" variant="outline" disabled={page >= pages} onClick={() => { const p = page+1; setPage(p); fetch(p); }}>Next<ChevronRight className="size-4" /></Button>
+              </div>
+            </div>
+          )}
+        </>
+       )}
+
+      {/* Create / Edit Dialog */}
+      <Dialog open={dialog === "create" || dialog === "edit"} onOpenChange={o => !o && setDialog(null)}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>{dialog === "create" ? "New Marketing Request" : `Edit — ${selected?.sn_no ?? ""}`}</DialogTitle></DialogHeader>
+          <div className="space-y-4 mt-1">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Inventory Type *</Label>
+                <select value={form.inventory_type}
+                  onChange={e => { setForm(f => ({ ...f, inventory_type: e.target.value })); setItemId(null); setItemLabel(""); }}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                  <option value="weeder">Weeder</option>
+                  <option value="attachment">Attachment</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Quantity *</Label>
+                <Input type="number" min="0.001" step="any" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} disabled={saving} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Select Item <span className="text-xs text-muted-foreground">(search {form.inventory_type}s)</span></Label>
+              <WeedAttCombobox
+                apiBase={form.inventory_type === "attachment" ? "/api/v1/attachments" : "/api/v1/weeders"}
+                value={itemLabel}
+                onChange={item => {
+                  setItemId(item.id);
+                  setItemLabel([item.sn_no, item.description].filter(Boolean).join(" — "));
+                  setForm(f => ({ ...f, item_sn_no: item.sn_no ?? "", item_description: item.description ?? "" }));
+                }}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Item SN No. <span className="text-xs text-muted-foreground">(manual)</span></Label>
+                <Input placeholder="e.g. WDR-001" value={form.item_sn_no} onChange={e => setForm(f => ({ ...f, item_sn_no: e.target.value }))} disabled={saving} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Timeline (days)</Label>
+                <Input type="number" min="1" placeholder="e.g. 4" value={form.timeline_days} onChange={e => setForm(f => ({ ...f, timeline_days: e.target.value }))} disabled={saving} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Item Description</Label>
+              <Input placeholder="Item description" value={form.item_description} onChange={e => setForm(f => ({ ...f, item_description: e.target.value }))} disabled={saving} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Customer Name</Label>
+                <Input placeholder="Customer name" value={form.customer_name} onChange={e => setForm(f => ({ ...f, customer_name: e.target.value }))} disabled={saving} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Customer Phone</Label>
+                <Input placeholder="+91 …" value={form.customer_phone} onChange={e => setForm(f => ({ ...f, customer_phone: e.target.value }))} disabled={saving} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Customer Address</Label>
+              <Input placeholder="Address" value={form.customer_address} onChange={e => setForm(f => ({ ...f, customer_address: e.target.value }))} disabled={saving} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Bought By</Label>
+                <Input placeholder="Leave blank, fill later" value={form.bought_by} onChange={e => setForm(f => ({ ...f, bought_by: e.target.value }))} disabled={saving} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Delivery Type</Label>
+                <select value={form.delivery_type} onChange={e => setForm(f => ({ ...f, delivery_type: e.target.value }))}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                  <option value="">—</option>
+                  <option value="direct">Direct</option>
+                  <option value="transport">Transport</option>
+                </select>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Remarks</Label>
+              <textarea rows={2} placeholder="Notes or remarks…" value={form.remarks}
+                onChange={e => setForm(f => ({ ...f, remarks: e.target.value }))} disabled={saving}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
+            </div>
+            {formErr && <p className="text-sm text-destructive">{formErr}</p>}
+            <div className="flex gap-3 pt-1">
+              <Button onClick={save} disabled={saving} className="flex-1">{saving ? "Saving…" : dialog === "create" ? "Submit Request" : "Save Changes"}</Button>
+              <Button variant="outline" onClick={() => setDialog(null)} disabled={saving}>Cancel</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Dialog */}
+      <Dialog open={dialog === "view"} onOpenChange={o => !o && setDialog(null)}>
+        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>{selected?.sn_no}</DialogTitle></DialogHeader>
+          {selected && (
+            <div className="space-y-3 mt-1 text-sm">
+              <div className="flex items-center gap-2 flex-wrap"><StatusBadge status={selected.status} /><Badge variant="outline" className="capitalize">{selected.inventory_type}</Badge>{selected.deadline_date && <DeadlineBadge deadlineDate={selected.deadline_date} />}</div>
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
+                {selected.item_sn_no && <><dt className="text-muted-foreground">Item SN</dt><dd className="font-mono">{selected.item_sn_no}</dd></>}
+                {selected.item_description && <><dt className="text-muted-foreground">Description</dt><dd>{selected.item_description}</dd></>}
+                <dt className="text-muted-foreground">Quantity</dt><dd className="font-semibold">{selected.quantity}</dd>
+                {selected.timeline_days && <><dt className="text-muted-foreground">Timeline</dt><dd>{selected.timeline_days} days{selected.deadline_date && ` (due ${fmtDate(selected.deadline_date)})`}</dd></>}
+                {selected.customer_name && <><dt className="text-muted-foreground">Customer</dt><dd>{selected.customer_name}</dd></>}
+                {selected.customer_phone && <><dt className="text-muted-foreground">Phone</dt><dd>{selected.customer_phone}</dd></>}
+                {selected.customer_address && <><dt className="text-muted-foreground">Address</dt><dd>{selected.customer_address}</dd></>}
+                {selected.bought_by && <><dt className="text-muted-foreground">Bought By</dt><dd>{selected.bought_by}</dd></>}
+                {selected.delivery_type && <><dt className="text-muted-foreground">Delivery</dt><dd className="capitalize">{selected.delivery_type}</dd></>}
+                {selected.remarks && <><dt className="text-muted-foreground">Remarks</dt><dd>{selected.remarks}</dd></>}
+                <dt className="text-muted-foreground">Requested By</dt><dd>{selected.requested_by_username ?? "—"}</dd>
+                <dt className="text-muted-foreground">Date</dt><dd>{fmtDate(selected.created_at)}</dd>
+                {selected.reviewed_by_username && <><dt className="text-muted-foreground">Reviewed By</dt><dd>{selected.reviewed_by_username}{selected.reviewed_at && ` on ${fmtDate(selected.reviewed_at)}`}</dd></>}
+                {selected.review_note && <><dt className="text-muted-foreground">Review Note</dt><dd className="italic">{selected.review_note}</dd></>}
+              </dl>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Approve / Reject Dialog */}
+      <Dialog open={reviewDialog !== null} onOpenChange={o => !o && setReviewDialog(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {reviewDialog === "approve" ? <CheckCircle className="size-4 text-green-600" /> : <XCircle className="size-4 text-red-600" />}
+              {reviewDialog === "approve" ? "Approve" : "Reject"} — {selected?.sn_no}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-1">
+            <textarea rows={3} placeholder="Leave a note… (optional)" value={reviewNote} onChange={e => setReviewNote(e.target.value)}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
+            <div className="flex gap-3">
+              <Button onClick={doReview} disabled={reviewing} className="flex-1" variant={reviewDialog === "reject" ? "destructive" : "default"}>
+                {reviewing ? "Saving…" : reviewDialog === "approve" ? "Approve" : "Reject"}
+              </Button>
+              <Button variant="outline" onClick={() => setReviewDialog(null)} disabled={reviewing}>Cancel</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Alert */}
+      <AlertDialog open={cancelId !== null} onOpenChange={o => !o && setCancelId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel this request?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <div className="space-y-2 mt-1">
+                <span className="text-sm">This marks the request as cancelled.</span>
+                <Input placeholder="Reason (optional)" value={cancelNote} onChange={e => setCancelNote(e.target.value)} />
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cancelling}>Back</AlertDialogCancel>
+            <AlertDialogAction onClick={doCancel} disabled={cancelling}>{cancelling ? "Cancelling…" : "Yes, Cancel"}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {histReq && (
+        <HistoryDialog open={!!histReq} onClose={() => setHistReq(null)}
+          url={`/api/v1/marketing-requests/${histReq.id}/history`} title={histReq.sn_no} />
+      )}
+    </div>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
+export default function RequestsPage() {
+  const [tab, setTab] = useState<"purchase" | "marketing">("purchase");
+  const [admin, setAdmin] = useState(false);
+
+  useEffect(() => { setAdmin(isAdminOrAbove()); }, []);
+
+  return (
+    <>
+      <header className="flex h-16 shrink-0 items-center border-b px-6 gap-4">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem><BreadcrumbPage>Requests</BreadcrumbPage></BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+      </header>
+
+      <div className="p-4 md:p-6 space-y-4">
+        <div>
+          <h1 className="text-xl font-semibold">Requests</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {admin ? "All requests from all users and departments." : "Your submitted requests and their status."}
+          </p>
+        </div>
+
+        {/* Tab switcher */}
+        <div className="flex gap-1 border-b">
+          <button
+            onClick={() => setTab("purchase")}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              tab === "purchase" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}>
+            <ShoppingCart className="size-4" /> Purchase / Production
+          </button>
+          <button
+            onClick={() => setTab("marketing")}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              tab === "marketing" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}>
+            <Megaphone className="size-4" /> Marketing
+          </button>
+        </div>
+
+        {tab === "purchase" && <PurchaseTab admin={admin} />}
+        {tab === "marketing" && <MarketingTab admin={admin} />}
+      </div>
+    </>
+  );
+}
