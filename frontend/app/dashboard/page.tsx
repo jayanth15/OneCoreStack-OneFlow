@@ -299,11 +299,11 @@ export default function DashboardPage() {
     apiFetchJson<PaginatedInventory>("/api/v1/inventory?item_type=semi_finished&page_size=20&include_inactive=false")
       .then((d) => setSemiFGItems(d.items))
       .catch(() => {});
-    apiFetchJson<{id: number; item_count: number; total_value: number | null}[]>("/api/v1/spares/categories?include_inactive=false")
-      .then(cats => setSparesStats({
-        categories: cats.length,
-        items: cats.reduce((s, c) => s + c.item_count, 0),
-        total_value: cats.reduce((s, c) => s + (c.total_value ?? 0), 0),
+    apiFetchJson<{items: {id: number; item_count: number; total_value: number | null}[]; total: number}>("/api/v1/spares/categories?include_inactive=false&page_size=500")
+      .then(data => setSparesStats({
+        categories: data.total,
+        items: data.items.reduce((s, c) => s + c.item_count, 0),
+        total_value: data.items.reduce((s, c) => s + (c.total_value ?? 0), 0),
       }))
       .catch(() => {});
     apiFetchJson<{items: {total_price: number | null; qty: number; reorder_level: number}[], total: number}>("/api/v1/consumables?page_size=500&include_inactive=false")

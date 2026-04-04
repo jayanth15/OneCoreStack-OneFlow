@@ -274,7 +274,11 @@ def _category_out(session: Session, cat: SpareCategory) -> CategoryOut:
     ).one()
     cat_val = session.exec(
         select(func.sum(SpareItem.rate * SpareItem.recorded_qty)).where(
-            SpareItem.category_id == cat.id, SpareItem.is_active == True,
+            SpareItem.category_id == cat.id,
+            SpareItem.is_active == True,
+            SpareItem.id.in_(
+                select(SpareItemVariant.spare_item_id).where(SpareItemVariant.is_active == True)
+            ),
         )
     ).one()
     return CategoryOut(
@@ -306,7 +310,11 @@ def _sub_out(session: Session, sub: SpareSubCategory) -> SubCategoryOut:
     ).one()
     sub_val = session.exec(
         select(func.sum(SpareItem.rate * SpareItem.recorded_qty)).where(
-            SpareItem.sub_category_id == sub.id, SpareItem.is_active == True,
+            SpareItem.sub_category_id == sub.id,
+            SpareItem.is_active == True,
+            SpareItem.id.in_(
+                select(SpareItemVariant.spare_item_id).where(SpareItemVariant.is_active == True)
+            ),
         )
     ).one()
     return SubCategoryOut(
@@ -323,8 +331,18 @@ def _sub_out(session: Session, sub: SpareSubCategory) -> SubCategoryOut:
         updated_at=_dt_iso(sub.updated_at),
     )
 
-def _item_out(item: SpareItem, variant_matched: bool = False) -> ItemOut:
-    tv = round(item.rate * item.recorded_qty, 2) if item.rate is not None else None
+def _has_active_variants(session: Session, item_id: int) -> bool:
+    count = session.exec(
+        select(func.count(SpareItemVariant.id)).where(
+            SpareItemVariant.spare_item_id == item_id,
+            SpareItemVariant.is_active == True,  # noqa: E712
+        )
+    ).one()
+    return (count or 0) > 0
+
+
+def _item_out(item: SpareItem, variant_matched: bool = False, has_variants: bool = True) -> ItemOut:
+    tv = round(item.rate * item.recorded_qty, 2) if (item.rate is not None and has_variants) else None
     return ItemOut(
         id=item.id,  # type: ignore
         category_id=item.category_id,
@@ -357,7 +375,9 @@ def list_categories(
     _: CurrentUser,
     include_inactive: bool = Query(False),
     search: Optional[str] = Query(None),
-) -> list[CategoryOut]:
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=500),
+) -> dict:
     stmt = select(SpareCategory)
     if not include_inactive:
         stmt = stmt.where(SpareCategory.is_active == True)
@@ -387,7 +407,15 @@ def list_categories(
             ),
         ))
     stmt = stmt.order_by(SpareCategory.name)
-    return [_category_out(session, c) for c in session.exec(stmt).all()]
+    total = session.exec(select(func.count()).select_from(stmt.subquery())).one()
+    cats = session.exec(stmt.offset((page - 1) * page_size).limit(page_size)).all()
+    return {
+        "items": [_category_out(session, c) for c in cats],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "pages": max(1, -(-total // page_size)),
+    }
 
 
 @router.post("/categories", status_code=status.HTTP_201_CREATED)
@@ -538,8 +566,19 @@ def list_items(
         )
         return not direct
 
+    # Batch-check which items have at least one active variant (single query)
+    if items:
+        item_ids_with_variants = set(session.exec(
+            select(SpareItemVariant.spare_item_id).where(
+                SpareItemVariant.spare_item_id.in_([i.id for i in items]),
+                SpareItemVariant.is_active == True,  # noqa: E712
+            )
+        ).all())
+    else:
+        item_ids_with_variants = set()
+
     return {
-        "items": [_item_out(i, variant_matched=_is_variant_match(i)) for i in items],
+        "items": [_item_out(i, variant_matched=_is_variant_match(i), has_variants=i.id in item_ids_with_variants) for i in items],
         "total": total,
         "page": page,
         "page_size": page_size,
@@ -569,14 +608,15 @@ def create_item(
         image_base64=body.image_base64,
     )
     session.add(item); session.commit(); session.refresh(item)
-    return _item_out(item)
+    return _item_out(item, has_variants=False)
 
 
 # ── Individual item endpoints ─────────────────────────────────────────────────
 
 @router.get("/items/{item_id}")
 def get_item(item_id: int, session: SessionDep, _: CurrentUser) -> ItemOut:
-    return _item_out(_item_or_404(session, item_id))
+    item = _item_or_404(session, item_id)
+    return _item_out(item, has_variants=_has_active_variants(session, item.id))
 
 
 @router.put("/items/{item_id}")
@@ -586,7 +626,7 @@ def update_item(item_id: int, body: ItemUpdate, session: SessionDep, _: AdminUse
         setattr(item, field, value)
     item.updated_at = datetime.now(tz=timezone.utc)
     session.add(item); session.commit(); session.refresh(item)
-    return _item_out(item)
+    return _item_out(item, has_variants=_has_active_variants(session, item.id))
 
 
 @router.delete("/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -656,7 +696,7 @@ def adjust_item_stock(
     )
     session.add(hist)
     session.commit(); session.refresh(item)
-    return _item_out(item)
+    return _item_out(item, has_variants=len(active_variants) > 0)
 
 
 @router.get("/items/{item_id}/history")

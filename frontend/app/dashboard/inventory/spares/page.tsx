@@ -83,7 +83,9 @@ function fmtRate(n: number | null) {
 function isLow(item: SpareItem) { return item.reorder_level > 0 && item.recorded_qty <= item.reorder_level; }
 
 const ITEMS_PAGE_SIZE = 50;
+const CATS_PAGE_SIZE = 20;
 
+interface CatsPage { items: SpareCategory[]; total: number; page: number; pages: number; }
 interface ItemsPage {
   items: SpareItem[];
   total: number;
@@ -104,6 +106,7 @@ export default function SparesPage() {
   const router = useRouter();
   const [categories, setCategories] = useState<SpareCategory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [catMeta, setCatMeta] = useState({ total: 0, page: 1, pages: 1 });
   const [error, setError] = useState<string | null>(null);
   const [admin, setAdmin] = useState(false);
   const [search, setSearch] = useState("");
@@ -209,20 +212,31 @@ export default function SparesPage() {
 
   // ── Data fetching ───────────────────────────────────────────────────────────
 
-  const fetchCategories = async () => {
+  const fetchCategories = async (page: number = 1, append = false) => {
     setLoading(true);
-    setExpandedCats(new Set());
-    setExpandedSubs(new Set());
-    // Always clear cached maps so stale (search-filtered) data is never reused
-    setSubsMap(new Map());
-    setItemsMap(new Map());
-    setItemsMeta(new Map());
-    setVariantMatchedSubs(new Set());
-    const p = new URLSearchParams({ include_inactive:"false" });
-    if (search) p.set("search", search);
+    if (!append) {
+      setExpandedCats(new Set());
+      setExpandedSubs(new Set());
+      // Always clear cached maps so stale (search-filtered) data is never reused
+      setSubsMap(new Map());
+      setItemsMap(new Map());
+      setItemsMeta(new Map());
+      setVariantMatchedSubs(new Set());
+    }
+    const p = new URLSearchParams({ include_inactive: "false" });
+    p.set("page", String(page));
+    // When searching fetch all results at once; when browsing use page size
+    if (search) {
+      p.set("search", search);
+      p.set("page_size", "100");
+    } else {
+      p.set("page_size", String(CATS_PAGE_SIZE));
+    }
     try {
-      const cats = await apiFetchJson<SpareCategory[]>(`/api/v1/spares/categories?${p}`);
-      setCategories(cats);
+      const data = await apiFetchJson<CatsPage>(`/api/v1/spares/categories?${p}`);
+      const cats = data.items;
+      setCategories(append ? prev => [...prev, ...cats] : cats);
+      setCatMeta({ total: data.total, page: data.page, pages: data.pages });
       if (search && cats.length > 0) {
         // Auto-expand all matching categories, subs and items so search results are visible
         setExpandedCats(new Set(cats.map(c => c.id)));
@@ -272,7 +286,7 @@ export default function SparesPage() {
     } catch(e:unknown) { setError(e instanceof Error ? e.message : "Failed"); }
     finally { setLoading(false); }
   };
-  useEffect(() => { fetchCategories(); }, [search]); // eslint-disable-line
+  useEffect(() => { fetchCategories(1); }, [search]); // eslint-disable-line
 
   async function toggleCat(catId: number) {
     if (expandedCats.has(catId)) {
@@ -293,10 +307,12 @@ export default function SparesPage() {
   }
 
   async function refreshCatCounts() {
-    // Refresh category counters without resetting expand states
+    // Reload all currently visible categories in one call (preserve expand state)
     try {
-      const cats = await apiFetchJson<SpareCategory[]>(`/api/v1/spares/categories?include_inactive=false`);
-      setCategories(cats);
+      const visible = Math.max(categories.length, CATS_PAGE_SIZE);
+      const data = await apiFetchJson<CatsPage>(`/api/v1/spares/categories?include_inactive=false&page=1&page_size=${visible}`);
+      setCategories(data.items);
+      setCatMeta({ total: data.total, page: data.page, pages: data.pages });
     } catch { /**/ }
   }
 
@@ -873,41 +889,152 @@ export default function SparesPage() {
                                           {items.map((item, ii) => {
                                           const low = isLow(item);
                                           return (
-                                            <div key={item.id}
-                                              className={`flex items-start gap-2 pl-12 pr-3 py-2.5 hover:bg-muted/20 cursor-pointer select-none transition-colors ${!item.is_active ? "opacity-50" : ""}`}
-                                              onClick={() => openVariantsDialog(item)}>
-                                              <span className="text-xs text-muted-foreground w-5 shrink-0 mt-0.5">{ii+1}</span>
-                                              <div className="flex-1 min-w-0">
-                                                <div className="flex items-baseline gap-1.5 flex-wrap">
-                                                  <span className="font-medium text-sm">{highlight(item.name, search)}</span>
-                                                  {item.part_number && <span className="text-xs font-mono text-muted-foreground">{highlight(item.part_number, search)}</span>}
-                                                  {item.variant_matched && (
-                                                    <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 font-medium">
-                                                      <Layers className="size-2.5" />via variant
-                                                    </span>
+                                            <div key={item.id} className={!item.is_active ? "opacity-50" : ""}>
+                                              {/* ── item clickable row ── */}
+                                              <div
+                                                className="flex items-center gap-2 pl-12 pr-3 py-2.5 hover:bg-muted/20 cursor-pointer select-none transition-colors"
+                                                onClick={() => { if (variantsDialogItem?.id === item.id) { setVariantsDialogItem(null); resetVariantForm(); } else { openVariantsDialog(item); } }}>
+                                                <span className="text-xs text-muted-foreground w-5 shrink-0">{ii+1}</span>
+                                                <div className="flex-1 min-w-0">
+                                                  <div className="flex items-baseline gap-1.5 flex-wrap">
+                                                    <span className="font-medium text-sm">{highlight(item.name, search)}</span>
+                                                    {item.part_number && <span className="text-xs font-mono text-muted-foreground">{highlight(item.part_number, search)}</span>}
+                                                    {item.variant_matched && (
+                                                      <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 font-medium">
+                                                        <Layers className="size-2.5" />via variant
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                  {item.part_description && <p className="text-xs text-muted-foreground truncate mt-0.5">{item.part_description}</p>}
+                                                </div>
+                                                <div className="flex items-center gap-2.5 shrink-0 text-xs" onClick={e => e.stopPropagation()}>
+                                                  <span className={`tabular-nums ${low ? "text-amber-600 font-medium" : "text-muted-foreground"}`}>
+                                                    {low && <AlertTriangle className="size-3 inline mr-0.5 mb-0.5" />}
+                                                    {fmtQty(item.recorded_qty)} {item.unit}
+                                                  </span>
+                                                  {admin && item.total_value != null && (
+                                                    <span className="font-medium text-foreground hidden md:inline">{fmtRate(item.total_value)}</span>
+                                                  )}
+                                                  <span className="flex gap-0.5">
+                                                    {admin && <Button variant="ghost" size="icon" className="size-6" title="Stock history" onClick={()=>openHistory(item)}><History className="size-3 text-slate-500" /></Button>}
+                                                    <Button variant="ghost" size="icon" className="size-6" title="Add Stock" onClick={()=>openAdjust(item,"add")}><PackagePlus className="size-3 text-emerald-600" /></Button>
+                                                    <Button variant="ghost" size="icon" className="size-6" title="Remove Stock" onClick={()=>openAdjust(item,"subtract")}><PackageMinus className="size-3 text-amber-600" /></Button>
+                                                    {admin && <>
+                                                      <Button variant="ghost" size="icon" className="size-6" onClick={()=>openEditItem(item)}><Pencil className="size-3" /></Button>
+                                                      <Button variant="ghost" size="icon" className="size-6 text-destructive hover:text-destructive"
+                                                        onClick={()=>setDeleteItemId({id:item.id,subId:sub.id})}><Trash2 className="size-3" /></Button>
+                                                    </>}
+                                                  </span>
+                                                </div>
+                                                {variantsDialogItem?.id === item.id
+                                                  ? <ChevronDown className="size-4 text-muted-foreground shrink-0" />
+                                                  : <ChevronRight className="size-4 text-muted-foreground shrink-0" />}
+                                              </div>
+
+                                              {/* ── inline variants panel ── */}
+                                              {variantsDialogItem?.id === item.id && (
+                                                <div className="border-t bg-muted/5 pl-16 pr-4 py-3 space-y-3">
+                                                  {/* panel header */}
+                                                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                                                    <div className="flex items-center gap-2">
+                                                      <Layers className="size-3.5 text-violet-500 shrink-0" />
+                                                      <span className="text-xs font-medium text-muted-foreground">
+                                                        Variants
+                                                        {!variantsLoading && variantsRows.length > 0 && (
+                                                          <> · Total: <strong className="text-foreground">{fmtQty(item.recorded_qty)} {item.unit}</strong>
+                                                          {admin && item.total_value != null && <> · <strong className="text-foreground">{fmtRate(item.total_value)}</strong></>}</>
+                                                        )}
+                                                      </span>
+                                                    </div>
+                                                    <div className="flex gap-1.5 shrink-0">
+                                                      <Button size="sm" variant="outline" className="h-6 text-xs gap-1" onClick={()=>openAdjust(item,"add")}>
+                                                        <PackagePlus className="size-3 text-emerald-600" />Add Stock
+                                                      </Button>
+                                                      <Button size="sm" variant="outline" className="h-6 text-xs gap-1" onClick={()=>openAdjust(item,"subtract")}>
+                                                        <PackageMinus className="size-3 text-amber-600" />Remove Stock
+                                                      </Button>
+                                                      {admin && (
+                                                        <Button size="sm" className="h-6 text-xs gap-1" onClick={()=>setAddVariantDialog(true)}>
+                                                          <PlusIcon className="size-3" />Add Variant
+                                                        </Button>
+                                                      )}
+                                                    </div>
+                                                  </div>
+                                                  {/* variant cards */}
+                                                  {variantsLoading ? (
+                                                    <div className="grid grid-cols-2 gap-2.5">{[1,2].map(i=><div key={i} className="h-24 rounded-lg bg-muted animate-pulse" />)}</div>
+                                                  ) : variantsRows.length === 0 ? (
+                                                    <p className="text-xs text-muted-foreground py-2 text-center">No variants yet. Click &quot;Add Variant&quot; to create one.</p>
+                                                  ) : (
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                                                      {variantsRows.map(v => (
+                                                        <div key={v.id} className="rounded-lg border bg-card p-3 flex gap-3">
+                                                          <div className="shrink-0">
+                                                            {v.image_base64
+                                                              // eslint-disable-next-line @next/next/no-img-element
+                                                              ? <img src={`data:image/jpeg;base64,${v.image_base64}`} alt="" className="size-14 rounded-md object-cover border" />
+                                                              : <div className="size-14 rounded-md border-2 border-dashed flex items-center justify-center bg-muted/30">
+                                                                  <ImageIcon className="size-5 text-muted-foreground/30" />
+                                                                </div>}
+                                                          </div>
+                                                          <div className="flex-1 min-w-0 space-y-1">
+                                                            <div className="flex items-start justify-between gap-1">
+                                                              <div>
+                                                                <p className="font-medium text-sm leading-tight">{v.variant_color || "—"}</p>
+                                                                {v.serial_number && <p className="text-xs font-mono text-muted-foreground">{v.serial_number}</p>}
+                                                              </div>
+                                                              {admin && (
+                                                                <span className="flex gap-0.5 shrink-0 -mt-0.5">
+                                                                  <Button variant="ghost" size="icon" className="size-6" title="Edit variant" onClick={()=>startEditVariant(v)}><Pencil className="size-3" /></Button>
+                                                                  <Button variant="ghost" size="icon" className="size-6 text-destructive hover:text-destructive" onClick={()=>deleteVariant(v.id)}><Trash2 className="size-3" /></Button>
+                                                                </span>
+                                                              )}
+                                                            </div>
+                                                            <div className="grid grid-cols-2 gap-x-2 text-xs">
+                                                              {(() => {
+                                                                const varLow = v.reorder_level > 0 && v.qty <= v.reorder_level;
+                                                                return (<>
+                                                                  <span className="text-muted-foreground">Qty</span>
+                                                                  <span className={`font-medium tabular-nums ${varLow ? "text-amber-600" : ""}`}>
+                                                                    {varLow && <AlertTriangle className="size-3 inline mr-0.5 mb-0.5" />}
+                                                                    {fmtQty(v.qty)} {item.unit}
+                                                                  </span>
+                                                                  {v.reorder_level > 0 && <>
+                                                                    <span className="text-muted-foreground">Reorder</span>
+                                                                    <span className="tabular-nums text-muted-foreground">{fmtQty(v.reorder_level)}</span>
+                                                                  </>}
+                                                                </>);
+                                                              })()}
+                                                              {admin && v.rate != null && <>
+                                                                <span className="text-muted-foreground">Rate</span>
+                                                                <span className="tabular-nums">{fmtRate(v.rate)}</span>
+                                                              </>}
+                                                              {v.storage_type && <>
+                                                                <span className="text-muted-foreground">Storage</span>
+                                                                <span className="truncate">{v.storage_type}</span>
+                                                              </>}
+                                                              {v.storage_location && <>
+                                                                <span className="text-muted-foreground">Location</span>
+                                                                <span className="truncate">{v.storage_location}</span>
+                                                              </>}
+                                                            </div>
+                                                            <div className="flex gap-1 mt-1.5 pt-1.5 border-t">
+                                                              <Button variant="ghost" size="sm" className="flex-1 h-6 text-xs gap-1"
+                                                                onClick={()=>{ setAdjustVariant(v); setAdjustVType("add"); setAdjustVQty(""); setAdjustVNote(""); setAdjustVError(null); }}>
+                                                                <PackagePlus className="size-3 text-emerald-600" />Add
+                                                              </Button>
+                                                              <Button variant="ghost" size="sm" className="flex-1 h-6 text-xs gap-1"
+                                                                onClick={()=>{ setAdjustVariant(v); setAdjustVType("subtract"); setAdjustVQty(""); setAdjustVNote(""); setAdjustVError(null); }}>
+                                                                <PackageMinus className="size-3 text-amber-600" />Remove
+                                                              </Button>
+                                                            </div>
+                                                          </div>
+                                                        </div>
+                                                      ))}
+                                                    </div>
                                                   )}
                                                 </div>
-                                                {item.part_description && <p className="text-xs text-muted-foreground truncate mt-0.5">{item.part_description}</p>}
-                                              </div>
-                                              <div className="flex items-center gap-2.5 shrink-0 text-xs" onClick={e => e.stopPropagation()}>
-                                                <span className={`tabular-nums ${low ? "text-amber-600 font-medium" : "text-muted-foreground"}`}>
-                                                  {low && <AlertTriangle className="size-3 inline mr-0.5 mb-0.5" />}
-                                                  {fmtQty(item.recorded_qty)} {item.unit}
-                                                </span>
-                                                {admin && item.total_value != null && (
-                                                  <span className="font-medium text-foreground hidden md:inline">{fmtRate(item.total_value)}</span>
-                                                )}
-                                                <span className="flex gap-0.5">
-                                                  {admin && <Button variant="ghost" size="icon" className="size-6" title="Stock history" onClick={()=>openHistory(item)}><History className="size-3 text-slate-500" /></Button>}
-                                                  <Button variant="ghost" size="icon" className="size-6" title="Add Stock" onClick={()=>openAdjust(item,"add")}><PackagePlus className="size-3 text-emerald-600" /></Button>
-                                                  <Button variant="ghost" size="icon" className="size-6" title="Remove Stock" onClick={()=>openAdjust(item,"subtract")}><PackageMinus className="size-3 text-amber-600" /></Button>
-                                                  {admin && <>
-                                                    <Button variant="ghost" size="icon" className="size-6" onClick={()=>openEditItem(item)}><Pencil className="size-3" /></Button>
-                                                    <Button variant="ghost" size="icon" className="size-6 text-destructive hover:text-destructive"
-                                                      onClick={()=>setDeleteItemId({id:item.id,subId:sub.id})}><Trash2 className="size-3" /></Button>
-                                                  </>}
-                                                </span>
-                                              </div>
+                                              )}
                                             </div>
                                           );
                                         })}
@@ -954,6 +1081,15 @@ export default function SparesPage() {
                 </div>
               );
             })}
+            {!search && catMeta.total > categories.length && (
+              <div className="flex items-center justify-between px-4 py-2 border-t bg-muted/5 text-xs text-muted-foreground">
+                <span className="tabular-nums">{categories.length} of {catMeta.total} categories</span>
+                <Button size="sm" variant="ghost" className="h-6 text-xs gap-1 -mr-1"
+                  onClick={() => fetchCategories(catMeta.page + 1, true)}>
+                  <ChevronsDown className="size-3" />Load more ({catMeta.total - categories.length})
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1023,121 +1159,6 @@ export default function SparesPage() {
               <Button onClick={saveSub} disabled={subSaving} className="flex-1">{subSaving?"Saving…":subSheet==="create"?"Create":"Save Changes"}</Button>
               <Button variant="outline" onClick={()=>setSubSheet(null)} disabled={subSaving}>Cancel</Button>
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Variants Popup Dialog ────────────────────────────────────── */}
-      <Dialog open={variantsDialogItem !== null} onOpenChange={o=>{ if(!o){ setVariantsDialogItem(null); resetVariantForm(); } }}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Layers className="size-4 text-violet-500" />
-              Variants — {variantsDialogItem?.name}
-              {variantsDialogItem?.part_number && <span className="font-mono text-sm text-muted-foreground font-normal">{variantsDialogItem.part_number}</span>}
-            </DialogTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Total qty: <strong>{fmtQty(variantsDialogItem?.recorded_qty ?? 0)} {variantsDialogItem?.unit}</strong>
-              {admin && variantsDialogItem?.total_value != null && <> · Total value: <strong>{fmtRate(variantsDialogItem.total_value)}</strong></>}
-            </p>
-          </DialogHeader>
-
-          {/* Variant Cards */}
-          <div className="mt-2">
-            {variantsLoading ? (
-              <div className="grid grid-cols-2 gap-3">{[1,2,3,4].map(i=><div key={i} className="h-32 rounded-lg bg-muted animate-pulse" />)}</div>
-            ) : variantsRows.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">No variants yet. Click &quot;Add Variant&quot; to create one.</p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {variantsRows.map(v => (
-                  <div key={v.id} className="rounded-lg border bg-card p-3 flex gap-3">
-                    {/* Image */}
-                    <div className="shrink-0">
-                      {v.image_base64
-                        // eslint-disable-next-line @next/next/no-img-element
-                        ? <img src={`data:image/jpeg;base64,${v.image_base64}`} alt="" className="size-16 rounded-md object-cover border" />
-                        : <div className="size-16 rounded-md border-2 border-dashed flex items-center justify-center bg-muted/30">
-                            <ImageIcon className="size-5 text-muted-foreground/30" />
-                          </div>}
-                    </div>
-                    {/* Details */}
-                    <div className="flex-1 min-w-0 space-y-1">
-                      <div className="flex items-start justify-between gap-1">
-                        <div>
-                          <p className="font-medium text-sm leading-tight">{v.variant_color || "—"}</p>
-                          {v.serial_number && <p className="text-xs font-mono text-muted-foreground">{v.serial_number}</p>}
-                        </div>
-                        {admin && (
-                          <span className="flex gap-0.5 shrink-0 -mt-0.5">
-                            <Button variant="ghost" size="icon" className="size-6" title="Edit variant"
-                              onClick={()=>startEditVariant(v)}>
-                              <Pencil className="size-3" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="size-6 text-destructive hover:text-destructive" onClick={()=>deleteVariant(v.id)}><Trash2 className="size-3" /></Button>
-                          </span>
-                        )}
-                      </div>
-                      <div className="grid grid-cols-2 gap-x-2 text-xs">
-                          {(() => {
-                            const varLow = v.reorder_level > 0 && v.qty <= v.reorder_level;
-                            return (<>
-                              <span className="text-muted-foreground">Qty</span>
-                              <span className={`font-medium tabular-nums ${varLow ? "text-amber-600" : ""}`}>
-                                {varLow && <AlertTriangle className="size-3 inline mr-0.5 mb-0.5" />}
-                                {fmtQty(v.qty)} {variantsDialogItem?.unit}
-                              </span>
-                              {v.reorder_level > 0 && <>
-                                <span className="text-muted-foreground">Reorder</span>
-                                <span className="tabular-nums text-muted-foreground">{fmtQty(v.reorder_level)}</span>
-                              </>}
-                            </>);
-                          })()}
-                          {admin && v.rate != null && <>
-                            <span className="text-muted-foreground">Rate</span>
-                            <span className="tabular-nums">{fmtRate(v.rate)}</span>
-                          </>}
-                          {v.storage_type && <>
-                            <span className="text-muted-foreground">Storage</span>
-                            <span className="truncate">{v.storage_type}</span>
-                          </>}
-                          {v.storage_location && <>
-                            <span className="text-muted-foreground">Location</span>
-                            <span className="truncate">{v.storage_location}</span>
-                          </>}
-                        </div>
-                        <div className="flex gap-1 mt-1.5 pt-1.5 border-t">
-                          <Button variant="ghost" size="sm" className="flex-1 h-6 text-xs gap-1"
-                            onClick={()=>{ setAdjustVariant(v); setAdjustVType("add"); setAdjustVQty(""); setAdjustVNote(""); setAdjustVError(null); }}>
-                            <PackagePlus className="size-3 text-emerald-600" />Add
-                          </Button>
-                          <Button variant="ghost" size="sm" className="flex-1 h-6 text-xs gap-1"
-                            onClick={()=>{ setAdjustVariant(v); setAdjustVType("subtract"); setAdjustVQty(""); setAdjustVNote(""); setAdjustVError(null); }}>
-                            <PackageMinus className="size-3 text-amber-600" />Remove
-                          </Button>
-                        </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Footer actions */}
-          <div className="mt-4 pt-4 border-t flex justify-between items-center gap-2">
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={()=>openAdjust(variantsDialogItem!, "add")}>
-                <PackagePlus className="size-3.5 mr-1.5 text-emerald-600" />Add Stock
-              </Button>
-              <Button size="sm" variant="outline" onClick={()=>openAdjust(variantsDialogItem!, "subtract")}>
-                <PackageMinus className="size-3.5 mr-1.5 text-amber-600" />Remove Stock
-              </Button>
-            </div>
-            {admin && (
-              <Button size="sm" onClick={()=>setAddVariantDialog(true)}>
-                <PlusIcon className="size-4 mr-1.5" />Add Variant
-              </Button>
-            )}
           </div>
         </DialogContent>
       </Dialog>

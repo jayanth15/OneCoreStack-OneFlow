@@ -29,6 +29,10 @@ from app.models.work_type import WorkType
 from app.models.work_log import WorkLog
 from app.models.attachment_item import AttachmentItem
 from app.models.weeder_item import WeederItem
+from app.models.spare_category import SpareCategory
+from app.models.spare_sub_category import SpareSubCategory
+from app.models.spare_item import SpareItem
+from app.models.spare_item_variant import SpareItemVariant
 
 # ── resolve DB file path from the configured DATABASE_URL ────────────────────
 if settings.database_url.startswith("sqlite:///"):
@@ -124,6 +128,129 @@ with Session(engine) as s:
             is_active=True, created_at=NOW, updated_at=NOW,
         ))
     print(f"  Weeders     : {len(weeders_seed)}")
+
+    # ── Spare Categories / Sub-categories / Items ────────────────────────────
+    # 1 category × 5 sub-categories × 10 items = 50 spare items
+    SPARE_DATA = [
+        # (category_name, [
+        #     (sub_name, sub_description, [
+        #         (name, part_number, part_description, rate, unit, opening_qty, reorder_level, storage_type, storage_location),
+        #         ...
+        #     ]),
+        # ]),
+        ("2-Wheeler Spares", [
+            ("Engine Parts", "Internal engine components for 2-wheelers", [
+                ("Piston Ring Set",      "ENG-001", "Standard bore piston ring set",         450.0,  "set",  20.0, 5.0,  "Rack",  "Rack A-1, Shelf 1"),
+                ("Cylinder Gasket",      "ENG-002", "Head gasket for 168cc engine",          180.0,  "pcs",  30.0, 8.0,  "Bin",   "Rack A-1, Shelf 2"),
+                ("Crankshaft Bearing",   "ENG-003", "Main crankshaft bearing pair",          320.0,  "set",  15.0, 4.0,  "Bin",   "Rack A-1, Shelf 3"),
+                ("Valve Spring Set",     "ENG-004", "Intake and exhaust valve springs",      210.0,  "set",  25.0, 6.0,  "Bin",   "Rack A-1, Shelf 4"),
+                ("Oil Seal Kit",         "ENG-005", "Complete engine oil seal kit",          380.0,  "set",  18.0, 5.0,  "Box",   "Rack A-1, Shelf 5"),
+                ("Rocker Arm",           "ENG-006", "Rocker arm assembly with adjuster",     260.0,  "pcs",  12.0, 3.0,  "Bin",   "Rack A-2, Shelf 1"),
+                ("Push Rod",             "ENG-007", "Valve push rod 168cc",                  95.0,   "pcs",  20.0, 5.0,  "Rack",  "Rack A-2, Shelf 2"),
+                ("Timing Chain",         "ENG-008", "Cam timing chain 82 links",            420.0,  "pcs",  10.0, 3.0,  "Box",   "Rack A-2, Shelf 3"),
+                ("Camshaft Sprocket",    "ENG-009", "Camshaft drive sprocket 20T",           310.0,  "pcs",  8.0,  2.0,  "Bin",   "Rack A-2, Shelf 4"),
+                ("Connecting Rod",       "ENG-010", "Con-rod assembly complete",             780.0,  "pcs",  6.0,  2.0,  "Rack",  "Rack A-2, Shelf 5"),
+            ]),
+            ("Transmission & Clutch", "Gearbox and clutch components", [
+                ("Clutch Plate Set",     "TRN-001", "4-plate friction clutch set",          550.0,  "set",  15.0, 4.0,  "Box",   "Rack B-1, Shelf 1"),
+                ("Clutch Spring Set",    "TRN-002", "Clutch pressure springs (set of 6)",  140.0,  "set",  20.0, 5.0,  "Bin",   "Rack B-1, Shelf 2"),
+                ("Gear Shift Fork",      "TRN-003", "Primary gear shift fork",              220.0,  "pcs",  10.0, 3.0,  "Bin",   "Rack B-1, Shelf 3"),
+                ("Drive Sprocket 14T",   "TRN-004", "Engine output sprocket 14 teeth",     175.0,  "pcs",  18.0, 5.0,  "Bin",   "Rack B-1, Shelf 4"),
+                ("Rear Sprocket 37T",    "TRN-005", "Rear wheel sprocket 37 teeth",         390.0,  "pcs",  12.0, 3.0,  "Rack",  "Rack B-1, Shelf 5"),
+                ("Drive Chain 428H",     "TRN-006", "Heavy-duty drive chain 428H×110L",    480.0,  "pcs",  10.0, 3.0,  "Box",   "Rack B-2, Shelf 1"),
+                ("Clutch Cable",         "TRN-007", "Clutch actuation cable 1.2m",         85.0,   "pcs",  25.0, 8.0,  "Rack",  "Rack B-2, Shelf 2"),
+                ("Gear Selector Drum",   "TRN-008", "5-speed selector drum",               430.0,  "pcs",  5.0,  2.0,  "Bin",   "Rack B-2, Shelf 3"),
+                ("Kick Start Shaft",     "TRN-009", "Kick-start spindle with spring",      290.0,  "pcs",  8.0,  2.0,  "Bin",   "Rack B-2, Shelf 4"),
+                ("Primary Chain",        "TRN-010", "Primary drive chain 219×66L",         210.0,  "pcs",  14.0, 4.0,  "Box",   "Rack B-2, Shelf 5"),
+            ]),
+            ("Brakes & Wheels", "Brake system and wheel components", [
+                ("Brake Shoe Set Front", "BRK-001", "Front drum brake shoe pair",           240.0,  "set",  20.0, 5.0,  "Bin",   "Rack C-1, Shelf 1"),
+                ("Brake Shoe Set Rear",  "BRK-002", "Rear drum brake shoe pair",            240.0,  "set",  20.0, 5.0,  "Bin",   "Rack C-1, Shelf 2"),
+                ("Brake Cable Front",    "BRK-003", "Front brake cable assembly",           75.0,   "pcs",  30.0, 8.0,  "Rack",  "Rack C-1, Shelf 3"),
+                ("Brake Cable Rear",     "BRK-004", "Rear brake cable assembly",            75.0,   "pcs",  30.0, 8.0,  "Rack",  "Rack C-1, Shelf 4"),
+                ("Wheel Bearing F6301",  "BRK-005", "Front wheel bearing 6301-2RS",         120.0,  "pcs",  40.0, 10.0, "Bin",   "Rack C-1, Shelf 5"),
+                ("Wheel Bearing F6202",  "BRK-006", "Rear wheel bearing 6202-2RS",          120.0,  "pcs",  40.0, 10.0, "Bin",   "Rack C-2, Shelf 1"),
+                ("Brake Drum Front",     "BRK-007", "Front brake drum assembly",            680.0,  "pcs",  8.0,  2.0,  "Rack",  "Rack C-2, Shelf 2"),
+                ("Brake Drum Rear",      "BRK-008", "Rear brake drum assembly",             680.0,  "pcs",  8.0,  2.0,  "Rack",  "Rack C-2, Shelf 3"),
+                ("Spoke Set 36pc",       "BRK-009", "Wheel spoke set 36 pcs with nipples", 310.0,  "set",  6.0,  2.0,  "Box",   "Rack C-2, Shelf 4"),
+                ("Tyre Tube 2.75-17",    "BRK-010", "Inner tube 2.75-17 TR4 valve",        185.0,  "pcs",  15.0, 4.0,  "Shelf", "Rack C-2, Shelf 5"),
+            ]),
+            ("Fuel & Electrical", "Fuel system and electrical components", [
+                ("Carburetor Main Jet",  "FUL-001", "Main jet #115 for PZ30 carb",         45.0,   "pcs",  50.0, 15.0, "Drawer","Rack D-1, Shelf 1"),
+                ("Air Filter Element",   "FUL-002", "Foam air filter element 168cc",        95.0,   "pcs",  30.0, 8.0,  "Box",   "Rack D-1, Shelf 2"),
+                ("Fuel Filter Inline",   "FUL-003", "Inline petrol filter 6mm",             35.0,   "pcs",  40.0, 10.0, "Bin",   "Rack D-1, Shelf 3"),
+                ("Spark Plug A7TC",      "FUL-004", "Champion A7TC spark plug",            55.0,   "pcs",  60.0, 15.0, "Box",   "Rack D-1, Shelf 4"),
+                ("CDI Unit",             "FUL-005", "Capacitor discharge ignition box",   480.0,  "pcs",  10.0, 3.0,  "Bin",   "Rack D-1, Shelf 5"),
+                ("Magneto Coil",         "FUL-006", "Ignition magneto stator coil",        620.0,  "pcs",  8.0,  2.0,  "Box",   "Rack D-2, Shelf 1"),
+                ("Rectifier Regulator",  "FUL-007", "12V voltage regulator rectifier",     320.0,  "pcs",  12.0, 3.0,  "Bin",   "Rack D-2, Shelf 2"),
+                ("Fuel Tap Assembly",    "FUL-008", "Petcock fuel tap with reserve",        145.0,  "pcs",  15.0, 4.0,  "Bin",   "Rack D-2, Shelf 3"),
+                ("Carb Float",           "FUL-009", "Carburetor float bowl assembly",       135.0,  "pcs",  20.0, 5.0,  "Drawer","Rack D-2, Shelf 4"),
+                ("Throttle Cable",       "FUL-010", "Throttle control cable 1.1m",         70.0,   "pcs",  25.0, 6.0,  "Rack",  "Rack D-2, Shelf 5"),
+            ]),
+            ("Body & Frame", "Bodywork and frame components", [
+                ("Side Cover LH",        "BDY-001", "Left side body panel",                 420.0,  "pcs",  10.0, 3.0,  "Shelf", "Rack E-1, Shelf 1"),
+                ("Side Cover RH",        "BDY-002", "Right side body panel",                420.0,  "pcs",  10.0, 3.0,  "Shelf", "Rack E-1, Shelf 2"),
+                ("Headlight Assembly",   "BDY-003", "12V 35/35W headlight with bracket",  890.0,  "pcs",  8.0,  2.0,  "Box",   "Rack E-1, Shelf 3"),
+                ("Tail Light Assembly",  "BDY-004", "Tail/brake light LED unit",            350.0,  "pcs",  10.0, 3.0,  "Box",   "Rack E-1, Shelf 4"),
+                ("Front Mudguard",       "BDY-005", "Front fender plastic",                 310.0,  "pcs",  8.0,  2.0,  "Shelf", "Rack E-1, Shelf 5"),
+                ("Rear Mudguard",        "BDY-006", "Rear fender plastic with bracket",    380.0,  "pcs",  8.0,  2.0,  "Shelf", "Rack E-2, Shelf 1"),
+                ("Handle Bar",           "BDY-007", "Steel handlebar 22mm DIN",            520.0,  "pcs",  6.0,  2.0,  "Rack",  "Rack E-2, Shelf 2"),
+                ("Foot Peg Set",         "BDY-008", "Rider and pillion foot peg pair",     280.0,  "set",  12.0, 3.0,  "Bin",   "Rack E-2, Shelf 3"),
+                ("Seat Assembly",        "BDY-009", "Complete seat with foam & cover",    1100.0, "pcs",  5.0,  2.0,  "Shelf", "Rack E-2, Shelf 4"),
+                ("Centre Stand",         "BDY-010", "Centre stand with spring",             460.0,  "pcs",  7.0,  2.0,  "Rack",  "Rack E-2, Shelf 5"),
+            ]),
+        ]),
+    ]
+
+    # part numbers that should receive 2 seed variants each
+    VARIANT_SEEDS: dict[str, list[dict]] = {
+        "ENG-001": [
+            {"variant_color": "Standard Bore",  "serial_number": "STD",   "qty": 12.0, "rate": 450.0, "reorder_level": 3.0, "storage_location": "Rack A-1, Shelf 1A"},
+            {"variant_color": "+0.25 Oversize", "serial_number": "OS25",  "qty":  8.0, "rate": 490.0, "reorder_level": 2.0, "storage_location": "Rack A-1, Shelf 1B"},
+        ],
+        "TRN-001": [
+            {"variant_color": "Organic (std)",  "serial_number": "ORG",   "qty": 10.0, "rate": 550.0, "reorder_level": 2.0, "storage_location": "Rack B-1, Shelf 1A"},
+            {"variant_color": "Sintered (HD)",  "serial_number": "SIN",   "qty":  5.0, "rate": 650.0, "reorder_level": 2.0, "storage_location": "Rack B-1, Shelf 1B"},
+        ],
+    }
+
+    total_cats = 0; total_subs = 0; total_items = 0; total_variants = 0
+    for cat_name, sub_list in SPARE_DATA:
+        cat = SpareCategory(name=cat_name, is_active=True, created_at=NOW, updated_at=NOW)
+        s.add(cat); s.flush(); total_cats += 1
+        for sub_name, sub_desc, item_list in sub_list:
+            sub = SpareSubCategory(
+                category_id=cat.id, name=sub_name, description=sub_desc,
+                is_active=True, created_at=NOW, updated_at=NOW,
+            )
+            s.add(sub); s.flush(); total_subs += 1
+            for name, pn, desc, rate, unit, qty, reorder, stype, sloc in item_list:
+                item = SpareItem(
+                    category_id=cat.id, sub_category_id=sub.id,
+                    name=name, part_number=pn, part_description=desc,
+                    rate=rate, unit=unit,
+                    opening_qty=qty, recorded_qty=qty, reorder_level=reorder,
+                    storage_type=stype, storage_location=sloc,
+                    is_active=True, created_at=NOW, updated_at=NOW,
+                )
+                s.add(item); s.flush(); total_items += 1
+                # Add variants to flagged items
+                if pn in VARIANT_SEEDS:
+                    for vd in VARIANT_SEEDS[pn]:
+                        s.add(SpareItemVariant(
+                            spare_item_id=item.id,
+                            variant_color=vd["variant_color"],
+                            serial_number=vd["serial_number"],
+                            qty=vd["qty"],
+                            rate=vd["rate"],
+                            reorder_level=vd["reorder_level"],
+                            storage_type=stype,
+                            storage_location=vd["storage_location"],
+                            is_active=True, created_at=NOW, updated_at=NOW,
+                        ))
+                        total_variants += 1
+    s.flush()
+    print(f"  Spare Cats  : {total_cats}  ({total_subs} sub-cats,  {total_items} items,  {total_variants} variants)")
 
     s.commit()
 
