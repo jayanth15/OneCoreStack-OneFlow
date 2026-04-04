@@ -5,11 +5,15 @@ from sqlmodel import Field, SQLModel
 
 
 class WeederItem(SQLModel, table=True):
-    """Weeder inventory item."""
+    """Weeder inventory sub-item (belongs to a WeederCategory)."""
     __tablename__ = "weeder_item"
 
     id: Optional[int] = Field(default=None, primary_key=True)
 
+    # Category FK (nullable for legacy rows created before categories)
+    category_id: Optional[int] = Field(default=None, foreign_key="weeder_category.id", index=True)
+
+    name: Optional[str] = Field(default=None, index=True)            # item name / label
     sn_no: Optional[str] = Field(default=None, index=True)          # serial / part number
     description: Optional[str] = None                                # item description
     qty: float = Field(default=0.0)                                   # total quantity on hand

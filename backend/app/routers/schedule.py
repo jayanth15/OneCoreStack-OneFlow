@@ -6,7 +6,7 @@ from pydantic import BaseModel, field_validator
 from sqlmodel import Session, func, select
 
 from app.core.database import get_session
-from app.dependencies.auth import get_current_user
+from app.dependencies.auth import get_current_user, require_admin
 from app.models.bom_item import BomItem
 from app.models.customer import Customer
 from app.models.inventory import InventoryItem
@@ -181,7 +181,7 @@ def list_schedules(
 def create_schedule(
     body: ScheduleCreate,
     session: Annotated[Session, Depends(get_session)],
-    _: Annotated[User, Depends(get_current_user)],
+    _: Annotated[User, Depends(require_admin)],
 ) -> Schedule:
     # Auto-resolve customer_id from customer_name
     customer = session.exec(
@@ -216,7 +216,7 @@ def update_schedule(
     schedule_id: int,
     body: ScheduleUpdate,
     session: Annotated[Session, Depends(get_session)],
-    _: Annotated[User, Depends(get_current_user)],
+    _: Annotated[User, Depends(require_admin)],
 ) -> ScheduleResponse:
     s = session.get(Schedule, schedule_id)
     if not s:
@@ -245,7 +245,7 @@ def update_schedule(
 def delete_schedule(
     schedule_id: int,
     session: Annotated[Session, Depends(get_session)],
-    _: Annotated[User, Depends(get_current_user)],
+    _: Annotated[User, Depends(require_admin)],
 ) -> None:
     s = session.get(Schedule, schedule_id)
     if not s:

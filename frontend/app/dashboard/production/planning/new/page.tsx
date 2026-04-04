@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiFetchJson } from "@/lib/api";
+import { isAdminOrAbove } from "@/lib/user";
 import { ArrowLeft, Info, Plus, Trash2, AlertTriangle, Package } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -68,6 +69,11 @@ const BLANK = {
 
 export default function NewPlanPage() {
   const router = useRouter();
+
+  // Guard: only admins can access this page
+  useEffect(() => {
+    if (!isAdminOrAbove()) router.replace("/dashboard/production/planning");
+  }, [router]);
   const [form, setForm] = useState(BLANK);
   const [schedules, setSchedules] = useState<ScheduleOption[]>([]);
   const [schedLoading, setSchedLoading] = useState(true);

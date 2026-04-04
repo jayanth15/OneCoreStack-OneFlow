@@ -38,7 +38,15 @@ export default function LoginPage() {
       });
       if (meRes.ok) {
         const me = await meRes.json();
-        setCurrentUser({ id: me.id, username: me.username, role: me.role, inventory_access: me.inventory_access ?? [] });
+        setCurrentUser({
+            id: me.id,
+            username: me.username,
+            role: me.role,
+            inventory_access: me.inventory_access ?? [],
+            inventory_edit: me.inventory_edit ?? [],
+            request_departments: me.request_departments ?? [],
+            request_inventory: me.request_inventory ?? [],
+          });
       }
 
       router.push("/dashboard");

@@ -904,6 +904,50 @@ def delete_variant(variant_id: int, session: SessionDep, current_user: AdminUser
     session.add(hist); session.commit()
 
 
+@router.post("/variants/{variant_id}/adjust")
+def adjust_variant_stock(
+    variant_id: int, body: AdjustRequest, session: SessionDep, current_user: CurrentUser,
+) -> VariantOut:
+    """Adjust the qty of an individual variant. Accessible to any authenticated user
+    who has been granted edit access on this inventory type."""
+    v = session.get(SpareItemVariant, variant_id)
+    if not v or not v.is_active:
+        raise HTTPException(status_code=404, detail="Variant not found")
+    parent = _item_or_404(session, v.spare_item_id)
+    parent_qty_before = parent.recorded_qty
+    if body.adjustment_type == "add":
+        v.qty = v.qty + body.quantity
+    elif body.adjustment_type == "subtract":
+        v.qty = max(0.0, v.qty - body.quantity)
+    elif body.adjustment_type == "set":
+        v.qty = body.quantity
+    else:
+        raise HTTPException(status_code=400, detail="adjustment_type must be add|subtract|set")
+    v.updated_at = datetime.now(tz=timezone.utc)
+    session.add(v)
+    session.commit()
+    session.refresh(v)
+    _sync_item_from_variants(session, parent)
+    parent_qty_after = parent.recorded_qty
+    v_parts = [p for p in [v.variant_color, v.serial_number] if p]
+    v_label = " / ".join(v_parts) if v_parts else f"Variant #{v.id}"
+    hist = SpareItemHistory(
+        spare_item_id=v.spare_item_id,
+        changed_by_user_id=current_user.id,  # type: ignore[arg-type]
+        changed_by_username=current_user.username,
+        changed_at=v.updated_at,
+        change_type=body.adjustment_type,
+        qty_before=parent_qty_before,
+        qty_after=parent_qty_after,
+        qty_delta=parent_qty_after - parent_qty_before,
+        note=body.note or None,
+        variant_label=v_label,
+    )
+    session.add(hist)
+    session.commit()
+    return _variant_out(v)
+
+
 # ── Global search endpoint ────────────────────────────────────────────────────
 
 @router.get("/search")

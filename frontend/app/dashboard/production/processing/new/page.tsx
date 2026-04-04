@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiFetchJson } from "@/lib/api";
+import { isAdminOrAbove } from "@/lib/user";
 import { ArrowLeft, Info } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -44,6 +45,11 @@ interface PaginatedPlans {
 
 export default function NewProductionOrderPage() {
   const router = useRouter();
+
+  // Guard: only admins can access this page
+  useEffect(() => {
+    if (!isAdminOrAbove()) router.replace("/dashboard/production/processing");
+  }, [router]);
   const [plans, setPlans] = useState<ProductionPlan[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState("");
   const [startDate, setStartDate] = useState("");

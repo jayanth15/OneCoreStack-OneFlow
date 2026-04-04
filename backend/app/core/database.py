@@ -42,6 +42,21 @@ def run_migrations() -> None:
         if "variant_label" not in cols:
             cursor.execute("ALTER TABLE spare_item_history ADD COLUMN variant_label TEXT")
 
+        # users — new permission columns
+        cursor.execute("PRAGMA table_info(users)")
+        user_cols = {row[1] for row in cursor.fetchall()}
+        for col_name in ("inventory_edit", "request_departments", "request_inventory"):
+            if col_name not in user_cols:
+                cursor.execute(f"ALTER TABLE users ADD COLUMN {col_name} TEXT DEFAULT '' NOT NULL")
+
+        # weeder_item — migrations
+        cursor.execute("PRAGMA table_info(weeder_item)")
+        weeder_cols = {row[1] for row in cursor.fetchall()}
+        if "category_id" not in weeder_cols:
+            cursor.execute("ALTER TABLE weeder_item ADD COLUMN category_id INTEGER REFERENCES weeder_category(id)")
+        if "name" not in weeder_cols:
+            cursor.execute("ALTER TABLE weeder_item ADD COLUMN name TEXT")
+
         conn.commit()
         conn.close()
     except Exception:

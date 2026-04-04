@@ -15,6 +15,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { apiFetchJson } from "@/lib/api";
+import { isAdminOrAbove } from "@/lib/user";
 import {
   ArrowLeft, PlusIcon, Pencil, Trash2,
   Search, ChevronLeft, ChevronRight,
@@ -108,8 +109,11 @@ function PlanningPageInner() {
   const [searchDraft, setSearchDraft] = useState(search);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [admin, setAdmin] = useState(false);
 
   useEffect(() => { setSearchDraft(search); }, [search]);
+  // Detect admin once on mount
+  useEffect(() => { setAdmin(isAdminOrAbove()); }, []);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -192,10 +196,12 @@ function PlanningPageInner() {
               Create production plans linked to customer schedules.
             </p>
           </div>
-          <Button size="sm" onClick={() => router.push("/dashboard/production/planning/new")}>
-            <PlusIcon className="size-4 mr-1" />
-            New Plan
-          </Button>
+          {admin && (
+            <Button size="sm" onClick={() => router.push("/dashboard/production/planning/new")}>
+              <PlusIcon className="size-4 mr-1" />
+              New Plan
+            </Button>
+          )}
         </div>
 
         {/* Filter tabs + Search */}
@@ -283,16 +289,18 @@ function PlanningPageInner() {
                   {plan.processes.length > 4 && <span className="text-xs text-muted-foreground">+{plan.processes.length - 4}</span>}
                 </div>
               )}
-              <div className="flex justify-end gap-1 pt-1 border-t">
-                <Button variant="ghost" size="icon" className="size-8"
-                  onClick={() => router.push(`/dashboard/production/planning/${plan.id}/edit`)} title="Edit">
-                  <Pencil className="size-3.5" />
-                </Button>
-                <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive"
-                  onClick={() => setDeleteId(plan.id)} title="Deactivate">
-                  <Trash2 className="size-3.5" />
-                </Button>
-              </div>
+              {admin && (
+                <div className="flex justify-end gap-1 pt-1 border-t">
+                  <Button variant="ghost" size="icon" className="size-8"
+                    onClick={() => router.push(`/dashboard/production/planning/${plan.id}/edit`)} title="Edit">
+                    <Pencil className="size-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive"
+                    onClick={() => setDeleteId(plan.id)} title="Deactivate">
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -395,18 +403,20 @@ function PlanningPageInner() {
                       </Badge>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <div className="inline-flex gap-1">
-                        <Button variant="ghost" size="icon" className="size-8"
-                          onClick={() => router.push(`/dashboard/production/planning/${plan.id}/edit`)}
-                          title="Edit">
-                          <Pencil className="size-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="icon"
-                          className="size-8 text-destructive hover:text-destructive"
-                          onClick={() => setDeleteId(plan.id)} title="Deactivate">
-                          <Trash2 className="size-3.5" />
-                        </Button>
-                      </div>
+                      {admin && (
+                        <div className="inline-flex gap-1">
+                          <Button variant="ghost" size="icon" className="size-8"
+                            onClick={() => router.push(`/dashboard/production/planning/${plan.id}/edit`)}
+                            title="Edit">
+                            <Pencil className="size-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon"
+                            className="size-8 text-destructive hover:text-destructive"
+                            onClick={() => setDeleteId(plan.id)} title="Deactivate">
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}

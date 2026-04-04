@@ -43,6 +43,9 @@ class UserMeResponse(BaseModel):
     username: str
     role: str
     inventory_access: list[str] = []
+    inventory_edit: list[str] = []
+    request_departments: list[int] = []
+    request_inventory: list[str] = []
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -168,9 +171,26 @@ def logout(
 
 @router.get("/me", response_model=UserMeResponse)
 def me(user: Annotated[User, Depends(get_current_active_user)]) -> UserMeResponse:
+    def _parse_csv(val: str | None) -> list[str]:
+        return [t.strip() for t in (val or "").split(",") if t.strip()]
+
+    def _parse_int_csv(val: str | None) -> list[int]:
+        result = []
+        for t in (val or "").split(","):
+            t = t.strip()
+            if t:
+                try:
+                    result.append(int(t))
+                except ValueError:
+                    pass
+        return result
+
     return UserMeResponse(
         id=user.id,
         username=user.username,
         role=user.role,
-        inventory_access=[t.strip() for t in (user.inventory_access or "").split(",") if t.strip()],
+        inventory_access=_parse_csv(user.inventory_access),
+        inventory_edit=_parse_csv(user.inventory_edit),
+        request_departments=_parse_int_csv(user.request_departments),
+        request_inventory=_parse_csv(user.request_inventory),
     )

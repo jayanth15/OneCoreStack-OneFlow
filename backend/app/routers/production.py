@@ -6,7 +6,7 @@ from pydantic import BaseModel, field_validator
 from sqlmodel import Session, func, select
 
 from app.core.database import get_session
-from app.dependencies.auth import get_current_user
+from app.dependencies.auth import get_current_user, require_admin
 from app.models.bom_item import BomItem
 from app.models.inventory import InventoryItem
 from app.models.inventory_history import InventoryHistory
@@ -515,7 +515,7 @@ def list_plans(
 def create_plan(
     body: PlanCreate,
     session: Annotated[Session, Depends(get_session)],
-    _: Annotated[User, Depends(get_current_user)],
+    _: Annotated[User, Depends(require_admin)],
 ) -> PlanResponse:
     if body.schedule_id is None:
         raise HTTPException(status_code=422, detail="schedule_id is required")
@@ -573,7 +573,7 @@ def update_plan(
     plan_id: int,
     body: PlanUpdate,
     session: Annotated[Session, Depends(get_session)],
-    _: Annotated[User, Depends(get_current_user)],
+    _: Annotated[User, Depends(require_admin)],
 ) -> PlanResponse:
     plan = session.get(ProductionPlan, plan_id)
     if not plan:
@@ -597,7 +597,7 @@ def update_plan(
 def delete_plan(
     plan_id: int,
     session: Annotated[Session, Depends(get_session)],
-    _: Annotated[User, Depends(get_current_user)],
+    _: Annotated[User, Depends(require_admin)],
 ) -> None:
     plan = session.get(ProductionPlan, plan_id)
     if not plan:
@@ -633,7 +633,7 @@ def add_process(
     plan_id: int,
     body: ProcessCreate,
     session: Annotated[Session, Depends(get_session)],
-    _: Annotated[User, Depends(get_current_user)],
+    _: Annotated[User, Depends(require_admin)],
 ) -> ProductionProcess:
     plan = session.get(ProductionPlan, plan_id)
     if not plan:
@@ -651,7 +651,7 @@ def update_process(
     process_id: int,
     body: ProcessUpdate,
     session: Annotated[Session, Depends(get_session)],
-    _: Annotated[User, Depends(get_current_user)],
+    _: Annotated[User, Depends(require_admin)],
 ) -> ProductionProcess:
     proc = session.get(ProductionProcess, process_id)
     if not proc or proc.plan_id != plan_id:
@@ -670,7 +670,7 @@ def delete_process(
     plan_id: int,
     process_id: int,
     session: Annotated[Session, Depends(get_session)],
-    _: Annotated[User, Depends(get_current_user)],
+    _: Annotated[User, Depends(require_admin)],
 ) -> None:
     proc = session.get(ProductionProcess, process_id)
     if not proc or proc.plan_id != plan_id:
@@ -912,7 +912,7 @@ def list_orders(
 def create_order(
     body: OrderCreate,
     session: Annotated[Session, Depends(get_session)],
-    _: Annotated[User, Depends(get_current_user)],
+    _: Annotated[User, Depends(require_admin)],
 ) -> OrderResponse:
     plan = session.get(ProductionPlan, body.production_plan_id)
     if not plan:
@@ -977,7 +977,7 @@ def update_order(
     order_id: int,
     body: OrderUpdate,
     session: Annotated[Session, Depends(get_session)],
-    _: Annotated[User, Depends(get_current_user)],
+    _: Annotated[User, Depends(require_admin)],
 ) -> OrderResponse:
     order = session.get(ProductionOrder, order_id)
     if not order:
@@ -1005,7 +1005,7 @@ def update_order(
 def delete_order(
     order_id: int,
     session: Annotated[Session, Depends(get_session)],
-    _: Annotated[User, Depends(get_current_user)],
+    _: Annotated[User, Depends(require_admin)],
 ) -> None:
     order = session.get(ProductionOrder, order_id)
     if not order:
@@ -1230,7 +1230,7 @@ def update_job(
 def delete_job(
     job_id: int,
     session: Annotated[Session, Depends(get_session)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require_admin)],
 ) -> None:
     job = session.get(JobCard, job_id)
     if not job:

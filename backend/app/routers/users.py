@@ -33,8 +33,14 @@ class UserCreate(BaseModel):
     role: str = "worker"  # admin | manager | worker
     is_active: bool = True
     department_ids: list[int] = []
-    # Inventory types this user may access (empty = all types allowed)
+    # Inventory types this user may access/view (empty = all types allowed)
     inventory_access: list[str] = []
+    # Inventory types this user may edit (add/update/remove) — empty = all viewable
+    inventory_edit: list[str] = []
+    # Department IDs from which this user can raise requests — empty = all
+    request_department_ids: list[int] = []
+    # Inventory types this user can raise requests for — empty = all
+    request_inventory: list[str] = []
 
 
 class UserUpdate(BaseModel):
@@ -44,6 +50,9 @@ class UserUpdate(BaseModel):
     is_active: Optional[bool] = None
     department_ids: Optional[list[int]] = None
     inventory_access: Optional[list[str]] = None
+    inventory_edit: Optional[list[str]] = None
+    request_department_ids: Optional[list[int]] = None
+    request_inventory: Optional[list[str]] = None
 
 
 class UserResponse(BaseModel):
@@ -53,6 +62,9 @@ class UserResponse(BaseModel):
     is_active: bool
     departments: list[DeptRef] = []
     inventory_access: list[str] = []
+    inventory_edit: list[str] = []
+    request_department_ids: list[int] = []
+    request_inventory: list[str] = []
     model_config = {"from_attributes": True}
 
 
@@ -88,16 +100,34 @@ def _set_user_departments(session: Session, user_id: int, dept_ids: list[int]) -
         session.add(UserDepartment(user_id=user_id, department_id=dept_id))
 
 
+def _parse_csv(value: str | None) -> list[str]:
+    return [t.strip() for t in (value or "").split(",") if t.strip()]
+
+
+def _parse_int_csv(value: str | None) -> list[int]:
+    result = []
+    for t in (value or "").split(","):
+        t = t.strip()
+        if t:
+            try:
+                result.append(int(t))
+            except ValueError:
+                pass
+    return result
+
+
 def _build_response(session: Session, user: User) -> UserResponse:
     depts = _get_user_departments(session, user.id)  # type: ignore[arg-type]
-    access_list = [t.strip() for t in (user.inventory_access or "").split(",") if t.strip()]
     return UserResponse(
         id=user.id,  # type: ignore[arg-type]
         username=user.username,
         role=user.role,
         is_active=user.is_active,
         departments=[DeptRef(id=d.id, code=d.code, name=d.name) for d in depts],  # type: ignore[arg-type]
-        inventory_access=access_list,
+        inventory_access=_parse_csv(user.inventory_access),
+        inventory_edit=_parse_csv(user.inventory_edit),
+        request_department_ids=_parse_int_csv(user.request_departments),
+        request_inventory=_parse_csv(user.request_inventory),
     )
 
 
@@ -132,6 +162,9 @@ def create_user(
         role=body.role,
         is_active=body.is_active,
         inventory_access=",".join(body.inventory_access),
+        inventory_edit=",".join(body.inventory_edit),
+        request_departments=",".join(str(i) for i in body.request_department_ids),
+        request_inventory=",".join(body.request_inventory),
     )
     session.add(user)
     session.commit()
@@ -185,6 +218,15 @@ def update_user(
 
     if body.inventory_access is not None:
         user.inventory_access = ",".join(body.inventory_access)
+
+    if body.inventory_edit is not None:
+        user.inventory_edit = ",".join(body.inventory_edit)
+
+    if body.request_department_ids is not None:
+        user.request_departments = ",".join(str(i) for i in body.request_department_ids)
+
+    if body.request_inventory is not None:
+        user.request_inventory = ",".join(body.request_inventory)
 
     session.add(user)
 

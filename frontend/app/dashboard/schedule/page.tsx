@@ -13,6 +13,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { apiFetchJson } from "@/lib/api";
+import { isAdminOrAbove } from "@/lib/user";
 import { PlusIcon, Pencil, Trash2, AlertTriangle, ChevronLeft, ChevronRight, Search } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -98,9 +99,12 @@ function SchedulePageInner() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [searchDraft, setSearchDraft] = useState(search);
+  const [admin, setAdmin] = useState(false);
 
   // Keep search draft in sync with URL
   useEffect(() => { setSearchDraft(search); }, [search]);
+  // Detect admin once on mount
+  useEffect(() => { setAdmin(isAdminOrAbove()); }, []);
 
   // ── Fetch — triggered every time URL params change ──────────────────────────
   useEffect(() => {
@@ -182,10 +186,12 @@ function SchedulePageInner() {
               Customer / OEM delivery schedules — the starting point for production planning.
             </p>
           </div>
-          <Button size="sm" onClick={() => router.push("/dashboard/schedule/new")}>
-            <PlusIcon className="size-4 mr-1" />
-            New Schedule
-          </Button>
+          {admin && (
+            <Button size="sm" onClick={() => router.push("/dashboard/schedule/new")}>
+              <PlusIcon className="size-4 mr-1" />
+              New Schedule
+            </Button>
+          )}
         </div>
 
         {/* Status tabs + Search */}
@@ -272,16 +278,18 @@ function SchedulePageInner() {
                   )}
                   <div><span className="text-muted-foreground">Total:</span> <span className="font-semibold">{fmt(s.total_qty)}</span></div>
                 </div>
-                <div className="flex justify-end gap-1 pt-1 border-t">
-                  <Button variant="ghost" size="icon" className="size-8"
-                    onClick={() => router.push(`/dashboard/schedule/${s.id}/edit`)} title="Edit">
-                    <Pencil className="size-3.5" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive"
-                    onClick={() => setDeleteId(s.id)} title="Deactivate">
-                    <Trash2 className="size-3.5" />
-                  </Button>
-                </div>
+                {admin && (
+                  <div className="flex justify-end gap-1 pt-1 border-t">
+                    <Button variant="ghost" size="icon" className="size-8"
+                      onClick={() => router.push(`/dashboard/schedule/${s.id}/edit`)} title="Edit">
+                      <Pencil className="size-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive"
+                      onClick={() => setDeleteId(s.id)} title="Deactivate">
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </div>
+                )}
               </div>
             ))
           )}
@@ -360,23 +368,25 @@ function SchedulePageInner() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <div className="inline-flex gap-1">
-                          <Button
-                            variant="ghost" size="icon" className="size-8"
-                            onClick={() => router.push(`/dashboard/schedule/${s.id}/edit`)}
-                            title="Edit"
-                          >
-                            <Pencil className="size-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost" size="icon"
-                            className="size-8 text-destructive hover:text-destructive"
-                            onClick={() => setDeleteId(s.id)}
-                            title="Deactivate"
-                          >
-                            <Trash2 className="size-3.5" />
-                          </Button>
-                        </div>
+                        {admin && (
+                          <div className="inline-flex gap-1">
+                            <Button
+                              variant="ghost" size="icon" className="size-8"
+                              onClick={() => router.push(`/dashboard/schedule/${s.id}/edit`)}
+                              title="Edit"
+                            >
+                              <Pencil className="size-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost" size="icon"
+                              className="size-8 text-destructive hover:text-destructive"
+                              onClick={() => setDeleteId(s.id)}
+                              title="Deactivate"
+                            >
+                              <Trash2 className="size-3.5" />
+                            </Button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))

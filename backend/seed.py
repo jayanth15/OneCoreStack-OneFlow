@@ -63,10 +63,10 @@ with Session(engine) as s:
 
     # ── Departments ──────────────────────────────────────────────────────────
     depts = {
-        "MFG":   Department(code="MFG",   name="Manufacturing",  is_active=True),
-        "LOG":   Department(code="LOG",   name="Logistics",       is_active=True),
-        "QC":    Department(code="QC",    name="Quality Control", is_active=True),
-        "ADMIN": Department(code="ADMIN", name="Administration",  is_active=True),
+        "PRD": Department(code="PRD", name="Production",  is_active=True),
+        "SPR": Department(code="SPR", name="Spares",      is_active=True),
+        "MKT": Department(code="MKT", name="Marketing",   is_active=True),
+        "PUR": Department(code="PUR", name="Purchase",    is_active=True),
     }
     for d in depts.values():
         s.add(d)
@@ -76,8 +76,8 @@ with Session(engine) as s:
     # ── Users ────────────────────────────────────────────────────────────────
     users_seed = [
         # username,   password,     role,          active, dept
-        ("mohan", "mohan@123",  "super_admin", True,  "ADMIN"),
-        ("chadran",      "chandran@123",  "super_admin",       True,  "ADMIN"),
+        ("mohan", "mohan@123",  "super_admin", True,  "PRD"),
+        ("chadran",      "chandran@123",  "super_admin",       True,  "PRD"),
     ]
     created_users = {}
     for u in users_seed:
@@ -150,6 +150,8 @@ with Session(engine) as s:
                 ("Timing Chain",         "ENG-008", "Cam timing chain 82 links",            420.0,  "pcs",  10.0, 3.0,  "Box",   "Rack A-2, Shelf 3"),
                 ("Camshaft Sprocket",    "ENG-009", "Camshaft drive sprocket 20T",           310.0,  "pcs",  8.0,  2.0,  "Bin",   "Rack A-2, Shelf 4"),
                 ("Connecting Rod",       "ENG-010", "Con-rod assembly complete",             780.0,  "pcs",  6.0,  2.0,  "Rack",  "Rack A-2, Shelf 5"),
+                ("Piston Assembly",       "ENG-011", "Complete piston with pin & clips",      620.0,  "set",  10.0, 3.0,  "Bin",   "Rack A-3, Shelf 1"),
+                ("Cylinder Block",        "ENG-012", "Bare cylinder block 168cc rebored",    1850.0,  "pcs",  3.0,  1.0,  "Shelf", "Rack A-3, Shelf 2"),
             ]),
             ("Transmission & Clutch", "Gearbox and clutch components", [
                 ("Clutch Plate Set",     "TRN-001", "4-plate friction clutch set",          550.0,  "set",  15.0, 4.0,  "Box",   "Rack B-1, Shelf 1"),
@@ -162,6 +164,8 @@ with Session(engine) as s:
                 ("Gear Selector Drum",   "TRN-008", "5-speed selector drum",               430.0,  "pcs",  5.0,  2.0,  "Bin",   "Rack B-2, Shelf 3"),
                 ("Kick Start Shaft",     "TRN-009", "Kick-start spindle with spring",      290.0,  "pcs",  8.0,  2.0,  "Bin",   "Rack B-2, Shelf 4"),
                 ("Primary Chain",        "TRN-010", "Primary drive chain 219×66L",         210.0,  "pcs",  14.0, 4.0,  "Box",   "Rack B-2, Shelf 5"),
+                ("Gear Shift Lever",      "TRN-011", "Foot gear shift lever assembly",        185.0,  "pcs",  10.0, 3.0,  "Bin",   "Rack B-3, Shelf 1"),
+                ("Clutch Hub",            "TRN-012", "Clutch basket inner hub",               740.0,  "pcs",  6.0,  2.0,  "Rack",  "Rack B-3, Shelf 2"),
             ]),
             ("Brakes & Wheels", "Brake system and wheel components", [
                 ("Brake Shoe Set Front", "BRK-001", "Front drum brake shoe pair",           240.0,  "set",  20.0, 5.0,  "Bin",   "Rack C-1, Shelf 1"),
@@ -174,6 +178,8 @@ with Session(engine) as s:
                 ("Brake Drum Rear",      "BRK-008", "Rear brake drum assembly",             680.0,  "pcs",  8.0,  2.0,  "Rack",  "Rack C-2, Shelf 3"),
                 ("Spoke Set 36pc",       "BRK-009", "Wheel spoke set 36 pcs with nipples", 310.0,  "set",  6.0,  2.0,  "Box",   "Rack C-2, Shelf 4"),
                 ("Tyre Tube 2.75-17",    "BRK-010", "Inner tube 2.75-17 TR4 valve",        185.0,  "pcs",  15.0, 4.0,  "Shelf", "Rack C-2, Shelf 5"),
+                ("Brake Panel Front",     "BRK-011", "Front brake cam panel plate",           310.0,  "pcs",  8.0,  2.0,  "Bin",   "Rack C-3, Shelf 1"),
+                ("Axle Nut Set",          "BRK-012", "Front & rear axle nut with split pin",  45.0,   "set",  50.0, 12.0, "Drawer","Rack C-3, Shelf 2"),
             ]),
             ("Fuel & Electrical", "Fuel system and electrical components", [
                 ("Carburetor Main Jet",  "FUL-001", "Main jet #115 for PZ30 carb",         45.0,   "pcs",  50.0, 15.0, "Drawer","Rack D-1, Shelf 1"),
@@ -186,6 +192,8 @@ with Session(engine) as s:
                 ("Fuel Tap Assembly",    "FUL-008", "Petcock fuel tap with reserve",        145.0,  "pcs",  15.0, 4.0,  "Bin",   "Rack D-2, Shelf 3"),
                 ("Carb Float",           "FUL-009", "Carburetor float bowl assembly",       135.0,  "pcs",  20.0, 5.0,  "Drawer","Rack D-2, Shelf 4"),
                 ("Throttle Cable",       "FUL-010", "Throttle control cable 1.1m",         70.0,   "pcs",  25.0, 6.0,  "Rack",  "Rack D-2, Shelf 5"),
+                ("Kill Switch",           "FUL-011", "Handlebar engine kill switch",          55.0,   "pcs",  30.0, 8.0,  "Bin",   "Rack D-3, Shelf 1"),
+                ("Choke Cable",           "FUL-012", "Choke control cable 900mm",             65.0,   "pcs",  20.0, 5.0,  "Rack",  "Rack D-3, Shelf 2"),
             ]),
             ("Body & Frame", "Bodywork and frame components", [
                 ("Side Cover LH",        "BDY-001", "Left side body panel",                 420.0,  "pcs",  10.0, 3.0,  "Shelf", "Rack E-1, Shelf 1"),
@@ -198,6 +206,36 @@ with Session(engine) as s:
                 ("Foot Peg Set",         "BDY-008", "Rider and pillion foot peg pair",     280.0,  "set",  12.0, 3.0,  "Bin",   "Rack E-2, Shelf 3"),
                 ("Seat Assembly",        "BDY-009", "Complete seat with foam & cover",    1100.0, "pcs",  5.0,  2.0,  "Shelf", "Rack E-2, Shelf 4"),
                 ("Centre Stand",         "BDY-010", "Centre stand with spring",             460.0,  "pcs",  7.0,  2.0,  "Rack",  "Rack E-2, Shelf 5"),
+                ("Side Stand",            "BDY-011", "Side kick stand with spring",           280.0,  "pcs",  10.0, 3.0,  "Rack",  "Rack E-3, Shelf 1"),
+                ("Fuel Tank Cap",         "BDY-012", "Fuel tank filler cap with lock",        220.0,  "pcs",  12.0, 3.0,  "Bin",   "Rack E-3, Shelf 2"),
+            ]),
+            ("Suspension & Steering", "Front fork and rear suspension parts", [
+                ("Front Fork Oil Seal",  "SUS-001", "Front fork dust & oil seal pair",      190.0,  "set",  20.0, 5.0,  "Bin",   "Rack F-1, Shelf 1"),
+                ("Front Fork Spring",    "SUS-002", "Front fork inner spring",              230.0,  "pcs",  12.0, 3.0,  "Rack",  "Rack F-1, Shelf 2"),
+                ("Rear Shock Absorber",  "SUS-003", "Rear monoshock absorber",              980.0,  "pcs",  6.0,  2.0,  "Rack",  "Rack F-1, Shelf 3"),
+                ("Steering Ball Race",   "SUS-004", "Steering head ball bearing set",       145.0,  "set",  15.0, 4.0,  "Bin",   "Rack F-1, Shelf 4"),
+                ("Fork Tube LH",         "SUS-005", "Left inner fork tube 33mm",            560.0,  "pcs",  5.0,  2.0,  "Rack",  "Rack F-1, Shelf 5"),
+                ("Fork Tube RH",         "SUS-006", "Right inner fork tube 33mm",           560.0,  "pcs",  5.0,  2.0,  "Rack",  "Rack F-2, Shelf 1"),
+                ("Swing Arm Bush",       "SUS-007", "Swingarm pivot rubber bush pair",      110.0,  "set",  20.0, 5.0,  "Bin",   "Rack F-2, Shelf 2"),
+                ("Fork Oil 10W",         "SUS-008", "SAE 10W fork damper oil 500ml",        95.0,   "btl",  24.0, 6.0,  "Shelf", "Rack F-2, Shelf 3"),
+                ("Steering Stem",        "SUS-009", "Complete steering stem assembly",      640.0,  "pcs",  4.0,  2.0,  "Rack",  "Rack F-2, Shelf 4"),
+                ("Rear Cushion Pin",     "SUS-010", "Rear shock mounting pin & nut",        55.0,   "set",  30.0, 8.0,  "Bin",   "Rack F-2, Shelf 5"),
+                ("Fork Dust Seal",        "SUS-011", "Front fork dust wiper seal pair",       95.0,   "set",  20.0, 5.0,  "Bin",   "Rack F-3, Shelf 1"),
+                ("Swing Arm Bolt",        "SUS-012", "Swingarm pivot bolt M14 with nut",      75.0,   "set",  15.0, 4.0,  "Bin",   "Rack F-3, Shelf 2"),
+            ]),
+            ("Cooling & Lubrication", "Oil filtration and cooling system parts", [
+                ("Engine Oil Filter",    "OIL-001", "Centrifugal oil filter rotor",         85.0,   "pcs",  40.0, 10.0, "Bin",   "Rack G-1, Shelf 1"),
+                ("Oil Drain Washer",     "OIL-002", "Sump drain bolt copper washer",        8.0,    "pcs", 100.0, 20.0, "Drawer","Rack G-1, Shelf 2"),
+                ("Oil Pump Gear",        "OIL-003", "Inner oil pump rotor gear",            195.0,  "pcs",  10.0, 3.0,  "Bin",   "Rack G-1, Shelf 3"),
+                ("Oil Pump Cover",       "OIL-004", "Oil pump outer cover gasket",          65.0,   "pcs",  20.0, 5.0,  "Bin",   "Rack G-1, Shelf 4"),
+                ("Engine Oil 20W50",     "OIL-005", "Mineral engine oil 20W-50 1L",         180.0,  "ltr",  48.0, 12.0, "Shelf", "Rack G-1, Shelf 5"),
+                ("Coolant Overflow Btl", "OIL-006", "Coolant reservoir bottle 300ml",       120.0,  "pcs",  8.0,  2.0,  "Shelf", "Rack G-2, Shelf 1"),
+                ("Breather Tube",        "OIL-007", "Crankcase breather hose 8mm",          30.0,   "pcs",  35.0, 8.0,  "Bin",   "Rack G-2, Shelf 2"),
+                ("Oil Level Glass",      "OIL-008", "Sight glass bolt with washer",         45.0,   "pcs",  25.0, 6.0,  "Drawer","Rack G-2, Shelf 3"),
+                ("Temperature Sensor",   "OIL-009", "Cylinder head temp NTC sensor",        220.0,  "pcs",  10.0, 3.0,  "Bin",   "Rack G-2, Shelf 4"),
+                ("Sump Gasket",          "OIL-010", "Engine sump cover gasket",             55.0,   "pcs",  30.0, 8.0,  "Bin",   "Rack G-2, Shelf 5"),
+                ("Oil Strainer Mesh",     "OIL-011", "Engine oil strainer screen filter",     70.0,   "pcs",  20.0, 5.0,  "Bin",   "Rack G-3, Shelf 1"),
+                ("Crankcase Vent Valve",  "OIL-012", "PCV one-way breather valve",            90.0,   "pcs",  15.0, 4.0,  "Bin",   "Rack G-3, Shelf 2"),
             ]),
         ]),
     ]

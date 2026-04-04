@@ -15,6 +15,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { apiFetchJson } from "@/lib/api";
+import { isAdminOrAbove } from "@/lib/user";
 import {
   ArrowLeft, PlusIcon, Eye, Trash2,
   Search, ChevronLeft, ChevronRight,
@@ -118,8 +119,11 @@ function ProcessingPageInner() {
   const [searchDraft, setSearchDraft] = useState(search);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [admin, setAdmin] = useState(false);
 
   useEffect(() => { setSearchDraft(search); }, [search]);
+  // Detect admin once on mount
+  useEffect(() => { setAdmin(isAdminOrAbove()); }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -192,10 +196,12 @@ function ProcessingPageInner() {
               Start production orders and manage job cards for each process step.
             </p>
           </div>
-          <Button size="sm" onClick={() => router.push("/dashboard/production/processing/new")}>
-            <PlusIcon className="size-4 mr-1" />
-            Start Production
-          </Button>
+          {admin && (
+            <Button size="sm" onClick={() => router.push("/dashboard/production/processing/new")}>
+              <PlusIcon className="size-4 mr-1" />
+              Start Production
+            </Button>
+          )}
         </div>
 
         {!loading && orders.length > 0 && <SummaryCards items={orders} />}
@@ -277,10 +283,12 @@ function ProcessingPageInner() {
                   onClick={() => router.push(`/dashboard/production/processing/${o.id}`)} title="View">
                   <Eye className="size-3.5" />
                 </Button>
-                <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive"
-                  onClick={() => setDeleteId(o.id)} title="Deactivate">
-                  <Trash2 className="size-3.5" />
-                </Button>
+                {admin && (
+                  <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive"
+                    onClick={() => setDeleteId(o.id)} title="Deactivate">
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                )}
               </div>
             </div>
           ))}
@@ -352,11 +360,13 @@ function ProcessingPageInner() {
                           onClick={() => router.push(`/dashboard/production/processing/${o.id}`)} title="View">
                           <Eye className="size-3.5" />
                         </Button>
-                        <Button variant="ghost" size="icon"
-                          className="size-8 text-destructive hover:text-destructive"
-                          onClick={() => setDeleteId(o.id)} title="Deactivate">
-                          <Trash2 className="size-3.5" />
-                        </Button>
+                        {admin && (
+                          <Button variant="ghost" size="icon"
+                            className="size-8 text-destructive hover:text-destructive"
+                            onClick={() => setDeleteId(o.id)} title="Deactivate">
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>

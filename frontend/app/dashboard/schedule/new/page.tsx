@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiFetchJson } from "@/lib/api";
+import { isAdminOrAbove } from "@/lib/user";
 import { ArrowLeft, PackageCheck, PackageX, TrendingDown, ExternalLink } from "lucide-react";
 
 interface CustomerOption { id: number; name: string; }
@@ -48,6 +49,11 @@ const BLANK = {
 
 export default function NewSchedulePage() {
   const router = useRouter();
+
+  // Guard: only admins can access this page
+  useEffect(() => {
+    if (!isAdminOrAbove()) router.replace("/dashboard/schedule");
+  }, [router]);
   const [form, setForm] = useState(BLANK);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);

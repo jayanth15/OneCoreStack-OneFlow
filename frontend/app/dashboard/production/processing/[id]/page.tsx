@@ -15,6 +15,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { apiFetchJson } from "@/lib/api";
+import { isAdminOrAbove } from "@/lib/user";
 import {
   ArrowLeft, PlusIcon, Pencil, Trash2,
   Factory, Clock, User, Wrench, Package, Hash, CheckCircle, History,
@@ -103,6 +104,7 @@ export default function ProductionOrderDetailPage() {
   const [statusSaving, setStatusSaving] = useState(false);
   const [deleteJobId, setDeleteJobId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [admin, setAdmin] = useState(false);
 
   // History modal state
   const [historyJobId, setHistoryJobId] = useState<number | null>(null);
@@ -121,6 +123,8 @@ export default function ProductionOrderDetailPage() {
   }, [id]);
 
   useEffect(() => { loadOrder(); }, [loadOrder]);
+  // Detect admin once on mount
+  useEffect(() => { setAdmin(isAdminOrAbove()); }, []);
 
   async function changeStatus(newStatus: string) {
     if (!order) return;
@@ -486,11 +490,13 @@ export default function ProductionOrderDetailPage() {
                                   title="Edit">
                                   <Pencil className="size-3" />
                                 </Button>
-                                <Button variant="ghost" size="icon"
-                                  className="size-7 text-destructive hover:text-destructive"
-                                  onClick={() => setDeleteJobId(jc.id)} title="Deactivate">
-                                  <Trash2 className="size-3" />
-                                </Button>
+                                {admin && (
+                                  <Button variant="ghost" size="icon"
+                                    className="size-7 text-destructive hover:text-destructive"
+                                    onClick={() => setDeleteJobId(jc.id)} title="Deactivate">
+                                    <Trash2 className="size-3" />
+                                  </Button>
+                                )}
                               </div>
                             </div>
                           ))}

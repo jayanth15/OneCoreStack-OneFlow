@@ -25,6 +25,7 @@ from app.models.work_log import WorkLog  # noqa: F401
 from app.models.work_type import WorkType  # noqa: F401
 from app.models.attachment_item import AttachmentItem  # noqa: F401
 from app.models.attachment_history import AttachmentHistory  # noqa: F401
+from app.models.weeder_category import WeederCategory  # noqa: F401  — must be before WeederItem
 from app.models.weeder_item import WeederItem  # noqa: F401
 from app.models.weeder_history import WeederHistory  # noqa: F401
 from app.models.purchase_request import PurchaseRequest  # noqa: F401

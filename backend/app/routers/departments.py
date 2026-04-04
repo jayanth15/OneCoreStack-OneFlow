@@ -5,8 +5,9 @@ from pydantic import BaseModel
 from sqlmodel import Session, func, select
 
 from app.core.database import get_session
-from app.dependencies.auth import require_admin
+from app.dependencies.auth import get_current_user, require_admin
 from app.models.department import Department
+from app.models.user import User
 from app.models.user_department import UserDepartment
 
 router = APIRouter(
@@ -14,6 +15,27 @@ router = APIRouter(
     tags=["admin-departments"],
     dependencies=[Depends(require_admin)],
 )
+
+# Public (any authenticated user) departments list
+public_router = APIRouter(prefix="/api/v1/departments", tags=["departments"])
+
+
+class DeptSimple(BaseModel):
+    id: int
+    code: str
+    name: str
+
+
+@public_router.get("", response_model=list[DeptSimple])
+def list_departments_public(
+    session: Annotated[Session, Depends(get_session)],
+    _: Annotated[User, Depends(get_current_user)],
+) -> list[DeptSimple]:
+    """Return active departments. Accessible by any authenticated user."""
+    depts = session.exec(
+        select(Department).where(Department.is_active == True).order_by(Department.code)  # noqa: E712
+    ).all()
+    return [DeptSimple(id=d.id, code=d.code, name=d.name) for d in depts]  # type: ignore[arg-type]
 
 
 # ── Schemas ──────────────────────────────────────────────────────────────────

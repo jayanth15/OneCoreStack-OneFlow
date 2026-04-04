@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiFetchJson } from "@/lib/api";
+import { isAdminOrAbove } from "@/lib/user";
 import { ArrowLeft, PackageCheck, PackageX, TrendingDown, ExternalLink } from "lucide-react";
 
 interface CustomerOption { id: number; name: string; }
@@ -50,6 +51,11 @@ interface ScheduleForm {
 export default function EditSchedulePage() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
+
+  // Guard: only admins can access this page
+  useEffect(() => {
+    if (!isAdminOrAbove()) router.replace("/dashboard/schedule");
+  }, [router]);
   const [form, setForm] = useState<ScheduleForm>({
     customer_name: "", description: "", scheduled_date: "",
     scheduled_qty: 0, backlog_qty: 0, notes: "",

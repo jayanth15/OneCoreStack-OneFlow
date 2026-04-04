@@ -32,6 +32,9 @@ interface UserData {
   is_active: boolean;
   departments: DeptRef[];
   inventory_access: string[];
+  inventory_edit: string[];
+  request_department_ids: number[];
+  request_inventory: string[];
 }
 
 interface UserForm {
@@ -41,6 +44,9 @@ interface UserForm {
   is_active: boolean;
   department_ids: number[];
   inventory_access: string[];
+  inventory_edit: string[];
+  request_department_ids: number[];
+  request_inventory: string[];
 }
 
 export default function EditUserPage() {
@@ -60,6 +66,9 @@ export default function EditUserPage() {
     is_active: true,
     department_ids: [],
     inventory_access: [],
+    inventory_edit: [],
+    request_department_ids: [],
+    request_inventory: [],
   });
   const [allDepts, setAllDepts] = useState<DeptRef[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,6 +91,9 @@ export default function EditUserPage() {
           is_active: userData.is_active,
           department_ids: userData.departments.map((d) => d.id),
           inventory_access: userData.inventory_access ?? [],
+          inventory_edit: userData.inventory_edit ?? [],
+          request_department_ids: userData.request_department_ids ?? [],
+          request_inventory: userData.request_inventory ?? [],
         });
         setAllDepts(deptsData);
       })
@@ -101,11 +113,45 @@ export default function EditUserPage() {
   }
 
   function toggleInventoryAccess(type: string) {
+    setForm((prev) => {
+      const removing = prev.inventory_access.includes(type);
+      return {
+        ...prev,
+        inventory_access: removing
+          ? prev.inventory_access.filter((t) => t !== type)
+          : [...prev.inventory_access, type],
+        // When revoking access, also revoke edit for that type
+        inventory_edit: removing
+          ? prev.inventory_edit.filter((t) => t !== type)
+          : prev.inventory_edit,
+      };
+    });
+  }
+
+  function toggleInventoryEdit(type: string) {
     setForm((prev) => ({
       ...prev,
-      inventory_access: prev.inventory_access.includes(type)
-        ? prev.inventory_access.filter((t) => t !== type)
-        : [...prev.inventory_access, type],
+      inventory_edit: prev.inventory_edit.includes(type)
+        ? prev.inventory_edit.filter((t) => t !== type)
+        : [...prev.inventory_edit, type],
+    }));
+  }
+
+  function toggleRequestDept(id: number) {
+    setForm((prev) => ({
+      ...prev,
+      request_department_ids: prev.request_department_ids.includes(id)
+        ? prev.request_department_ids.filter((d) => d !== id)
+        : [...prev.request_department_ids, id],
+    }));
+  }
+
+  function toggleRequestInventory(type: string) {
+    setForm((prev) => ({
+      ...prev,
+      request_inventory: prev.request_inventory.includes(type)
+        ? prev.request_inventory.filter((t) => t !== type)
+        : [...prev.request_inventory, type],
     }));
   }
 
@@ -121,6 +167,9 @@ export default function EditUserPage() {
         is_active: form.is_active,
         department_ids: form.department_ids,
         inventory_access: form.inventory_access,
+        inventory_edit: form.inventory_edit,
+        request_department_ids: form.request_department_ids,
+        request_inventory: form.request_inventory,
       };
       if (form.password) payload.password = form.password;
 
@@ -303,37 +352,149 @@ export default function EditUserPage() {
 
             {/* Inventory Access — only relevant for non-admin roles */}
             {(form.role === "manager" || form.role === "worker") && (
-              <div className="space-y-2">
-                <Label>
-                  Inventory Access
-                  <span className="text-muted-foreground font-normal ml-1">(leave all unchecked = access to all types)</span>
-                </Label>
-                <div className="rounded-md border divide-y">
-                  {ALL_INVENTORY_TYPES.map((type) => {
-                    const checked = form.inventory_access.includes(type);
-                    return (
-                      <label
-                        key={type}
-                        className="flex items-center gap-3 px-3 py-3 cursor-pointer hover:bg-muted/40 transition-colors"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => toggleInventoryAccess(type)}
-                          disabled={saving}
-                          className="size-4 rounded accent-primary"
-                        />
-                        <span className="text-sm">{INVENTORY_TYPE_LABELS[type]}</span>
-                      </label>
-                    );
-                  })}
+              <>
+                <div className="space-y-2">
+                  <Label>
+                    Inventory Access
+                    <span className="text-muted-foreground font-normal ml-1">(leave all unchecked = access to all types)</span>
+                  </Label>
+                  <div className="rounded-md border divide-y">
+                    {ALL_INVENTORY_TYPES.map((type) => {
+                      const checked = form.inventory_access.includes(type);
+                      return (
+                        <label
+                          key={type}
+                          className="flex items-center gap-3 px-3 py-3 cursor-pointer hover:bg-muted/40 transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleInventoryAccess(type)}
+                            disabled={saving}
+                            className="size-4 rounded accent-primary"
+                          />
+                          <span className="text-sm">{INVENTORY_TYPE_LABELS[type]}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {form.inventory_access.length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Access limited to: {form.inventory_access.map((t) => INVENTORY_TYPE_LABELS[t as keyof typeof INVENTORY_TYPE_LABELS] ?? t).join(", ")}
+                    </p>
+                  )}
                 </div>
-                {form.inventory_access.length > 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    Access limited to: {form.inventory_access.map((t) => INVENTORY_TYPE_LABELS[t as keyof typeof INVENTORY_TYPE_LABELS] ?? t).join(", ")}
-                  </p>
-                )}
-              </div>
+
+                <div className="space-y-2">
+                  <Label>
+                    Inventory Edit Access
+                    <span className="text-muted-foreground font-normal ml-1">(leave all unchecked = no edit access)</span>
+                  </Label>
+                  <div className="rounded-md border divide-y">
+                    {ALL_INVENTORY_TYPES.map((type) => {
+                      const checked = form.inventory_edit.includes(type);
+                      const accessLimited = form.inventory_access.length > 0;
+                      const notInAccess = accessLimited && !form.inventory_access.includes(type);
+                      const rowDisabled = saving || notInAccess;
+                      return (
+                        <label
+                          key={type}
+                          className={`flex items-center gap-3 px-3 py-3 transition-colors ${
+                            rowDisabled ? "opacity-40 cursor-not-allowed bg-muted/20" : "cursor-pointer hover:bg-muted/40"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => !rowDisabled && toggleInventoryEdit(type)}
+                            disabled={rowDisabled}
+                            className="size-4 rounded accent-primary"
+                          />
+                          <span className="text-sm">{INVENTORY_TYPE_LABELS[type]}</span>
+                          {notInAccess && (
+                            <span className="ml-auto text-xs text-muted-foreground">(no access)</span>
+                          )}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {form.inventory_edit.length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Edit limited to: {form.inventory_edit.map((t) => INVENTORY_TYPE_LABELS[t as keyof typeof INVENTORY_TYPE_LABELS] ?? t).join(", ")}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-4 rounded-md border p-4">
+                  <p className="text-sm font-medium">Request Permissions</p>
+
+                  <div className="space-y-2">
+                    <Label>
+                      Can Raise Requests From
+                      <span className="text-muted-foreground font-normal ml-1">(leave all unchecked = all departments)</span>
+                    </Label>
+                    {allDepts.length === 0 ? (
+                      <p className="text-sm text-muted-foreground py-1">No departments available.</p>
+                    ) : (
+                      <div className="rounded-md border divide-y">
+                        {allDepts.map((dept) => {
+                          const checked = form.request_department_ids.includes(dept.id);
+                          return (
+                            <label
+                              key={dept.id}
+                              className="flex items-center gap-3 px-3 py-3 cursor-pointer hover:bg-muted/40 transition-colors"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => toggleRequestDept(dept.id)}
+                                disabled={saving}
+                                className="size-4 rounded accent-primary"
+                              />
+                              <span className="font-mono text-xs font-medium text-muted-foreground w-14 shrink-0">
+                                {dept.code}
+                              </span>
+                              <span className="text-sm">{dept.name}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>
+                      Can Request Inventory Types
+                      <span className="text-muted-foreground font-normal ml-1">(leave all unchecked = all types)</span>
+                    </Label>
+                    <div className="rounded-md border divide-y">
+                      {ALL_INVENTORY_TYPES.map((type) => {
+                        const checked = form.request_inventory.includes(type);
+                        return (
+                          <label
+                            key={type}
+                            className="flex items-center gap-3 px-3 py-3 cursor-pointer hover:bg-muted/40 transition-colors"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleRequestInventory(type)}
+                              disabled={saving}
+                              className="size-4 rounded accent-primary"
+                            />
+                            <span className="text-sm">{INVENTORY_TYPE_LABELS[type]}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    {form.request_inventory.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Request limited to: {form.request_inventory.map((t) => INVENTORY_TYPE_LABELS[t as keyof typeof INVENTORY_TYPE_LABELS] ?? t).join(", ")}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </>
             )}
 
             {saveError && (

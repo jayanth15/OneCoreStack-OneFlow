@@ -19,7 +19,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { apiFetchJson } from "@/lib/api";
-import { isAdminOrAbove, canAccessInventory } from "@/lib/user";
+import { isAdminOrAbove, canAccessInventory, canEditInventory } from "@/lib/user";
 import {
   PlusIcon, Pencil, Trash2, AlertTriangle, Wrench, ChevronRight, ChevronDown,
   Search, PackagePlus, PackageMinus, ImageIcon, Layers, Eye, History, ChevronsDown,
@@ -109,6 +109,7 @@ export default function SparesPage() {
   const [catMeta, setCatMeta] = useState({ total: 0, page: 1, pages: 1 });
   const [error, setError] = useState<string | null>(null);
   const [admin, setAdmin] = useState(false);
+  const [canEdit, setCanEdit] = useState(false);
   const [search, setSearch] = useState("");
   const [searchDraft, setSearchDraft] = useState("");
 
@@ -157,6 +158,8 @@ export default function SparesPage() {
   const [variantsDialogItem, setVariantsDialogItem] = useState<SpareItem | null>(null);
   const [variantsRows, setVariantsRows] = useState<SpareVariant[]>([]);
   const [variantsLoading, setVariantsLoading] = useState(false);
+  // pre-fetched variants for search results that matched via variant text
+  const [searchVariantsMap, setSearchVariantsMap] = useState<Map<number, SpareVariant[]>>(new Map());
   const [variantForm, setVariantForm] = useState({serial_number:"",variant_color:"",qty:"0",unit:"pcs",customUnit:"",storage_type:"",storage_location:"",rate:"",reorder_level:"0",image_base64: null as string | null});
   const [variantCustomStorage, setVariantCustomStorage] = useState(false);
   const [variantCustomUnit, setVariantCustomUnit] = useState(false);
@@ -204,6 +207,7 @@ export default function SparesPage() {
 
   useEffect(() => {
     setAdmin(isAdminOrAbove());
+    setCanEdit(canEditInventory("spare"));
     if (!canAccessInventory("spare")) {
       router.replace("/dashboard/inventory");
     }
@@ -222,6 +226,7 @@ export default function SparesPage() {
       setItemsMap(new Map());
       setItemsMeta(new Map());
       setVariantMatchedSubs(new Set());
+      setSearchVariantsMap(new Map());
     }
     const p = new URLSearchParams({ include_inactive: "false" });
     p.set("page", String(page));
@@ -282,6 +287,18 @@ export default function SparesPage() {
         setItemsMeta(newItemsMeta);
         setExpandedSubs(newExpandedSubs);
         setVariantMatchedSubs(newVariantMatchedSubs);
+        // Pre-fetch variants for variant-matched items so their panels auto-expand
+        const variantMatchedItems = [...newItemsMap.values()].flat().filter(it => it.variant_matched);
+        const newSearchVariantsMap = new Map<number, SpareVariant[]>();
+        if (variantMatchedItems.length > 0) {
+          const varResults = await Promise.all(
+            variantMatchedItems.map(it =>
+              apiFetchJson<SpareVariant[]>(`/api/v1/spares/items/${it.id}/variants`).catch(() => [] as SpareVariant[])
+            )
+          );
+          variantMatchedItems.forEach((it, i) => { newSearchVariantsMap.set(it.id, varResults[i]); });
+        }
+        setSearchVariantsMap(newSearchVariantsMap);
       }
     } catch(e:unknown) { setError(e instanceof Error ? e.message : "Failed"); }
     finally { setLoading(false); }
@@ -492,12 +509,9 @@ export default function SparesPage() {
     const selectedVariant = adjustSelectedVarId !== "" ? adjustItemVariants.find(v => v.id === adjustSelectedVarId) : undefined;
     try {
       if (selectedVariant) {
-        let newQty: number;
-        if (adjustType === "add")           newQty = selectedVariant.qty + qty;
-        else if (adjustType === "subtract") newQty = Math.max(0, selectedVariant.qty - qty);
-        else                               newQty = qty;
-        await apiFetchJson(`/api/v1/spares/variants/${selectedVariant.id}`, {
-          method: "PUT", body: JSON.stringify({ qty: newQty }),
+        await apiFetchJson(`/api/v1/spares/variants/${selectedVariant.id}/adjust`, {
+          method: "POST",
+          body: JSON.stringify({ adjustment_type: adjustType, quantity: qty, note: adjustNote || null }),
         });
       } else {
         await apiFetchJson(`/api/v1/spares/items/${itemId}/adjust`, {
@@ -525,16 +539,12 @@ export default function SparesPage() {
     if (isNaN(qty) || qty < 0) { setAdjustVError("Enter a valid qty ≥ 0"); return; }
     setAdjustVSaving(true); setAdjustVError(null);
     const varId = adjustVariant.id;
-    const currentQty = adjustVariant.qty;
     const parentId = variantsDialogItem.id;
     const subId = variantsDialogItem.sub_category_id;
-    let newQty: number;
-    if (adjustVType === "add")           newQty = currentQty + qty;
-    else if (adjustVType === "subtract") newQty = Math.max(0, currentQty - qty);
-    else                                 newQty = qty;
     try {
-      await apiFetchJson(`/api/v1/spares/variants/${varId}`, {
-        method: "PUT", body: JSON.stringify({ qty: newQty }),
+      await apiFetchJson(`/api/v1/spares/variants/${varId}/adjust`, {
+        method: "POST",
+        body: JSON.stringify({ adjustment_type: adjustVType, quantity: qty, note: adjustVNote || null }),
       });
       const [freshRows, freshItem] = await Promise.all([
         apiFetchJson<SpareVariant[]>(`/api/v1/spares/items/${parentId}/variants`),
@@ -888,6 +898,9 @@ export default function SparesPage() {
                                         <div className="divide-y">
                                           {items.map((item, ii) => {
                                           const low = isLow(item);
+                                          const panelOpen = variantsDialogItem?.id === item.id || (!!search && searchVariantsMap.has(item.id));
+                                          const displayVariants = variantsDialogItem?.id === item.id ? variantsRows : (searchVariantsMap.get(item.id) ?? []);
+                                          const displayVariantsLoading = variantsDialogItem?.id === item.id && variantsLoading;
                                           return (
                                             <div key={item.id} className={!item.is_active ? "opacity-50" : ""}>
                                               {/* ── item clickable row ── */}
@@ -917,8 +930,6 @@ export default function SparesPage() {
                                                   )}
                                                   <span className="flex gap-0.5">
                                                     {admin && <Button variant="ghost" size="icon" className="size-6" title="Stock history" onClick={()=>openHistory(item)}><History className="size-3 text-slate-500" /></Button>}
-                                                    <Button variant="ghost" size="icon" className="size-6" title="Add Stock" onClick={()=>openAdjust(item,"add")}><PackagePlus className="size-3 text-emerald-600" /></Button>
-                                                    <Button variant="ghost" size="icon" className="size-6" title="Remove Stock" onClick={()=>openAdjust(item,"subtract")}><PackageMinus className="size-3 text-amber-600" /></Button>
                                                     {admin && <>
                                                       <Button variant="ghost" size="icon" className="size-6" onClick={()=>openEditItem(item)}><Pencil className="size-3" /></Button>
                                                       <Button variant="ghost" size="icon" className="size-6 text-destructive hover:text-destructive"
@@ -926,13 +937,13 @@ export default function SparesPage() {
                                                     </>}
                                                   </span>
                                                 </div>
-                                                {variantsDialogItem?.id === item.id
+                                                {panelOpen
                                                   ? <ChevronDown className="size-4 text-muted-foreground shrink-0" />
                                                   : <ChevronRight className="size-4 text-muted-foreground shrink-0" />}
                                               </div>
 
                                               {/* ── inline variants panel ── */}
-                                              {variantsDialogItem?.id === item.id && (
+                                              {panelOpen && (
                                                 <div className="border-t bg-muted/5 pl-16 pr-4 py-3 space-y-3">
                                                   {/* panel header */}
                                                   <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -940,20 +951,24 @@ export default function SparesPage() {
                                                       <Layers className="size-3.5 text-violet-500 shrink-0" />
                                                       <span className="text-xs font-medium text-muted-foreground">
                                                         Variants
-                                                        {!variantsLoading && variantsRows.length > 0 && (
+                                                        {!displayVariantsLoading && displayVariants.length > 0 && (
                                                           <> · Total: <strong className="text-foreground">{fmtQty(item.recorded_qty)} {item.unit}</strong>
                                                           {admin && item.total_value != null && <> · <strong className="text-foreground">{fmtRate(item.total_value)}</strong></>}</>
                                                         )}
                                                       </span>
                                                     </div>
                                                     <div className="flex gap-1.5 shrink-0">
-                                                      <Button size="sm" variant="outline" className="h-6 text-xs gap-1" onClick={()=>openAdjust(item,"add")}>
-                                                        <PackagePlus className="size-3 text-emerald-600" />Add Stock
-                                                      </Button>
-                                                      <Button size="sm" variant="outline" className="h-6 text-xs gap-1" onClick={()=>openAdjust(item,"subtract")}>
-                                                        <PackageMinus className="size-3 text-amber-600" />Remove Stock
-                                                      </Button>
-                                                      {admin && (
+                                                      {variantsDialogItem?.id === item.id && canEdit && !variantsLoading && variantsRows.length > 0 && (
+                                                        <Button size="sm" variant="outline" className="h-6 text-xs gap-1" onClick={()=>openAdjust(item,"add")}>
+                                                          <PackagePlus className="size-3 text-emerald-600" />Add Stock
+                                                        </Button>
+                                                      )}
+                                                      {variantsDialogItem?.id === item.id && canEdit && !variantsLoading && variantsRows.length > 0 && (
+                                                        <Button size="sm" variant="outline" className="h-6 text-xs gap-1" onClick={()=>openAdjust(item,"subtract")}>
+                                                          <PackageMinus className="size-3 text-amber-600" />Remove Stock
+                                                        </Button>
+                                                      )}
+                                                      {variantsDialogItem?.id === item.id && canEdit && (
                                                         <Button size="sm" className="h-6 text-xs gap-1" onClick={()=>setAddVariantDialog(true)}>
                                                           <PlusIcon className="size-3" />Add Variant
                                                         </Button>
@@ -961,13 +976,15 @@ export default function SparesPage() {
                                                     </div>
                                                   </div>
                                                   {/* variant cards */}
-                                                  {variantsLoading ? (
+                                                  {displayVariantsLoading ? (
                                                     <div className="grid grid-cols-2 gap-2.5">{[1,2].map(i=><div key={i} className="h-24 rounded-lg bg-muted animate-pulse" />)}</div>
-                                                  ) : variantsRows.length === 0 ? (
-                                                    <p className="text-xs text-muted-foreground py-2 text-center">No variants yet. Click &quot;Add Variant&quot; to create one.</p>
+                                                  ) : displayVariants.length === 0 ? (
+                                                    <p className="text-xs text-muted-foreground py-2 text-center">
+                                                      {variantsDialogItem?.id === item.id && canEdit ? <>No variants yet. Click &quot;Add Variant&quot; to create one.</> : "No variants yet."}
+                                                    </p>
                                                   ) : (
                                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                                                      {variantsRows.map(v => (
+                                                      {displayVariants.map(v => (
                                                         <div key={v.id} className="rounded-lg border bg-card p-3 flex gap-3">
                                                           <div className="shrink-0">
                                                             {v.image_base64
@@ -980,8 +997,8 @@ export default function SparesPage() {
                                                           <div className="flex-1 min-w-0 space-y-1">
                                                             <div className="flex items-start justify-between gap-1">
                                                               <div>
-                                                                <p className="font-medium text-sm leading-tight">{v.variant_color || "—"}</p>
-                                                                {v.serial_number && <p className="text-xs font-mono text-muted-foreground">{v.serial_number}</p>}
+                                                                <p className="font-medium text-sm leading-tight">{highlight(v.variant_color || "—", search)}</p>
+                                                                {v.serial_number && <p className="text-xs font-mono text-muted-foreground">{highlight(v.serial_number, search)}</p>}
                                                               </div>
                                                               {admin && (
                                                                 <span className="flex gap-0.5 shrink-0 -mt-0.5">
@@ -1018,16 +1035,18 @@ export default function SparesPage() {
                                                                 <span className="truncate">{v.storage_location}</span>
                                                               </>}
                                                             </div>
-                                                            <div className="flex gap-1 mt-1.5 pt-1.5 border-t">
-                                                              <Button variant="ghost" size="sm" className="flex-1 h-6 text-xs gap-1"
-                                                                onClick={()=>{ setAdjustVariant(v); setAdjustVType("add"); setAdjustVQty(""); setAdjustVNote(""); setAdjustVError(null); }}>
-                                                                <PackagePlus className="size-3 text-emerald-600" />Add
-                                                              </Button>
-                                                              <Button variant="ghost" size="sm" className="flex-1 h-6 text-xs gap-1"
-                                                                onClick={()=>{ setAdjustVariant(v); setAdjustVType("subtract"); setAdjustVQty(""); setAdjustVNote(""); setAdjustVError(null); }}>
-                                                                <PackageMinus className="size-3 text-amber-600" />Remove
-                                                              </Button>
-                                                            </div>
+                                                            {canEdit && (
+                                                              <div className="flex gap-1 mt-1.5 pt-1.5 border-t">
+                                                                <Button variant="ghost" size="sm" className="flex-1 h-6 text-xs gap-1"
+                                                                  onClick={()=>{ setAdjustVariant(v); setAdjustVType("add"); setAdjustVQty(""); setAdjustVNote(""); setAdjustVError(null); }}>
+                                                                  <PackagePlus className="size-3 text-emerald-600" />Add
+                                                                </Button>
+                                                                <Button variant="ghost" size="sm" className="flex-1 h-6 text-xs gap-1"
+                                                                  onClick={()=>{ setAdjustVariant(v); setAdjustVType("subtract"); setAdjustVQty(""); setAdjustVNote(""); setAdjustVError(null); }}>
+                                                                  <PackageMinus className="size-3 text-amber-600" />Remove
+                                                                </Button>
+                                                              </div>
+                                                            )}
                                                           </div>
                                                         </div>
                                                       ))}

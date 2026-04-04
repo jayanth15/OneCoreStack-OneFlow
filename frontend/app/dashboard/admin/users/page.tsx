@@ -41,6 +41,10 @@ interface User {
   role: string;
   is_active: boolean;
   departments: DeptRef[];
+  inventory_access: string[];
+  inventory_edit: string[];
+  request_department_ids: number[];
+  request_inventory: string[];
 }
 
 const ROLE_LABELS: Record<string, string> = {

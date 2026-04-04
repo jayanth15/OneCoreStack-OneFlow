@@ -26,7 +26,10 @@ export interface CurrentUser {
   id: number;
   username: string;
   role: string; // super_admin | admin | manager | worker
-  inventory_access: string[]; // empty = all types allowed
+  inventory_access: string[];   // empty = all types allowed
+  inventory_edit: string[];     // empty = all types they can view; admin always has full edit
+  request_departments: number[]; // empty = all departments
+  request_inventory: string[];  // empty = all inventory types
 }
 
 export function setCurrentUser(user: CurrentUser): void {
@@ -86,4 +89,43 @@ export function canAccessInventory(type: string): boolean {
   if (user.role === "admin" || user.role === "super_admin") return true;
   if (!user.inventory_access || user.inventory_access.length === 0) return true;
   return user.inventory_access.includes(type);
+}
+
+/**
+ * Returns true if the current user may edit (add/update/remove items) in the
+ * given inventory type.
+ * - Admins/super_admins always have full edit access.
+ * - Managers/workers: must have an explicit grant in inventory_edit.
+ *   Empty array (no grant given) = NO edit access.
+ */
+export function canEditInventory(type: string): boolean {
+  const user = getCurrentUser();
+  if (!user) return false;
+  if (user.role === "admin" || user.role === "super_admin") return true;
+  if (!user.inventory_edit || user.inventory_edit.length === 0) return false;
+  return user.inventory_edit.includes(type);
+}
+
+/**
+ * Returns true if the current user may raise requests from the given department.
+ * Admins always pass. Empty array = all departments allowed.
+ */
+export function canRequestFromDept(deptId: number): boolean {
+  const user = getCurrentUser();
+  if (!user) return false;
+  if (user.role === "admin" || user.role === "super_admin") return true;
+  if (!user.request_departments || user.request_departments.length === 0) return true;
+  return user.request_departments.includes(deptId);
+}
+
+/**
+ * Returns true if the current user may raise requests targeting the given
+ * inventory type. Admins always pass. Empty array = all types allowed.
+ */
+export function canRequestInventory(type: string): boolean {
+  const user = getCurrentUser();
+  if (!user) return false;
+  if (user.role === "admin" || user.role === "super_admin") return true;
+  if (!user.request_inventory || user.request_inventory.length === 0) return true;
+  return user.request_inventory.includes(type);
 }

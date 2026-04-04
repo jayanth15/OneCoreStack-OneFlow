@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiFetchJson } from "@/lib/api";
+import { isAdminOrAbove } from "@/lib/user";
 import { ArrowLeft, Info, Plus, Trash2, AlertTriangle, Package } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────────────────
@@ -91,6 +92,11 @@ interface MaterialRequirement {
 export default function EditPlanPage() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
+
+  // Guard: only admins can access this page
+  useEffect(() => {
+    if (!isAdminOrAbove()) router.replace("/dashboard/production/planning");
+  }, [router]);
   const [form, setForm] = useState<PlanForm>({
     title: "", schedule_id: "", planned_qty: "", start_date: "", end_date: "",
     notes: "", status: "draft", is_active: true,
