@@ -179,6 +179,7 @@ class VariantCreate(BaseModel):
     storage_location: Optional[str] = None
     storage_type: Optional[str] = None
     rate: Optional[float] = None
+    timeline_days: Optional[int] = None
     reorder_level: float = 0.0
 
 
@@ -190,6 +191,7 @@ class VariantUpdate(BaseModel):
     storage_location: Optional[str] = None
     storage_type: Optional[str] = None
     rate: Optional[float] = None
+    timeline_days: Optional[int] = None
     reorder_level: Optional[float] = None
     is_active: Optional[bool] = None
 
@@ -204,6 +206,7 @@ class VariantOut(BaseModel):
     storage_location: Optional[str]
     storage_type: Optional[str]
     rate: Optional[float]
+    timeline_days: Optional[int]
     reorder_level: float
     is_active: bool
     created_at: str
@@ -223,6 +226,21 @@ class SearchItemOut(BaseModel):
     reorder_level: float
     unit: str
     is_low: bool
+
+
+class VariantSearchOut(BaseModel):
+    """Flat result for variant search — used by the Create Request combobox."""
+    variant_id: int
+    serial_number: Optional[str]
+    variant_color: Optional[str]
+    image_base64: Optional[str]
+    timeline_days: Optional[int]
+    qty: float
+    item_id: int
+    item_name: str
+    part_number: Optional[str]
+    category_name: str
+    sub_category_name: Optional[str]
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -778,6 +796,7 @@ def _variant_out(v: SpareItemVariant) -> VariantOut:
         storage_location=v.storage_location,
         storage_type=v.storage_type,
         rate=v.rate,
+        timeline_days=getattr(v, 'timeline_days', None),
         reorder_level=getattr(v, 'reorder_level', 0.0) or 0.0,
         is_active=v.is_active,
         created_at=_dt(v.created_at),
@@ -813,6 +832,7 @@ def create_variant(
         storage_location=body.storage_location,
         storage_type=body.storage_type,
         rate=body.rate,
+        timeline_days=body.timeline_days,
         reorder_level=body.reorder_level,
         created_at=now, updated_at=now,
     )
@@ -949,6 +969,76 @@ def adjust_variant_stock(
 
 
 # ── Global search endpoint ────────────────────────────────────────────────────
+
+@router.get("/variants/search")
+def search_variants(
+    session: SessionDep,
+    _: CurrentUser,
+    q: str = Query(default=""),
+    limit: int = Query(default=12, ge=1, le=50),
+) -> list[VariantSearchOut]:
+    """Search active variants with category/sub-category context — for the Create Request combobox."""
+    stmt = select(SpareItemVariant).where(SpareItemVariant.is_active == True)  # noqa: E712
+    if q.strip():
+        pat = f"%{q.strip()}%"
+        matching_item_ids = select(SpareItem.id).where(
+            SpareItem.is_active == True,  # noqa: E712
+            or_(SpareItem.name.ilike(pat), SpareItem.part_number.ilike(pat)),
+        )
+        stmt = stmt.where(or_(
+            SpareItemVariant.serial_number.ilike(pat),
+            SpareItemVariant.variant_color.ilike(pat),
+            SpareItemVariant.spare_item_id.in_(matching_item_ids),
+        ))
+    else:
+        # No query — return most recent variants so dropdown isn't empty on focus
+        stmt = stmt.order_by(SpareItemVariant.id.desc())
+    stmt = stmt.limit(limit)
+    variants = session.exec(stmt).all()
+
+    item_cache: dict[int, SpareItem | None] = {}
+    sub_cache: dict[int, SpareSubCategory | None] = {}
+    cat_cache: dict[int, SpareCategory | None] = {}
+
+    results: list[VariantSearchOut] = []
+    for v in variants:
+        if v.spare_item_id not in item_cache:
+            item_cache[v.spare_item_id] = session.get(SpareItem, v.spare_item_id)
+        item = item_cache[v.spare_item_id]
+        if not item or not item.is_active:
+            continue
+
+        sub: SpareSubCategory | None = None
+        if item.sub_category_id:
+            if item.sub_category_id not in sub_cache:
+                sub_cache[item.sub_category_id] = session.get(SpareSubCategory, item.sub_category_id)
+            sub = sub_cache[item.sub_category_id]
+            if sub and not sub.is_active:
+                continue
+
+        cat: SpareCategory | None = None
+        if item.category_id:
+            if item.category_id not in cat_cache:
+                cat_cache[item.category_id] = session.get(SpareCategory, item.category_id)
+            cat = cat_cache[item.category_id]
+            if cat and not cat.is_active:
+                continue
+
+        results.append(VariantSearchOut(
+            variant_id=v.id,  # type: ignore[arg-type]
+            serial_number=v.serial_number,
+            variant_color=v.variant_color,
+            image_base64=v.image_base64,
+            timeline_days=getattr(v, "timeline_days", None),
+            qty=v.qty,
+            item_id=item.id,  # type: ignore[arg-type]
+            item_name=item.name,
+            part_number=item.part_number,
+            category_name=cat.name if cat else "—",
+            sub_category_name=sub.name if sub else None,
+        ))
+    return results
+
 
 @router.get("/search")
 def search_all_items(

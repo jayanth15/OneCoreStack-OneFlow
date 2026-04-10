@@ -30,6 +30,7 @@ interface ItemDetail {
   storage_type: string | null;
   storage_location: string | null;
   rate: number | null;
+  timeline_days: number | null;
   image_base64: string | null;
   is_active: boolean;
 }
@@ -41,11 +42,11 @@ export default function EditInventoryPage() {
     code: string; name: string; item_type: string; unit: string; customUnit: string;
     quantity_on_hand: number; reorder_level: number;
     storage_type: string; storage_location: string;
-    rate: string; is_active: boolean;
+    rate: string; timeline_days: string; is_active: boolean;
   }>({
     code: "", name: "", item_type: "raw_material", unit: "pcs", customUnit: "",
     quantity_on_hand: 0, reorder_level: 0,
-    storage_type: "", storage_location: "", rate: "", is_active: true,
+    storage_type: "", storage_location: "", rate: "", timeline_days: "", is_active: true,
   });
   const [isCustomUnit, setIsCustomUnit] = useState(false);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
@@ -75,6 +76,7 @@ export default function EditInventoryPage() {
           storage_type: d.storage_type ?? "",
           storage_location: d.storage_location ?? "",
           rate: d.rate != null ? String(d.rate) : "",
+          timeline_days: d.timeline_days != null ? String(d.timeline_days) : "",
           is_active: d.is_active,
         });
         if (d.image_base64) {
@@ -140,6 +142,7 @@ export default function EditInventoryPage() {
         is_active: form.is_active,
       };
       if (admin && form.rate !== "") body.rate = parseFloat(form.rate);
+      if (form.timeline_days !== "") body.timeline_days = parseInt(form.timeline_days);
       if (imageChanged) body.image_base64 = imageBase64;
       await apiFetchJson(`/api/v1/inventory/${id}`, { method: "PUT", body: JSON.stringify(body) });
       router.push("/dashboard/inventory");
@@ -264,6 +267,15 @@ export default function EditInventoryPage() {
                 />
               </div>
             )}
+            {/* Timeline */}
+            <div className="space-y-1.5">
+              <Label htmlFor="timeline_days">Timeline (days)</Label>
+              <Input id="timeline_days" type="number" inputMode="numeric" min="1" step="1" placeholder="e.g. 7"
+                value={form.timeline_days}
+                onChange={(e) => set("timeline_days", e.target.value)}
+                disabled={saving}
+              />
+            </div>
             {/* Image */}
             <div className="space-y-1.5">
               <Label>Item Photo</Label>

@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.database import init_db, run_migrations
+from app.core.backup import start_scheduler
 from app.routers import auth as auth_router
 from app.routers import bom as bom_router
 from app.routers import customers as customers_router
@@ -23,6 +24,8 @@ from app.routers import attachments as attachments_router
 from app.routers import weeders as weeders_router
 from app.routers import purchase_requests as purchase_requests_router
 from app.routers import marketing_requests as marketing_requests_router
+from app.routers import receipts as receipts_router
+from app.routers import notifications as notifications_router
 from app.models.spare_sub_category import SpareSubCategory  # noqa: F401 — ensures table is created
 from app.models.consumable import Consumable  # noqa: F401 — ensures table is created
 from app.models.consumable_history import ConsumableHistory  # noqa: F401 — ensures table is created
@@ -82,6 +85,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _migrate_marketing_request_tables()
     # Auto-seed a default admin user on a brand-new / empty database
     _auto_seed_if_empty()
+    # Start daily DB backup scheduler (fires at 17:30 every day)
+    start_scheduler()
     yield
 
 
@@ -778,6 +783,8 @@ app.include_router(attachments_router.router)
 app.include_router(weeders_router.router)
 app.include_router(purchase_requests_router.router)
 app.include_router(marketing_requests_router.router)
+app.include_router(receipts_router.router)
+app.include_router(notifications_router.router)
 
 # ── Optional module routers (enabled by env var) ──────────────────────────────
 # Example:

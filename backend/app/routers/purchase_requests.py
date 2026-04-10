@@ -8,9 +8,12 @@ from sqlmodel import Session, func, or_, select
 
 from app.core.database import get_session
 from app.dependencies.auth import get_current_user, is_admin_or_above
+from app.models.inventory import InventoryItem
 from app.models.purchase_request import PurchaseRequest
 from app.models.purchase_request_history import PurchaseRequestHistory
+from app.models.receipt import Receipt
 from app.models.user import User
+from app.routers.notifications import create_notification
 
 router = APIRouter(prefix="/api/v1/purchase-requests", tags=["purchase-requests"])
 
@@ -47,6 +50,10 @@ class ReviewRequest(BaseModel):
     note: Optional[str] = None
 
 
+class RespondRequest(BaseModel):
+    note: Optional[str] = None
+
+
 class PurchaseRequestOut(BaseModel):
     id: int
     sn_no: str
@@ -70,6 +77,13 @@ class PurchaseRequestOut(BaseModel):
     updated_at: str
     # deadline helper
     deadline_date: Optional[str]
+    # receipt summary
+    receipt_count: int
+    total_received: float
+    # fulfilment response
+    fulfilled_by_username: Optional[str]
+    fulfillment_accepted_at: Optional[str]
+    fulfillment_note: Optional[str]
 
 
 class HistoryOut(BaseModel):
@@ -105,12 +119,17 @@ def _next_sn(session: Session) -> str:
     return f"PR-{year}-{count + 1:04d}"
 
 
-def _out(r: PurchaseRequest) -> PurchaseRequestOut:
+def _out(r: PurchaseRequest, session: Session) -> PurchaseRequestOut:
     deadline = None
     if r.timeline_days and r.created_at:
         from datetime import timedelta
         d = (r.created_at + timedelta(days=r.timeline_days)).date().isoformat()
         deadline = d
+    receipt_rows = session.exec(
+        select(Receipt).where(Receipt.request_id == r.id, Receipt.is_active == True)  # noqa: E712
+    ).all()
+    receipt_count = len(receipt_rows)
+    total_received = sum(rec.quantity_received for rec in receipt_rows)
     return PurchaseRequestOut(
         id=r.id,  # type: ignore[arg-type]
         sn_no=r.sn_no,
@@ -133,6 +152,11 @@ def _out(r: PurchaseRequest) -> PurchaseRequestOut:
         created_at=r.created_at.isoformat(),
         updated_at=r.updated_at.isoformat(),
         deadline_date=deadline,
+        receipt_count=receipt_count,
+        total_received=total_received,
+        fulfilled_by_username=r.fulfilled_by_username,
+        fulfillment_accepted_at=r.fulfillment_accepted_at.isoformat() if r.fulfillment_accepted_at else None,
+        fulfillment_note=r.fulfillment_note,
     )
 
 
@@ -161,6 +185,47 @@ def _record_history(
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 
+class ActiveCountOut(BaseModel):
+    count: int
+
+
+@router.get("/active-count", response_model=ActiveCountOut)
+def active_count(
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_session)],
+) -> ActiveCountOut:
+    """
+    Return the number of purchase requests that are still 'live' for the
+    current user.  'Live' means not yet fully fulfilled (not received /
+    not_approved / cancelled).
+
+    Used by the sidebar to show a badge.
+    """
+    from sqlmodel import and_
+    # Terminal (done) statuses — no action needed
+    DONE = ("received", "not_approved", "cancelled")
+
+    q = select(func.count()).select_from(PurchaseRequest).where(
+        PurchaseRequest.is_active == True,  # noqa: E712
+        PurchaseRequest.status.notin_(list(DONE)),  # type: ignore[union-attr]
+    )
+
+    if not is_admin_or_above(current_user):
+        q = q.where(
+            or_(
+                PurchaseRequest.requested_by_user_id == current_user.id,
+                and_(
+                    PurchaseRequest.fulfilled_by_user_id == current_user.id,
+                    PurchaseRequest.status != "pending",  # type: ignore[attr-defined]
+                ),
+                PurchaseRequest.status.in_(["approved", "in_progress", "awaiting_signoff"]),  # type: ignore[union-attr]
+            )
+        )
+
+    count = session.exec(q).one()
+    return ActiveCountOut(count=count)
+
+
 @router.get("", response_model=Paginated)
 def list_requests(
     session: Annotated[Session, Depends(get_session)],
@@ -172,9 +237,21 @@ def list_requests(
 ) -> Paginated:
     q = select(PurchaseRequest).where(PurchaseRequest.is_active == True)  # noqa: E712
 
-    # Non-admins see only their own requests
+    # Non-admins: see their own requests + all actionable (approved/in_progress/received)
+    # fulfilled_by_user_id is guarded to exclude pending — a fulfiller must not see
+    # requests before admin approval (prevents premature visibility and edit attempts)
     if not is_admin_or_above(current_user):
-        q = q.where(PurchaseRequest.requested_by_user_id == current_user.id)
+        from sqlmodel import and_
+        q = q.where(
+            or_(
+                PurchaseRequest.requested_by_user_id == current_user.id,
+                and_(
+                    PurchaseRequest.fulfilled_by_user_id == current_user.id,
+                    PurchaseRequest.status != "pending",  # type: ignore[union-attr]
+                ),
+                PurchaseRequest.status.in_(["approved", "in_progress", "awaiting_signoff", "received"]),  # type: ignore[union-attr]
+            )
+        )
 
     if status_filter:
         q = q.where(PurchaseRequest.status == status_filter)
@@ -197,7 +274,7 @@ def list_requests(
 
     import math
     return Paginated(
-        items=[_out(r) for r in rows],
+        items=[_out(r, session) for r in rows],
         total=total,
         page=page,
         page_size=page_size,
@@ -214,6 +291,13 @@ def create_request(
     if not body.inventory_item_id and not body.item_name:
         raise HTTPException(status_code=400, detail="Either inventory_item_id or item_name is required")
 
+    # Auto-resolve timeline_days from the linked inventory item (overrides body value)
+    timeline_days: Optional[int] = getattr(body, 'timeline_days', None)
+    if body.inventory_item_id:
+        inv_item = session.get(InventoryItem, body.inventory_item_id)
+        if inv_item:
+            timeline_days = getattr(inv_item, 'timeline_days', None)
+
     now = datetime.now(tz=timezone.utc)
     req = PurchaseRequest(
         sn_no=_next_sn(session),
@@ -224,7 +308,7 @@ def create_request(
         description=body.description,
         quantity=body.quantity,
         from_whom=body.from_whom,
-        timeline_days=body.timeline_days,
+        timeline_days=timeline_days,
         notes=body.notes,
         department=body.department,
         status="pending",
@@ -237,9 +321,28 @@ def create_request(
     session.flush()
     _record_history(session, req.id, current_user, "created",  # type: ignore[arg-type]
                     note=f"Request {req.sn_no} created")
+
+    # Notify all admin / super_admin users about the new request
+    admins = session.exec(
+        select(User).where(
+            User.role.in_(["admin", "super_admin"]),  # type: ignore[union-attr]
+            User.is_active == True,  # noqa: E712
+            User.id != current_user.id,  # don't notify the creator if they are admin
+        )
+    ).all()
+    for admin_user in admins:
+        create_notification(
+            session,
+            user_id=admin_user.id,  # type: ignore[arg-type]
+            notif_type="request_created",
+            title="New Purchase Request",
+            body=f"{current_user.username} submitted request {req.sn_no} for {req.item_name or 'item'}{(' — dept: ' + req.department) if req.department else ''}.",
+            request_id=req.id,
+        )
+
     session.commit()
     session.refresh(req)
-    return _out(req)
+    return _out(req, session)
 
 
 @router.get("/{req_id}", response_model=PurchaseRequestOut)
@@ -251,9 +354,11 @@ def get_request(
     req = session.get(PurchaseRequest, req_id)
     if not req or not req.is_active:
         raise HTTPException(status_code=404, detail="Request not found")
+    # Non-admins may view their own requests, or any request that is approved/in_progress/received
     if not is_admin_or_above(current_user) and req.requested_by_user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Access denied")
-    return _out(req)
+        if req.status not in ("approved", "in_progress", "awaiting_signoff", "received"):
+            raise HTTPException(status_code=403, detail="Access denied")
+    return _out(req, session)
 
 
 @router.put("/{req_id}", response_model=PurchaseRequestOut)
@@ -293,7 +398,7 @@ def update_request(
                         note="No fields changed")
     session.commit()
     session.refresh(req)
-    return _out(req)
+    return _out(req, session)
 
 
 @router.post("/{req_id}/approve", response_model=PurchaseRequestOut)
@@ -319,9 +424,18 @@ def approve_request(
     req.updated_at = now
     _record_history(session, req.id, current_user, "approved",  # type: ignore[arg-type]
                     note=body.note)
+    if req.requested_by_user_id:
+        create_notification(
+            session,
+            user_id=req.requested_by_user_id,
+            notif_type="request_approved",
+            title="Purchase Request Approved",
+            body=f"Your request {req.sn_no} for {req.item_name or 'item'} has been approved.",
+            request_id=req.id,
+        )
     session.commit()
     session.refresh(req)
-    return _out(req)
+    return _out(req, session)
 
 
 @router.post("/{req_id}/reject", response_model=PurchaseRequestOut)
@@ -347,9 +461,18 @@ def reject_request(
     req.updated_at = now
     _record_history(session, req.id, current_user, "rejected",  # type: ignore[arg-type]
                     note=body.note)
+    if req.requested_by_user_id:
+        create_notification(
+            session,
+            user_id=req.requested_by_user_id,
+            notif_type="request_rejected",
+            title="Purchase Request Not Approved",
+            body=f"Your request {req.sn_no} for {req.item_name or 'item'} was not approved.{(' Note: ' + body.note) if body.note else ''}",
+            request_id=req.id,
+        )
     session.commit()
     session.refresh(req)
-    return _out(req)
+    return _out(req, session)
 
 
 @router.post("/{req_id}/cancel", response_model=PurchaseRequestOut)
@@ -373,7 +496,7 @@ def cancel_request(
                     note=body.note)
     session.commit()
     session.refresh(req)
-    return _out(req)
+    return _out(req, session)
 
 
 @router.get("/{req_id}/history", response_model=list[HistoryOut])
@@ -409,3 +532,71 @@ def get_history(
         )
         for h in rows
     ]
+
+
+@router.get("/{req_id}/receipts")
+def list_request_receipts(
+    req_id: int,
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> list[dict]:
+    """Return all active receipts for a specific purchase request."""
+    from app.routers.receipts import _out as receipt_out  # local import to avoid circular
+    req = session.get(PurchaseRequest, req_id)
+    if not req or not req.is_active:
+        raise HTTPException(status_code=404, detail="Request not found")
+    if not is_admin_or_above(current_user) and req.requested_by_user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    receipts = session.exec(
+        select(Receipt)
+        .where(Receipt.request_id == req_id, Receipt.is_active == True)  # noqa: E712
+        .order_by(Receipt.created_at.asc())  # type: ignore[union-attr]
+    ).all()
+    return [receipt_out(r).model_dump() for r in receipts]
+
+
+@router.post("/{req_id}/respond", response_model=PurchaseRequestOut)
+def respond_to_request(
+    req_id: int,
+    body: RespondRequest,
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> PurchaseRequestOut:
+    """Fulfilling department accepts an approved request and marks it In Progress."""
+    req = session.get(PurchaseRequest, req_id)
+    if not req or not req.is_active:
+        raise HTTPException(status_code=404, detail="Request not found")
+    if req.status != "approved":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Only approved requests can be responded to (current status: {req.status})",
+        )
+    # Prevent the original requester from responding to their own request
+    if req.requested_by_user_id == current_user.id and not is_admin_or_above(current_user):
+        raise HTTPException(status_code=403, detail="You cannot respond to your own request")
+    now = datetime.now(tz=timezone.utc)
+    req.status = "in_progress"
+    req.fulfilled_by_user_id = current_user.id
+    req.fulfilled_by_username = current_user.username
+    req.fulfillment_accepted_at = now
+    req.fulfillment_note = body.note
+    req.updated_at = now
+    _record_history(
+        session, req.id, current_user, "responded",  # type: ignore[arg-type]
+        field_name="status",
+        old_value="approved",
+        new_value="in_progress",
+        note=body.note,
+    )
+    if req.requested_by_user_id:
+        create_notification(
+            session,
+            user_id=req.requested_by_user_id,
+            notif_type="request_responded",
+            title="Request Being Fulfilled",
+            body=f"{current_user.username} has accepted your request {req.sn_no} and will deliver the items.",
+            request_id=req.id,
+        )
+    session.commit()
+    session.refresh(req)
+    return _out(req, session)

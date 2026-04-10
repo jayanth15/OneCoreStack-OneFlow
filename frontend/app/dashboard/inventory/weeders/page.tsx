@@ -49,6 +49,7 @@ interface WeederItem {
   rate_per_unit: number | null;
   total_rate: number | null;
   storage_location: string | null;
+  timeline_days: number | null;
   image_base64: string | null;
   is_active: boolean;
   created_at: string;
@@ -80,7 +81,7 @@ function fmtQty(n: number) {
   return n % 1 === 0 ? n.toFixed(0) : n.toFixed(2);
 }
 
-const ITEM_BLANK = { name: "", sn_no: "", description: "", qty: "0", reorder_level: "0", rate_per_unit: "", storage_location: "" };
+const ITEM_BLANK = { name: "", sn_no: "", description: "", qty: "0", reorder_level: "0", rate_per_unit: "", storage_location: "", timeline_days: "" };
 const CAT_BLANK = { name: "", description: "" };
 
 export default function WeedersPage() {
@@ -239,6 +240,7 @@ export default function WeedersPage() {
       qty: String(item.qty), reorder_level: String(item.reorder_level ?? 0),
       rate_per_unit: item.rate_per_unit != null ? String(item.rate_per_unit) : "",
       storage_location: item.storage_location ?? "",
+      timeline_days: item.timeline_days != null ? String(item.timeline_days) : "",
     });
     setItemImgPreview(item.image_base64 ? `data:image/jpeg;base64,${item.image_base64}` : null);
     setItemImgB64(item.image_base64 ?? null); setItemFormError(null); setItemDialog("edit");
@@ -256,7 +258,9 @@ export default function WeedersPage() {
       name: itemForm.name || null, sn_no: itemForm.sn_no || null, description: itemForm.description || null,
       qty: parseFloat(itemForm.qty) || 0, reorder_level: parseFloat(itemForm.reorder_level) || 0,
       rate_per_unit: itemForm.rate_per_unit ? parseFloat(itemForm.rate_per_unit) : null,
-      storage_location: itemForm.storage_location || null, image_base64: itemImgB64,
+      storage_location: itemForm.storage_location || null,
+      timeline_days: itemForm.timeline_days ? parseInt(itemForm.timeline_days) : null,
+      image_base64: itemImgB64,
     };
     try {
       if (itemDialog === "create") await apiFetchJson(`/api/v1/weeders/categories/${itemDialogCatId}/items`, { method: "POST", body: JSON.stringify(body) });
@@ -420,7 +424,7 @@ export default function WeedersPage() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center border-b px-6 gap-4">
+      <header className="flex h-16 shrink-0 items-center border-b px-6 gap-4 md:pr-64">
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
@@ -687,6 +691,11 @@ export default function WeedersPage() {
                 <Input id="w-rate" type="number" min="0" step="any" placeholder="0.00" value={itemForm.rate_per_unit}
                   onChange={e => setItemForm(f => ({ ...f, rate_per_unit: e.target.value }))} disabled={itemSaving} />
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="w-timeline">Timeline (days)</Label>
+              <Input id="w-timeline" type="number" inputMode="numeric" min="1" step="1" placeholder="e.g. 7" value={itemForm.timeline_days}
+                onChange={e => setItemForm(f => ({ ...f, timeline_days: e.target.value }))} disabled={itemSaving} />
             </div>
             <div className="space-y-1.5">
               <Label>Image <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>

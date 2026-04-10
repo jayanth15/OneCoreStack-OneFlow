@@ -44,6 +44,7 @@ const BLANK = {
   storage_type: "",
   storage_location: "",
   rate: "",
+  timeline_days: "",
   is_active: true,
 };
 
@@ -119,6 +120,7 @@ function NewInventoryInner() {
           storage_type: form.storage_type || null,
           storage_location: form.storage_location || null,
           rate: admin && form.rate !== "" ? parseFloat(form.rate) : null,
+          timeline_days: form.timeline_days !== "" ? parseInt(form.timeline_days) : null,
           image_base64: imageBase64,
           is_active: form.is_active,
         }),
@@ -265,7 +267,15 @@ function NewInventoryInner() {
               />
             </div>
           )}
-          {/* Image */}
+          {/* Timeline */}
+          <div className="space-y-1.5">
+            <Label htmlFor="timeline_days">Timeline (days)</Label>
+            <Input id="timeline_days" type="number" inputMode="numeric" min="1" step="1" placeholder="e.g. 7"
+              value={form.timeline_days}
+              onChange={(e) => set("timeline_days", e.target.value)}
+              disabled={saving}
+            />
+          </div>
           <div className="space-y-1.5">
             <Label>Item Photo</Label>
             {imagePreview ? (

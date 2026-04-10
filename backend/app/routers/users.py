@@ -41,6 +41,7 @@ class UserCreate(BaseModel):
     request_department_ids: list[int] = []
     # Inventory types this user can raise requests for — empty = all
     request_inventory: list[str] = []
+    photo_base64: Optional[str] = None
 
 
 class UserUpdate(BaseModel):
@@ -53,6 +54,7 @@ class UserUpdate(BaseModel):
     inventory_edit: Optional[list[str]] = None
     request_department_ids: Optional[list[int]] = None
     request_inventory: Optional[list[str]] = None
+    photo_base64: Optional[str] = None
 
 
 class UserResponse(BaseModel):
@@ -65,6 +67,7 @@ class UserResponse(BaseModel):
     inventory_edit: list[str] = []
     request_department_ids: list[int] = []
     request_inventory: list[str] = []
+    photo_base64: Optional[str] = None
     model_config = {"from_attributes": True}
 
 
@@ -128,6 +131,7 @@ def _build_response(session: Session, user: User) -> UserResponse:
         inventory_edit=_parse_csv(user.inventory_edit),
         request_department_ids=_parse_int_csv(user.request_departments),
         request_inventory=_parse_csv(user.request_inventory),
+        photo_base64=user.photo_base64,
     )
 
 
@@ -165,6 +169,7 @@ def create_user(
         inventory_edit=",".join(body.inventory_edit),
         request_departments=",".join(str(i) for i in body.request_department_ids),
         request_inventory=",".join(body.request_inventory),
+        photo_base64=body.photo_base64,
     )
     session.add(user)
     session.commit()
@@ -227,6 +232,9 @@ def update_user(
 
     if body.request_inventory is not None:
         user.request_inventory = ",".join(body.request_inventory)
+
+    if body.photo_base64 is not None:
+        user.photo_base64 = body.photo_base64
 
     session.add(user)
 

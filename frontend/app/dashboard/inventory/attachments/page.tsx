@@ -36,6 +36,7 @@ interface AttachmentItem {
   rate_per_unit: number | null;
   total_rate: number | null;
   storage_location: string | null;
+  timeline_days: number | null;
   image_base64: string | null;
   is_active: boolean;
   created_at: string;
@@ -74,7 +75,7 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-const BLANK = { sn_no: "", description: "", qty: "0", reorder_level: "0", rate_per_unit: "", storage_location: "" };
+const BLANK = { sn_no: "", description: "", qty: "0", reorder_level: "0", rate_per_unit: "", storage_location: "", timeline_days: "" };
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -164,6 +165,7 @@ export default function AttachmentsPage() {
       reorder_level: String(item.reorder_level ?? 0),
       rate_per_unit: item.rate_per_unit != null ? String(item.rate_per_unit) : "",
       storage_location: item.storage_location ?? "",
+      timeline_days: item.timeline_days != null ? String(item.timeline_days) : "",
     });
     setImgPreview(item.image_base64 ? `data:image/jpeg;base64,${item.image_base64}` : null);
     setImgB64(item.image_base64 ?? null);
@@ -189,6 +191,7 @@ export default function AttachmentsPage() {
       reorder_level: parseFloat(form.reorder_level) || 0,
       rate_per_unit: form.rate_per_unit ? parseFloat(form.rate_per_unit) : null,
       storage_location: form.storage_location || null,
+      timeline_days: form.timeline_days ? parseInt(form.timeline_days) : null,
       image_base64: imgB64,
     };
     try {
@@ -264,7 +267,7 @@ export default function AttachmentsPage() {
   return (
     <>
       {/* Header */}
-      <header className="flex h-16 shrink-0 items-center border-b px-6 gap-4">
+      <header className="flex h-16 shrink-0 items-center border-b px-6 gap-4 md:pr-64">
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
@@ -515,6 +518,11 @@ export default function AttachmentsPage() {
                 <Input id="a-rate" type="number" min="0" step="any" placeholder="0.00" value={form.rate_per_unit}
                   onChange={e => setForm(f => ({ ...f, rate_per_unit: e.target.value }))} disabled={saving} />
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="a-timeline">Timeline (days)</Label>
+              <Input id="a-timeline" type="number" inputMode="numeric" min="1" step="1" placeholder="e.g. 7" value={form.timeline_days}
+                onChange={e => setForm(f => ({ ...f, timeline_days: e.target.value }))} disabled={saving} />
             </div>
             <div className="space-y-1.5">
               <Label>Image <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>

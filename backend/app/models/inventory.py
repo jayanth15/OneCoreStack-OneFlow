@@ -17,6 +17,7 @@ class InventoryItem(SQLModel, table=True):
     storage_type: Optional[str] = None          # bin | tray | barrel | rack | etc.
     storage_location: Optional[str] = None      # e.g. "Shelf A-3"
     rate: Optional[float] = None                # cost per unit — admin-visible only
+    timeline_days: Optional[int] = None         # expected fulfillment / lead time in days
     image_base64: Optional[str] = None          # base64-encoded image — omitted from list responses
     is_active: bool = Field(default=True)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))

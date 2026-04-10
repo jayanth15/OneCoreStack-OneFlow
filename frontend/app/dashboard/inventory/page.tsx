@@ -144,8 +144,8 @@ function InventoryLanding() {
     };
     const fetchSpares = async () => {
       try {
-        const d = await apiFetchJson<unknown[]>(`/api/v1/spares/categories`);
-        return Array.isArray(d) ? d.length : null;
+        const d = await apiFetchJson<{ total: number }>(`/api/v1/spares/categories`);
+        return typeof d.total === "number" ? d.total : null;
       } catch { return null; }
     };
     const fetchConsumables = async () => {

@@ -60,7 +60,7 @@ interface SpareVariant {
   id: number; spare_item_id: number; serial_number: string | null;
   variant_color: string | null; image_base64: string | null; qty: number;
   storage_location: string | null; storage_type: string | null; rate: number | null;
-  reorder_level: number;
+  reorder_level: number; timeline_days: number | null;
   is_active: boolean; created_at: string; updated_at: string;
 }
 
@@ -160,7 +160,7 @@ export default function SparesPage() {
   const [variantsLoading, setVariantsLoading] = useState(false);
   // pre-fetched variants for search results that matched via variant text
   const [searchVariantsMap, setSearchVariantsMap] = useState<Map<number, SpareVariant[]>>(new Map());
-  const [variantForm, setVariantForm] = useState({serial_number:"",variant_color:"",qty:"0",unit:"pcs",customUnit:"",storage_type:"",storage_location:"",rate:"",reorder_level:"0",image_base64: null as string | null});
+  const [variantForm, setVariantForm] = useState({serial_number:"",variant_color:"",qty:"0",unit:"pcs",customUnit:"",storage_type:"",storage_location:"",rate:"",reorder_level:"0",timeline_days:"",image_base64: null as string | null});
   const [variantCustomStorage, setVariantCustomStorage] = useState(false);
   const [variantCustomUnit, setVariantCustomUnit] = useState(false);
   const [variantSaving, setVariantSaving] = useState(false);
@@ -171,7 +171,7 @@ export default function SparesPage() {
   const [addVariantDialog, setAddVariantDialog] = useState(false);
   const [editVariantDialog, setEditVariantDialog] = useState(false);
   const [editVariantId, setEditVariantId] = useState<number | null>(null);
-  const [editVForm, setEditVForm] = useState({serial_number:"",variant_color:"",qty:"0",unit:"pcs",customUnit:"",storage_type:"",storage_location:"",rate:"",reorder_level:"0",image_base64:null as string|null});
+  const [editVForm, setEditVForm] = useState({serial_number:"",variant_color:"",qty:"0",unit:"pcs",customUnit:"",storage_type:"",storage_location:"",rate:"",reorder_level:"0",timeline_days:"",image_base64:null as string|null});
   const [editVCustomStorage, setEditVCustomStorage] = useState(false);
   const [editVCustomUnit, setEditVCustomUnit] = useState(false);
   const [editVSaving, setEditVSaving] = useState(false);
@@ -584,7 +584,7 @@ export default function SparesPage() {
   }
 
   function resetVariantForm() {
-    setVariantForm({serial_number:"",variant_color:"",qty:"0",unit:"pcs",customUnit:"",storage_type:"",storage_location:"",rate:"",reorder_level:"0",image_base64:null});
+    setVariantForm({serial_number:"",variant_color:"",qty:"0",unit:"pcs",customUnit:"",storage_type:"",storage_location:"",rate:"",reorder_level:"0",timeline_days:"",image_base64:null});
     setVariantCustomStorage(false); setVariantCustomUnit(false);
     setVariantImgPreview(null); setVariantError(null);
   }
@@ -634,6 +634,7 @@ export default function SparesPage() {
         storage_location: variantForm.storage_location || null,
         rate: variantForm.rate ? parseFloat(variantForm.rate) : null,
         reorder_level: parseFloat(variantForm.reorder_level) || 0,
+        timeline_days: variantForm.timeline_days ? parseInt(variantForm.timeline_days) : null,
         image_base64: variantForm.image_base64,
       };
       await apiFetchJson(`/api/v1/spares/items/${variantsDialogItem.id}/variants`, { method:"POST", body:JSON.stringify(body) });
@@ -677,6 +678,7 @@ export default function SparesPage() {
       storage_location: v.storage_location ?? "",
       rate: v.rate != null ? String(v.rate) : "",
       reorder_level: String(v.reorder_level ?? 0),
+      timeline_days: v.timeline_days != null ? String(v.timeline_days) : "",
       image_base64: v.image_base64 ?? null,
     });
     setEditVCustomStorage(isCustomSt);
@@ -705,6 +707,7 @@ export default function SparesPage() {
           storage_location: editVForm.storage_location || null,
           rate: editVForm.rate ? parseFloat(editVForm.rate) : null,
           reorder_level: parseFloat(editVForm.reorder_level) || 0,
+          timeline_days: editVForm.timeline_days ? parseInt(editVForm.timeline_days) : null,
           image_base64: editVForm.image_base64,
         }),
       });
@@ -733,7 +736,7 @@ export default function SparesPage() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center border-b px-6 gap-4">
+      <header className="flex h-16 shrink-0 items-center border-b px-6 gap-4 md:pr-64">
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
@@ -1267,6 +1270,11 @@ export default function SparesPage() {
                   onChange={e=>setVariantForm(f=>({...f,storage_location:e.target.value}))} disabled={variantSaving} className="h-8 text-sm" />
               </div>
             </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Timeline (days)</Label>
+              <Input type="number" inputMode="numeric" min="1" step="1" placeholder="e.g. 7" value={variantForm.timeline_days}
+                onChange={e=>setVariantForm(f=>({...f,timeline_days:e.target.value}))} disabled={variantSaving} className="h-8 text-sm" />
+            </div>
             {variantError && <p className="text-xs text-destructive">{variantError}</p>}
             <div className="flex gap-2 pt-2">
               <Button size="sm" onClick={saveVariant} disabled={variantSaving} className="flex-1">{variantSaving?"Saving…":"Add Variant"}</Button>
@@ -1360,6 +1368,11 @@ export default function SparesPage() {
                 <Input placeholder="Rack A-2" value={editVForm.storage_location}
                   onChange={e=>setEditVForm(f=>({...f,storage_location:e.target.value}))} disabled={editVSaving} className="h-8 text-sm" />
               </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Timeline (days)</Label>
+              <Input type="number" inputMode="numeric" min="1" step="1" placeholder="e.g. 7" value={editVForm.timeline_days}
+                onChange={e=>setEditVForm(f=>({...f,timeline_days:e.target.value}))} disabled={editVSaving} className="h-8 text-sm" />
             </div>
             {editVError && <p className="text-xs text-destructive">{editVError}</p>}
             <div className="flex gap-2 pt-2">

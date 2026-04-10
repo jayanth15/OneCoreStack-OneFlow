@@ -14,6 +14,7 @@ import {
   LogOut,
   Settings,
   ClipboardList,
+  PackageCheck,
 } from "lucide-react";
 import {
   Sidebar,
@@ -38,6 +39,7 @@ const coreNav = [
   { title: "Jobs", url: "/dashboard/jobs", icon: Briefcase },
   { title: "Production", url: "/dashboard/production", icon: Factory },
   { title: "Requests", url: "/dashboard/requests", icon: ClipboardList },
+  { title: "Receipts", url: "/dashboard/receipts", icon: PackageCheck },
 ];
 
 const adminNav = [

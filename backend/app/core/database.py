@@ -48,6 +48,8 @@ def run_migrations() -> None:
         for col_name in ("inventory_edit", "request_departments", "request_inventory"):
             if col_name not in user_cols:
                 cursor.execute(f"ALTER TABLE users ADD COLUMN {col_name} TEXT DEFAULT '' NOT NULL")
+        if "photo_base64" not in user_cols:
+            cursor.execute("ALTER TABLE users ADD COLUMN photo_base64 TEXT")
 
         # weeder_item — migrations
         cursor.execute("PRAGMA table_info(weeder_item)")
@@ -56,6 +58,73 @@ def run_migrations() -> None:
             cursor.execute("ALTER TABLE weeder_item ADD COLUMN category_id INTEGER REFERENCES weeder_category(id)")
         if "name" not in weeder_cols:
             cursor.execute("ALTER TABLE weeder_item ADD COLUMN name TEXT")
+
+        # timeline_days — add to all inventory item tables
+        for table in ("inventory_item", "consumable", "attachment_item", "weeder_item", "spare_item_variant"):
+            cursor.execute(f"PRAGMA table_info({table})")
+            tbl_cols = {row[1] for row in cursor.fetchall()}
+            if "timeline_days" not in tbl_cols:
+                cursor.execute(f"ALTER TABLE {table} ADD COLUMN timeline_days INTEGER")
+
+        # receipt table — create if not present
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS receipt (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sn_no TEXT NOT NULL,
+                request_id INTEGER NOT NULL,
+                item_name TEXT,
+                item_code TEXT,
+                quantity_requested REAL NOT NULL DEFAULT 0.0,
+                quantity_received REAL NOT NULL DEFAULT 0.0,
+                notes TEXT,
+                created_by_user_id INTEGER REFERENCES users(id),
+                created_by_username TEXT,
+                status TEXT NOT NULL DEFAULT 'pending_ack',
+                acknowledged_by_user_id INTEGER REFERENCES users(id),
+                acknowledged_by_username TEXT,
+                acknowledged_at TEXT,
+                acknowledgment_note TEXT,
+                is_active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        cursor.execute("CREATE INDEX IF NOT EXISTS ix_receipt_sn_no ON receipt(sn_no)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS ix_receipt_request_id ON receipt(request_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS ix_receipt_status ON receipt(status)")
+
+        # purchase_request — fulfilment response columns
+        cursor.execute("PRAGMA table_info(purchase_request)")
+        pr_cols = {row[1] for row in cursor.fetchall()}
+        for col_def in (
+            ("fulfilled_by_user_id",    "INTEGER"),
+            ("fulfilled_by_username",   "TEXT"),
+            ("fulfillment_accepted_at", "TEXT"),
+            ("fulfillment_note",        "TEXT"),
+        ):
+            if col_def[0] not in pr_cols:
+                cursor.execute(f"ALTER TABLE purchase_request ADD COLUMN {col_def[0]} {col_def[1]}")
+
+        # notification table — create if not present
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS notification (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                type TEXT NOT NULL,
+                title TEXT NOT NULL,
+                body TEXT,
+                request_id INTEGER,
+                is_read INTEGER NOT NULL DEFAULT 0,
+                read_at TEXT,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        cursor.execute("CREATE INDEX IF NOT EXISTS ix_notification_user_id ON notification(user_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS ix_notification_is_read ON notification(is_read)")
 
         conn.commit()
         conn.close()

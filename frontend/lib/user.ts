@@ -30,6 +30,9 @@ export interface CurrentUser {
   inventory_edit: string[];     // empty = all types they can view; admin always has full edit
   request_departments: number[]; // empty = all departments
   request_inventory: string[];  // empty = all inventory types
+  photo_base64?: string | null;
+  department_codes?: string[];  // codes of departments user belongs to
+  department_names?: string[];  // full names of departments user belongs to
 }
 
 export function setCurrentUser(user: CurrentUser): void {

@@ -21,11 +21,14 @@ import {
   ShieldAlert,
   MonitorSmartphone,
   ClipboardList,
+  PackageCheck,
 } from "lucide-react";
 import { usePwaInstall } from "@/hooks/use-pwa-install";
 import { cn } from "@/lib/utils";
-import { getCurrentUser, isAdminOrAbove } from "@/lib/user";
+import { getCurrentUser, isAdminOrAbove, ALL_INVENTORY_TYPES } from "@/lib/user";
+import type { CurrentUser } from "@/lib/user";
 import { apiLogout } from "@/lib/auth";
+import { UserAvatar } from "@/components/layout/top-bar";
 
 interface NavItem {
   label: string;
@@ -43,6 +46,7 @@ const PRIMARY_NAV: NavItem[] = [
 // Always shown to all users in the More drawer
 const GENERAL_MORE_NAV: NavItem[] = [
   { label: "Requests", href: "/dashboard/requests", icon: ClipboardList },
+  { label: "Receipts", href: "/dashboard/receipts", icon: PackageCheck },
 ];
 
 // Only shown to admin / super_admin in the More drawer
@@ -59,10 +63,31 @@ export function BottomNav() {
   const router = useRouter();
   const [moreOpen, setMoreOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [user, setUser] = useState<CurrentUser | null>(null);
+  const [requestCount, setRequestCount] = useState(0);
+  const [receiptCount, setReceiptCount] = useState(0);
   const { canInstall, canPrompt, isIOS, isAndroidHTTP, needsCert, isManual, install } = usePwaInstall();
 
   useEffect(() => {
+    async function fetchCounts() {
+      try {
+        const { apiFetchJson } = await import("@/lib/api");
+        const [req, rcpt] = await Promise.all([
+          apiFetchJson<{ count: number }>("/api/v1/purchase-requests/active-count"),
+          apiFetchJson<{ count: number }>("/api/v1/receipts/pending-count"),
+        ]);
+        setRequestCount(req.count);
+        setReceiptCount(rcpt.count);
+      } catch { /* ignore */ }
+    }
+    fetchCounts();
+    const interval = setInterval(fetchCounts, 30_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
     setIsAdmin(isAdminOrAbove());
+    setUser(getCurrentUser());
   }, []);
 
   // close more menu on route change
@@ -104,12 +129,59 @@ export function BottomNav() {
           moreOpen ? "translate-y-0" : "translate-y-full pointer-events-none"
         )}
       >
-        <div className="flex items-center justify-between px-5 py-3 border-b">
-          <span className="text-sm font-semibold">More</span>
-          <button onClick={() => setMoreOpen(false)} className="p-1 rounded-md hover:bg-muted">
-            <X className="size-4" />
-          </button>
-        </div>
+        {/* Profile strip */}
+        {user && (
+          <div className="flex items-center gap-3 px-4 py-3 border-b bg-muted/30">
+            <UserAvatar username={user.username} photoBase64={user.photo_base64} />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold truncate">{user.username}</p>
+              <p className="text-[10px] font-bold text-primary tracking-wide">
+                {user.role.replace(/_/g, " ").toUpperCase()}
+              </p>
+              <div className="flex items-center gap-3 mt-0.5">
+                {(() => {
+                  const codes = user.department_codes ?? [];
+                  const names = user.department_names ?? [];
+                  const isAdminRole = user.role === "admin" || user.role === "super_admin";
+                  if (codes.length > 0) {
+                    return (
+                      <span className="text-[10px] text-muted-foreground font-mono">
+                        {codes.map((c, i) => names[i] ? `${c} \u2014 ${names[i]}` : c).join(", ")}
+                      </span>
+                    );
+                  }
+                  if (isAdminRole) {
+                    return (
+                      <span className="text-[10px] text-muted-foreground font-mono">
+                        {user.role.replace(/_/g, " ").toUpperCase()}
+                      </span>
+                    );
+                  }
+                  return null;
+                })()}
+                <span className="text-[10px] text-muted-foreground">
+                  Inv:&nbsp;
+                  <span className="font-semibold text-foreground">
+                    {user.inventory_access.length === 0
+                      ? ALL_INVENTORY_TYPES.length
+                      : user.inventory_access.length}
+                  </span>
+                </span>
+              </div>
+            </div>
+            <button onClick={() => setMoreOpen(false)} className="p-1 rounded-md hover:bg-muted shrink-0">
+              <X className="size-4" />
+            </button>
+          </div>
+        )}
+        {!user && (
+          <div className="flex items-center justify-between px-5 py-3 border-b">
+            <span className="text-sm font-semibold">More</span>
+            <button onClick={() => setMoreOpen(false)} className="p-1 rounded-md hover:bg-muted">
+              <X className="size-4" />
+            </button>
+          </div>
+        )}
         <nav className="px-3 py-2 space-y-0.5">
           {moreNavItems.map((item) => (
             <Link
@@ -124,6 +196,16 @@ export function BottomNav() {
             >
               <item.icon className="size-5 shrink-0" />
               {item.label}
+              {item.href === "/dashboard/requests" && requestCount > 0 && (
+                <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center">
+                  {requestCount > 99 ? "99+" : requestCount}
+                </span>
+              )}
+              {item.href === "/dashboard/receipts" && receiptCount > 0 && (
+                <span className="ml-auto bg-amber-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center">
+                  {receiptCount > 99 ? "99+" : receiptCount}
+                </span>
+              )}
             </Link>
           ))}
         </nav>

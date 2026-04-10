@@ -39,6 +39,7 @@ class ConsumableCreate(BaseModel):
     rate_per_unit: Optional[float] = None
     qty: float = 0.0
     reorder_level: float = 0.0
+    timeline_days: Optional[int] = None
     image_base64: Optional[str] = None
 
 
@@ -51,6 +52,7 @@ class ConsumableUpdate(BaseModel):
     rate_per_unit: Optional[float] = None
     qty: Optional[float] = None
     reorder_level: Optional[float] = None
+    timeline_days: Optional[int] = None
     image_base64: Optional[str] = None
     is_active: Optional[bool] = None
 
@@ -84,6 +86,7 @@ class ConsumableOut(BaseModel):
     qty: float
     reorder_level: float
     total_price: Optional[float]  # computed: qty * rate_per_unit
+    timeline_days: Optional[int]
     image_base64: Optional[str]
     is_active: bool
     created_at: str
@@ -109,6 +112,7 @@ def _out(c: Consumable) -> ConsumableOut:
         qty=c.qty,
         reorder_level=getattr(c, 'reorder_level', 0.0) or 0.0,
         total_price=round(c.qty * c.rate_per_unit, 2) if c.rate_per_unit is not None else None,
+        timeline_days=getattr(c, 'timeline_days', None),
         image_base64=c.image_base64,
         is_active=c.is_active,
         created_at=_dt(c.created_at),
@@ -161,6 +165,7 @@ def create_consumable(body: ConsumableCreate, session: SessionDep, _: AdminUser)
         rate_per_unit=body.rate_per_unit,
         qty=body.qty,
         reorder_level=body.reorder_level,
+        timeline_days=body.timeline_days,
         image_base64=body.image_base64,
         created_at=now,
         updated_at=now,
@@ -200,6 +205,8 @@ def update_consumable(item_id: int, body: ConsumableUpdate, session: SessionDep,
         c.qty = body.qty
     if body.reorder_level is not None:
         c.reorder_level = body.reorder_level
+    if body.timeline_days is not None:
+        c.timeline_days = body.timeline_days
     if body.image_base64 is not None:
         c.image_base64 = body.image_base64 or None
     if body.is_active is not None:

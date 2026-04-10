@@ -149,7 +149,7 @@ export default function CustomersPage() {
   return (
     <>
       {/* ── Header ── */}
-      <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4 md:px-6">
+      <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4 md:pr-64">
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem><BreadcrumbPage>Customers</BreadcrumbPage></BreadcrumbItem>

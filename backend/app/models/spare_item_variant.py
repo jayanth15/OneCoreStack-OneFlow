@@ -22,6 +22,7 @@ class SpareItemVariant(SQLModel, table=True):
     storage_location: Optional[str] = None
     storage_type: Optional[str] = None
     rate: Optional[float] = None                 # per-variant rate (overrides parent if set)
+    timeline_days: Optional[int] = None          # expected fulfillment / lead time in days
 
     reorder_level: float = Field(default=0.0)          # per-variant reorder threshold
 

@@ -25,4 +25,5 @@ class User(SQLModel, table=True):
     # Comma-separated inventory types this user can raise requests for.
     # Empty = all inventory types.
     request_inventory: str = Field(default="")
+    photo_base64: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))

@@ -41,6 +41,13 @@ class PurchaseRequest(SQLModel, table=True):
     reviewed_at: Optional[datetime] = Field(default=None)
     review_note: Optional[str] = Field(default=None)
 
+    # Fulfilment response — filled by the dept that accepts the approved request
+    # status: pending | approved | not_approved | cancelled | in_progress | received
+    fulfilled_by_user_id: Optional[int] = Field(default=None, foreign_key="users.id")
+    fulfilled_by_username: Optional[str] = Field(default=None)
+    fulfillment_accepted_at: Optional[datetime] = Field(default=None)
+    fulfillment_note: Optional[str] = Field(default=None)
+
     is_active: bool = Field(default=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))

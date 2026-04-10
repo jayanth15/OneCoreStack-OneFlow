@@ -34,6 +34,7 @@ const BLANK = {
   inventory_edit: [] as string[],
   request_department_ids: [] as number[],
   request_inventory: [] as string[],
+  photo_base64: null as string | null,
 };
 
 export default function NewUserPage() {
@@ -201,10 +202,43 @@ export default function NewUserPage() {
             </div>
           </div>
 
+          {/* Photo */}
+          <div className="space-y-1.5">
+            <Label>Photo <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
+            <div className="flex items-center gap-3">
+              {form.photo_base64 ? (
+                <img src={form.photo_base64} alt="preview" className="size-14 rounded-full object-cover border" />
+              ) : (
+                <div className="size-14 rounded-full bg-muted flex items-center justify-center border text-muted-foreground text-lg font-bold">
+                  {form.username ? form.username.slice(0, 2).toUpperCase() : "?"}
+                </div>
+              )}
+              <div className="flex flex-col gap-1">
+                <input
+                  type="file"
+                  accept="image/*"
+                  disabled={saving}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (ev) => setForm((prev) => ({ ...prev, photo_base64: ev.target?.result as string }));
+                    reader.readAsDataURL(file);
+                  }}
+                  className="text-sm cursor-pointer file:mr-2 file:px-2 file:py-1 file:rounded file:border-0 file:text-xs file:bg-muted file:text-foreground"
+                />
+                {form.photo_base64 && (
+                  <button type="button" onClick={() => setForm((prev) => ({ ...prev, photo_base64: null }))} className="text-xs text-destructive hover:underline text-left">
+                    Remove photo
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* Role */}
           <div className="space-y-1.5">
-            <Label htmlFor="role">Role</Label>
-            <select
+            <Label htmlFor="role">Role</Label>            <select
               id="role"
               value={form.role}
               onChange={(e) => setForm({ ...form, role: e.target.value })}

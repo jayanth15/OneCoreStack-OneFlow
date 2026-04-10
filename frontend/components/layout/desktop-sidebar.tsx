@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
@@ -10,16 +10,16 @@ import {
   Factory,
   Building2,
   Users,
-  LogOut,
   ChevronRight,
   BookOpen,
   Contact,
   Settings,
   ClipboardList,
+  PackageCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getCurrentUser, isAdminOrAbove } from "@/lib/user";
-import { apiLogout } from "@/lib/auth";
+import { apiFetchJson } from "@/lib/api";
 
 interface NavItem {
   label: string;
@@ -32,8 +32,7 @@ const CORE_NAV: NavItem[] = [
   { label: "Inventory",  href: "/dashboard/inventory",    icon: Package },
   { label: "Schedule",   href: "/dashboard/schedule",     icon: CalendarDays },
   { label: "Production", href: "/dashboard/production",   icon: Factory },
-  { label: "Requests",   href: "/dashboard/requests",     icon: ClipboardList },
-];
+  { label: "Requests",   href: "/dashboard/requests",     icon: ClipboardList },  { label: "Receipts",  href: "/dashboard/receipts",     icon: PackageCheck },];
 
 // Only shown to admin / super_admin (alongside Departments, Users, BOM)
 const ADMIN_CORE_NAV: NavItem[] = [
@@ -49,22 +48,35 @@ const ADMIN_NAV: NavItem[] = [
 
 export function DesktopSidebar() {
   const pathname = usePathname();
-  const router = useRouter();
   const [isAdmin, setIsAdmin] = useState(false);
-  const [username, setUsername] = useState<string | null>(null);
+  const [notifCount, setNotifCount] = useState(0);
+  const [requestCount, setRequestCount] = useState(0);
+  const [receiptCount, setReceiptCount] = useState(0);
 
   useEffect(() => {
     const user = getCurrentUser();
     if (user) {
       setIsAdmin(isAdminOrAbove());
-      setUsername(user.username);
     }
   }, []);
 
-  async function handleSignOut() {
-    await apiLogout();
-    router.push("/login");
-  }
+  useEffect(() => {
+    async function fetchCounts() {
+      try {
+        const [notif, req, rcpt] = await Promise.all([
+          apiFetchJson<{ count: number }>("/api/v1/notifications/unread-count"),
+          apiFetchJson<{ count: number }>("/api/v1/purchase-requests/active-count"),
+          apiFetchJson<{ count: number }>("/api/v1/receipts/pending-count"),
+        ]);
+        setNotifCount(notif.count);
+        setRequestCount(req.count);
+        setReceiptCount(rcpt.count);
+      } catch { /* ignore */ }
+    }
+    fetchCounts();
+    const interval = setInterval(fetchCounts, 30_000);
+    return () => clearInterval(interval);
+  }, []);
 
   function isActive(href: string) {
     if (href === "/dashboard") return pathname === "/dashboard";
@@ -104,9 +116,26 @@ export function DesktopSidebar() {
                 >
                   <item.icon className="size-4 shrink-0" />
                   {item.label}
-                  {isActive(item.href) && (
-                    <ChevronRight className="size-3.5 ml-auto opacity-60" />
-                  )}
+                  <span className="ml-auto flex items-center gap-1">
+                    {item.href === "/dashboard/requests" && requestCount > 0 && (
+                      <span className="bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center">
+                        {requestCount > 99 ? "99+" : requestCount}
+                      </span>
+                    )}
+                    {item.href === "/dashboard/receipts" && receiptCount > 0 && (
+                      <span className="bg-amber-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center">
+                        {receiptCount > 99 ? "99+" : receiptCount}
+                      </span>
+                    )}
+                    {item.href === "/dashboard" && notifCount > 0 && (
+                      <span className="bg-blue-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center">
+                        {notifCount > 99 ? "99+" : notifCount}
+                      </span>
+                    )}
+                    {isActive(item.href) && (
+                      <ChevronRight className="size-3.5 opacity-60" />
+                    )}
+                  </span>
                 </Link>
               </li>
             ))}
@@ -144,21 +173,7 @@ export function DesktopSidebar() {
         )}
       </nav>
 
-      {/* Footer / user + sign out */}
-      <div className="border-t px-3 py-3 shrink-0 space-y-1">
-        {username && (
-          <p className="px-3 py-1 text-xs text-muted-foreground truncate">
-            {username}
-          </p>
-        )}
-        <button
-          onClick={handleSignOut}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-sidebar-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
-        >
-          <LogOut className="size-4 shrink-0" />
-          Sign out
-        </button>
-      </div>
+
     </aside>
   );
 }

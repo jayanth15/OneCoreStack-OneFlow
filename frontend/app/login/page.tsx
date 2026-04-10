@@ -46,6 +46,9 @@ export default function LoginPage() {
             inventory_edit: me.inventory_edit ?? [],
             request_departments: me.request_departments ?? [],
             request_inventory: me.request_inventory ?? [],
+            photo_base64: me.photo_base64 ?? null,
+            department_codes: me.department_codes ?? [],
+            department_names: me.department_names ?? [],
           });
       }
 

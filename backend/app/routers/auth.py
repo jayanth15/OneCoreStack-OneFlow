@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import Annotated
+from typing import Annotated, Optional
 
 import jwt
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
@@ -17,8 +17,10 @@ from app.core.security import (
     verify_password,
 )
 from app.dependencies.auth import get_current_active_user
+from app.models.department import Department
 from app.models.token import RefreshToken
 from app.models.user import User
+from app.models.user_department import UserDepartment
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -46,6 +48,9 @@ class UserMeResponse(BaseModel):
     inventory_edit: list[str] = []
     request_departments: list[int] = []
     request_inventory: list[str] = []
+    photo_base64: Optional[str] = None
+    department_codes: list[str] = []
+    department_names: list[str] = []
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -170,7 +175,10 @@ def logout(
 
 
 @router.get("/me", response_model=UserMeResponse)
-def me(user: Annotated[User, Depends(get_current_active_user)]) -> UserMeResponse:
+def me(
+    user: Annotated[User, Depends(get_current_active_user)],
+    session: Annotated[Session, Depends(get_session)],
+) -> UserMeResponse:
     def _parse_csv(val: str | None) -> list[str]:
         return [t.strip() for t in (val or "").split(",") if t.strip()]
 
@@ -185,6 +193,19 @@ def me(user: Annotated[User, Depends(get_current_active_user)]) -> UserMeRespons
                     pass
         return result
 
+    links = session.exec(
+        select(UserDepartment).where(UserDepartment.user_id == user.id)
+    ).all()
+    dept_ids = [lnk.department_id for lnk in links]
+    dept_codes: list[str] = []
+    dept_names: list[str] = []
+    if dept_ids:
+        depts = session.exec(
+            select(Department).where(Department.id.in_(dept_ids))  # type: ignore[attr-defined]
+        ).all()
+        dept_codes = [d.code for d in depts]
+        dept_names = [d.name for d in depts]
+
     return UserMeResponse(
         id=user.id,
         username=user.username,
@@ -193,4 +214,7 @@ def me(user: Annotated[User, Depends(get_current_active_user)]) -> UserMeRespons
         inventory_edit=_parse_csv(user.inventory_edit),
         request_departments=_parse_int_csv(user.request_departments),
         request_inventory=_parse_csv(user.request_inventory),
+        photo_base64=user.photo_base64,
+        department_codes=dept_codes,
+        department_names=dept_names,
     )

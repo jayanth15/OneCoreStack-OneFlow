@@ -37,6 +37,7 @@ interface Consumable {
   rate_per_unit: number | null;
   qty: number;
   reorder_level: number;
+  timeline_days: number | null;
   total_price: number | null;
   image_base64: string | null;
   is_active: boolean;
@@ -78,7 +79,7 @@ function fmtDate(iso: string) {
 }
 
 const BLANK = {
-  name: "", code: "", storage_type: "", storage_location: "", supplier_name: "", rate_per_unit: "", qty: "0", reorder_level: "0",
+  name: "", code: "", storage_type: "", storage_location: "", supplier_name: "", rate_per_unit: "", qty: "0", reorder_level: "0", timeline_days: "",
 };
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -174,6 +175,7 @@ export default function ConsumablesPage() {
       rate_per_unit: item.rate_per_unit != null ? String(item.rate_per_unit) : "",
       qty: String(item.qty),
       reorder_level: String(item.reorder_level ?? 0),
+      timeline_days: item.timeline_days != null ? String(item.timeline_days) : "",
     });
     setImgPreview(item.image_base64 ? `data:image/jpeg;base64,${item.image_base64}` : null);
     setImgB64(item.image_base64 ?? null);
@@ -201,6 +203,7 @@ export default function ConsumablesPage() {
       rate_per_unit: form.rate_per_unit ? parseFloat(form.rate_per_unit) : null,
       qty: parseFloat(form.qty) || 0,
       reorder_level: parseFloat(form.reorder_level) || 0,
+      timeline_days: form.timeline_days ? parseInt(form.timeline_days) : null,
       image_base64: imgB64,
     };
     try {
@@ -277,7 +280,7 @@ export default function ConsumablesPage() {
   return (
     <>
       {/* Header */}
-      <header className="flex h-16 shrink-0 items-center border-b px-6 gap-4">
+      <header className="flex h-16 shrink-0 items-center border-b px-6 gap-4 md:pr-64">
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
@@ -558,6 +561,11 @@ export default function ConsumablesPage() {
                 <Input id="c-reorder" type="number" min="0" step="any" placeholder="0" value={form.reorder_level}
                   onChange={e => setForm(f => ({ ...f, reorder_level: e.target.value }))} disabled={saving} />
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="c-timeline">Timeline (days)</Label>
+              <Input id="c-timeline" type="number" inputMode="numeric" min="1" step="1" placeholder="e.g. 7" value={form.timeline_days}
+                onChange={e => setForm(f => ({ ...f, timeline_days: e.target.value }))} disabled={saving} />
             </div>
             <div className="space-y-1.5">
               <Label>Picture <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>

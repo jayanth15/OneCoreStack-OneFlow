@@ -123,6 +123,7 @@ class InventoryItemCreate(BaseModel):
     storage_type: Optional[str] = None
     storage_location: Optional[str] = None
     rate: Optional[float] = None
+    timeline_days: Optional[int] = None
     image_base64: Optional[str] = None
     is_active: bool = True
 
@@ -144,6 +145,7 @@ class InventoryItemUpdate(BaseModel):
     storage_type: Optional[str] = None
     storage_location: Optional[str] = None
     rate: Optional[float] = None
+    timeline_days: Optional[int] = None
     image_base64: Optional[str] = None
     is_active: Optional[bool] = None
 
@@ -165,6 +167,7 @@ class InventoryItemResponse(BaseModel):
     reorder_level: float
     storage_type: Optional[str]
     storage_location: Optional[str]
+    timeline_days: Optional[int] = None
     is_active: bool
     updated_at: datetime
     linked_schedule_count: int = 0
@@ -303,6 +306,7 @@ def create_item(
         storage_type=body.storage_type,
         storage_location=body.storage_location,
         rate=body.rate if admin else None,
+        timeline_days=body.timeline_days,
         image_base64=body.image_base64,
         is_active=body.is_active,
         updated_at=datetime.now(tz=timezone.utc),
@@ -381,6 +385,8 @@ def update_item(
         item.image_base64 = body.image_base64
     if body.rate is not None and admin:
         item.rate = body.rate
+    if body.timeline_days is not None:
+        item.timeline_days = body.timeline_days
 
     item.updated_at = datetime.now(tz=timezone.utc)
 

@@ -35,6 +35,7 @@ interface UserData {
   inventory_edit: string[];
   request_department_ids: number[];
   request_inventory: string[];
+  photo_base64?: string | null;
 }
 
 interface UserForm {
@@ -47,6 +48,7 @@ interface UserForm {
   inventory_edit: string[];
   request_department_ids: number[];
   request_inventory: string[];
+  photo_base64: string | null;
 }
 
 export default function EditUserPage() {
@@ -69,6 +71,7 @@ export default function EditUserPage() {
     inventory_edit: [],
     request_department_ids: [],
     request_inventory: [],
+    photo_base64: null,
   });
   const [allDepts, setAllDepts] = useState<DeptRef[]>([]);
   const [loading, setLoading] = useState(true);
@@ -94,6 +97,7 @@ export default function EditUserPage() {
           inventory_edit: userData.inventory_edit ?? [],
           request_department_ids: userData.request_department_ids ?? [],
           request_inventory: userData.request_inventory ?? [],
+          photo_base64: userData.photo_base64 ?? null,
         });
         setAllDepts(deptsData);
       })
@@ -170,6 +174,7 @@ export default function EditUserPage() {
         inventory_edit: form.inventory_edit,
         request_department_ids: form.request_department_ids,
         request_inventory: form.request_inventory,
+        photo_base64: form.photo_base64,
       };
       if (form.password) payload.password = form.password;
 
@@ -270,6 +275,44 @@ export default function EditUserPage() {
                 >
                   {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </button>
+              </div>
+            </div>
+
+            {/* Photo */}
+            <div className="space-y-1.5">
+              <Label>Photo <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
+              <div className="flex items-center gap-3">
+                {form.photo_base64 ? (
+                  <img src={form.photo_base64} alt="preview" className="size-14 rounded-full object-cover border" />
+                ) : (
+                  <div className="size-14 rounded-full bg-muted flex items-center justify-center border text-muted-foreground text-lg font-bold">
+                    {form.username ? form.username.slice(0, 2).toUpperCase() : "?"}
+                  </div>
+                )}
+                <div className="flex flex-col gap-1">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    disabled={saving}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = (ev) => setForm((prev) => ({ ...prev, photo_base64: ev.target?.result as string }));
+                      reader.readAsDataURL(file);
+                    }}
+                    className="text-sm cursor-pointer file:mr-2 file:px-2 file:py-1 file:rounded file:border-0 file:text-xs file:bg-muted file:text-foreground"
+                  />
+                  {form.photo_base64 && (
+                    <button
+                      type="button"
+                      onClick={() => setForm((prev) => ({ ...prev, photo_base64: null }))}
+                      className="text-xs text-destructive hover:underline text-left"
+                    >
+                      Remove photo
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 

@@ -17,10 +17,10 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { apiFetchJson } from "@/lib/api";
-import { isAdminOrAbove, getCurrentUser } from "@/lib/user";
+import { isAdminOrAbove, getCurrentUser, canRequestInventory } from "@/lib/user";
 import {
   PlusIcon, Search, ChevronLeft, ChevronRight, CheckCircle, XCircle,
-  Clock, Ban, Eye, Pencil, History, AlertTriangle, ShoppingCart, X,
+  Clock, Ban, Eye, Pencil, History, AlertTriangle, ShoppingCart, X, PackageCheck, Package, Loader2,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -32,9 +32,11 @@ interface PurchaseRequest {
   description: string | null; quantity: number;
   from_whom: string | null; timeline_days: number | null;
   notes: string | null; status: string;
-  requested_by_username: string | null; department: string | null;
+  requested_by_user_id: number | null; requested_by_username: string | null; department: string | null;
   reviewed_by_username: string | null; reviewed_at: string | null;
   review_note: string | null; deadline_date: string | null;
+  receipt_count: number; total_received: number;
+  fulfilled_by_username: string | null; fulfillment_accepted_at: string | null; fulfillment_note: string | null;
   created_at: string; updated_at: string;
 }
 
@@ -47,18 +49,21 @@ interface HistoryEntry {
 interface PaginatedResponse<T> { items: T[]; total: number; page: number; page_size: number; pages: number; }
 interface DeptRef { id: number; code: string; name: string; }
 
-interface InvItem { id: number; code: string; name: string; item_type: string; unit: string; }
+interface InvItem { id: number; code: string; name: string; item_type: string; unit: string; timeline_days?: number | null; image_base64?: string | null; subtitle?: string; }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; Icon: React.ElementType }> = {
-  pending:      { label: "Pending",      color: "bg-amber-100 text-amber-700 border-amber-200",  Icon: Clock },
-  approved:     { label: "Approved",     color: "bg-green-100 text-green-700 border-green-200",  Icon: CheckCircle },
-  not_approved: { label: "Not Approved", color: "bg-red-100   text-red-700   border-red-200",    Icon: XCircle },
-  cancelled:    { label: "Cancelled",    color: "bg-gray-100  text-gray-600  border-gray-200",   Icon: Ban },
+  pending:          { label: "Pending",          color: "bg-amber-100 text-amber-700 border-amber-200",  Icon: Clock },
+  approved:         { label: "Approved",         color: "bg-green-100 text-green-700 border-green-200",  Icon: CheckCircle },
+  not_approved:     { label: "Not Approved",     color: "bg-red-100   text-red-700   border-red-200",    Icon: XCircle },
+  cancelled:        { label: "Cancelled",        color: "bg-gray-100  text-gray-600  border-gray-200",   Icon: Ban },
+  in_progress:      { label: "In Progress",      color: "bg-blue-100  text-blue-700  border-blue-200",   Icon: Loader2 },
+  awaiting_signoff: { label: "Awaiting Sign-off", color: "bg-orange-100 text-orange-700 border-orange-200", Icon: PackageCheck },
+  received:         { label: "Received",         color: "bg-teal-100  text-teal-700  border-teal-200",   Icon: PackageCheck },
 };
 
-const STATUSES = ["all", "pending", "approved", "not_approved", "cancelled"];
+const STATUSES = ["all", "pending", "approved", "in_progress", "awaiting_signoff", "not_approved", "cancelled", "received"];
 
 function StatusBadge({ status }: { status: string }) {
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.pending;
@@ -86,11 +91,20 @@ function DeadlineBadge({ deadlineDate }: { deadlineDate: string | null }) {
   return <span className="text-xs text-red-600 font-medium">{Math.abs(daysLeft)}d overdue</span>;
 }
 
+// ── Inventory type labels ─────────────────────────────────────────────────────
+
+const TYPE_LABELS: Record<string, string> = {
+  raw_material: "Raw Material", finished_good: "Finished Good", semi_finished: "Semi Finished",
+  spare: "Spare Part", consumable: "Consumable", attachment: "Attachment", weeder: "Weeder",
+};
+const ALL_INV_TYPES = ["raw_material", "finished_good", "semi_finished", "consumable", "attachment", "weeder", "spare"];
+
 // ── SSR Combobox ──────────────────────────────────────────────────────────────
 
-function InvCombobox({ value, onChange }: {
+function InvCombobox({ value, onChange, invType }: {
   value: string;
   onChange: (item: InvItem) => void;
+  invType?: string;
 }) {
   const [query, setQuery] = useState(value);
   const [results, setResults] = useState<InvItem[]>([]);
@@ -99,30 +113,66 @@ function InvCombobox({ value, onChange }: {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { setQuery(value); }, [value]);
+  useEffect(() => { setResults([]); setQuery(""); }, [invType]);
 
   const search = useCallback((q: string) => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(async () => {
       setBusy(true);
       try {
-        const url = q.trim()
-          ? `/api/v1/inventory?search=${encodeURIComponent(q)}&page_size=20&include_inactive=false`
-          : `/api/v1/inventory?page_size=20&include_inactive=false`;
-        const d = await apiFetchJson<PaginatedResponse<InvItem>>(url);
-        setResults(d.items);
+        const qs = q.trim() ? `&search=${encodeURIComponent(q)}` : "";
+        let items: InvItem[] = [];
+        if (!invType) {
+          // no type selected — nothing to search
+        } else if (invType === "raw_material" || invType === "finished_good" || invType === "semi_finished") {
+          const d = await apiFetchJson<PaginatedResponse<{id:number;code:string;name:string;item_type:string;unit:string;timeline_days:number|null;image_base64:string|null}>>(`/api/v1/inventory?page_size=12&include_inactive=false&item_type=${invType}${qs}`);
+          items = d.items.map(i => ({ id: i.id, code: i.code, name: i.name, item_type: i.item_type, unit: i.unit, timeline_days: i.timeline_days, image_base64: i.image_base64 }));
+        } else if (invType === "consumable") {
+          const d = await apiFetchJson<PaginatedResponse<{id:number;code:string|null;name:string;timeline_days:number|null;image_base64:string|null}>>(`/api/v1/consumables?page_size=12${qs}`);
+          items = d.items.map(c => ({ id: c.id, code: c.code ?? "", name: c.name, item_type: "consumable", unit: "", timeline_days: c.timeline_days, image_base64: c.image_base64 }));
+        } else if (invType === "attachment") {
+          const d = await apiFetchJson<PaginatedResponse<{id:number;sn_no:string|null;description:string|null;timeline_days:number|null;image_base64:string|null}>>(`/api/v1/attachments?page_size=12${qs}`);
+          items = d.items.map(a => ({ id: a.id, code: a.sn_no ?? "", name: a.description ?? a.sn_no ?? "—", item_type: "attachment", unit: "", timeline_days: a.timeline_days, image_base64: a.image_base64 }));
+        } else if (invType === "weeder") {
+          const d = await apiFetchJson<PaginatedResponse<{id:number;sn_no:string|null;name:string|null;timeline_days:number|null;image_base64:string|null}>>(`/api/v1/weeders?page_size=12${qs}`);
+          items = d.items.map(w => ({ id: w.id, code: w.sn_no ?? "", name: w.name ?? w.sn_no ?? "—", item_type: "weeder", unit: "", timeline_days: w.timeline_days, image_base64: w.image_base64 }));
+        } else if (invType === "spare") {
+          const qParam = q.trim() ? `&q=${encodeURIComponent(q)}` : "";
+          const variants = await apiFetchJson<{variant_id:number;serial_number:string|null;variant_color:string|null;image_base64:string|null;timeline_days:number|null;qty:number;item_id:number;item_name:string;part_number:string|null;category_name:string;sub_category_name:string|null}[]>(`/api/v1/spares/variants/search?limit=12${qParam}`);
+          items = variants.map(v => {
+            const variantLabel = [v.variant_color, v.serial_number].filter(Boolean).join(" / ");
+            const displayName = variantLabel ? `${v.item_name} — ${variantLabel}` : v.item_name;
+            const breadcrumb = [v.category_name, v.sub_category_name].filter(Boolean).join(" › ");
+            return {
+              id: v.variant_id,
+              code: v.part_number ?? "",
+              name: displayName,
+              item_type: "spare",
+              unit: "",
+              timeline_days: v.timeline_days,
+              image_base64: v.image_base64,
+              subtitle: breadcrumb,
+            };
+          });
+        }
+        setResults(items);
       } catch { /* ignore */ }
       finally { setBusy(false); }
     }, q.trim() ? 300 : 0);
-  }, []);
+  }, [invType]);
+
+  const imgSrc = (b64: string | null | undefined) =>
+    b64 ? `data:image/jpeg;base64,${b64}` : null;
 
   return (
     <div className="relative">
       <div className="relative">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
         <Input
-          className="pl-8"
-          placeholder="Click or type to search inventory items…"
+          className="pl-8 pr-8"
+          placeholder={invType ? `Search ${TYPE_LABELS[invType] ?? invType} items…` : "Select inventory type first…"}
           value={query}
+          disabled={!invType}
           onFocus={() => { setOpen(true); search(query); }}
           onChange={e => { setQuery(e.target.value); search(e.target.value); setOpen(true); }}
           onBlur={() => setTimeout(() => setOpen(false), 150)}
@@ -130,16 +180,31 @@ function InvCombobox({ value, onChange }: {
         {busy && <span className="absolute right-2.5 top-1/2 -translate-y-1/2 size-3.5 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />}
       </div>
       {open && results.length > 0 && (
-        <div className="absolute z-[200] w-full rounded-md border bg-popover shadow-lg mt-1 max-h-56 overflow-y-auto">
-          {results.map(item => (
-            <button key={item.id} type="button"
-              className="w-full text-left px-3 py-2 text-sm hover:bg-accent flex items-center gap-2"
-              onMouseDown={() => { onChange(item); setQuery(`${item.code} — ${item.name}`); setOpen(false); }}>
-              <span className="font-mono text-xs text-muted-foreground w-20 shrink-0 truncate">{item.code}</span>
-              <span className="truncate">{item.name}</span>
-              <span className="ml-auto text-xs text-muted-foreground shrink-0">{item.item_type?.replace("_", " ")}</span>
-            </button>
-          ))}
+        <div className="absolute z-[200] w-full rounded-md border bg-popover shadow-lg mt-1 max-h-64 overflow-y-auto">
+          {results.map(item => {
+            const src = imgSrc(item.image_base64);
+            return (
+              <button key={item.id} type="button"
+                className="w-full text-left px-3 py-2 text-sm hover:bg-accent flex items-center gap-2.5 border-b border-border/40 last:border-0"
+                onMouseDown={() => { onChange(item); setQuery(item.code ? `${item.code} — ${item.name}` : item.name); setOpen(false); }}>
+                <div className="flex-1 min-w-0">
+                  <div className="truncate font-medium leading-tight">{item.name}</div>
+                  {(item.code || item.subtitle) && (
+                    <div className="text-[11px] text-muted-foreground truncate mt-0.5">
+                      {item.subtitle ?? item.code}
+                    </div>
+                  )}
+                </div>
+                {src
+                  // eslint-disable-next-line @next/next/no-img-element
+                  ? <img src={src} alt="" className="size-9 rounded object-cover border shrink-0" />
+                  : <div className="size-9 rounded border border-dashed bg-muted/50 shrink-0 flex items-center justify-center">
+                      <ShoppingCart className="size-3.5 text-muted-foreground/40" />
+                    </div>
+                }
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
@@ -149,11 +214,14 @@ function InvCombobox({ value, onChange }: {
 // ── History Dialog ────────────────────────────────────────────────────────────
 
 const CHANGE_COLORS: Record<string, string> = {
-  created:   "text-blue-600",
-  edited:    "text-amber-600",
-  approved:  "text-green-600",
-  rejected:  "text-red-600",
-  cancelled: "text-gray-500",
+  created:      "text-blue-600",
+  edited:       "text-amber-600",
+  approved:     "text-green-600",
+  rejected:     "text-red-600",
+  cancelled:    "text-gray-500",
+  responded:    "text-blue-700",
+  receipt_created: "text-teal-600",
+  receipt_acknowledged: "text-teal-700",
 };
 
 function HistoryDialog({ open, onClose, url, title }: { open: boolean; onClose: () => void; url: string; title: string }) {
@@ -223,6 +291,8 @@ function PurchaseTab({ admin }: { admin: boolean }) {
   const [selected, setSelected] = useState<PurchaseRequest | null>(null);
   const [form, setForm] = useState({ ...P_BLANK });
   const [invItemId, setInvItemId] = useState<number | null>(null);
+  const [invType, setInvType] = useState("");
+  const allowedTypes = ALL_INV_TYPES.filter(canRequestInventory);
   const [invLabel, setInvLabel] = useState("");
   const [saving, setSaving] = useState(false); const [formErr, setFormErr] = useState<string | null>(null);
 
@@ -235,16 +305,30 @@ function PurchaseTab({ admin }: { admin: boolean }) {
 
   const [histReq, setHistReq] = useState<PurchaseRequest | null>(null);
 
+  const [receiptReq, setReceiptReq] = useState<PurchaseRequest | null>(null);
+  const [receiptQty, setReceiptQty] = useState("");
+  const [receiptNotes, setReceiptNotes] = useState("");
+  const [receiptSaving, setReceiptSaving] = useState(false);
+  const [receiptErr, setReceiptErr] = useState<string | null>(null);
+
+  const [respondReq, setRespondReq] = useState<PurchaseRequest | null>(null);
+  const [respondNote, setRespondNote] = useState("");
+  const [respondSaving, setRespondSaving] = useState(false);
+  const [respondErr, setRespondErr] = useState<string | null>(null);
+
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+
   const [depts, setDepts] = useState<DeptRef[]>([]);
   useEffect(() => {
     const user = getCurrentUser();
     const allowed: number[] = user?.request_departments ?? [];
+    setCurrentUserId(user?.id ?? null);
     apiFetchJson<DeptRef[]>("/api/v1/departments")
       .then(all => setDepts(allowed.length && !isAdminOrAbove() ? all.filter(d => allowed.includes(d.id)) : all))
       .catch(() => {});
   }, []);
 
-  const PAGE_SIZE = 20;
+  const PAGE_SIZE = 10;
 
   const fetch = useCallback((p = page) => {
     setLoading(true);
@@ -258,9 +342,15 @@ function PurchaseTab({ admin }: { admin: boolean }) {
 
   useEffect(() => { fetch(1); }, [statusFilter, search]); // eslint-disable-line
 
+  // Auto-refresh every 30s so status changes appear without manual reload
+  useEffect(() => {
+    const interval = setInterval(() => fetch(page), 30_000);
+    return () => clearInterval(interval);
+  }, [fetch, page]); // eslint-disable-line
+
   function openCreate() {
     const autoDept = depts.length === 1 ? depts[0].name : "";
-    setSelected(null); setForm({ ...P_BLANK, department: autoDept }); setInvItemId(null); setInvLabel(""); setFormErr(null); setDialog("create");
+    setSelected(null); setForm({ ...P_BLANK, department: autoDept }); setInvItemId(null); setInvLabel(""); setInvType(""); setFormErr(null); setDialog("create");
   }
   function openEdit(r: PurchaseRequest) {
     setSelected(r);
@@ -272,6 +362,7 @@ function PurchaseTab({ admin }: { admin: boolean }) {
     });
     setInvItemId(r.inventory_item_id);
     setInvLabel(r.item_code && r.item_name ? `${r.item_code} — ${r.item_name}` : r.item_name ?? "");
+    setInvType(r.item_type ?? "");
     setFormErr(null); setDialog("edit");
   }
 
@@ -317,13 +408,36 @@ function PurchaseTab({ admin }: { admin: boolean }) {
     finally { setCancelling(false); }
   }
 
+  async function doCreateReceipt() {
+    if (!receiptReq) return;
+    const qty = parseFloat(receiptQty);
+    if (!qty || qty <= 0) { setReceiptErr("Enter a valid quantity"); return; }
+    setReceiptSaving(true); setReceiptErr(null);
+    try {
+      await apiFetchJson("/api/v1/receipts", {
+        method: "POST",
+        body: JSON.stringify({ request_id: receiptReq.id, quantity_received: qty, notes: receiptNotes || null }),
+      });
+      setReceiptReq(null); fetch(page);
+    } catch (e: unknown) { setReceiptErr(e instanceof Error ? e.message : "Failed to create receipt"); }
+    finally { setReceiptSaving(false); }
+  }
+
+  async function doRespond() {
+    if (!respondReq) return;
+    setRespondSaving(true); setRespondErr(null);
+    try {
+      await apiFetchJson(`/api/v1/purchase-requests/${respondReq.id}/respond`, {
+        method: "POST",
+        body: JSON.stringify({ note: respondNote || null }),
+      });
+      setRespondReq(null); fetch(page);
+    } catch (e: unknown) { setRespondErr(e instanceof Error ? e.message : "Failed to respond"); }
+    finally { setRespondSaving(false); }
+  }
+
   return (
     <div className="space-y-3">
-      {/* Routing info */}
-      <div className="flex items-center gap-2 text-xs rounded-lg border bg-blue-50 border-blue-200 px-3 py-2">
-        <ShoppingCart className="size-3.5 text-blue-500 shrink-0" />
-        <span className="text-muted-foreground">Routed to: <span className="font-semibold text-blue-700">Purchase Department</span> — all department requests go here for procurement.</span>
-      </div>
       {/* Status filter + action row */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex gap-1 flex-wrap">
@@ -366,10 +480,10 @@ function PurchaseTab({ admin }: { admin: boolean }) {
                   <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">SN No.</th>
                   <th className="px-4 py-2.5 text-left font-medium">Item</th>
                   <th className="px-4 py-2.5 text-right font-medium">Qty</th>
-                  <th className="px-4 py-2.5 text-left font-medium">From Whom</th>
+                  <th className="px-4 py-2.5 text-left font-medium">Department</th>
+                  <th className="px-4 py-2.5 text-left font-medium">People</th>
                   <th className="px-4 py-2.5 text-left font-medium">Timeline</th>
                   <th className="px-4 py-2.5 text-left font-medium">Status</th>
-                  {admin && <th className="px-4 py-2.5 text-left font-medium">Requested By</th>}
                   <th className="px-4 py-2.5 text-left font-medium">Date</th>
                   <th className="px-4 py-2.5 text-right font-medium">Actions</th>
                 </tr></thead>
@@ -377,12 +491,37 @@ function PurchaseTab({ admin }: { admin: boolean }) {
                   {items.map(r => (
                     <tr key={r.id} className="hover:bg-muted/20">
                       <td className="px-4 py-3"><Badge variant="secondary" className="font-mono text-xs">{r.sn_no}</Badge></td>
-                      <td className="px-4 py-3 max-w-[200px]">
+                      <td className="px-4 py-3 max-w-[180px]">
                         <p className="font-medium truncate">{r.item_name ?? "—"}</p>
                         {r.item_code && <p className="text-xs text-muted-foreground font-mono">{r.item_code}</p>}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums font-medium">{r.quantity}</td>
-                      <td className="px-4 py-3 text-sm text-muted-foreground max-w-[130px] truncate">{r.from_whom ?? "—"}</td>
+                      <td className="px-4 py-3 text-xs">
+                        {r.department
+                          ? <span className="font-medium text-foreground">{r.department}</span>
+                          : <span className="text-muted-foreground">—</span>}
+                        {r.from_whom && <p className="text-muted-foreground mt-0.5">→ {r.from_whom}</p>}
+                      </td>
+                      <td className="px-4 py-3 text-xs space-y-0.5">
+                        {r.requested_by_username && (
+                          <p className="text-muted-foreground">
+                            <span className="font-medium text-foreground">{r.requested_by_username}</span>
+                            <span className="ml-1 text-[10px] text-muted-foreground/70">requested</span>
+                          </p>
+                        )}
+                        {r.fulfilled_by_username && (
+                          <p className="text-muted-foreground">
+                            <span className="font-medium text-foreground">{r.fulfilled_by_username}</span>
+                            <span className="ml-1 text-[10px] text-muted-foreground/70">fulfilling</span>
+                          </p>
+                        )}
+                        {r.reviewed_by_username && (
+                          <p className="text-muted-foreground">
+                            <span className="font-medium text-foreground">{r.reviewed_by_username}</span>
+                            <span className="ml-1 text-[10px] text-muted-foreground/70">reviewed</span>
+                          </p>
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         {r.timeline_days ? (
                           <div className="text-xs">
@@ -392,7 +531,6 @@ function PurchaseTab({ admin }: { admin: boolean }) {
                         ) : <span className="text-muted-foreground text-xs">—</span>}
                       </td>
                       <td className="px-4 py-3"><StatusBadge status={r.status} /></td>
-                      {admin && <td className="px-4 py-3 text-sm text-muted-foreground">{r.requested_by_username ?? "—"}{r.department && <span className="block text-xs">{r.department}</span>}</td>}
                       <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{fmtDate(r.created_at)}</td>
                       <td className="px-4 py-3 text-right">
                         <div className="inline-flex gap-1">
@@ -403,6 +541,13 @@ function PurchaseTab({ admin }: { admin: boolean }) {
                             <Button variant="ghost" size="icon" className="size-7" title="Reject" onClick={() => { setSelected(r); setReviewNote(""); setReviewDialog("reject"); }}><XCircle className="size-3.5 text-red-600" /></Button>
                           </>}
                           {r.status === "pending" && <Button variant="ghost" size="icon" className="size-7" title="Cancel" onClick={() => { setCancelId(r.id); setCancelNote(""); }}><Ban className="size-3.5 text-amber-600" /></Button>}
+                          {/* Respond: non-admin, approved request, not the requester themselves */}
+                          {!admin && r.status === "approved" && r.requested_by_user_id !== currentUserId && (
+                            <Button variant="ghost" size="icon" className="size-7" title="Respond / Accept" onClick={() => { setRespondReq(r); setRespondNote(""); setRespondErr(null); }}><Loader2 className="size-3.5 text-blue-600" /></Button>
+                          )}
+                          {(r.status === "approved" || r.status === "in_progress" || r.status === "awaiting_signoff" || r.status === "received") && r.requested_by_user_id !== currentUserId && (
+                            <Button variant="ghost" size="icon" className="size-7" title="Create Receipt" onClick={() => { setReceiptReq(r); setReceiptQty(String(r.quantity)); setReceiptNotes(""); setReceiptErr(null); }}><Package className="size-3.5 text-teal-600" /></Button>
+                          )}
                           <Button variant="ghost" size="icon" className="size-7" title="History" onClick={() => setHistReq(r)}><History className="size-3.5 text-muted-foreground" /></Button>
                         </div>
                       </td>
@@ -430,11 +575,20 @@ function PurchaseTab({ admin }: { admin: boolean }) {
           <DialogHeader><DialogTitle>{dialog === "create" ? "New Purchase Request" : `Edit — ${selected?.sn_no ?? ""}`}</DialogTitle></DialogHeader>
           <div className="space-y-4 mt-1">
             <div className="space-y-1.5">
+              <Label>Inventory Type *</Label>
+              <select value={invType} onChange={e => { const t = e.target.value; setInvType(t); setInvItemId(null); setInvLabel(""); setForm(f => ({ ...f, item_name: "", item_code: "", item_type: t, timeline_days: "" })); }} disabled={saving}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
+                <option value="">— Select type —</option>
+                {allowedTypes.map(t => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1.5">
               <Label>Inventory Item <span className="text-muted-foreground font-normal text-xs">(search to select, or type manually below)</span></Label>
-              <InvCombobox value={invLabel} onChange={item => {
-                setInvItemId(item.id);
-                setInvLabel(`${item.code} — ${item.name}`);
-                setForm(f => ({ ...f, item_name: item.name, item_code: item.code, item_type: item.item_type, description: "" }));
+              <InvCombobox value={invLabel} invType={invType} onChange={item => {
+                const isRegularInv = ["raw_material", "finished_good", "semi_finished"].includes(invType);
+                setInvItemId(isRegularInv ? item.id : null);
+                setInvLabel(item.code ? `${item.code} — ${item.name}` : item.name);
+                setForm(f => ({ ...f, item_name: item.name, item_code: item.code, item_type: invType || item.item_type, description: "", timeline_days: item.timeline_days != null ? String(item.timeline_days) : "" }));
               }} />
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -460,7 +614,7 @@ function PurchaseTab({ admin }: { admin: boolean }) {
               </div>
               <div className="space-y-1.5">
                 <Label>Timeline (days)</Label>
-                <Input type="number" min="1" step="1" placeholder="e.g. 7" value={form.timeline_days} onChange={e => setForm(f => ({ ...f, timeline_days: e.target.value }))} disabled={saving} />
+                <Input type="number" min="1" step="1" placeholder="—" value={form.timeline_days} readOnly disabled className="bg-muted/50 cursor-default" />
               </div>
               <div className="space-y-1.5">
                 <Label>Department</Label>
@@ -509,6 +663,15 @@ function PurchaseTab({ admin }: { admin: boolean }) {
                 <dt className="text-muted-foreground">Date</dt><dd>{fmtDate(selected.created_at)}</dd>
                 {selected.reviewed_by_username && <><dt className="text-muted-foreground">Reviewed By</dt><dd>{selected.reviewed_by_username}{selected.reviewed_at && ` on ${fmtDate(selected.reviewed_at)}`}</dd></>}
                 {selected.review_note && <><dt className="text-muted-foreground">Review Note</dt><dd className="italic">{selected.review_note}</dd></>}
+                {selected.fulfilled_by_username && <>
+                  <dt className="text-muted-foreground">Responded By</dt>
+                  <dd>{selected.fulfilled_by_username}{selected.fulfillment_accepted_at && ` on ${fmtDate(selected.fulfillment_accepted_at)}`}</dd>
+                </>}
+                {selected.fulfillment_note && <><dt className="text-muted-foreground">Response Note</dt><dd className="italic">{selected.fulfillment_note}</dd></>}
+                {(selected.receipt_count > 0) && <>
+                  <dt className="text-muted-foreground">Receipts</dt>
+                  <dd className="font-medium">{selected.total_received} / {selected.quantity} received ({selected.receipt_count} {selected.receipt_count === 1 ? "entry" : "entries"})</dd>
+                </> }
               </dl>
             </div>
           )}
@@ -565,6 +728,70 @@ function PurchaseTab({ admin }: { admin: boolean }) {
         <HistoryDialog open={!!histReq} onClose={() => setHistReq(null)}
           url={`/api/v1/purchase-requests/${histReq.id}/history`} title={histReq.sn_no} />
       )}
+
+      {/* Respond Dialog */}
+      <Dialog open={!!respondReq} onOpenChange={o => !o && setRespondReq(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Loader2 className="size-4 text-blue-600" /> Accept &amp; Respond — {respondReq?.sn_no}
+            </DialogTitle>
+          </DialogHeader>
+          {respondReq && (
+            <div className="space-y-3 mt-1">
+              <p className="text-sm text-muted-foreground">
+                Mark this request as <span className="font-semibold text-blue-700">In Progress</span>. This tells the requester that you have acknowledged the request and are working on it.
+              </p>
+              <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+                <dt className="text-muted-foreground">Item</dt><dd className="font-medium">{respondReq.item_name ?? "—"}</dd>
+                <dt className="text-muted-foreground">Qty</dt><dd>{respondReq.quantity}</dd>
+                {respondReq.from_whom && <><dt className="text-muted-foreground">From</dt><dd>{respondReq.from_whom}</dd></>}
+              </dl>
+              <div className="space-y-1.5">
+                <Label>Response Note <span className="text-xs text-muted-foreground">(optional)</span></Label>
+                <textarea rows={3} placeholder="e.g. Will arrange by Friday, checking stock…" value={respondNote}
+                  onChange={e => setRespondNote(e.target.value)} disabled={respondSaving}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
+              </div>
+              {respondErr && <p className="text-sm text-destructive">{respondErr}</p>}
+              <div className="flex gap-3">
+                <Button onClick={doRespond} disabled={respondSaving} className="flex-1">{respondSaving ? "Saving…" : "Accept Request"}</Button>
+                <Button variant="outline" onClick={() => setRespondReq(null)} disabled={respondSaving}>Cancel</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Receipt Dialog */}
+      <Dialog open={!!receiptReq} onOpenChange={o => !o && setReceiptReq(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><Package className="size-4 text-teal-600" /> Create Receipt — {receiptReq?.sn_no}</DialogTitle></DialogHeader>
+          {receiptReq && (
+            <div className="space-y-3 mt-1">
+              <p className="text-sm text-muted-foreground">
+                Item: <span className="font-medium text-foreground">{receiptReq.item_name ?? "—"}</span> · Ordered: <span className="font-semibold">{receiptReq.quantity}</span>
+                {receiptReq.receipt_count > 0 && <span className="ml-1">(already received: {receiptReq.total_received})</span>}
+              </p>
+              <div className="space-y-1.5">
+                <Label>Quantity to Deliver *</Label>
+                <Input type="number" min="0.001" step="any" value={receiptQty} onChange={e => setReceiptQty(e.target.value)} disabled={receiptSaving} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Delivery Notes <span className="text-xs text-muted-foreground">(optional)</span></Label>
+                <textarea rows={2} placeholder="Packing slip, condition notes…" value={receiptNotes}
+                  onChange={e => setReceiptNotes(e.target.value)} disabled={receiptSaving}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
+              </div>
+              {receiptErr && <p className="text-sm text-destructive">{receiptErr}</p>}
+              <div className="flex gap-3">
+                <Button onClick={doCreateReceipt} disabled={receiptSaving} className="flex-1">{receiptSaving ? "Saving…" : "Record Receipt"}</Button>
+                <Button variant="outline" onClick={() => setReceiptReq(null)} disabled={receiptSaving}>Cancel</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

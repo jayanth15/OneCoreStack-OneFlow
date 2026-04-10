@@ -77,6 +77,7 @@ class WeederCreate(BaseModel):
     reorder_level: float = 0.0
     rate_per_unit: Optional[float] = None
     storage_location: Optional[str] = None
+    timeline_days: Optional[int] = None
     image_base64: Optional[str] = None
 
 
@@ -89,6 +90,7 @@ class WeederUpdate(BaseModel):
     reorder_level: Optional[float] = None
     rate_per_unit: Optional[float] = None
     storage_location: Optional[str] = None
+    timeline_days: Optional[int] = None
     image_base64: Optional[str] = None
     is_active: Optional[bool] = None
 
@@ -122,6 +124,7 @@ class WeederOut(BaseModel):
     rate_per_unit: Optional[float]
     total_rate: Optional[float]
     storage_location: Optional[str]
+    timeline_days: Optional[int]
     image_base64: Optional[str]
     is_active: bool
     created_at: str
@@ -148,6 +151,7 @@ def _out(w: WeederItem) -> WeederOut:
         rate_per_unit=w.rate_per_unit,
         total_rate=round(w.qty * w.rate_per_unit, 2) if w.rate_per_unit is not None else None,
         storage_location=w.storage_location,
+        timeline_days=getattr(w, 'timeline_days', None),
         image_base64=w.image_base64,
         is_active=w.is_active,
         created_at=_dt(w.created_at),
@@ -309,6 +313,7 @@ def create_category_item(cat_id: int, body: WeederCreate, session: SessionDep, _
         reorder_level=body.reorder_level,
         rate_per_unit=body.rate_per_unit,
         storage_location=body.storage_location or None,
+        timeline_days=body.timeline_days,
         image_base64=body.image_base64,
         created_at=now,
         updated_at=now,
@@ -367,6 +372,7 @@ def create_weeder(body: WeederCreate, session: SessionDep, _: AdminUser) -> Weed
         reorder_level=body.reorder_level,
         rate_per_unit=body.rate_per_unit,
         storage_location=body.storage_location or None,
+        timeline_days=body.timeline_days,
         image_base64=body.image_base64,
         created_at=now,
         updated_at=now,
@@ -406,6 +412,8 @@ def update_weeder(item_id: int, body: WeederUpdate, session: SessionDep, _: Admi
         w.rate_per_unit = body.rate_per_unit
     if body.storage_location is not None:
         w.storage_location = body.storage_location or None
+    if body.timeline_days is not None:
+        w.timeline_days = body.timeline_days
     if body.image_base64 is not None:
         w.image_base64 = body.image_base64 or None
     if body.is_active is not None:

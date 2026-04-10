@@ -20,6 +20,7 @@ class WeederItem(SQLModel, table=True):
     reorder_level: float = Field(default=0.0)                        # low-stock alert threshold
     rate_per_unit: Optional[float] = None                            # price per unit
     storage_location: Optional[str] = None                           # where it's stored
+    timeline_days: Optional[int] = None                              # expected fulfillment / lead time in days
 
     image_base64: Optional[str] = None
 

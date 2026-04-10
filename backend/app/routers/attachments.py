@@ -39,6 +39,7 @@ class AttachmentCreate(BaseModel):
     reorder_level: float = 0.0
     rate_per_unit: Optional[float] = None
     storage_location: Optional[str] = None
+    timeline_days: Optional[int] = None
     image_base64: Optional[str] = None
 
 
@@ -49,6 +50,7 @@ class AttachmentUpdate(BaseModel):
     reorder_level: Optional[float] = None
     rate_per_unit: Optional[float] = None
     storage_location: Optional[str] = None
+    timeline_days: Optional[int] = None
     image_base64: Optional[str] = None
     is_active: Optional[bool] = None
 
@@ -80,6 +82,7 @@ class AttachmentOut(BaseModel):
     rate_per_unit: Optional[float]
     total_rate: Optional[float]     # computed: qty * rate_per_unit
     storage_location: Optional[str]
+    timeline_days: Optional[int]
     image_base64: Optional[str]
     is_active: bool
     created_at: str
@@ -104,6 +107,7 @@ def _out(a: AttachmentItem) -> AttachmentOut:
         rate_per_unit=a.rate_per_unit,
         total_rate=round(a.qty * a.rate_per_unit, 2) if a.rate_per_unit is not None else None,
         storage_location=a.storage_location,
+        timeline_days=getattr(a, 'timeline_days', None),
         image_base64=a.image_base64,
         is_active=a.is_active,
         created_at=_dt(a.created_at),
@@ -153,6 +157,7 @@ def create_attachment(body: AttachmentCreate, session: SessionDep, _: AdminUser)
         reorder_level=body.reorder_level,
         rate_per_unit=body.rate_per_unit,
         storage_location=body.storage_location or None,
+        timeline_days=body.timeline_days,
         image_base64=body.image_base64,
         created_at=now,
         updated_at=now,
@@ -188,6 +193,8 @@ def update_attachment(item_id: int, body: AttachmentUpdate, session: SessionDep,
         a.rate_per_unit = body.rate_per_unit
     if body.storage_location is not None:
         a.storage_location = body.storage_location or None
+    if body.timeline_days is not None:
+        a.timeline_days = body.timeline_days
     if body.image_base64 is not None:
         a.image_base64 = body.image_base64 or None
     if body.is_active is not None:

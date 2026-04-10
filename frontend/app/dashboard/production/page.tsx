@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Breadcrumb,
@@ -7,8 +8,8 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
-import { Button } from "@/components/ui/button";
 import { CalendarClock, ClipboardList, Clock, ChevronRight } from "lucide-react";
+import { getCurrentUser } from "@/lib/user";
 
 const SECTIONS = [
   {
@@ -39,6 +40,20 @@ const SECTIONS = [
 
 export default function ProductionPage() {
   const router = useRouter();
+  const [showTimeReport, setShowTimeReport] = useState(true);
+
+  useEffect(() => {
+    const u = getCurrentUser();
+    // Only admin, super_admin, and manager see the Worker Time Report
+    if (u && u.role === "worker") {
+      setShowTimeReport(false);
+    }
+  }, []);
+
+  const visibleSections = showTimeReport
+    ? SECTIONS
+    : SECTIONS.filter((s) => s.href !== "/dashboard/production/time-report");
+
   return (
     <>
       <header className="flex h-16 shrink-0 items-center border-b px-6">
@@ -59,7 +74,7 @@ export default function ProductionPage() {
           </p>
         </div>
 
-        {SECTIONS.map((s) => (
+        {visibleSections.map((s) => (
           <button
             key={s.href}
             onClick={() => router.push(s.href)}

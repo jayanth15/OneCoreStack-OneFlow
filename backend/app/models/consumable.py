@@ -17,6 +17,7 @@ class Consumable(SQLModel, table=True):
     rate_per_unit: Optional[float] = None                   # price per unit
     qty: float = Field(default=0.0)                         # current quantity on hand
     reorder_level: float = Field(default=0.0)               # alert threshold
+    timeline_days: Optional[int] = None                     # expected fulfillment / lead time in days
 
     image_base64: Optional[str] = None
 
