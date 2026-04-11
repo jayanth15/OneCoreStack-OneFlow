@@ -51,6 +51,7 @@ class ReceiptOut(BaseModel):
     updated_at: str
     # Enriched from the parent purchase request
     requesting_department: Optional[str] = None
+    requested_by_user_id: Optional[int] = None
     requested_by_username: Optional[str] = None
     fulfilled_by_username: Optional[str] = None
 
@@ -99,6 +100,7 @@ def _out(
         created_at=r.created_at.isoformat(),
         updated_at=r.updated_at.isoformat(),
         requesting_department=req.department if req else None,
+        requested_by_user_id=req.requested_by_user_id if req else None,
         requested_by_username=req.requested_by_username if req else None,
         fulfilled_by_username=req.fulfilled_by_username if req else None,
     )
@@ -150,19 +152,13 @@ def create_receipt(
             detail=f"Receipts can only be created for approved/in-progress requests (current status: {req.status})",
         )
 
-    # Only admins and users with can_create_receipt permission may record deliveries.
-    # Requesters use the Acknowledge action instead.
-    if not is_admin_or_above(current_user) and not current_user.can_create_receipt:
-        raise HTTPException(
-            status_code=403,
-            detail="You do not have permission to create receipts. Contact your administrator.",
-        )
+    # Requester cannot create their own receipt — they use Acknowledge instead
     if req.requested_by_user_id == current_user.id and not is_admin_or_above(current_user):
         raise HTTPException(
             status_code=403,
             detail="Requesters cannot create receipts — use the Acknowledge action to sign off on a delivery",
         )
-    # Non-admins must also belong to the request's target department
+    # Non-admins must belong to the fulfilling (target) department to record a delivery
     if not is_admin_or_above(current_user) and req.department:
         user_dept_names = list(session.exec(
             select(Department.name)
@@ -172,7 +168,7 @@ def create_receipt(
         if req.department not in user_dept_names:
             raise HTTPException(
                 status_code=403,
-                detail="Only members of the target department can create receipts for this request",
+                detail="Only members of the fulfilling department can create receipts for this request",
             )
 
     # Block new delivery while a previous one is pending acknowledgment
@@ -374,10 +370,25 @@ def acknowledge_receipt(
     if not req:
         raise HTTPException(status_code=404, detail="Parent purchase request not found")
 
-    # Only the requester, same-department member, or admin can acknowledge
+    # Only the requester (or their department colleagues) or admin can acknowledge
     if not is_admin_or_above(current_user):
         if req.requested_by_user_id != current_user.id:
-            if req.department and current_user.department and req.department != current_user.department:
+            # Allow other members of the same department as the requester
+            if req.requested_by_user_id:
+                requester_dept_ids = set(session.exec(
+                    select(UserDepartment.department_id)
+                    .where(UserDepartment.user_id == req.requested_by_user_id)
+                ).all())
+                current_user_dept_ids = set(session.exec(
+                    select(UserDepartment.department_id)
+                    .where(UserDepartment.user_id == current_user.id)
+                ).all())
+                if not (requester_dept_ids & current_user_dept_ids):
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Only the requester or their department members can acknowledge this receipt",
+                    )
+            else:
                 raise HTTPException(status_code=403, detail="Not authorised to acknowledge this receipt")
 
     now = datetime.now(tz=timezone.utc)

@@ -38,6 +38,7 @@ interface Receipt {
   updated_at: string;
   // enriched from parent request
   requesting_department: string | null;
+  requested_by_user_id: number | null;
   requested_by_username: string | null;
   fulfilled_by_username: string | null;
 }
@@ -237,7 +238,7 @@ export default function ReceiptsPage() {
                                 <Button variant="ghost" size="icon" className="size-7" title="View" onClick={() => { setSelected(r); setAckNote(""); setAckErr(null); setViewOpen(true); }}>
                                   <Eye className="size-3.5 text-blue-600" />
                                 </Button>
-                                {r.status === "pending_ack" && (
+                                {r.status === "pending_ack" && (admin || r.requested_by_user_id === currentUserId) && (
                                   <Button variant="ghost" size="icon" className="size-7" title="Acknowledge" onClick={() => { setSelected(r); setAckNote(""); setAckErr(null); setViewOpen(false); }}>
                                     <CheckCircle className="size-3.5 text-teal-600" />
                                   </Button>

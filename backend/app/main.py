@@ -86,6 +86,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _migrate_marketing_request_tables()
     # Create grn_record + grn_item tables
     _migrate_grn_tables()
+    # Add new columns to grn_record and grn_item (v2 additions)
+    _migrate_grn_v2()
+    # Add quantity_pr_requested column to grn_item (v3)
+    _migrate_grn_v3()
     # Auto-seed a default admin user on a brand-new / empty database
     _auto_seed_if_empty()
     # Start daily DB backup scheduler (fires at 17:30 every day)
@@ -755,6 +759,46 @@ def _migrate_grn_tables() -> None:
                 quantity_received   REAL NOT NULL DEFAULT 0.0
             )
         """))
+        conn.commit()
+
+
+def _migrate_grn_v2() -> None:
+    """Add v2 columns to grn_record and grn_item if they don't exist."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        grn_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(grn_record)")).fetchall()}
+        for col, defn in [
+            ("inspected_by_user_id", "INTEGER"),
+            ("inspected_by_username", "TEXT"),
+            ("purchase_request_id", "INTEGER"),
+            ("po_number", "TEXT"),
+            ("dc_number", "TEXT"),
+        ]:
+            if col not in grn_cols:
+                conn.execute(text(f"ALTER TABLE grn_record ADD COLUMN {col} {defn}"))
+
+        item_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(grn_item)")).fetchall()}
+        for col, defn in [
+            ("quantity_filled", "REAL NOT NULL DEFAULT 0.0"),
+            ("quantity_returned", "REAL NOT NULL DEFAULT 0.0"),
+        ]:
+            if col not in item_cols:
+                conn.execute(text(f"ALTER TABLE grn_item ADD COLUMN {col} {defn}"))
+
+        conn.commit()
+
+
+def _migrate_grn_v3() -> None:
+    """Add quantity_pr_requested column to grn_item."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        item_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(grn_item)")).fetchall()}
+        if "quantity_pr_requested" not in item_cols:
+            conn.execute(text("ALTER TABLE grn_item ADD COLUMN quantity_pr_requested REAL"))
         conn.commit()
 
 

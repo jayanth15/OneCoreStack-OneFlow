@@ -20,3 +20,9 @@ class GRNItem(SQLModel, table=True):
     item_type: Optional[str] = Field(default=None)
     unit: Optional[str] = Field(default=None)
     quantity_received: float = Field(default=0.0)
+    # How many were requested in the linked purchase request (for comparison)
+    quantity_pr_requested: Optional[float] = Field(default=None)
+    # How much has been moved to inventory stock so far
+    quantity_filled: float = Field(default=0.0)
+    # How much has been returned from stock
+    quantity_returned: float = Field(default=0.0)

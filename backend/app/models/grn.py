@@ -25,10 +25,22 @@ class GRNRecord(SQLModel, table=True):
     notes: Optional[str] = Field(default=None)
 
     # Workflow status: draft → stock_filled
-    status: str = Field(default="draft", index=True)  # draft | stock_filled
+    # Workflow status: draft → partially_filled → stock_filled
+    status: str = Field(default="draft", index=True)  # draft | partially_filled | stock_filled
     stock_filled_by_user_id: Optional[int] = Field(default=None, foreign_key="users.id")
     stock_filled_by_username: Optional[str] = Field(default=None)
     stock_filled_at: Optional[datetime] = Field(default=None)
+
+    # Inspection
+    inspected_by_user_id: Optional[int] = Field(default=None, foreign_key="users.id")
+    inspected_by_username: Optional[str] = Field(default=None)
+
+    # Linked purchase request (soft reference — no CASCADE)
+    purchase_request_id: Optional[int] = Field(default=None)
+
+    # Documents
+    po_number: Optional[str] = Field(default=None)
+    dc_number: Optional[str] = Field(default=None)
 
     is_active: bool = Field(default=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))

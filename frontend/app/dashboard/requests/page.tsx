@@ -318,14 +318,12 @@ function PurchaseTab({ admin }: { admin: boolean }) {
   const [respondErr, setRespondErr] = useState<string | null>(null);
 
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
-  const [currentUserCanReceipt, setCurrentUserCanReceipt] = useState(false);
 
   const [depts, setDepts] = useState<DeptRef[]>([]);
   useEffect(() => {
     const user = getCurrentUser();
     const allowed: number[] = user?.request_departments ?? [];
     setCurrentUserId(user?.id ?? null);
-    setCurrentUserCanReceipt(user?.can_create_receipt ?? false);
     apiFetchJson<DeptRef[]>("/api/v1/departments")
       .then(all => setDepts(allowed.length && !isAdminOrAbove() ? all.filter(d => allowed.includes(d.id)) : all))
       .catch(() => {});
@@ -550,7 +548,7 @@ function PurchaseTab({ admin }: { admin: boolean }) {
                           {!admin && r.status === "approved" && r.requested_by_user_id !== currentUserId && (
                             <Button variant="ghost" size="icon" className="size-7" title="Respond / Accept" onClick={() => { setRespondReq(r); setRespondNote(""); setRespondErr(null); }}><Loader2 className="size-3.5 text-blue-600" /></Button>
                           )}
-                          {(r.status === "approved" || r.status === "in_progress" || r.status === "awaiting_signoff") && r.requested_by_user_id !== currentUserId && (admin || currentUserCanReceipt) && (
+                          {(r.status === "approved" || r.status === "in_progress" || r.status === "awaiting_signoff") && r.requested_by_user_id !== currentUserId && (
                             <Button variant="ghost" size="icon" className="size-7" title="Create Receipt" onClick={() => { setReceiptReq(r); setReceiptQty(String(r.quantity)); setReceiptNotes(""); setReceiptErr(null); }}><Package className="size-3.5 text-teal-600" /></Button>
                           )}
                           <Button variant="ghost" size="icon" className="size-7" title="History" onClick={() => setHistReq(r)}><History className="size-3.5 text-muted-foreground" /></Button>
