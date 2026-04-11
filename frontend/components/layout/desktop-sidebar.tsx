@@ -16,6 +16,7 @@ import {
   Settings,
   ClipboardList,
   PackageCheck,
+  ClipboardCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getCurrentUser, isAdminOrAbove } from "@/lib/user";
@@ -32,7 +33,9 @@ const CORE_NAV: NavItem[] = [
   { label: "Inventory",  href: "/dashboard/inventory",    icon: Package },
   { label: "Schedule",   href: "/dashboard/schedule",     icon: CalendarDays },
   { label: "Production", href: "/dashboard/production",   icon: Factory },
-  { label: "Requests",   href: "/dashboard/requests",     icon: ClipboardList },  { label: "Receipts",  href: "/dashboard/receipts",     icon: PackageCheck },];
+  { label: "Requests",   href: "/dashboard/requests",     icon: ClipboardList },
+  { label: "Receipts",   href: "/dashboard/receipts",     icon: PackageCheck },
+];
 
 // Only shown to admin / super_admin (alongside Departments, Users, BOM)
 const ADMIN_CORE_NAV: NavItem[] = [
@@ -49,6 +52,7 @@ const ADMIN_NAV: NavItem[] = [
 export function DesktopSidebar() {
   const pathname = usePathname();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [grnAccess, setGrnAccess] = useState(false);
   const [notifCount, setNotifCount] = useState(0);
   const [requestCount, setRequestCount] = useState(0);
   const [receiptCount, setReceiptCount] = useState(0);
@@ -57,8 +61,9 @@ export function DesktopSidebar() {
     const user = getCurrentUser();
     if (user) {
       setIsAdmin(isAdminOrAbove());
+      setGrnAccess(user.grn_access ?? false);
     }
-  }, []);
+  }, [pathname]);
 
   useEffect(() => {
     async function fetchCounts() {
@@ -103,7 +108,7 @@ export function DesktopSidebar() {
             Core
           </p>
           <ul className="space-y-0.5">
-            {CORE_NAV.map((item) => (
+            {[...CORE_NAV, ...(grnAccess || isAdmin ? [{ label: "GRN", href: "/dashboard/grn", icon: ClipboardCheck }] : [])].map((item) => (
               <li key={item.href}>
                 <Link
                   href={item.href}

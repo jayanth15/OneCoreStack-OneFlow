@@ -25,5 +25,11 @@ class User(SQLModel, table=True):
     # Comma-separated inventory types this user can raise requests for.
     # Empty = all inventory types.
     request_inventory: str = Field(default="")
+    # Whether this user may create goods-received receipts for purchase requests.
+    # Admin / super_admin can always create receipts regardless of this flag.
+    can_create_receipt: bool = Field(default=False)
+    # Whether this user may access the GRN (Goods Received Notes) module.
+    # Admin / super_admin always have GRN access regardless of this flag.
+    grn_access: bool = Field(default=False)
     photo_base64: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))

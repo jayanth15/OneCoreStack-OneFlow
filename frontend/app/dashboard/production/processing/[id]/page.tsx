@@ -15,7 +15,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { apiFetchJson } from "@/lib/api";
-import { isAdminOrAbove } from "@/lib/user";
+import { isAdminOrAbove, getCurrentUser } from "@/lib/user";
 import {
   ArrowLeft, PlusIcon, Pencil, Trash2,
   Factory, Clock, User, Wrench, Package, Hash, CheckCircle, History,
@@ -86,7 +86,10 @@ interface ProductionOrder {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const STATUS_BADGE: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
-  open: "secondary", in_progress: "default", completed: "outline", cancelled: "destructive",
+  open: "secondary", in_progress: "secondary", completed: "outline", cancelled: "destructive",
+};
+const STATUS_COLOR: Record<string, string> = {
+  open: "", in_progress: "!bg-amber-100 !text-amber-800", completed: "", cancelled: "",
 };
 const STATUS_LABELS: Record<string, string> = {
   open: "Open", in_progress: "In Progress", completed: "Completed", cancelled: "Cancelled",
@@ -105,6 +108,7 @@ export default function ProductionOrderDetailPage() {
   const [deleteJobId, setDeleteJobId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [admin, setAdmin] = useState(false);
+  const [currentUsername, setCurrentUsername] = useState<string | null>(null);
 
   // History modal state
   const [historyJobId, setHistoryJobId] = useState<number | null>(null);
@@ -124,7 +128,10 @@ export default function ProductionOrderDetailPage() {
 
   useEffect(() => { loadOrder(); }, [loadOrder]);
   // Detect admin once on mount
-  useEffect(() => { setAdmin(isAdminOrAbove()); }, []);
+  useEffect(() => {
+    setAdmin(isAdminOrAbove());
+    setCurrentUsername(getCurrentUser()?.username ?? null);
+  }, []);
 
   async function changeStatus(newStatus: string) {
     if (!order) return;
@@ -196,9 +203,24 @@ export default function ProductionOrderDetailPage() {
 
   // Summary stats
   const totalProduced = order?.job_cards.reduce((s, jc) => s + jc.qty_produced, 0) ?? 0;
-  const totalPending  = order?.job_cards.reduce((s, jc) => s + jc.qty_pending, 0) ?? 0;
   const totalHours    = order?.job_cards.reduce((s, jc) => s + jc.hours_worked, 0) ?? 0;
   const effectiveQty  = order?.effective_qty ?? 0;
+  // FG pending = how many more finished goods still need to complete all processes
+  const fgPending = order?.planned_qty != null ? Math.max(0, order.planned_qty - effectiveQty) : null;
+  // Per-process produced / pending breakdown
+  const byProcess: Array<{ name: string; produced: number; pending: number }> = order
+    ? order.processes.map(p => {
+        const produced = order.job_cards
+          .filter(jc => jc.process_name === p.name && jc.is_active)
+          .reduce((s, jc) => s + jc.qty_produced, 0);
+        const pending = Math.max(0, (order.planned_qty ?? 0) - produced);
+        return { name: p.name, produced, pending };
+      })
+    : [];
+  // FG completion flags
+  const plannedQty = order?.planned_qty ?? 0;
+  const isFgComplete = plannedQty > 0 && effectiveQty >= plannedQty;
+  const isFgSurplus  = plannedQty > 0 && effectiveQty > plannedQty;
 
   return (
     <>
@@ -241,11 +263,17 @@ export default function ProductionOrderDetailPage() {
             <div className="rounded-xl border p-5 space-y-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <h1 className="text-xl font-semibold">{order.order_number}</h1>
-                    <Badge variant={STATUS_BADGE[order.status] ?? "outline"}>
+                    <Badge variant={STATUS_BADGE[order.status] ?? "outline"} className={STATUS_COLOR[order.status] ?? ""}>
                       {STATUS_LABELS[order.status] ?? order.status}
                     </Badge>
+                    {isFgComplete && (
+                      <Badge className="bg-green-100 text-green-800 border-green-200">Production Complete</Badge>
+                    )}
+                    {isFgSurplus && (
+                      <Badge className="bg-amber-100 text-amber-800 border-amber-200">Surplus</Badge>
+                    )}
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">
                     {order.plan_number && <span className="font-mono mr-1">{order.plan_number}</span>}
@@ -291,22 +319,40 @@ export default function ProductionOrderDetailPage() {
             </div>
 
             {/* ── Summary Stats ────────────────────────────────────────────── */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-              {[
-                { label: "FG Completed", val: effectiveQty, icon: CheckCircle, color: "text-green-600 bg-green-50" },
-                { label: "Job Cards", val: order.job_cards.length, icon: Factory, color: "text-blue-600 bg-blue-50" },
-                { label: "Sum Produced", val: totalProduced, icon: Package, color: "text-emerald-600 bg-emerald-50" },
-                { label: "Sum Pending", val: totalPending, icon: Clock, color: "text-amber-600 bg-amber-50" },
-                { label: "Total Hours", val: totalHours.toFixed(1), icon: Clock, color: "text-purple-600 bg-purple-50" },
-              ].map((c) => (
-                <div key={c.label} className="rounded-lg border p-3 flex items-center gap-3">
-                  <div className={`p-2 rounded-md ${c.color}`}><c.icon className="size-4" /></div>
-                  <div>
-                    <p className="text-lg font-semibold leading-none">{c.val}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{c.label}</p>
-                  </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {/* FG Completed */}
+              <div className="rounded-lg border p-3 flex items-center gap-3">
+                <div className="p-2 rounded-md text-green-600 bg-green-50"><CheckCircle className="size-4" /></div>
+                <div>
+                  <p className="text-lg font-semibold leading-none">{effectiveQty}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">FG Completed</p>
                 </div>
-              ))}
+              </div>
+              {/* Job Cards */}
+              <div className="rounded-lg border p-3 flex items-center gap-3">
+                <div className="p-2 rounded-md text-blue-600 bg-blue-50"><Factory className="size-4" /></div>
+                <div>
+                  <p className="text-lg font-semibold leading-none">{order.job_cards.length}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Job Cards</p>
+                </div>
+              </div>
+              {/* FG Pending */}
+              <div className="rounded-lg border p-3 flex items-center gap-3">
+                <div className="p-2 rounded-md text-amber-600 bg-amber-50"><Clock className="size-4" /></div>
+                <div>
+                  <p className="text-lg font-semibold leading-none">{fgPending ?? "—"}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">FG Pending</p>
+                  <p className="text-[10px] text-muted-foreground/70">Planned − FG done</p>
+                </div>
+              </div>
+              {/* Total Hours */}
+              <div className="rounded-lg border p-3 flex items-center gap-3">
+                <div className="p-2 rounded-md text-purple-600 bg-purple-50"><Clock className="size-4" /></div>
+                <div>
+                  <p className="text-lg font-semibold leading-none">{totalHours.toFixed(1)}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Total Hours</p>
+                </div>
+              </div>
             </div>
 
             {/* FG explanation note */}
@@ -320,6 +366,49 @@ export default function ProductionOrderDetailPage() {
                 </span>
               )}
             </div>
+
+            {/* ── Per-Process Breakdown Cards ───────────────────────────── */}
+            {byProcess.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Process Breakdown</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  {byProcess.map((proc) => {
+                    const procTotal = proc.produced + proc.pending;
+                    const pct = procTotal > 0 ? Math.round((proc.produced / procTotal) * 100) : 0;
+                    const surplus = plannedQty > 0 ? Math.max(0, proc.produced - plannedQty) : 0;
+                    return (
+                      <div key={proc.name} className="rounded-lg border p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs font-semibold truncate">{proc.name}</p>
+                          {surplus > 0 && (
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-200 shrink-0 ml-1">
+                              +{surplus} surplus
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between text-xs mb-1.5">
+                          <span className="text-emerald-700 font-semibold">
+                            {proc.produced}{" "}
+                            <span className="font-normal text-muted-foreground">done</span>
+                          </span>
+                          <span className="text-amber-600">
+                            {proc.pending}{" "}
+                            <span className="text-muted-foreground">pending</span>
+                          </span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${surplus > 0 ? "bg-purple-500" : "bg-emerald-500"}`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-1 text-right">{pct}% complete</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* ── Worker Activity Summary ───────────────────────────────── */}
             {order.job_cards.length > 0 && (() => {
@@ -475,7 +564,7 @@ export default function ProductionOrderDetailPage() {
                                 </div>
                               </div>
 
-                              <Badge variant={STATUS_BADGE[jc.status] ?? "outline"} className="text-xs shrink-0">
+                              <Badge variant={STATUS_BADGE[jc.status] ?? "outline"} className={`text-xs shrink-0 ${STATUS_COLOR[jc.status] ?? ""}`}>
                                 {STATUS_LABELS[jc.status] ?? jc.status}
                               </Badge>
 
@@ -485,11 +574,13 @@ export default function ProductionOrderDetailPage() {
                                   title="History">
                                   <History className="size-3" />
                                 </Button>
-                                <Button variant="ghost" size="icon" className="size-7"
-                                  onClick={() => router.push(`/dashboard/production/processing/${order.id}/jobs/${jc.id}/edit`)}
-                                  title="Edit">
-                                  <Pencil className="size-3" />
-                                </Button>
+                                {(admin || jc.worker_name === currentUsername) && (
+                                  <Button variant="ghost" size="icon" className="size-7"
+                                    onClick={() => router.push(`/dashboard/production/processing/${order.id}/jobs/${jc.id}/edit`)}
+                                    title="Edit">
+                                    <Pencil className="size-3" />
+                                  </Button>
+                                )}
                                 {admin && (
                                   <Button variant="ghost" size="icon"
                                     className="size-7 text-destructive hover:text-destructive"
@@ -524,13 +615,15 @@ export default function ProductionOrderDetailPage() {
                                 <span className="text-muted-foreground">by {jc.worker_name ?? "—"}</span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Badge variant={STATUS_BADGE[jc.status] ?? "outline"} className="text-xs">
+                                <Badge variant={STATUS_BADGE[jc.status] ?? "outline"} className={`text-xs ${STATUS_COLOR[jc.status] ?? ""}`}>
                                   {STATUS_LABELS[jc.status] ?? jc.status}
                                 </Badge>
-                                <Button variant="ghost" size="icon" className="size-7"
-                                  onClick={() => router.push(`/dashboard/production/processing/${order.id}/jobs/${jc.id}/edit`)}>
-                                  <Pencil className="size-3" />
-                                </Button>
+                                {(admin || jc.worker_name === currentUsername) && (
+                                  <Button variant="ghost" size="icon" className="size-7"
+                                    onClick={() => router.push(`/dashboard/production/processing/${order.id}/jobs/${jc.id}/edit`)}>
+                                    <Pencil className="size-3" />
+                                  </Button>
+                                )}
                               </div>
                             </div>
                           ))}

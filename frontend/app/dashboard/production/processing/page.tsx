@@ -63,7 +63,10 @@ interface PaginatedOrders {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const STATUS_BADGE: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
-  open: "secondary", in_progress: "default", completed: "outline", cancelled: "destructive",
+  open: "secondary", in_progress: "secondary", completed: "outline", cancelled: "destructive",
+};
+const STATUS_COLOR: Record<string, string> = {
+  open: "", in_progress: "!bg-amber-100 !text-amber-800", completed: "", cancelled: "",
 };
 const STATUS_LABELS: Record<string, string> = {
   open: "Open", in_progress: "In Progress", completed: "Completed", cancelled: "Cancelled",
@@ -266,9 +269,17 @@ function ProcessingPageInner() {
                   </p>
                   {!o.is_active && <span className="text-xs text-muted-foreground">(inactive)</span>}
                 </div>
-                <Badge variant={STATUS_BADGE[o.status] ?? "outline"} className="text-xs shrink-0">
-                  {STATUS_LABELS[o.status] ?? o.status}
-                </Badge>
+                <div className="flex flex-wrap gap-1 shrink-0">
+                  <Badge variant={STATUS_BADGE[o.status] ?? "outline"} className={`text-xs ${STATUS_COLOR[o.status] ?? ""}`}>
+                    {STATUS_LABELS[o.status] ?? o.status}
+                  </Badge>
+                  {o.planned_qty != null && o.planned_qty > 0 && o.effective_qty >= o.planned_qty && (
+                    <Badge className="text-xs bg-green-100 text-green-800 border-green-200">Complete</Badge>
+                  )}
+                  {o.planned_qty != null && o.planned_qty > 0 && o.effective_qty > o.planned_qty && (
+                    <Badge className="text-xs bg-amber-100 text-amber-800 border-amber-200">Surplus</Badge>
+                  )}
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                 {o.customer_name && <div className="truncate"><span className="text-muted-foreground">Customer:</span> {o.customer_name}</div>}
@@ -350,9 +361,17 @@ function ProcessingPageInner() {
                     </td>
                     <td className="px-4 py-3 text-center text-xs font-medium">{o.job_cards.length}</td>
                     <td className="px-4 py-3">
-                      <Badge variant={STATUS_BADGE[o.status] ?? "outline"} className="text-xs">
-                        {STATUS_LABELS[o.status] ?? o.status}
-                      </Badge>
+                      <div className="flex flex-wrap gap-1">
+                        <Badge variant={STATUS_BADGE[o.status] ?? "outline"} className={`text-xs ${STATUS_COLOR[o.status] ?? ""}`}>
+                          {STATUS_LABELS[o.status] ?? o.status}
+                        </Badge>
+                        {o.planned_qty != null && o.planned_qty > 0 && o.effective_qty >= o.planned_qty && (
+                          <Badge className="text-xs bg-green-100 text-green-800 border-green-200">Complete</Badge>
+                        )}
+                        {o.planned_qty != null && o.planned_qty > 0 && o.effective_qty > o.planned_qty && (
+                          <Badge className="text-xs bg-amber-100 text-amber-800 border-amber-200">Surplus</Badge>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="inline-flex gap-1" onClick={(e) => e.stopPropagation()}>

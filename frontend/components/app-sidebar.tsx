@@ -14,6 +14,7 @@ import {
   LogOut,
   Settings,
   ClipboardList,
+  ClipboardCheck,
   PackageCheck,
 } from "lucide-react";
 import {
@@ -53,11 +54,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
   const router = useRouter();
   const [role, setRole] = React.useState<string | null>(null);
+  const [grnAccess, setGrnAccess] = React.useState(false);
 
   React.useEffect(() => {
     const user = getCurrentUser();
     setRole(user?.role ?? null);
-  }, []);
+    setGrnAccess(user?.grn_access ?? false);
+  }, [pathname]);
 
   async function handleLogout() {
     await apiLogout();
@@ -79,7 +82,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarGroupLabel>Core</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {coreNav.map((item) => (
+              {[...coreNav, ...(grnAccess ? [{ title: "GRN", url: "/dashboard/grn", icon: ClipboardCheck }] : [])].map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild

@@ -50,6 +50,10 @@ def run_migrations() -> None:
                 cursor.execute(f"ALTER TABLE users ADD COLUMN {col_name} TEXT DEFAULT '' NOT NULL")
         if "photo_base64" not in user_cols:
             cursor.execute("ALTER TABLE users ADD COLUMN photo_base64 TEXT")
+        if "can_create_receipt" not in user_cols:
+            cursor.execute("ALTER TABLE users ADD COLUMN can_create_receipt INTEGER NOT NULL DEFAULT 0")
+        if "grn_access" not in user_cols:
+            cursor.execute("ALTER TABLE users ADD COLUMN grn_access INTEGER NOT NULL DEFAULT 0")
 
         # weeder_item — migrations
         cursor.execute("PRAGMA table_info(weeder_item)")

@@ -1,0 +1,22 @@
+from typing import Optional
+
+from sqlmodel import Field, SQLModel
+
+
+class GRNItem(SQLModel, table=True):
+    """Line item within a GRN — one row per inventory item received."""
+
+    __tablename__ = "grn_item"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    grn_id: int = Field(foreign_key="grn_record.id", index=True)
+
+    # Inventory item reference (nullable — allows free-text entry)
+    inventory_item_id: Optional[int] = Field(default=None, foreign_key="inventory_item.id")
+
+    # Denormalised fields for history resilience
+    item_name: Optional[str] = Field(default=None)
+    item_code: Optional[str] = Field(default=None)
+    item_type: Optional[str] = Field(default=None)
+    unit: Optional[str] = Field(default=None)
+    quantity_received: float = Field(default=0.0)

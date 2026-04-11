@@ -6,7 +6,7 @@ import { isAdminOrAbove } from "@/lib/user";
 import {
   Package, Users, Calendar, ClipboardList, Factory, Wrench,
   AlertTriangle, TrendingUp, ArrowUpRight, ArrowDownRight, Minus,
-  Activity, FlaskConical,
+  Activity, FlaskConical, Paperclip, Scissors,
 } from "lucide-react";
 import {
   BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area,
@@ -291,6 +291,14 @@ export default function DashboardPage() {
   const [consumablesValue, setConsumablesValue] = useState<number | null>(null);
   const [consumablesLowStock, setConsumablesLowStock] = useState<number>(0);
   const [consumablesLoaded, setConsumablesLoaded] = useState(false);
+  const [attachmentsTotal, setAttachmentsTotal] = useState<number | null>(null);
+  const [attachmentsValue, setAttachmentsValue] = useState<number | null>(null);
+  const [attachmentsLowStock, setAttachmentsLowStock] = useState<number>(0);
+  const [attachmentsLoaded, setAttachmentsLoaded] = useState(false);
+  const [weedersTotal, setWeedersTotal] = useState<number | null>(null);
+  const [weedersValue, setWeedersValue] = useState<number | null>(null);
+  const [weedersLowStock, setWeedersLowStock] = useState<number>(0);
+  const [weedersLoaded, setWeedersLoaded] = useState(false);
 
   useEffect(() => {
     apiFetchJson<DashboardData>("/api/v1/dashboard")
@@ -314,6 +322,22 @@ export default function DashboardPage() {
       })
       .catch(() => { setConsumablesTotal(0); })
       .finally(() => { setConsumablesLoaded(true); });
+    apiFetchJson<{items: {total_rate: number | null; qty: number; reorder_level: number}[], total: number}>("/api/v1/attachments?page_size=500&include_inactive=false")
+      .then(d => {
+        setAttachmentsTotal(d.total);
+        setAttachmentsValue(d.items.reduce((s, c) => s + (c.total_rate ?? 0), 0));
+        setAttachmentsLowStock(d.items.filter(c => c.reorder_level > 0 && c.qty <= c.reorder_level).length);
+      })
+      .catch(() => { setAttachmentsTotal(0); })
+      .finally(() => { setAttachmentsLoaded(true); });
+    apiFetchJson<{items: {total_rate: number | null; qty: number; reorder_level: number}[], total: number}>("/api/v1/weeders?page_size=500&include_inactive=false")
+      .then(d => {
+        setWeedersTotal(d.total);
+        setWeedersValue(d.items.reduce((s, c) => s + (c.total_rate ?? 0), 0));
+        setWeedersLowStock(d.items.filter(c => c.reorder_level > 0 && c.qty <= c.reorder_level).length);
+      })
+      .catch(() => { setWeedersTotal(0); })
+      .finally(() => { setWeedersLoaded(true); });
   }, []);
 
   if (error) {
@@ -400,7 +424,7 @@ export default function DashboardPage() {
         </div>
 
         {/* ── Spares & Consumables Overview ─────────────────────────── */}
-        <div className="grid sm:grid-cols-2 gap-4">
+        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
           {/* Spares card */}
           <div className="rounded-xl border bg-card p-4 shadow-sm">
             <div className="flex items-center gap-2 mb-3">
@@ -474,6 +498,98 @@ export default function DashboardPage() {
                   {isAdminOrAbove() && consumablesValue !== null && consumablesValue > 0 ? (
                     <>
                       <p className="text-xl font-bold text-emerald-600">₹{consumablesValue.toLocaleString(undefined, {maximumFractionDigits: 0})}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Value</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-xl font-bold">—</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Value</p>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Attachments card */}
+          <div className="rounded-xl border bg-card p-4 shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="flex size-8 items-center justify-center rounded-lg bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+                <Paperclip className="size-4" />
+              </div>
+              <p className="text-sm font-semibold">Attachments</p>
+              <a href="/dashboard/inventory/attachments" className="ml-auto text-xs text-primary hover:underline">View all</a>
+            </div>
+            {attachmentsLoaded && (attachmentsTotal === null || attachmentsTotal === 0) ? (
+              <p className="text-xs text-muted-foreground text-center py-3">No inventory items</p>
+            ) : !attachmentsLoaded ? (
+              <div className="flex justify-center gap-1.5 py-4">
+                <span className="size-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:0ms]"/>
+                <span className="size-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:150ms]"/>
+                <span className="size-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:300ms]"/>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div>
+                  <p className="text-xl font-bold">{attachmentsTotal}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Items</p>
+                </div>
+                <div>
+                  <p className={`text-xl font-bold ${attachmentsLowStock > 0 ? "text-amber-600" : ""}`}>
+                    {attachmentsLowStock > 0 ? attachmentsLowStock : "—"}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Low Stock</p>
+                </div>
+                <div>
+                  {isAdminOrAbove() && attachmentsValue !== null && attachmentsValue > 0 ? (
+                    <>
+                      <p className="text-xl font-bold text-emerald-600">₹{attachmentsValue.toLocaleString(undefined, {maximumFractionDigits: 0})}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Value</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-xl font-bold">—</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Value</p>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Weeders card */}
+          <div className="rounded-xl border bg-card p-4 shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="flex size-8 items-center justify-center rounded-lg bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400">
+                <Scissors className="size-4" />
+              </div>
+              <p className="text-sm font-semibold">Weeders</p>
+              <a href="/dashboard/inventory/weeders" className="ml-auto text-xs text-primary hover:underline">View all</a>
+            </div>
+            {weedersLoaded && (weedersTotal === null || weedersTotal === 0) ? (
+              <p className="text-xs text-muted-foreground text-center py-3">No inventory items</p>
+            ) : !weedersLoaded ? (
+              <div className="flex justify-center gap-1.5 py-4">
+                <span className="size-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:0ms]"/>
+                <span className="size-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:150ms]"/>
+                <span className="size-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:300ms]"/>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div>
+                  <p className="text-xl font-bold">{weedersTotal}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Items</p>
+                </div>
+                <div>
+                  <p className={`text-xl font-bold ${weedersLowStock > 0 ? "text-amber-600" : ""}`}>
+                    {weedersLowStock > 0 ? weedersLowStock : "—"}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Low Stock</p>
+                </div>
+                <div>
+                  {isAdminOrAbove() && weedersValue !== null && weedersValue > 0 ? (
+                    <>
+                      <p className="text-xl font-bold text-emerald-600">₹{weedersValue.toLocaleString(undefined, {maximumFractionDigits: 0})}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">Value</p>
                     </>
                   ) : (

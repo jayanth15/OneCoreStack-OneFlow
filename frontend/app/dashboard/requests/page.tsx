@@ -37,6 +37,7 @@ interface PurchaseRequest {
   review_note: string | null; deadline_date: string | null;
   receipt_count: number; total_received: number;
   fulfilled_by_username: string | null; fulfillment_accepted_at: string | null; fulfillment_note: string | null;
+  requested_by_dept_code: string | null; fulfilled_by_dept_code: string | null;
   created_at: string; updated_at: string;
 }
 
@@ -317,12 +318,14 @@ function PurchaseTab({ admin }: { admin: boolean }) {
   const [respondErr, setRespondErr] = useState<string | null>(null);
 
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [currentUserCanReceipt, setCurrentUserCanReceipt] = useState(false);
 
   const [depts, setDepts] = useState<DeptRef[]>([]);
   useEffect(() => {
     const user = getCurrentUser();
     const allowed: number[] = user?.request_departments ?? [];
     setCurrentUserId(user?.id ?? null);
+    setCurrentUserCanReceipt(user?.can_create_receipt ?? false);
     apiFetchJson<DeptRef[]>("/api/v1/departments")
       .then(all => setDepts(allowed.length && !isAdminOrAbove() ? all.filter(d => allowed.includes(d.id)) : all))
       .catch(() => {});
@@ -480,7 +483,7 @@ function PurchaseTab({ admin }: { admin: boolean }) {
                   <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">SN No.</th>
                   <th className="px-4 py-2.5 text-left font-medium">Item</th>
                   <th className="px-4 py-2.5 text-right font-medium">Qty</th>
-                  <th className="px-4 py-2.5 text-left font-medium">Department</th>
+                  <th className="px-4 py-2.5 text-left font-medium">Requested To</th>
                   <th className="px-4 py-2.5 text-left font-medium">People</th>
                   <th className="px-4 py-2.5 text-left font-medium">Timeline</th>
                   <th className="px-4 py-2.5 text-left font-medium">Status</th>
@@ -506,19 +509,21 @@ function PurchaseTab({ admin }: { admin: boolean }) {
                         {r.requested_by_username && (
                           <p className="text-muted-foreground">
                             <span className="font-medium text-foreground">{r.requested_by_username}</span>
+                            {r.requested_by_dept_code && <span className="ml-1 font-mono text-[10px] font-semibold text-blue-600">[{r.requested_by_dept_code}]</span>}
                             <span className="ml-1 text-[10px] text-muted-foreground/70">requested</span>
                           </p>
                         )}
                         {r.fulfilled_by_username && (
                           <p className="text-muted-foreground">
                             <span className="font-medium text-foreground">{r.fulfilled_by_username}</span>
+                            {r.fulfilled_by_dept_code && <span className="ml-1 font-mono text-[10px] font-semibold text-blue-600">[{r.fulfilled_by_dept_code}]</span>}
                             <span className="ml-1 text-[10px] text-muted-foreground/70">fulfilling</span>
                           </p>
                         )}
                         {r.reviewed_by_username && (
-                          <p className="text-muted-foreground">
-                            <span className="font-medium text-foreground">{r.reviewed_by_username}</span>
-                            <span className="ml-1 text-[10px] text-muted-foreground/70">reviewed</span>
+                          <p>
+                            <span className={`font-semibold ${r.status === "not_approved" ? "text-red-600" : "text-green-700"}`}>{r.reviewed_by_username}</span>
+                            <span className={`ml-1 text-[10px] font-semibold ${r.status === "not_approved" ? "text-red-500" : "text-green-600"}`}>{r.status === "not_approved" ? "✗ rejected" : "✓ approved"}</span>
                           </p>
                         )}
                       </td>
@@ -545,7 +550,7 @@ function PurchaseTab({ admin }: { admin: boolean }) {
                           {!admin && r.status === "approved" && r.requested_by_user_id !== currentUserId && (
                             <Button variant="ghost" size="icon" className="size-7" title="Respond / Accept" onClick={() => { setRespondReq(r); setRespondNote(""); setRespondErr(null); }}><Loader2 className="size-3.5 text-blue-600" /></Button>
                           )}
-                          {(r.status === "approved" || r.status === "in_progress" || r.status === "awaiting_signoff" || r.status === "received") && r.requested_by_user_id !== currentUserId && (
+                          {(r.status === "approved" || r.status === "in_progress" || r.status === "awaiting_signoff") && r.requested_by_user_id !== currentUserId && (admin || currentUserCanReceipt) && (
                             <Button variant="ghost" size="icon" className="size-7" title="Create Receipt" onClick={() => { setReceiptReq(r); setReceiptQty(String(r.quantity)); setReceiptNotes(""); setReceiptErr(null); }}><Package className="size-3.5 text-teal-600" /></Button>
                           )}
                           <Button variant="ghost" size="icon" className="size-7" title="History" onClick={() => setHistReq(r)}><History className="size-3.5 text-muted-foreground" /></Button>
@@ -657,11 +662,11 @@ function PurchaseTab({ admin }: { admin: boolean }) {
                 <dt className="text-muted-foreground">Quantity</dt><dd className="font-semibold tabular-nums">{selected.quantity}</dd>
                 {selected.from_whom && <><dt className="text-muted-foreground">From Whom</dt><dd>{selected.from_whom}</dd></>}
                 {selected.timeline_days && <><dt className="text-muted-foreground">Timeline</dt><dd>{selected.timeline_days} days{selected.deadline_date && ` (due ${fmtDate(selected.deadline_date)})`}</dd></>}
-                {selected.department && <><dt className="text-muted-foreground">Department</dt><dd>{selected.department}</dd></>}
+                {selected.department && <><dt className="text-muted-foreground">Requested To</dt><dd>{selected.department}</dd></>}
                 {selected.notes && <><dt className="text-muted-foreground">Notes</dt><dd>{selected.notes}</dd></>}
                 <dt className="text-muted-foreground">Requested By</dt><dd>{selected.requested_by_username ?? "—"}</dd>
                 <dt className="text-muted-foreground">Date</dt><dd>{fmtDate(selected.created_at)}</dd>
-                {selected.reviewed_by_username && <><dt className="text-muted-foreground">Reviewed By</dt><dd>{selected.reviewed_by_username}{selected.reviewed_at && ` on ${fmtDate(selected.reviewed_at)}`}</dd></>}
+                {selected.reviewed_by_username && <><dt className="text-muted-foreground">Reviewed By</dt><dd><span className={`font-semibold ${selected.status === "not_approved" ? "text-red-600" : "text-green-700"}`}>{selected.reviewed_by_username}</span><span className={`ml-2 text-xs font-semibold ${selected.status === "not_approved" ? "text-red-500" : "text-green-600"}`}>{selected.status === "not_approved" ? "✗ Rejected" : "✓ Approved"}</span>{selected.reviewed_at && <span className="text-muted-foreground ml-1">on {fmtDate(selected.reviewed_at)}</span>}</dd></>}
                 {selected.review_note && <><dt className="text-muted-foreground">Review Note</dt><dd className="italic">{selected.review_note}</dd></>}
                 {selected.fulfilled_by_username && <>
                   <dt className="text-muted-foreground">Responded By</dt>

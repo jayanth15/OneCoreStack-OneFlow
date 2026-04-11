@@ -4,15 +4,17 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
-from sqlmodel import Session, func, or_, select
+from sqlmodel import Session, and_, func, or_, select
 
 from app.core.database import get_session
 from app.dependencies.auth import get_current_user, is_admin_or_above
+from app.models.department import Department
 from app.models.inventory import InventoryItem
 from app.models.purchase_request import PurchaseRequest
 from app.models.purchase_request_history import PurchaseRequestHistory
 from app.models.receipt import Receipt
 from app.models.user import User
+from app.models.user_department import UserDepartment
 from app.routers.notifications import create_notification
 
 router = APIRouter(prefix="/api/v1/purchase-requests", tags=["purchase-requests"])
@@ -84,6 +86,9 @@ class PurchaseRequestOut(BaseModel):
     fulfilled_by_username: Optional[str]
     fulfillment_accepted_at: Optional[str]
     fulfillment_note: Optional[str]
+    # department codes for display in the People column
+    requested_by_dept_code: Optional[str] = None
+    fulfilled_by_dept_code: Optional[str] = None
 
 
 class HistoryOut(BaseModel):
@@ -130,6 +135,17 @@ def _out(r: PurchaseRequest, session: Session) -> PurchaseRequestOut:
     ).all()
     receipt_count = len(receipt_rows)
     total_received = sum(rec.quantity_received for rec in receipt_rows)
+
+    def _first_dept_code(uid: Optional[int]) -> Optional[str]:
+        if not uid:
+            return None
+        return session.exec(
+            select(Department.code)
+            .join(UserDepartment, UserDepartment.department_id == Department.id)
+            .where(UserDepartment.user_id == uid)
+            .limit(1)
+        ).first()
+
     return PurchaseRequestOut(
         id=r.id,  # type: ignore[arg-type]
         sn_no=r.sn_no,
@@ -157,6 +173,8 @@ def _out(r: PurchaseRequest, session: Session) -> PurchaseRequestOut:
         fulfilled_by_username=r.fulfilled_by_username,
         fulfillment_accepted_at=r.fulfillment_accepted_at.isoformat() if r.fulfillment_accepted_at else None,
         fulfillment_note=r.fulfillment_note,
+        requested_by_dept_code=_first_dept_code(r.requested_by_user_id),
+        fulfilled_by_dept_code=_first_dept_code(r.fulfilled_by_user_id),
     )
 
 
@@ -182,6 +200,15 @@ def _record_history(
     ))
 
 
+def _get_user_dept_names(session: Session, user_id: int) -> list[str]:
+    """Return department names the given user belongs to."""
+    return list(session.exec(
+        select(Department.name)
+        .join(UserDepartment, UserDepartment.department_id == Department.id)
+        .where(UserDepartment.user_id == user_id)
+    ).all())
+
+
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 
@@ -201,7 +228,6 @@ def active_count(
 
     Used by the sidebar to show a badge.
     """
-    from sqlmodel import and_
     # Terminal (done) statuses — no action needed
     DONE = ("received", "not_approved", "cancelled")
 
@@ -211,16 +237,20 @@ def active_count(
     )
 
     if not is_admin_or_above(current_user):
-        q = q.where(
-            or_(
-                PurchaseRequest.requested_by_user_id == current_user.id,
-                and_(
-                    PurchaseRequest.fulfilled_by_user_id == current_user.id,
-                    PurchaseRequest.status != "pending",  # type: ignore[attr-defined]
-                ),
+        user_dept_names = _get_user_dept_names(session, current_user.id)  # type: ignore[arg-type]
+        conditions: list = [
+            PurchaseRequest.requested_by_user_id == current_user.id,
+            and_(
+                PurchaseRequest.fulfilled_by_user_id == current_user.id,
+                PurchaseRequest.status != "pending",  # type: ignore[attr-defined]
+            ),
+        ]
+        if user_dept_names:
+            conditions.append(and_(
+                PurchaseRequest.department.in_(user_dept_names),  # type: ignore[union-attr]
                 PurchaseRequest.status.in_(["approved", "in_progress", "awaiting_signoff"]),  # type: ignore[union-attr]
-            )
-        )
+            ))
+        q = q.where(or_(*conditions))
 
     count = session.exec(q).one()
     return ActiveCountOut(count=count)
@@ -237,21 +267,22 @@ def list_requests(
 ) -> Paginated:
     q = select(PurchaseRequest).where(PurchaseRequest.is_active == True)  # noqa: E712
 
-    # Non-admins: see their own requests + all actionable (approved/in_progress/received)
-    # fulfilled_by_user_id is guarded to exclude pending — a fulfiller must not see
-    # requests before admin approval (prevents premature visibility and edit attempts)
+    # Non-admins: own requests + assigned-to-me + requests directed to their department
     if not is_admin_or_above(current_user):
-        from sqlmodel import and_
-        q = q.where(
-            or_(
-                PurchaseRequest.requested_by_user_id == current_user.id,
-                and_(
-                    PurchaseRequest.fulfilled_by_user_id == current_user.id,
-                    PurchaseRequest.status != "pending",  # type: ignore[union-attr]
-                ),
+        user_dept_names = _get_user_dept_names(session, current_user.id)  # type: ignore[arg-type]
+        conditions: list = [
+            PurchaseRequest.requested_by_user_id == current_user.id,
+            and_(
+                PurchaseRequest.fulfilled_by_user_id == current_user.id,
+                PurchaseRequest.status != "pending",  # type: ignore[union-attr]
+            ),
+        ]
+        if user_dept_names:
+            conditions.append(and_(
+                PurchaseRequest.department.in_(user_dept_names),  # type: ignore[union-attr]
                 PurchaseRequest.status.in_(["approved", "in_progress", "awaiting_signoff", "received"]),  # type: ignore[union-attr]
-            )
-        )
+            ))
+        q = q.where(or_(*conditions))
 
     if status_filter:
         q = q.where(PurchaseRequest.status == status_filter)
@@ -354,9 +385,15 @@ def get_request(
     req = session.get(PurchaseRequest, req_id)
     if not req or not req.is_active:
         raise HTTPException(status_code=404, detail="Request not found")
-    # Non-admins may view their own requests, or any request that is approved/in_progress/received
+    # Non-admins: own requests, or requests they are fulfilling, or dept-matching approved+
     if not is_admin_or_above(current_user) and req.requested_by_user_id != current_user.id:
-        if req.status not in ("approved", "in_progress", "awaiting_signoff", "received"):
+        if req.fulfilled_by_user_id == current_user.id:
+            pass  # fulfiller can always view
+        elif req.status in ("approved", "in_progress", "awaiting_signoff", "received"):
+            user_dept_names = _get_user_dept_names(session, current_user.id)  # type: ignore[arg-type]
+            if req.department and req.department not in user_dept_names:
+                raise HTTPException(status_code=403, detail="Access denied")
+        else:
             raise HTTPException(status_code=403, detail="Access denied")
     return _out(req, session)
 
@@ -574,6 +611,14 @@ def respond_to_request(
     # Prevent the original requester from responding to their own request
     if req.requested_by_user_id == current_user.id and not is_admin_or_above(current_user):
         raise HTTPException(status_code=403, detail="You cannot respond to your own request")
+    # Only members of the target department may respond (non-admins)
+    if not is_admin_or_above(current_user):
+        user_dept_names = _get_user_dept_names(session, current_user.id)  # type: ignore[arg-type]
+        if req.department and req.department not in user_dept_names:
+            raise HTTPException(
+                status_code=403,
+                detail="Only members of the target department can respond to this request",
+            )
     now = datetime.now(tz=timezone.utc)
     req.status = "in_progress"
     req.fulfilled_by_user_id = current_user.id

@@ -66,14 +66,14 @@ interface PaginatedPlans {
 const STATUS_BADGE: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
   draft:       "secondary",
   approved:    "default",
-  in_progress: "default",
+  in_progress: "secondary",
   completed:   "outline",
 };
 
 const STATUS_COLOR: Record<string, string> = {
   draft:       "",
   approved:    "text-blue-700",
-  in_progress: "text-emerald-700",
+  in_progress: "!bg-amber-100 !text-amber-800",
   completed:   "text-muted-foreground",
 };
 

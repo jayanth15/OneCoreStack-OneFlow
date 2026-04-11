@@ -12,6 +12,7 @@ from app.models.customer import Customer
 from app.models.inventory import InventoryItem
 from app.models.production_plan import ProductionPlan
 from app.models.schedule import Schedule
+from app.models.schedule_history import ScheduleHistory
 from app.models.user import User
 
 router = APIRouter(
@@ -19,8 +20,8 @@ router = APIRouter(
     tags=["schedules"],
 )
 
-VALID_STATUSES = {"pending", "confirmed", "in_production", "delivered", "cancelled"}
-_SCHEDULE_RANK = {"pending": 0, "confirmed": 1, "in_production": 2, "delivered": 3, "cancelled": 4}
+VALID_STATUSES = {"pending", "confirmed", "in_production", "completed", "delivered", "cancelled"}
+_SCHEDULE_RANK = {"pending": 0, "confirmed": 1, "in_production": 2, "completed": 3, "delivered": 4, "cancelled": 5}
 
 
 def _next_schedule_number(session: Session) -> str:
@@ -216,12 +217,13 @@ def update_schedule(
     schedule_id: int,
     body: ScheduleUpdate,
     session: Annotated[Session, Depends(get_session)],
-    _: Annotated[User, Depends(require_admin)],
+    actor: Annotated[User, Depends(require_admin)],
 ) -> ScheduleResponse:
     s = session.get(Schedule, schedule_id)
     if not s:
         raise HTTPException(status_code=404, detail="Schedule not found")
     data = body.model_dump(exclude_unset=True)
+    old_status = s.status
     # Backward status guard
     if "status" in data and data["status"] is not None:
         proposed = data["status"]
@@ -236,6 +238,8 @@ def update_schedule(
     for k, v in data.items():
         setattr(s, k, v)
     session.add(s)
+    if s.status != old_status:
+        _record_history(session, s, old_status, s.status, actor)
     session.commit()
     session.refresh(s)
     return ScheduleResponse.from_orm_with_total(s)
@@ -253,6 +257,78 @@ def delete_schedule(
     s.is_active = False
     session.add(s)
     session.commit()
+
+
+def _record_history(
+    session: Session,
+    schedule: "Schedule",
+    old_status: Optional[str],
+    new_status: str,
+    actor: User,
+    note: Optional[str] = None,
+) -> None:
+    entry = ScheduleHistory(
+        schedule_id=schedule.id,  # type: ignore[arg-type]
+        changed_by_user_id=actor.id,  # type: ignore[arg-type]
+        changed_by_username=actor.username,
+        old_status=old_status,
+        new_status=new_status,
+        note=note,
+    )
+    session.add(entry)
+
+
+class ScheduleHistoryOut(BaseModel):
+    id: int
+    schedule_id: int
+    changed_by_username: Optional[str]
+    changed_at: datetime
+    old_status: Optional[str]
+    new_status: str
+    note: Optional[str]
+
+    model_config = {"from_attributes": True}
+
+
+@router.get("/{schedule_id}/history", response_model=list[ScheduleHistoryOut])
+def get_schedule_history(
+    schedule_id: int,
+    session: Annotated[Session, Depends(get_session)],
+    _: Annotated[User, Depends(get_current_user)],
+) -> list[ScheduleHistoryOut]:
+    s = session.get(Schedule, schedule_id)
+    if not s:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    rows = list(session.exec(
+        select(ScheduleHistory)
+        .where(ScheduleHistory.schedule_id == schedule_id)
+        .order_by(ScheduleHistory.changed_at.desc())  # type: ignore[union-attr]
+    ).all())
+    return [ScheduleHistoryOut.model_validate(r) for r in rows]
+
+
+@router.post("/{schedule_id}/mark-delivered", response_model=ScheduleResponse)
+def mark_schedule_delivered(
+    schedule_id: int,
+    session: Annotated[Session, Depends(get_session)],
+    actor: Annotated[User, Depends(require_admin)],
+) -> ScheduleResponse:
+    """Manually advance a completed schedule to delivered."""
+    s = session.get(Schedule, schedule_id)
+    if not s:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    if s.status != "completed":
+        raise HTTPException(
+            status_code=422,
+            detail=f"Can only mark 'completed' schedules as delivered (current: '{s.status}')",
+        )
+    old_status = s.status
+    s.status = "delivered"
+    session.add(s)
+    _record_history(session, s, old_status, "delivered", actor)
+    session.commit()
+    session.refresh(s)
+    return ScheduleResponse.from_orm_with_total(s)
 
 
 # ── Availability check ────────────────────────────────────────────────────────

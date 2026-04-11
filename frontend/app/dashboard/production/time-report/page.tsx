@@ -20,6 +20,21 @@ interface WorkerTimeSummary {
   username: string;
   total_hours: number;
   job_card_count: number;
+  process_names: string[];
+  order_numbers: string[];
+  work_dates: string[];
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function currentMonthStart(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+}
+
+function today(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -29,15 +44,17 @@ export default function TimeReportPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateFrom, setDateFrom] = useState(currentMonthStart);
+  const [dateTo, setDateTo] = useState(today);
 
   function fetchReport(from?: string, to?: string) {
     setLoading(true);
     setError(null);
     const params = new URLSearchParams();
-    if (from) params.set("date_from", from);
-    if (to) params.set("date_to", to);
+    const f = from ?? dateFrom;
+    const t = to ?? dateTo;
+    if (f) params.set("date_from", f);
+    if (t) params.set("date_to", t);
     const qs = params.toString();
     apiFetchJson<WorkerTimeSummary[]>(`/api/v1/production/time-report${qs ? `?${qs}` : ""}`)
       .then(setData)
@@ -45,7 +62,7 @@ export default function TimeReportPage() {
       .finally(() => setLoading(false));
   }
 
-  useEffect(() => { fetchReport(); }, []);
+  useEffect(() => { fetchReport(currentMonthStart(), today()); }, []); // eslint-disable-line
 
   function handleFilter(e: React.FormEvent) {
     e.preventDefault();
@@ -96,7 +113,7 @@ export default function TimeReportPage() {
           <Button type="submit" size="sm" variant="outline">Apply</Button>
           {(dateFrom || dateTo) && (
             <Button type="button" size="sm" variant="ghost"
-              onClick={() => { setDateFrom(""); setDateTo(""); fetchReport(); }}>
+              onClick={() => { setDateFrom(""); setDateTo(""); fetchReport("", ""); }}>
               Clear
             </Button>
           )}
@@ -124,8 +141,8 @@ export default function TimeReportPage() {
             {/* Per-worker cards */}
             <div className="space-y-4">
               {data.map((w) => (
-                <div key={w.user_id} className="rounded-lg border p-4">
-                  <div className="flex items-center justify-between mb-2">
+                <div key={w.user_id ?? w.username} className="rounded-lg border p-4 space-y-3">
+                  <div className="flex items-center justify-between">
                     <div>
                       <span className="font-semibold">{w.username}</span>
                       <span className="text-xs text-muted-foreground ml-2">
@@ -134,6 +151,25 @@ export default function TimeReportPage() {
                     </div>
                     <span className="text-base font-bold">{w.total_hours.toFixed(1)}h</span>
                   </div>
+                  {w.process_names.length > 0 && (
+                    <div className="text-xs">
+                      <span className="text-muted-foreground mr-1">Processes:</span>
+                      <span className="font-medium">{w.process_names.join(", ")}</span>
+                    </div>
+                  )}
+                  {w.order_numbers.length > 0 && (
+                    <div className="text-xs">
+                      <span className="text-muted-foreground mr-1">Orders:</span>
+                      <span className="font-mono">{w.order_numbers.join(", ")}</span>
+                    </div>
+                  )}
+                  {w.work_dates.length > 0 && (
+                    <div className="text-xs text-muted-foreground flex flex-wrap gap-1">
+                      {w.work_dates.map(d => (
+                        <span key={d} className="bg-muted px-1.5 py-0.5 rounded">{d}</span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

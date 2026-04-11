@@ -8,10 +8,12 @@ from sqlmodel import Session, func, or_, select
 
 from app.core.database import get_session
 from app.dependencies.auth import get_current_user, is_admin_or_above
+from app.models.department import Department
 from app.models.purchase_request import PurchaseRequest
 from app.models.purchase_request_history import PurchaseRequestHistory
 from app.models.receipt import Receipt
 from app.models.user import User
+from app.models.user_department import UserDepartment
 from app.routers.notifications import create_notification
 
 router = APIRouter(prefix="/api/v1/receipts", tags=["receipts"])
@@ -142,18 +144,36 @@ def create_receipt(
     # Any authenticated user may record a receipt for an approved request
     # (the admin's approval is the authorisation signal)
 
-    if req.status not in ("approved", "in_progress", "awaiting_signoff", "received"):
+    if req.status not in ("approved", "in_progress", "awaiting_signoff"):
         raise HTTPException(
             status_code=400,
             detail=f"Receipts can only be created for approved/in-progress requests (current status: {req.status})",
         )
 
-    # Requesters acknowledge; only the fulfilling side creates receipts
+    # Only admins and users with can_create_receipt permission may record deliveries.
+    # Requesters use the Acknowledge action instead.
+    if not is_admin_or_above(current_user) and not current_user.can_create_receipt:
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have permission to create receipts. Contact your administrator.",
+        )
     if req.requested_by_user_id == current_user.id and not is_admin_or_above(current_user):
         raise HTTPException(
             status_code=403,
             detail="Requesters cannot create receipts — use the Acknowledge action to sign off on a delivery",
         )
+    # Non-admins must also belong to the request's target department
+    if not is_admin_or_above(current_user) and req.department:
+        user_dept_names = list(session.exec(
+            select(Department.name)
+            .join(UserDepartment, UserDepartment.department_id == Department.id)
+            .where(UserDepartment.user_id == current_user.id)
+        ).all())
+        if req.department not in user_dept_names:
+            raise HTTPException(
+                status_code=403,
+                detail="Only members of the target department can create receipts for this request",
+            )
 
     # Block new delivery while a previous one is pending acknowledgment
     pending_count = session.exec(

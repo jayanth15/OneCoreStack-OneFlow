@@ -22,6 +22,7 @@ import {
   MonitorSmartphone,
   ClipboardList,
   PackageCheck,
+  ClipboardCheck,
 } from "lucide-react";
 import { usePwaInstall } from "@/hooks/use-pwa-install";
 import { cn } from "@/lib/utils";
@@ -63,6 +64,7 @@ export function BottomNav() {
   const router = useRouter();
   const [moreOpen, setMoreOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [grnAccess, setGrnAccess] = useState(false);
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [requestCount, setRequestCount] = useState(0);
   const [receiptCount, setReceiptCount] = useState(0);
@@ -87,8 +89,10 @@ export function BottomNav() {
 
   useEffect(() => {
     setIsAdmin(isAdminOrAbove());
-    setUser(getCurrentUser());
-  }, []);
+    const u = getCurrentUser();
+    setUser(u);
+    setGrnAccess(u?.grn_access ?? false);
+  }, [pathname]);
 
   // close more menu on route change
   useEffect(() => {
@@ -105,9 +109,11 @@ export function BottomNav() {
     return pathname.startsWith(href);
   }
 
-  const moreNavItems = isAdmin
-    ? [...GENERAL_MORE_NAV, ...ADMIN_MORE_NAV]
-    : GENERAL_MORE_NAV;
+  const moreNavItems = [
+    ...GENERAL_MORE_NAV,
+    ...(grnAccess || isAdmin ? [{ label: "GRN", href: "/dashboard/grn", icon: ClipboardCheck }] : []),
+    ...(isAdmin ? ADMIN_MORE_NAV : []),
+  ];
 
   // Is any "more" route currently active?
   const moreActive = moreNavItems.some((i) => isActive(i.href));

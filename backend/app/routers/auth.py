@@ -48,6 +48,8 @@ class UserMeResponse(BaseModel):
     inventory_edit: list[str] = []
     request_departments: list[int] = []
     request_inventory: list[str] = []
+    can_create_receipt: bool = False
+    grn_access: bool = False
     photo_base64: Optional[str] = None
     department_codes: list[str] = []
     department_names: list[str] = []
@@ -214,6 +216,8 @@ def me(
         inventory_edit=_parse_csv(user.inventory_edit),
         request_departments=_parse_int_csv(user.request_departments),
         request_inventory=_parse_csv(user.request_inventory),
+        can_create_receipt=user.can_create_receipt,
+        grn_access=user.grn_access or user.role in ("admin", "super_admin"),
         photo_base64=user.photo_base64,
         department_codes=dept_codes,
         department_names=dept_names,

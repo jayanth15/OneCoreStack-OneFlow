@@ -184,7 +184,9 @@ export default function WeedersPage() {
     if (!q) { setSearchResults([]); return; }
     setSearchLoading(true);
     apiFetchJson<{ items: WeederItem[] }>(`/api/v1/weeders?search=${encodeURIComponent(q)}&page_size=200&include_inactive=false`)
-      .then(d => setSearchResults(d.items))
+      .then(d => setSearchResults(
+        d.items.filter((item, idx, arr) => arr.findIndex(x => x.id === item.id) === idx)
+      ))
       .catch(() => setSearchResults([]))
       .finally(() => setSearchLoading(false));
   };

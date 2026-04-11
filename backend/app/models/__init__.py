@@ -13,6 +13,9 @@ from app.models.production_order import ProductionOrder  # noqa: F401
 from app.models.production_plan import ProductionPlan  # noqa: F401
 from app.models.production_process import ProductionProcess  # noqa: F401
 from app.models.schedule import Schedule  # noqa: F401
+from app.models.schedule_history import ScheduleHistory  # noqa: F401
+from app.models.grn import GRNRecord  # noqa: F401
+from app.models.grn_item import GRNItem  # noqa: F401
 from app.models.token import RefreshToken  # noqa: F401
 from app.models.user import User  # noqa: F401
 from app.models.user_department import UserDepartment  # noqa: F401

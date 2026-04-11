@@ -14,7 +14,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { apiFetchJson } from "@/lib/api";
 import { isAdminOrAbove } from "@/lib/user";
-import { PlusIcon, Pencil, Trash2, AlertTriangle, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { PlusIcon, Pencil, Trash2, AlertTriangle, ChevronLeft, ChevronRight, Search, History, Truck } from "lucide-react";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -33,6 +36,16 @@ interface ScheduleItem {
   created_at: string | null;
 }
 
+interface ScheduleHistoryEntry {
+  id: number;
+  schedule_id: number;
+  changed_by_username: string | null;
+  changed_at: string;
+  old_status: string | null;
+  new_status: string;
+  note: string | null;
+}
+
 interface PaginatedSchedules {
   items: ScheduleItem[];
   total: number;
@@ -47,6 +60,7 @@ const STATUS_COLOR: Record<string, string> = {
   pending:       "bg-amber-100 text-amber-800",
   confirmed:     "bg-blue-100 text-blue-800",
   in_production: "bg-emerald-100 text-emerald-800",
+  completed:     "bg-violet-100 text-violet-800",
   delivered:     "bg-slate-100 text-slate-600",
   cancelled:     "bg-red-100 text-red-700",
 };
@@ -55,6 +69,7 @@ const STATUS_LABELS: Record<string, string> = {
   pending: "Pending",
   confirmed: "Confirmed",
   in_production: "In Production",
+  completed: "Completed",
   delivered: "Delivered",
   cancelled: "Cancelled",
 };
@@ -64,6 +79,7 @@ const TABS = [
   { id: "pending",       label: "Pending" },
   { id: "confirmed",     label: "Confirmed" },
   { id: "in_production", label: "In Production" },
+  { id: "completed",     label: "Completed" },
   { id: "delivered",     label: "Delivered" },
   { id: "cancelled",     label: "Cancelled" },
 ];
@@ -100,6 +116,15 @@ function SchedulePageInner() {
   const [deleting, setDeleting] = useState(false);
   const [searchDraft, setSearchDraft] = useState(search);
   const [admin, setAdmin] = useState(false);
+
+  // History modal state
+  const [historySchedule, setHistorySchedule] = useState<ScheduleItem | null>(null);
+  const [historyRows, setHistoryRows] = useState<ScheduleHistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  // Mark as delivered state
+  const [markDeliverId, setMarkDeliverId] = useState<number | null>(null);
+  const [markDelivering, setMarkDelivering] = useState(false);
 
   // Keep search draft in sync with URL
   useEffect(() => { setSearchDraft(search); }, [search]);
@@ -158,6 +183,37 @@ function SchedulePageInner() {
     } finally {
       setDeleting(false);
       setLoading(false);
+    }
+  }
+
+  // ── History ─────────────────────────────────────────────────────────────────
+  function openHistory(s: ScheduleItem) {
+    setHistorySchedule(s);
+    setHistoryRows([]);
+    setHistoryLoading(true);
+    apiFetchJson<ScheduleHistoryEntry[]>(`/api/v1/schedules/${s.id}/history`)
+      .then(setHistoryRows)
+      .catch(() => setHistoryRows([]))
+      .finally(() => setHistoryLoading(false));
+  }
+
+  // ── Mark as Delivered ────────────────────────────────────────────────────────
+  async function handleMarkDelivered() {
+    if (markDeliverId === null) return;
+    setMarkDelivering(true);
+    try {
+      await apiFetchJson(`/api/v1/schedules/${markDeliverId}/mark-delivered`, { method: "POST" });
+      setMarkDeliverId(null);
+      // Refresh
+      const params = new URLSearchParams({ page: String(page), page_size: "20", include_inactive: String(showInactive) });
+      if (tab !== "all") params.set("status_filter", tab);
+      if (search)        params.set("search", search);
+      const fresh = await apiFetchJson<PaginatedSchedules>(`/api/v1/schedules?${params}`);
+      setData(fresh);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Mark delivered failed");
+    } finally {
+      setMarkDelivering(false);
     }
   }
 
@@ -280,6 +336,16 @@ function SchedulePageInner() {
                 </div>
                 {admin && (
                   <div className="flex justify-end gap-1 pt-1 border-t">
+                    {s.status === "completed" && (
+                      <Button variant="ghost" size="sm" className="h-8 text-xs text-violet-700 hover:text-violet-900"
+                        onClick={() => setMarkDeliverId(s.id)} title="Mark as Delivered">
+                        <Truck className="size-3.5 mr-1" />Deliver
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="icon" className="size-8"
+                      onClick={() => openHistory(s)} title="History">
+                      <History className="size-3.5" />
+                    </Button>
                     <Button variant="ghost" size="icon" className="size-8"
                       onClick={() => router.push(`/dashboard/schedule/${s.id}/edit`)} title="Edit">
                       <Pencil className="size-3.5" />
@@ -368,25 +434,37 @@ function SchedulePageInner() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        {admin && (
-                          <div className="inline-flex gap-1">
-                            <Button
-                              variant="ghost" size="icon" className="size-8"
-                              onClick={() => router.push(`/dashboard/schedule/${s.id}/edit`)}
-                              title="Edit"
-                            >
-                              <Pencil className="size-3.5" />
+                        <div className="inline-flex gap-1">
+                          {admin && s.status === "completed" && (
+                            <Button variant="ghost" size="sm" className="h-8 text-xs text-violet-700 hover:text-violet-900"
+                              onClick={() => setMarkDeliverId(s.id)} title="Mark as Delivered">
+                              <Truck className="size-3.5 mr-1" />Deliver
                             </Button>
-                            <Button
-                              variant="ghost" size="icon"
-                              className="size-8 text-destructive hover:text-destructive"
-                              onClick={() => setDeleteId(s.id)}
-                              title="Deactivate"
-                            >
-                              <Trash2 className="size-3.5" />
-                            </Button>
-                          </div>
-                        )}
+                          )}
+                          <Button variant="ghost" size="icon" className="size-8"
+                            onClick={() => openHistory(s)} title="History">
+                            <History className="size-3.5" />
+                          </Button>
+                          {admin && (
+                            <>
+                              <Button
+                                variant="ghost" size="icon" className="size-8"
+                                onClick={() => router.push(`/dashboard/schedule/${s.id}/edit`)}
+                                title="Edit"
+                              >
+                                <Pencil className="size-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost" size="icon"
+                                className="size-8 text-destructive hover:text-destructive"
+                                onClick={() => setDeleteId(s.id)}
+                                title="Deactivate"
+                              >
+                                <Trash2 className="size-3.5" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -490,6 +568,64 @@ function SchedulePageInner() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Mark as Delivered confirmation */}
+      <AlertDialog open={markDeliverId !== null} onOpenChange={(o) => !o && setMarkDeliverId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark as Delivered?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will move the schedule from <strong>Completed</strong> to <strong>Delivered</strong>. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={markDelivering}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleMarkDelivered} disabled={markDelivering}>
+              {markDelivering ? "Marking…" : "Mark as Delivered"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* History dialog */}
+      <Dialog open={historySchedule !== null} onOpenChange={(o) => !o && setHistorySchedule(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              History — {historySchedule?.schedule_number}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="max-h-80 overflow-y-auto space-y-2 text-sm">
+            {historyLoading ? (
+              <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
+            ) : historyRows.length === 0 ? (
+              <p className="text-muted-foreground text-center py-6">No status changes recorded yet.</p>
+            ) : (
+              historyRows.map((h) => (
+                <div key={h.id} className="rounded-md border p-2.5 space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {h.old_status && (
+                      <span className={`text-xs px-1.5 py-0.5 rounded-full ${STATUS_COLOR[h.old_status] ?? "bg-muted"}`}>
+                        {STATUS_LABELS[h.old_status] ?? h.old_status}
+                      </span>
+                    )}
+                    {h.old_status && <span className="text-muted-foreground text-xs">→</span>}
+                    <span className={`text-xs px-1.5 py-0.5 rounded-full ${STATUS_COLOR[h.new_status] ?? "bg-muted"}`}>
+                      {STATUS_LABELS[h.new_status] ?? h.new_status}
+                    </span>
+                  </div>
+                  <div className="text-xs text-muted-foreground flex items-center gap-2">
+                    <span>{h.changed_by_username ?? "system"}</span>
+                    <span>·</span>
+                    <span>{fmtDateTime(h.changed_at)}</span>
+                  </div>
+                  {h.note && <p className="text-xs italic">{h.note}</p>}
+                </div>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

@@ -6,7 +6,7 @@ from pydantic import BaseModel, field_validator
 from sqlmodel import Session, func, select
 
 from app.core.database import get_session
-from app.dependencies.auth import get_current_user, require_admin
+from app.dependencies.auth import get_current_user, is_admin_or_above, require_admin
 from app.models.bom_item import BomItem
 from app.models.inventory import InventoryItem
 from app.models.inventory_history import InventoryHistory
@@ -15,8 +15,10 @@ from app.models.job_card_history import JobCardHistory
 from app.models.production_order import ProductionOrder
 from app.models.production_plan import ProductionPlan
 from app.models.production_process import ProductionProcess
+from app.models.department import Department
 from app.models.schedule import Schedule
 from app.models.user import User
+from app.models.user_department import UserDepartment
 
 router = APIRouter(
     prefix="/api/v1/production",
@@ -32,7 +34,7 @@ JOB_STATUSES = {"open", "in_progress", "completed", "cancelled"}
 _PLAN_RANK = {"draft": 0, "approved": 1, "in_progress": 2, "completed": 3}
 _ORDER_RANK = {"open": 0, "in_progress": 1, "completed": 2, "cancelled": 3}
 _JOB_RANK = {"open": 0, "in_progress": 1, "completed": 2, "cancelled": 3}
-_SCHEDULE_RANK = {"pending": 0, "confirmed": 1, "in_production": 2, "delivered": 3, "cancelled": 4}
+_SCHEDULE_RANK = {"pending": 0, "confirmed": 1, "in_production": 2, "completed": 3, "delivered": 4, "cancelled": 5}
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -191,8 +193,8 @@ def _propagate_statuses(order_id: int, session: Session) -> None:
     if not sched:
         return
 
-    if plan.status == "completed" and sched.status != "delivered":
-        sched.status = "delivered"
+    if plan.status == "completed" and sched.status not in ("completed", "delivered"):
+        sched.status = "completed"
         session.add(sched)
     elif plan.status == "in_progress" and sched.status in ("pending", "confirmed"):
         sched.status = "in_production"
@@ -246,12 +248,12 @@ def _recalc_fg_for_order(order: ProductionOrder, session: Session) -> None:
     A finished good is only complete when it has passed through ALL process
     steps.  Therefore:
 
-        effective_qty = MIN(qty_produced) across all active job cards in the order
+        effective_qty = MIN(sum_produced_per_process) across all defined processes
 
-    If the order has no job cards yet, effective_qty stays at 0.
-    We track how much FG has already been credited (order.fg_credited) and
-    only add/subtract the delta so inventory stays accurate as production
-    progresses.
+    Processes that have no job cards contribute 0, so effective_qty = 0 until
+    every process has at least one job card with qty_produced > 0.
+    If no processes are defined on the plan, fall back to MIN(qty_produced) across
+    all job cards (legacy behaviour).
     """
     cards = list(session.exec(
         select(JobCard)
@@ -262,12 +264,30 @@ def _recalc_fg_for_order(order: ProductionOrder, session: Session) -> None:
     ).all())
 
     if not cards:
-        return
+        new_effective = 0.0
+    else:
+        # Fetch the plan's defined processes
+        processes = list(session.exec(
+            select(ProductionProcess)
+            .where(ProductionProcess.plan_id == order.production_plan_id)
+        ).all())
 
-    new_effective = min(c.qty_produced for c in cards)
+        if not processes:
+            # No processes defined: legacy MIN across all cards
+            new_effective = min(c.qty_produced for c in cards)
+        else:
+            # Sum qty_produced per process; processes with no cards get 0
+            per_process: dict[str, float] = {}
+            for p in processes:
+                per_process[p.name] = 0.0
+            for c in cards:
+                if c.process_name in per_process:
+                    per_process[c.process_name] += c.qty_produced
+            # effective = minimum across all defined processes
+            new_effective = min(per_process.values())
+
     new_effective = round(max(0.0, new_effective), 4)
 
-    old_effective = order.effective_qty
     delta = round(new_effective - order.fg_credited, 4)
 
     # Persist effective_qty on the order regardless of FG item existing
@@ -490,6 +510,7 @@ def list_plans(
         q = q.where(ProductionPlan.status == "approved")
         busy_ids = select(ProductionOrder.production_plan_id).where(
             ProductionOrder.is_active == True,  # noqa: E712
+            ProductionOrder.status.not_in(["completed", "cancelled"]),  # type: ignore[union-attr]
         )
         q = q.where(ProductionPlan.id.not_in(busy_ids))  # type: ignore[union-attr]
     if search:
@@ -1086,27 +1107,34 @@ def create_job(
     if not order:
         raise HTTPException(status_code=404, detail="Production order not found")
 
-    # If worker role, force worker_name to their own username
+    # Workers can create job cards only if they belong to the Production department
     if current_user.role == "worker":
-        body.worker_name = current_user.username
+        in_prod_dept = session.exec(
+            select(UserDepartment)
+            .join(Department, Department.id == UserDepartment.department_id)
+            .where(
+                UserDepartment.user_id == current_user.id,
+                Department.name.ilike("%production%"),  # type: ignore[union-attr]
+            )
+        ).first()
+        if not in_prod_dept:
+            raise HTTPException(
+                status_code=403,
+                detail="Manager access or Production department membership required to create job cards",
+            )
 
     # Get plan's planned_qty to auto-compute qty_pending and status
     plan = session.get(ProductionPlan, order.production_plan_id)
     planned_qty = plan.planned_qty if plan else 0.0
-    qty_pending = max(0.0, round(planned_qty - body.qty_produced, 4))
 
-    # Auto-compute status from qty_produced
-    if body.qty_produced <= 0:
-        auto_status = "open"
-    elif planned_qty > 0 and body.qty_produced >= planned_qty:
-        auto_status = "completed"
-    else:
-        auto_status = "in_progress"
+    # qty_pending and status are computed AFTER flush (once the job has an ID)
+    # to account for all other cards for the same process
+    auto_status = "open"
 
     job = JobCard(
         card_number=_next_card_number(session),
         production_order_id=order_id,
-        qty_pending=qty_pending,
+        qty_pending=0.0,
         status=auto_status,
         **body.model_dump(),
     )
@@ -1119,6 +1147,24 @@ def create_job(
             job.worker_id = matched_user.id  # type: ignore[assignment]
     session.add(job)
     session.flush()
+
+    # Compute qty_pending from total produced for this process across all cards
+    same_process_cards = list(session.exec(
+        select(JobCard).where(
+            JobCard.production_order_id == order_id,
+            JobCard.process_name == job.process_name,
+            JobCard.is_active == True,  # noqa: E712
+        )
+    ).all())
+    total_for_process = sum(c.qty_produced for c in same_process_cards)
+    job.qty_pending = max(0.0, round(planned_qty - total_for_process, 4))
+    if total_for_process <= 0:
+        job.status = "open"
+    elif planned_qty > 0 and total_for_process >= planned_qty:
+        job.status = "completed"
+    else:
+        job.status = "in_progress"
+    session.add(job)
 
     # If job has production, consume BOM materials
     if body.qty_produced > 0:
@@ -1162,6 +1208,16 @@ def update_job(
     job = session.get(JobCard, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job card not found")
+
+    # Workers may only update their own assigned job cards;
+    # non-admins (managers, supervisors) may only update their own too
+    if not is_admin_or_above(current_user):
+        if job.worker_name != current_user.username and job.worker_id != current_user.id:
+            raise HTTPException(
+                status_code=403,
+                detail="You can only update your own job cards",
+            )
+
     data = body.model_dump(exclude_unset=True)
 
     # If worker role, force worker_name to their own username
@@ -1186,16 +1242,23 @@ def update_job(
         if matched_user:
             job.worker_id = matched_user.id
 
-    # Auto-compute qty_pending and status from plan's planned_qty
+    # Auto-compute qty_pending and status from process-total produced
     order = session.get(ProductionOrder, job.production_order_id)
     if order:
         plan = session.get(ProductionPlan, order.production_plan_id)
         if plan:
-            job.qty_pending = max(0.0, round(plan.planned_qty - job.qty_produced, 4))
-            # Auto-compute status from qty_produced
-            if job.qty_produced <= 0:
+            same_process_cards = list(session.exec(
+                select(JobCard).where(
+                    JobCard.production_order_id == order.id,
+                    JobCard.process_name == job.process_name,
+                    JobCard.is_active == True,  # noqa: E712
+                )
+            ).all())
+            total_for_process = sum(c.qty_produced for c in same_process_cards)
+            job.qty_pending = max(0.0, round(plan.planned_qty - total_for_process, 4))
+            if total_for_process <= 0:
                 job.status = "open"
-            elif plan.planned_qty > 0 and job.qty_produced >= plan.planned_qty:
+            elif plan.planned_qty > 0 and total_for_process >= plan.planned_qty:
                 job.status = "completed"
             else:
                 job.status = "in_progress"
@@ -1344,6 +1407,9 @@ class WorkerTimeSummaryItem(BaseModel):
     username: str
     total_hours: float
     job_card_count: int
+    process_names: list[str]
+    order_numbers: list[str]
+    work_dates: list[str]
 
 
 @router.get("/time-report", response_model=list[WorkerTimeSummaryItem])
@@ -1388,11 +1454,24 @@ def worker_time_summary(
     result = []
     for worker_name, cards in by_worker.items():
         user = session.exec(select(User).where(User.username == worker_name)).first()
+        # Collect enrichment data
+        order_id_set = {c.production_order_id for c in cards if c.production_order_id}
+        order_numbers: list[str] = []
+        if order_id_set:
+            orders = list(session.exec(
+                select(ProductionOrder).where(ProductionOrder.id.in_(list(order_id_set)))  # type: ignore[attr-defined]
+            ).all())
+            order_numbers = sorted({o.order_number for o in orders if o.order_number})
+        process_names = sorted({c.process_name for c in cards if c.process_name})
+        work_dates = sorted({c.work_date for c in cards if c.work_date})  # type: ignore[misc]
         result.append(WorkerTimeSummaryItem(
             user_id=user.id if user else None,  # type: ignore[arg-type]
             username=worker_name,
             total_hours=round(sum(c.hours_worked for c in cards), 2),
             job_card_count=len(cards),
+            process_names=process_names,
+            order_numbers=order_numbers,
+            work_dates=work_dates,
         ))
 
     return sorted(result, key=lambda x: x.total_hours, reverse=True)

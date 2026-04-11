@@ -336,7 +336,7 @@ def list_weeders(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=1000),
 ) -> dict:
-    q = select(WeederItem)
+    q = select(WeederItem).distinct()
     if not include_inactive:
         q = q.where(WeederItem.is_active == True)  # noqa: E712
     if category_id is not None:

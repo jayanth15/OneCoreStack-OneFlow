@@ -26,6 +26,7 @@ from app.routers import purchase_requests as purchase_requests_router
 from app.routers import marketing_requests as marketing_requests_router
 from app.routers import receipts as receipts_router
 from app.routers import notifications as notifications_router
+from app.routers import grn as grn_router
 from app.models.spare_sub_category import SpareSubCategory  # noqa: F401 — ensures table is created
 from app.models.consumable import Consumable  # noqa: F401 — ensures table is created
 from app.models.consumable_history import ConsumableHistory  # noqa: F401 — ensures table is created
@@ -83,6 +84,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _migrate_purchase_request_tables()
     # Create marketing_request + marketing_request_history tables
     _migrate_marketing_request_tables()
+    # Create grn_record + grn_item tables
+    _migrate_grn_tables()
     # Auto-seed a default admin user on a brand-new / empty database
     _auto_seed_if_empty()
     # Start daily DB backup scheduler (fires at 17:30 every day)
@@ -716,6 +719,45 @@ def _migrate_marketing_request_tables() -> None:
         conn.commit()
 
 
+def _migrate_grn_tables() -> None:
+    """Create grn_record and grn_item tables if they don't exist."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS grn_record (
+                id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+                grn_number              TEXT NOT NULL,
+                transport_type          TEXT NOT NULL DEFAULT 'own',
+                vehicle_number          TEXT,
+                received_by_user_id     INTEGER REFERENCES users(id),
+                received_by_username    TEXT,
+                notes                   TEXT,
+                status                  TEXT NOT NULL DEFAULT 'draft',
+                stock_filled_by_user_id INTEGER REFERENCES users(id),
+                stock_filled_by_username TEXT,
+                stock_filled_at         TEXT,
+                is_active               INTEGER NOT NULL DEFAULT 1,
+                created_at              TEXT NOT NULL,
+                updated_at              TEXT NOT NULL
+            )
+        """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS grn_item (
+                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                grn_id              INTEGER NOT NULL REFERENCES grn_record(id),
+                inventory_item_id   INTEGER REFERENCES inventory_item(id),
+                item_name           TEXT,
+                item_code           TEXT,
+                item_type           TEXT,
+                unit                TEXT,
+                quantity_received   REAL NOT NULL DEFAULT 0.0
+            )
+        """))
+        conn.commit()
+
+
 def _auto_seed_if_empty() -> None:
     """If the database has no users at all (fresh deployment), create a default
     super_admin account so the app is immediately usable.
@@ -785,6 +827,7 @@ app.include_router(purchase_requests_router.router)
 app.include_router(marketing_requests_router.router)
 app.include_router(receipts_router.router)
 app.include_router(notifications_router.router)
+app.include_router(grn_router.router)
 
 # ── Optional module routers (enabled by env var) ──────────────────────────────
 # Example:

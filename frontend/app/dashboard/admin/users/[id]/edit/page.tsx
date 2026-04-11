@@ -35,6 +35,8 @@ interface UserData {
   inventory_edit: string[];
   request_department_ids: number[];
   request_inventory: string[];
+  can_create_receipt: boolean;
+  grn_access: boolean;
   photo_base64?: string | null;
 }
 
@@ -48,6 +50,8 @@ interface UserForm {
   inventory_edit: string[];
   request_department_ids: number[];
   request_inventory: string[];
+  can_create_receipt: boolean;
+  grn_access: boolean;
   photo_base64: string | null;
 }
 
@@ -71,6 +75,8 @@ export default function EditUserPage() {
     inventory_edit: [],
     request_department_ids: [],
     request_inventory: [],
+    can_create_receipt: false,
+    grn_access: false,
     photo_base64: null,
   });
   const [allDepts, setAllDepts] = useState<DeptRef[]>([]);
@@ -97,6 +103,8 @@ export default function EditUserPage() {
           inventory_edit: userData.inventory_edit ?? [],
           request_department_ids: userData.request_department_ids ?? [],
           request_inventory: userData.request_inventory ?? [],
+          can_create_receipt: userData.can_create_receipt ?? false,
+          grn_access: userData.grn_access ?? false,
           photo_base64: userData.photo_base64 ?? null,
         });
         setAllDepts(deptsData);
@@ -174,6 +182,8 @@ export default function EditUserPage() {
         inventory_edit: form.inventory_edit,
         request_department_ids: form.request_department_ids,
         request_inventory: form.request_inventory,
+        can_create_receipt: form.can_create_receipt,
+        grn_access: form.grn_access,
         photo_base64: form.photo_base64,
       };
       if (form.password) payload.password = form.password;
@@ -329,7 +339,6 @@ export default function EditUserPage() {
                 <option value="worker">Worker</option>
                 <option value="manager">Manager</option>
                 <option value="admin">Admin</option>
-                <option value="super_admin">Super Admin</option>
               </select>
             </div>
 
@@ -391,6 +400,22 @@ export default function EditUserPage() {
                   {form.department_ids.length} department{form.department_ids.length !== 1 ? "s" : ""} selected
                 </p>
               )}
+            </div>
+
+            {/* GRN Access */}
+            <div className="flex items-center gap-3 rounded-md border px-3 py-3">
+              <input
+                type="checkbox"
+                id="grn_access"
+                checked={form.grn_access}
+                onChange={(e) => setForm({ ...form, grn_access: e.target.checked })}
+                disabled={saving}
+                className="size-4 rounded accent-primary"
+              />
+              <label htmlFor="grn_access" className="text-sm cursor-pointer select-none">
+                <span className="font-medium">GRN Access</span>
+                <span className="text-muted-foreground ml-1">(can access Goods Received Notes, create entries and mark stock filled)</span>
+              </label>
             </div>
 
             {/* Inventory Access — only relevant for non-admin roles */}
@@ -473,7 +498,7 @@ export default function EditUserPage() {
 
                   <div className="space-y-2">
                     <Label>
-                      Can Raise Requests From
+                      Can Raise Requests To
                       <span className="text-muted-foreground font-normal ml-1">(leave all unchecked = all departments)</span>
                     </Label>
                     {allDepts.length === 0 ? (
@@ -536,6 +561,22 @@ export default function EditUserPage() {
                       </p>
                     )}
                   </div>
+                </div>
+
+                {/* Receipt Creation Permission */}
+                <div className="flex items-center gap-3 rounded-md border px-3 py-3">
+                  <input
+                    type="checkbox"
+                    id="can_create_receipt"
+                    checked={form.can_create_receipt}
+                    onChange={(e) => setForm({ ...form, can_create_receipt: e.target.checked })}
+                    disabled={saving}
+                    className="size-4 rounded accent-primary"
+                  />
+                  <label htmlFor="can_create_receipt" className="text-sm cursor-pointer select-none">
+                    <span className="font-medium">Can Create Receipts</span>
+                    <span className="text-muted-foreground ml-1">(allowed to record goods received for purchase requests)</span>
+                  </label>
                 </div>
               </>
             )}
