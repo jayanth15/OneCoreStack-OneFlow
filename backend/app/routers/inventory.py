@@ -254,7 +254,7 @@ def list_items(
 
     items = list(
         session.exec(
-            query.order_by(InventoryItem.updated_at.desc())  # type: ignore[union-attr]
+            query.order_by(InventoryItem.id.asc())  # type: ignore[union-attr]
             .offset((page - 1) * page_size)
             .limit(page_size)
         ).all()

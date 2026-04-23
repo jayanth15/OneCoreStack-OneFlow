@@ -20,7 +20,7 @@ import { apiFetchJson } from "@/lib/api";
 import { isAdminOrAbove, getCurrentUser, canRequestInventory } from "@/lib/user";
 import {
   PlusIcon, Search, ChevronLeft, ChevronRight, CheckCircle, XCircle,
-  Clock, Ban, Eye, Pencil, History, AlertTriangle, ShoppingCart, X, PackageCheck, Package, Loader2,
+  Clock, Ban, Eye, Pencil, History, AlertTriangle, ShoppingCart, X, PackageCheck, Package, Loader2, Trash2,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -317,6 +317,10 @@ function PurchaseTab({ admin }: { admin: boolean }) {
   const [respondSaving, setRespondSaving] = useState(false);
   const [respondErr, setRespondErr] = useState<string | null>(null);
 
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [deletingSn, setDeletingSn] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
 
   const [depts, setDepts] = useState<DeptRef[]>([]);
@@ -437,6 +441,16 @@ function PurchaseTab({ admin }: { admin: boolean }) {
     finally { setRespondSaving(false); }
   }
 
+  async function doDelete() {
+    if (!deleteId) return;
+    setDeleting(true);
+    try {
+      await apiFetchJson(`/api/v1/purchase-requests/${deleteId}`, { method: "DELETE" });
+      setDeleteId(null); fetch(page);
+    } catch { /* ignore */ }
+    finally { setDeleting(false); }
+  }
+
   return (
     <div className="space-y-3">
       {/* Status filter + action row */}
@@ -552,6 +566,7 @@ function PurchaseTab({ admin }: { admin: boolean }) {
                             <Button variant="ghost" size="icon" className="size-7" title="Create Receipt" onClick={() => { setReceiptReq(r); setReceiptQty(String(r.quantity)); setReceiptNotes(""); setReceiptErr(null); }}><Package className="size-3.5 text-teal-600" /></Button>
                           )}
                           <Button variant="ghost" size="icon" className="size-7" title="History" onClick={() => setHistReq(r)}><History className="size-3.5 text-muted-foreground" /></Button>
+                          {admin && <Button variant="ghost" size="icon" className="size-7" title="Delete" onClick={() => { setDeleteId(r.id); setDeletingSn(r.sn_no); }}><Trash2 className="size-3.5 text-red-500" /></Button>}
                         </div>
                       </td>
                     </tr>
@@ -731,6 +746,22 @@ function PurchaseTab({ admin }: { admin: boolean }) {
         <HistoryDialog open={!!histReq} onClose={() => setHistReq(null)}
           url={`/api/v1/purchase-requests/${histReq.id}/history`} title={histReq.sn_no} />
       )}
+
+      {/* Delete Alert */}
+      <AlertDialog open={deleteId !== null} onOpenChange={o => !o && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2"><Trash2 className="size-4 text-red-500" /> Delete request {deletingSn}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove the request and all its associated receipts. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={doDelete} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">{deleting ? "Deleting…" : "Yes, Delete"}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Respond Dialog */}
       <Dialog open={!!respondReq} onOpenChange={o => !o && setRespondReq(null)}>

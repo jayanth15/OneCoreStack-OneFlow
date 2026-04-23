@@ -436,3 +436,30 @@ def acknowledge_receipt(
     session.commit()
     session.refresh(receipt)
     return _out(receipt, req)
+
+
+@router.delete("/{receipt_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_receipt(
+    receipt_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_session)],
+) -> None:
+    """Soft-delete a receipt (admin only)."""
+    if not is_admin_or_above(current_user):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    receipt = session.get(Receipt, receipt_id)
+    if not receipt or not receipt.is_active:
+        raise HTTPException(status_code=404, detail="Receipt not found")
+    now = datetime.now(tz=timezone.utc)
+    receipt.is_active = False
+    receipt.updated_at = now
+    req = session.get(PurchaseRequest, receipt.request_id)
+    if req:
+        _record_history(
+            session,
+            req.id,  # type: ignore[arg-type]
+            current_user.username,
+            "receipt_deleted",
+            note=f"Receipt {receipt.sn_no} deleted by admin {current_user.username}",
+        )
+    session.commit()

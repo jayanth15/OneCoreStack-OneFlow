@@ -536,6 +536,33 @@ def cancel_request(
     return _out(req, session)
 
 
+@router.delete("/{req_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_request(
+    req_id: int,
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> None:
+    """Soft-delete a purchase request (admin only). Also soft-deletes linked receipts."""
+    if not is_admin_or_above(current_user):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    req = session.get(PurchaseRequest, req_id)
+    if not req or not req.is_active:
+        raise HTTPException(status_code=404, detail="Request not found")
+    now = datetime.now(tz=timezone.utc)
+    # Soft-delete all linked receipts
+    receipts = session.exec(
+        select(Receipt).where(Receipt.request_id == req_id, Receipt.is_active == True)  # noqa: E712
+    ).all()
+    for receipt in receipts:
+        receipt.is_active = False
+        receipt.updated_at = now
+    req.is_active = False
+    req.updated_at = now
+    _record_history(session, req.id, current_user, "deleted",  # type: ignore[arg-type]
+                    note=f"Request {req.sn_no} deleted by admin {current_user.username}")
+    session.commit()
+
+
 @router.get("/{req_id}/history", response_model=list[HistoryOut])
 def get_history(
     req_id: int,

@@ -9,12 +9,16 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { apiFetchJson } from "@/lib/api";
 import { getCurrentUser, isAdminOrAbove } from "@/lib/user";
 import {
-  ChevronLeft, ChevronRight, PackageCheck, CheckCircle, Clock, Eye,
+  ChevronLeft, ChevronRight, PackageCheck, CheckCircle, Clock, Eye, Trash2,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -96,6 +100,10 @@ export default function ReceiptsPage() {
   const [ackErr, setAckErr] = useState<string | null>(null);
   const [viewOpen, setViewOpen] = useState(false);
 
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [deletingSn, setDeletingSn] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
   useEffect(() => {
     setAdmin(isAdminOrAbove());
     setCurrentUserId(getCurrentUser()?.id ?? null);
@@ -133,6 +141,16 @@ export default function ReceiptsPage() {
     } catch (e: unknown) {
       setAckErr(e instanceof Error ? e.message : "Failed to acknowledge");
     } finally { setAckSaving(false); }
+  }
+
+  async function doDelete() {
+    if (!deleteId) return;
+    setDeleting(true);
+    try {
+      await apiFetchJson(`/api/v1/receipts/${deleteId}`, { method: "DELETE" });
+      setDeleteId(null); load(page);
+    } catch { /* ignore */ }
+    finally { setDeleting(false); }
   }
 
   return (
@@ -243,6 +261,11 @@ export default function ReceiptsPage() {
                                     <CheckCircle className="size-3.5 text-teal-600" />
                                   </Button>
                                 )}
+                                {admin && (
+                                  <Button variant="ghost" size="icon" className="size-7" title="Delete" onClick={() => { setDeleteId(r.id); setDeletingSn(r.sn_no); }}>
+                                    <Trash2 className="size-3.5 text-red-500" />
+                                  </Button>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -321,6 +344,22 @@ export default function ReceiptsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Alert */}
+      <AlertDialog open={deleteId !== null} onOpenChange={o => !o && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2"><Trash2 className="size-4 text-red-500" /> Delete receipt {deletingSn}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove this receipt record. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={doDelete} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">{deleting ? "Deleting…" : "Yes, Delete"}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

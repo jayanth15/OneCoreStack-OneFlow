@@ -15,8 +15,8 @@ import {
   AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 import { apiFetchJson } from "@/lib/api";
 import { isAdminOrAbove, canAccessInventory } from "@/lib/user";
 import {
@@ -218,7 +218,7 @@ export default function InventoryTypePage({ itemType, label, description, basePa
     setAdjustSaving(true);
     setAdjustError(null);
     try {
-      await apiFetchJson(`/api/v1/inventory/${adjustItem.id}/adjust`, {
+      const updated = await apiFetchJson<InventoryItem>(`/api/v1/inventory/${adjustItem.id}/adjust`, {
         method: "POST",
         body: JSON.stringify({
           adjustment_type: adjustType,
@@ -228,14 +228,12 @@ export default function InventoryTypePage({ itemType, label, description, basePa
         }),
       });
       setAdjustItem(null);
-      setLoading(true);
-      const params = new URLSearchParams({
-        item_type: itemType, page: String(page), page_size: "20",
-        include_inactive: String(showInactive),
-      });
-      if (search) params.set("search", search);
-      apiFetchJson<PaginatedInventory>(`/api/v1/inventory?${params}`)
-        .then(setData).catch(() => {}).finally(() => setLoading(false));
+      // Update only the affected row in-place — avoids re-sort by updated_at
+      setData((prev) =>
+        prev
+          ? { ...prev, items: prev.items.map((it) => (it.id === updated.id ? updated : it)) }
+          : prev
+      );
     } catch (e: unknown) {
       setAdjustError(e instanceof Error ? e.message : "Adjust failed");
     } finally {
@@ -648,15 +646,15 @@ export default function InventoryTypePage({ itemType, label, description, basePa
         )}
       </div>
 
-      {/* ── Adjust Stock Sheet ─────────────────────────────────────────────── */}
-      <Sheet open={adjustItem !== null} onOpenChange={(o) => !o && setAdjustItem(null)}>
-        <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
-          <SheetHeader className="mb-6">
-            <SheetTitle>Adjust Stock — {adjustItem?.name}</SheetTitle>
+      {/* ── Adjust Stock Dialog ────────────────────────────────────────────── */}
+      <Dialog open={adjustItem !== null} onOpenChange={(o) => !o && setAdjustItem(null)}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="mb-4">
+            <DialogTitle>Adjust Stock — {adjustItem?.name}</DialogTitle>
             <p className="text-sm text-muted-foreground">
               {adjustItem?.code} · Current: <strong>{fmtQty(adjustItem?.quantity_on_hand)} {adjustItem?.unit}</strong>
             </p>
-          </SheetHeader>
+          </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Adjustment Type</label>
@@ -717,16 +715,16 @@ export default function InventoryTypePage({ itemType, label, description, basePa
               </Button>
             </div>
           </div>
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
-      {/* ── History Sheet ──────────────────────────────────────────────────── */}
-      <Sheet open={historyItem !== null} onOpenChange={(o) => !o && setHistoryItem(null)}>
-        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
-          <SheetHeader className="mb-6">
-            <SheetTitle>History — {historyItem?.name}</SheetTitle>
+      {/* ── History Dialog ─────────────────────────────────────────────────── */}
+      <Dialog open={historyItem !== null} onOpenChange={(o) => !o && setHistoryItem(null)}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader className="mb-4">
+            <DialogTitle>History — {historyItem?.name}</DialogTitle>
             <p className="text-sm text-muted-foreground">{historyItem?.code}</p>
-          </SheetHeader>
+          </DialogHeader>
           {historyLoading ? (
             <div className="space-y-3">
               {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
@@ -771,8 +769,8 @@ export default function InventoryTypePage({ itemType, label, description, basePa
               )}
             </div>
           )}
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Deactivate AlertDialog ─────────────────────────────────────────── */}
       <AlertDialog open={deleteId !== null} onOpenChange={(o) => !o && setDeleteId(null)}>

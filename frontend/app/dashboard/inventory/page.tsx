@@ -505,7 +505,7 @@ function InventoryPageInner() {
           <div>
             <h1 className="text-xl font-semibold">{TABS.find((t) => t.id === tab)?.label ?? "Inventory"}</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {tab === "raw_material" ? "Input materials and components — sorted by last updated." : tab === "semi_finished" ? "Work-in-progress goods — sorted by last updated." : tab === "all" ? "All inventory items — sorted by last updated." : "Final products ready for dispatch — sorted by last updated."}
+              {tab === "raw_material" ? "Input materials and components." : tab === "semi_finished" ? "Work-in-progress goods." : tab === "all" ? "All inventory items." : "Final products ready for dispatch."}
             </p>
           </div>
           <Button size="sm" onClick={() => router.push("/dashboard/inventory/new")}>

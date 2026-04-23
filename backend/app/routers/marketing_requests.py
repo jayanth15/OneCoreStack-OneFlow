@@ -423,3 +423,23 @@ def get_history(
         )
         for h in rows
     ]
+
+
+@router.delete("/{req_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_request(
+    req_id: int,
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> None:
+    """Soft-delete a marketing request (admin only)."""
+    if not is_admin_or_above(current_user):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    req = session.get(MarketingRequest, req_id)
+    if not req or not req.is_active:
+        raise HTTPException(status_code=404, detail="Request not found")
+    now = datetime.now(tz=timezone.utc)
+    req.is_active = False
+    req.updated_at = now
+    _record_history(session, req.id, current_user, "deleted",  # type: ignore[arg-type]
+                    note=f"Request {req.sn_no} deleted by admin {current_user.username}")
+    session.commit()

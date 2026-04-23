@@ -283,7 +283,6 @@ def list_category_items(
         pat = f"%{search}%"
         q = q.where(or_(
             WeederItem.name.ilike(pat),               # type: ignore[union-attr]
-            WeederItem.sn_no.ilike(pat),             # type: ignore[union-attr]
             WeederItem.description.ilike(pat),       # type: ignore[union-attr]
             WeederItem.storage_location.ilike(pat),  # type: ignore[union-attr]
         ))
@@ -345,7 +344,6 @@ def list_weeders(
         pat = f"%{search}%"
         q = q.where(or_(
             WeederItem.name.ilike(pat),              # type: ignore[union-attr]
-            WeederItem.sn_no.ilike(pat),            # type: ignore[union-attr]
             WeederItem.description.ilike(pat),      # type: ignore[union-attr]
             WeederItem.storage_location.ilike(pat), # type: ignore[union-attr]
         ))
