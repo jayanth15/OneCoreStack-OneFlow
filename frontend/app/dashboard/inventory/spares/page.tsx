@@ -148,6 +148,12 @@ export default function SparesPage() {
   const [editItemSheet, setEditItemSheet] = useState(false);
   const [editingItem, setEditingItem]     = useState<SpareItem | null>(null);
   const [itemForm, setItemForm]           = useState({ name:"", part_number:"", part_description:"" });
+  // view detail popup
+  const [viewSpareItem, setViewSpareItem] = useState<SpareItem | null>(null);
+  // view variant detail popup
+  const [viewVariant, setViewVariant] = useState<SpareVariant | null>(null);
+  const [viewVariantParent, setViewVariantParent] = useState<SpareItem | null>(null);
+
   // history (admin-only)
   const [historyItem, setHistoryItem] = useState<SpareItem | null>(null);
   const [historyRows, setHistoryRows] = useState<SpareItemHistoryEntry[]>([]);
@@ -932,6 +938,7 @@ export default function SparesPage() {
                                                     <span className="font-medium text-foreground hidden md:inline">{fmtRate(item.total_value)}</span>
                                                   )}
                                                   <span className="flex gap-0.5">
+                                                    <Button variant="ghost" size="icon" className="size-6" title="View details" onClick={()=>setViewSpareItem(item)}><Eye className="size-3 text-blue-600" /></Button>
                                                     {admin && <Button variant="ghost" size="icon" className="size-6" title="Stock history" onClick={()=>openHistory(item)}><History className="size-3 text-slate-500" /></Button>}
                                                     {admin && <>
                                                       <Button variant="ghost" size="icon" className="size-6" onClick={()=>openEditItem(item)}><Pencil className="size-3" /></Button>
@@ -1003,12 +1010,13 @@ export default function SparesPage() {
                                                                 <p className="font-medium text-sm leading-tight">{highlight(v.variant_color || "—", search)}</p>
                                                                 {v.serial_number && <p className="text-xs font-mono text-muted-foreground">{highlight(v.serial_number, search)}</p>}
                                                               </div>
-                                                              {admin && (
-                                                                <span className="flex gap-0.5 shrink-0 -mt-0.5">
+                                                              <span className="flex gap-0.5 shrink-0 -mt-0.5">
+                                                                <Button variant="ghost" size="icon" className="size-6" title="View variant details" onClick={()=>{ setViewVariant(v); setViewVariantParent(item); }}><Eye className="size-3 text-blue-600" /></Button>
+                                                                {admin && <>
                                                                   <Button variant="ghost" size="icon" className="size-6" title="Edit variant" onClick={()=>startEditVariant(v)}><Pencil className="size-3" /></Button>
                                                                   <Button variant="ghost" size="icon" className="size-6 text-destructive hover:text-destructive" onClick={()=>deleteVariant(v.id)}><Trash2 className="size-3" /></Button>
-                                                                </span>
-                                                              )}
+                                                                </>}
+                                                              </span>
                                                             </div>
                                                             <div className="grid grid-cols-2 gap-x-2 text-xs">
                                                               {(() => {
@@ -1586,6 +1594,205 @@ export default function SparesPage() {
               <Button variant="outline" onClick={()=>setAdjustVariant(null)} disabled={adjustVSaving}>Cancel</Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Variant Detail Dialog ──────────────────────────────────── */}
+      <Dialog open={viewVariant !== null} onOpenChange={o => { if (!o) { setViewVariant(null); setViewVariantParent(null); } }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden">
+          <DialogHeader>
+            <DialogTitle className="break-words pr-6">
+              {viewVariant?.variant_color || "Variant"}
+              {viewVariant?.serial_number && <span className="ml-2 font-mono text-sm text-muted-foreground">{viewVariant.serial_number}</span>}
+            </DialogTitle>
+          </DialogHeader>
+          {viewVariant && viewVariantParent && (() => {
+            const varLow = viewVariant.reorder_level > 0 && viewVariant.qty <= viewVariant.reorder_level;
+            return (
+              <div className="space-y-4 mt-1">
+                {/* Image */}
+                {viewVariant.image_base64
+                  // eslint-disable-next-line @next/next/no-img-element
+                  ? <img src={`data:image/jpeg;base64,${viewVariant.image_base64}`} alt={viewVariant.variant_color ?? ""} className="w-full max-h-56 object-contain rounded-lg border bg-muted/20" />
+                  : <div className="w-full h-24 rounded-lg border-2 border-dashed flex items-center justify-center text-muted-foreground/30"><Wrench className="size-10" /></div>
+                }
+
+                {/* Status badges */}
+                <div className="flex flex-wrap gap-1.5">
+                  {!viewVariant.is_active && (
+                    <span className="text-xs font-medium px-2 py-0.5 rounded border bg-red-50 text-red-700 border-red-200">Inactive</span>
+                  )}
+                  {varLow && (
+                    <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded border bg-amber-50 text-amber-800 border-amber-200">
+                      <AlertTriangle className="size-3" /> Low Stock
+                    </span>
+                  )}
+                </div>
+
+                {/* Parent item link */}
+                <div className="rounded-lg border bg-muted/20 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Parent Item</p>
+                  <p className="text-sm font-medium">{viewVariantParent.name}</p>
+                  {viewVariantParent.part_number && <p className="text-xs font-mono text-muted-foreground mt-0.5">{viewVariantParent.part_number}</p>}
+                </div>
+
+                {/* Details grid */}
+                <div className="rounded-lg border bg-muted/20 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Details</p>
+                  <div className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5 text-sm">
+                    {viewVariant.variant_color && <><span className="text-muted-foreground whitespace-nowrap">Color / Type</span><span className="font-medium break-words">{viewVariant.variant_color}</span></>}
+                    {viewVariant.serial_number && <><span className="text-muted-foreground whitespace-nowrap">Serial No.</span><span className="font-mono font-medium break-all">{viewVariant.serial_number}</span></>}
+                    {viewVariant.timeline_days != null && <><span className="text-muted-foreground whitespace-nowrap">Lead Time</span><span>{viewVariant.timeline_days} day{viewVariant.timeline_days !== 1 ? "s" : ""}</span></>}
+                    {(viewVariant.storage_type || viewVariant.storage_location) && (
+                      <><span className="text-muted-foreground whitespace-nowrap">Storage</span>
+                      <span className="break-words">{[viewVariant.storage_type, viewVariant.storage_location].filter(Boolean).join(" · ")}</span></>
+                    )}
+                    <span className="text-muted-foreground whitespace-nowrap">Updated</span>
+                    <span className="text-muted-foreground text-xs">{new Date(viewVariant.updated_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
+                  </div>
+                </div>
+
+                {/* Stock overview */}
+                <div className="rounded-lg border bg-muted/20 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Stock Overview</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Quantity</p>
+                      <p className={`text-lg font-semibold tabular-nums ${varLow ? "text-amber-600" : ""}`}>
+                        {fmtQty(viewVariant.qty)} {viewVariantParent.unit}
+                      </p>
+                    </div>
+                    {viewVariant.reorder_level > 0 && (
+                      <div>
+                        <p className="text-xs text-muted-foreground">Reorder Level</p>
+                        <p className="text-lg font-semibold tabular-nums">{fmtQty(viewVariant.reorder_level)}</p>
+                      </div>
+                    )}
+                    {admin && viewVariant.rate != null && (
+                      <div>
+                        <p className="text-xs text-muted-foreground">Rate / Unit</p>
+                        <p className="text-lg font-semibold">{fmtRate(viewVariant.rate)}</p>
+                      </div>
+                    )}
+                  </div>
+                  {/* Stock bar */}
+                  {viewVariant.reorder_level > 0 && (
+                    <div className="mt-3 space-y-1">
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>0</span>
+                        <span>Reorder: {fmtQty(viewVariant.reorder_level)}</span>
+                      </div>
+                      <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${varLow ? "bg-amber-500" : "bg-emerald-500"}`}
+                          style={{ width: `${Math.min(100, (viewVariant.qty / (viewVariant.reorder_level * 2)) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── View Detail Dialog ─────────────────────────────────────── */}
+      <Dialog open={viewSpareItem !== null} onOpenChange={o => !o && setViewSpareItem(null)}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden">
+          <DialogHeader>
+            <DialogTitle className="break-words pr-6">{viewSpareItem?.name}</DialogTitle>
+          </DialogHeader>
+          {viewSpareItem && (
+            <div className="space-y-4 mt-1">
+              {/* Image */}
+              {viewSpareItem.image_base64
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={`data:image/jpeg;base64,${viewSpareItem.image_base64}`} alt={viewSpareItem.name ?? ""} className="w-full max-h-56 object-contain rounded-lg border bg-muted/20" />
+                : <div className="w-full h-24 rounded-lg border-2 border-dashed flex items-center justify-center text-muted-foreground/30"><Wrench className="size-10" /></div>
+              }
+
+              {/* Status badges */}
+              <div className="flex flex-wrap gap-1.5">
+                {!viewSpareItem.is_active && (
+                  <span className="text-xs font-medium px-2 py-0.5 rounded border bg-red-50 text-red-700 border-red-200">Inactive</span>
+                )}
+                {isLow(viewSpareItem) && (
+                  <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded border bg-amber-50 text-amber-800 border-amber-200">
+                    <AlertTriangle className="size-3" /> Low Stock
+                  </span>
+                )}
+              </div>
+
+              {/* Details grid */}
+              <div className="rounded-lg border bg-muted/20 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Details</p>
+                <div className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5 text-sm">
+                  {viewSpareItem.part_number && <><span className="text-muted-foreground whitespace-nowrap">Part No.</span><span className="font-mono font-medium break-all">{viewSpareItem.part_number}</span></>}
+                  {viewSpareItem.part_description && <><span className="text-muted-foreground whitespace-nowrap">Description</span><span className="break-words">{viewSpareItem.part_description}</span></>}
+                  {viewSpareItem.variant_model && <><span className="text-muted-foreground whitespace-nowrap">Model</span><span className="break-words">{viewSpareItem.variant_model}</span></>}
+                  <span className="text-muted-foreground whitespace-nowrap">Unit</span>
+                  <span>{viewSpareItem.unit}</span>
+                  {(viewSpareItem.storage_type || viewSpareItem.storage_location) && (
+                    <><span className="text-muted-foreground whitespace-nowrap">Storage</span>
+                    <span className="break-words">{[viewSpareItem.storage_type, viewSpareItem.storage_location].filter(Boolean).join(" · ")}</span></>
+                  )}
+                  <span className="text-muted-foreground whitespace-nowrap">Updated</span>
+                  <span className="text-muted-foreground text-xs">{new Date(viewSpareItem.updated_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
+                </div>
+              </div>
+
+              {/* Stock overview */}
+              <div className="rounded-lg border bg-muted/20 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Stock Overview</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Recorded Qty</p>
+                    <p className={`text-lg font-semibold tabular-nums ${isLow(viewSpareItem) ? "text-amber-600" : ""}`}>
+                      {fmtQty(viewSpareItem.recorded_qty)} {viewSpareItem.unit}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Opening Qty</p>
+                    <p className="text-lg font-semibold tabular-nums">{fmtQty(viewSpareItem.opening_qty)} {viewSpareItem.unit}</p>
+                  </div>
+                  {viewSpareItem.reorder_level > 0 && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Reorder Level</p>
+                      <p className="text-lg font-semibold tabular-nums">{fmtQty(viewSpareItem.reorder_level)}</p>
+                    </div>
+                  )}
+                  {admin && viewSpareItem.rate != null && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Rate / Unit</p>
+                      <p className="text-lg font-semibold">{fmtRate(viewSpareItem.rate)}</p>
+                    </div>
+                  )}
+                  {admin && viewSpareItem.total_value != null && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Total Value</p>
+                      <p className="text-lg font-semibold">{fmtRate(viewSpareItem.total_value)}</p>
+                    </div>
+                  )}
+                </div>
+                {/* Stock bar */}
+                {viewSpareItem.reorder_level > 0 && (
+                  <div className="mt-3 space-y-1">
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>0</span>
+                      <span>Reorder: {fmtQty(viewSpareItem.reorder_level)}</span>
+                    </div>
+                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${isLow(viewSpareItem) ? "bg-amber-500" : "bg-emerald-500"}`}
+                        style={{ width: `${Math.min(100, (viewSpareItem.recorded_qty / (viewSpareItem.reorder_level * 2)) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

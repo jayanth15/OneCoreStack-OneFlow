@@ -770,32 +770,98 @@ export default function WeedersPage() {
       </Dialog>
 
       <Dialog open={viewItem !== null} onOpenChange={o => !o && setViewItem(null)}>
-        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto overflow-x-hidden">
-          <DialogHeader><DialogTitle className="break-words">{viewItem ? displayName(viewItem) : ""}</DialogTitle></DialogHeader>
-          <div className="space-y-4 mt-1">
-            {viewItem?.image_base64
-              // eslint-disable-next-line @next/next/no-img-element
-              ? <img src={`data:image/jpeg;base64,${viewItem.image_base64}`} alt="weeder" className="w-full max-h-64 object-contain rounded-lg border bg-muted/20" />
-              : <div className="w-full h-28 rounded-lg border-2 border-dashed flex items-center justify-center text-muted-foreground/40"><Scissors className="size-10" /></div>}
-            <div className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
-              {viewItem?.name && <><span className="text-muted-foreground whitespace-nowrap">Name</span><span className="font-medium break-words">{viewItem.name}</span></>}
-              {viewItem?.sn_no && <><span className="text-muted-foreground whitespace-nowrap">SN No.</span><span className="font-mono font-medium break-all">{viewItem.sn_no}</span></>}
-              {viewItem?.description && <><span className="text-muted-foreground whitespace-nowrap">Description</span><span className="break-words">{viewItem.description}</span></>}
-              {viewItem?.storage_location && <><span className="text-muted-foreground whitespace-nowrap">Location</span><span className="break-words">{viewItem.storage_location}</span></>}
-              {admin && <><span className="text-muted-foreground whitespace-nowrap">Rate / Unit</span><span className="font-medium">{viewItem ? fmtRate(viewItem.rate_per_unit) : "\u2014"}</span></>}
-              {admin && viewItem?.total_rate != null && <><span className="text-muted-foreground whitespace-nowrap">Total Rate</span><span className="font-medium">{fmtRate(viewItem.total_rate)}</span></>}
-              <span className="text-muted-foreground">Qty</span>
-              <span className={`font-medium ${viewItem && viewItem.reorder_level > 0 && viewItem.qty <= viewItem.reorder_level ? "text-amber-600" : ""}`}>
-                {viewItem && fmtQty(viewItem.qty)}
-                {viewItem && viewItem.reorder_level > 0 && viewItem.qty <= viewItem.reorder_level && <AlertTriangle className="size-3 inline ml-1 mb-0.5" />}
-              </span>
-              {viewItem && viewItem.reorder_level > 0 && <><span className="text-muted-foreground">Reorder Level</span><span>{fmtQty(viewItem.reorder_level)}</span></>}
-              <span className="text-muted-foreground">Category</span>
-              <span>{categories.find(c => c.id === viewItem?.category_id)?.name ?? "\u2014"}</span>
-              <span className="text-muted-foreground">Updated</span>
-              <span className="text-muted-foreground text-xs">{viewItem ? fmtDate(viewItem.updated_at) : ""}</span>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden">
+          <DialogHeader>
+            <DialogTitle className="break-words pr-6">{viewItem ? displayName(viewItem) : ""}</DialogTitle>
+          </DialogHeader>
+          {viewItem && (
+            <div className="space-y-4 mt-1">
+              {/* Image */}
+              {viewItem.image_base64
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={`data:image/jpeg;base64,${viewItem.image_base64}`} alt="weeder" className="w-full max-h-56 object-contain rounded-lg border bg-muted/20" />
+                : <div className="w-full h-24 rounded-lg border-2 border-dashed flex items-center justify-center text-muted-foreground/30"><Scissors className="size-10" /></div>
+              }
+
+              {/* Status badges */}
+              <div className="flex flex-wrap gap-1.5">
+                {!viewItem.is_active && (
+                  <span className="text-xs font-medium px-2 py-0.5 rounded border bg-red-50 text-red-700 border-red-200">Inactive</span>
+                )}
+                {viewItem.reorder_level > 0 && viewItem.qty <= viewItem.reorder_level && (
+                  <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded border bg-amber-50 text-amber-800 border-amber-200">
+                    <AlertTriangle className="size-3" /> Low Stock
+                  </span>
+                )}
+              </div>
+
+              {/* Details grid */}
+              <div className="rounded-lg border bg-muted/20 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Details</p>
+                <div className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5 text-sm">
+                  {viewItem.name && <><span className="text-muted-foreground whitespace-nowrap">Name</span><span className="font-medium break-words">{viewItem.name}</span></>}
+                  {viewItem.sn_no && <><span className="text-muted-foreground whitespace-nowrap">SN No.</span><span className="font-mono font-medium break-all">{viewItem.sn_no}</span></>}
+                  {viewItem.description && <><span className="text-muted-foreground whitespace-nowrap">Description</span><span className="break-words">{viewItem.description}</span></>}
+                  <span className="text-muted-foreground whitespace-nowrap">Category</span>
+                  <span>{categories.find(c => c.id === viewItem.category_id)?.name ?? "—"}</span>
+                  {viewItem.storage_location && (
+                    <><span className="text-muted-foreground whitespace-nowrap">Location</span><span className="break-words">{viewItem.storage_location}</span></>
+                  )}
+                  {viewItem.timeline_days != null && (
+                    <><span className="text-muted-foreground whitespace-nowrap">Lead Time</span><span>{viewItem.timeline_days} day{viewItem.timeline_days !== 1 ? "s" : ""}</span></>
+                  )}
+                  <span className="text-muted-foreground whitespace-nowrap">Updated</span>
+                  <span className="text-muted-foreground text-xs">{fmtDate(viewItem.updated_at)}</span>
+                </div>
+              </div>
+
+              {/* Stock overview */}
+              <div className="rounded-lg border bg-muted/20 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Stock Overview</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs text-muted-foreground">On Hand</p>
+                    <p className={`text-lg font-semibold tabular-nums ${viewItem.reorder_level > 0 && viewItem.qty <= viewItem.reorder_level ? "text-amber-600" : ""}`}>
+                      {fmtQty(viewItem.qty)}
+                    </p>
+                  </div>
+                  {viewItem.reorder_level > 0 && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Reorder Level</p>
+                      <p className="text-lg font-semibold tabular-nums">{fmtQty(viewItem.reorder_level)}</p>
+                    </div>
+                  )}
+                  {admin && viewItem.rate_per_unit != null && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Rate / Unit</p>
+                      <p className="text-lg font-semibold">{fmtRate(viewItem.rate_per_unit)}</p>
+                    </div>
+                  )}
+                  {admin && viewItem.total_rate != null && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Total Value</p>
+                      <p className="text-lg font-semibold">{fmtRate(viewItem.total_rate)}</p>
+                    </div>
+                  )}
+                </div>
+                {/* Stock bar */}
+                {viewItem.reorder_level > 0 && (
+                  <div className="mt-3 space-y-1">
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>0</span>
+                      <span>Reorder: {fmtQty(viewItem.reorder_level)}</span>
+                    </div>
+                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${viewItem.qty <= viewItem.reorder_level ? "bg-amber-500" : "bg-emerald-500"}`}
+                        style={{ width: `${Math.min(100, (viewItem.qty / (viewItem.reorder_level * 2)) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </DialogContent>
       </Dialog>
 

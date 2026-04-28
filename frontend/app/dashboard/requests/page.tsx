@@ -59,8 +59,8 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; Icon: React.
   approved:         { label: "Approved",         color: "bg-green-100 text-green-700 border-green-200",  Icon: CheckCircle },
   not_approved:     { label: "Not Approved",     color: "bg-red-100   text-red-700   border-red-200",    Icon: XCircle },
   cancelled:        { label: "Cancelled",        color: "bg-gray-100  text-gray-600  border-gray-200",   Icon: Ban },
-  in_progress:      { label: "In Progress",      color: "bg-blue-100  text-blue-700  border-blue-200",   Icon: Loader2 },
-  awaiting_signoff: { label: "Awaiting Sign-off", color: "bg-orange-100 text-orange-700 border-orange-200", Icon: PackageCheck },
+  in_progress:      { label: "Being Arranged",             color: "bg-blue-100  text-blue-700  border-blue-200",   Icon: Loader2 },
+  awaiting_signoff: { label: "Delivered – Confirm Receipt", color: "bg-orange-100 text-orange-700 border-orange-200", Icon: PackageCheck },
   received:         { label: "Received",         color: "bg-teal-100  text-teal-700  border-teal-200",   Icon: PackageCheck },
 };
 
@@ -296,6 +296,7 @@ function PurchaseTab({ admin }: { admin: boolean }) {
   const allowedTypes = ALL_INV_TYPES.filter(canRequestInventory);
   const [invLabel, setInvLabel] = useState("");
   const [saving, setSaving] = useState(false); const [formErr, setFormErr] = useState<string | null>(null);
+  const [showManualFields, setShowManualFields] = useState(false);
 
   const [reviewDialog, setReviewDialog] = useState<"approve" | "reject" | null>(null);
   const [reviewNote, setReviewNote] = useState("");
@@ -355,7 +356,7 @@ function PurchaseTab({ admin }: { admin: boolean }) {
 
   function openCreate() {
     const autoDept = depts.length === 1 ? depts[0].name : "";
-    setSelected(null); setForm({ ...P_BLANK, department: autoDept }); setInvItemId(null); setInvLabel(""); setInvType(""); setFormErr(null); setDialog("create");
+    setSelected(null); setForm({ ...P_BLANK, department: autoDept }); setInvItemId(null); setInvLabel(""); setInvType(""); setFormErr(null); setShowManualFields(false); setDialog("create");
   }
   function openEdit(r: PurchaseRequest) {
     setSelected(r);
@@ -368,7 +369,7 @@ function PurchaseTab({ admin }: { admin: boolean }) {
     setInvItemId(r.inventory_item_id);
     setInvLabel(r.item_code && r.item_name ? `${r.item_code} — ${r.item_name}` : r.item_name ?? "");
     setInvType(r.item_type ?? "");
-    setFormErr(null); setDialog("edit");
+    setFormErr(null); setShowManualFields(false); setDialog("edit");
   }
 
   async function save() {
@@ -492,10 +493,10 @@ function PurchaseTab({ admin }: { admin: boolean }) {
             <div className="overflow-x-auto">
               <table className="w-full text-sm min-w-[900px]">
                 <thead><tr className="border-b bg-muted/50">
-                  <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">SN No.</th>
+                  <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Request No.</th>
                   <th className="px-4 py-2.5 text-left font-medium">Item</th>
                   <th className="px-4 py-2.5 text-right font-medium">Qty</th>
-                  <th className="px-4 py-2.5 text-left font-medium">Requested To</th>
+                  <th className="px-4 py-2.5 text-left font-medium">Department</th>
                   <th className="px-4 py-2.5 text-left font-medium">People</th>
                   <th className="px-4 py-2.5 text-left font-medium">Timeline</th>
                   <th className="px-4 py-2.5 text-left font-medium">Status</th>
@@ -560,10 +561,10 @@ function PurchaseTab({ admin }: { admin: boolean }) {
                           {r.status === "pending" && <Button variant="ghost" size="icon" className="size-7" title="Cancel" onClick={() => { setCancelId(r.id); setCancelNote(""); }}><Ban className="size-3.5 text-amber-600" /></Button>}
                           {/* Respond: non-admin, approved request, not the requester themselves */}
                           {!admin && r.status === "approved" && r.requested_by_user_id !== currentUserId && (
-                            <Button variant="ghost" size="icon" className="size-7" title="Respond / Accept" onClick={() => { setRespondReq(r); setRespondNote(""); setRespondErr(null); }}><Loader2 className="size-3.5 text-blue-600" /></Button>
+                            <Button variant="outline" size="sm" className="h-7 text-xs text-blue-600 border-blue-200" onClick={() => { setRespondReq(r); setRespondNote(""); setRespondErr(null); }}>Accept</Button>
                           )}
                           {(r.status === "approved" || r.status === "in_progress" || r.status === "awaiting_signoff") && r.requested_by_user_id !== currentUserId && (
-                            <Button variant="ghost" size="icon" className="size-7" title="Create Receipt" onClick={() => { setReceiptReq(r); setReceiptQty(String(r.quantity)); setReceiptNotes(""); setReceiptErr(null); }}><Package className="size-3.5 text-teal-600" /></Button>
+                            <Button variant="outline" size="sm" className="h-7 text-xs text-teal-600 border-teal-200" onClick={() => { setReceiptReq(r); setReceiptQty(String(r.quantity)); setReceiptNotes(""); setReceiptErr(null); }}>Mark Delivered</Button>
                           )}
                           <Button variant="ghost" size="icon" className="size-7" title="History" onClick={() => setHistReq(r)}><History className="size-3.5 text-muted-foreground" /></Button>
                           {admin && <Button variant="ghost" size="icon" className="size-7" title="Delete" onClick={() => { setDeleteId(r.id); setDeletingSn(r.sn_no); }}><Trash2 className="size-3.5 text-red-500" /></Button>}
@@ -609,15 +610,22 @@ function PurchaseTab({ admin }: { admin: boolean }) {
                 setForm(f => ({ ...f, item_name: item.name, item_code: item.code, item_type: invType || item.item_type, description: "", timeline_days: item.timeline_days != null ? String(item.timeline_days) : "" }));
               }} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Item Name <span className="text-xs text-muted-foreground">(manual)</span></Label>
-                <Input placeholder="Item name" value={form.item_name} onChange={e => setForm(f => ({ ...f, item_name: e.target.value }))} disabled={saving} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Item Code</Label>
-                <Input placeholder="Code / SKU" value={form.item_code} onChange={e => setForm(f => ({ ...f, item_code: e.target.value }))} disabled={saving} />
-              </div>
+            <div>
+              <button type="button" className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors" onClick={() => setShowManualFields(v => !v)}>
+                {showManualFields ? "Hide manual entry" : "Type item name manually instead"}
+              </button>
+              {showManualFields && (
+                <div className="grid grid-cols-2 gap-3 mt-2">
+                  <div className="space-y-1.5">
+                    <Label>Item Name</Label>
+                    <Input placeholder="Item name" value={form.item_name} onChange={e => setForm(f => ({ ...f, item_name: e.target.value }))} disabled={saving} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Item Code</Label>
+                    <Input placeholder="Code / SKU" value={form.item_code} onChange={e => setForm(f => ({ ...f, item_code: e.target.value }))} disabled={saving} />
+                  </div>
+                </div>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>Description</Label>
@@ -625,14 +633,10 @@ function PurchaseTab({ admin }: { admin: boolean }) {
                 onChange={e => setForm(f => ({ ...f, description: e.target.value }))} disabled={saving}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Quantity *</Label>
                 <Input type="number" min="0.001" step="any" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} disabled={saving} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Timeline (days)</Label>
-                <Input type="number" min="1" step="1" placeholder="—" value={form.timeline_days} readOnly disabled className="bg-muted/50 cursor-default" />
               </div>
               <div className="space-y-1.5">
                 <Label>Department</Label>
@@ -643,8 +647,9 @@ function PurchaseTab({ admin }: { admin: boolean }) {
                 </select>
               </div>
             </div>
+            {form.timeline_days && <p className="text-xs text-muted-foreground">Expected delivery: <span className="font-medium text-foreground">{form.timeline_days} day{Number(form.timeline_days) !== 1 ? "s" : ""}</span></p>}
             <div className="space-y-1.5">
-              <Label>From Whom <span className="text-xs text-muted-foreground">(supplier / vendor)</span></Label>
+              <Label>Supplier / Source</Label>
               <Input placeholder="Supplier name or source" value={form.from_whom} onChange={e => setForm(f => ({ ...f, from_whom: e.target.value }))} disabled={saving} />
             </div>
             <div className="space-y-1.5">
@@ -673,9 +678,9 @@ function PurchaseTab({ admin }: { admin: boolean }) {
                 {selected.item_name && <><dt className="text-muted-foreground">Item</dt><dd className="font-medium">{selected.item_name}{selected.item_code && <span className="ml-2 font-mono text-xs text-muted-foreground">{selected.item_code}</span>}</dd></>}
                 {selected.description && <><dt className="text-muted-foreground">Description</dt><dd>{selected.description}</dd></>}
                 <dt className="text-muted-foreground">Quantity</dt><dd className="font-semibold tabular-nums">{selected.quantity}</dd>
-                {selected.from_whom && <><dt className="text-muted-foreground">From Whom</dt><dd>{selected.from_whom}</dd></>}
+                {selected.from_whom && <><dt className="text-muted-foreground">Supplier / Source</dt><dd>{selected.from_whom}</dd></>}
                 {selected.timeline_days && <><dt className="text-muted-foreground">Timeline</dt><dd>{selected.timeline_days} days{selected.deadline_date && ` (due ${fmtDate(selected.deadline_date)})`}</dd></>}
-                {selected.department && <><dt className="text-muted-foreground">Requested To</dt><dd>{selected.department}</dd></>}
+                {selected.department && <><dt className="text-muted-foreground">Department</dt><dd>{selected.department}</dd></>}
                 {selected.notes && <><dt className="text-muted-foreground">Notes</dt><dd>{selected.notes}</dd></>}
                 <dt className="text-muted-foreground">Requested By</dt><dd>{selected.requested_by_username ?? "—"}</dd>
                 <dt className="text-muted-foreground">Date</dt><dd>{fmtDate(selected.created_at)}</dd>

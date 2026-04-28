@@ -58,8 +58,8 @@ interface PaginatedReceipts {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; Icon: React.ElementType }> = {
-  pending_ack:  { label: "Pending Sign-off", color: "bg-amber-100 text-amber-700 border-amber-200", Icon: Clock },
-  acknowledged: { label: "Acknowledged",     color: "bg-teal-100  text-teal-700  border-teal-200",  Icon: CheckCircle },
+  pending_ack:  { label: "Needs Your Confirmation", color: "bg-amber-100 text-amber-700 border-amber-200", Icon: Clock },
+  acknowledged: { label: "Confirmed",               color: "bg-teal-100  text-teal-700  border-teal-200",  Icon: CheckCircle },
 };
 
 const STATUSES = ["all", "pending_ack", "acknowledged"];
@@ -201,12 +201,12 @@ export default function ReceiptsPage() {
                     <table className="w-full text-sm min-w-[700px]">
                       <thead>
                         <tr className="border-b bg-muted/50">
-                          <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">SN No.</th>
+                          <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Receipt No.</th>
                           <th className="px-4 py-2.5 text-left font-medium">Item</th>
-                          <th className="px-4 py-2.5 text-right font-medium">Qty Rcvd</th>
-                          <th className="px-4 py-2.5 text-right font-medium">Qty Ordered</th>
+                          <th className="px-4 py-2.5 text-right font-medium">Delivered</th>
+                          <th className="px-4 py-2.5 text-right font-medium">Ordered</th>
                           <th className="px-4 py-2.5 text-left font-medium">Department</th>
-                          <th className="px-4 py-2.5 text-left font-medium">People</th>
+                          <th className="px-4 py-2.5 text-left font-medium">Who</th>
                           <th className="px-4 py-2.5 text-left font-medium">Status</th>
                           <th className="px-4 py-2.5 text-left font-medium">Date</th>
                           <th className="px-4 py-2.5 text-right font-medium">Actions</th>
@@ -245,7 +245,7 @@ export default function ReceiptsPage() {
                               {r.acknowledged_by_username && (
                                 <p>
                                   <span className="font-medium text-foreground">{r.acknowledged_by_username}</span>
-                                  <span className="ml-1 text-[10px] text-muted-foreground/70">signed off</span>
+                                  <span className="ml-1 text-[10px] text-muted-foreground/70">confirmed</span>
                                 </p>
                               )}
                             </td>
@@ -257,9 +257,7 @@ export default function ReceiptsPage() {
                                   <Eye className="size-3.5 text-blue-600" />
                                 </Button>
                                 {r.status === "pending_ack" && (admin || r.requested_by_user_id === currentUserId) && (
-                                  <Button variant="ghost" size="icon" className="size-7" title="Acknowledge" onClick={() => { setSelected(r); setAckNote(""); setAckErr(null); setViewOpen(false); }}>
-                                    <CheckCircle className="size-3.5 text-teal-600" />
-                                  </Button>
+                                  <Button variant="outline" size="sm" className="h-7 text-xs text-teal-600 border-teal-200" onClick={() => { setSelected(r); setAckNote(""); setAckErr(null); setViewOpen(false); }}>Confirm Receipt</Button>
                                 )}
                                 {admin && (
                                   <Button variant="ghost" size="icon" className="size-7" title="Delete" onClick={() => { setDeleteId(r.id); setDeletingSn(r.sn_no); }}>
@@ -294,7 +292,7 @@ export default function ReceiptsPage() {
       </div>
 
       {/* View Dialog */}
-      <Dialog open={viewOpen} onOpenChange={o => !o && setViewOpen(false)}>
+      <Dialog open={viewOpen} onOpenChange={o => { if (!o) { setViewOpen(false); setSelected(null); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>{selected?.sn_no}</DialogTitle></DialogHeader>
           {selected && (
@@ -304,10 +302,10 @@ export default function ReceiptsPage() {
                 {selected.item_name && <><dt className="text-muted-foreground">Item</dt><dd className="font-medium">{selected.item_name}{selected.item_code && <span className="ml-2 font-mono text-xs text-muted-foreground">{selected.item_code}</span>}</dd></>}
                 <dt className="text-muted-foreground">{selected.created_by_user_id === currentUserId ? "Qty Delivered" : "Qty Received"}</dt><dd className="font-semibold tabular-nums">{selected.quantity_received} / {selected.quantity_requested}</dd>
                 {selected.notes && <><dt className="text-muted-foreground">Delivery Notes</dt><dd>{selected.notes}</dd></>}
-                <dt className="text-muted-foreground">Created By</dt><dd>{selected.created_by_username ?? "—"}</dd>
+                <dt className="text-muted-foreground">Delivered By</dt><dd>{selected.created_by_username ?? "—"}</dd>
                 <dt className="text-muted-foreground">Date</dt><dd>{fmtDate(selected.created_at)}</dd>
-                {selected.acknowledged_by_username && <><dt className="text-muted-foreground">Acknowledged By</dt><dd>{selected.acknowledged_by_username}{selected.acknowledged_at && ` on ${fmtDateTime(selected.acknowledged_at)}`}</dd></>}
-                {selected.acknowledgment_note && <><dt className="text-muted-foreground">Ack Note</dt><dd className="italic">{selected.acknowledgment_note}</dd></>}
+                {selected.acknowledged_by_username && <><dt className="text-muted-foreground">Confirmed By</dt><dd>{selected.acknowledged_by_username}{selected.acknowledged_at && ` on ${fmtDateTime(selected.acknowledged_at)}`}</dd></>}
+                {selected.acknowledgment_note && <><dt className="text-muted-foreground">Confirmation Note</dt><dd className="italic">{selected.acknowledgment_note}</dd></>}
               </dl>
             </div>
           )}
@@ -319,16 +317,16 @@ export default function ReceiptsPage() {
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <CheckCircle className="size-4 text-teal-600" /> Sign Off — {selected?.sn_no}
+              <CheckCircle className="size-4 text-teal-600" /> Confirm You Received This — {selected?.sn_no}
             </DialogTitle>
           </DialogHeader>
           {selected && (
             <div className="space-y-3 mt-1">
               <p className="text-sm text-muted-foreground">
-                Confirm receipt of <span className="font-semibold text-foreground">{selected.quantity_received}</span> × {selected.item_name ?? "item"}.
+                Did you receive <span className="font-semibold text-foreground">{selected.quantity_received}</span> × {selected.item_name ?? "item"}? Tap confirm and it will be marked as done.
               </p>
               <div className="space-y-1.5">
-                <Label>Note <span className="text-xs text-muted-foreground">(optional)</span></Label>
+                <Label>Comments <span className="text-xs text-muted-foreground">(optional)</span></Label>
                 <textarea rows={2} placeholder="Any remarks…" value={ackNote}
                   onChange={e => setAckNote(e.target.value)} disabled={ackSaving}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
@@ -336,7 +334,7 @@ export default function ReceiptsPage() {
               {ackErr && <p className="text-sm text-destructive">{ackErr}</p>}
               <div className="flex gap-3">
                 <Button onClick={doAcknowledge} disabled={ackSaving} className="flex-1">
-                  {ackSaving ? "Saving…" : "Acknowledge Receipt"}
+                  {ackSaving ? "Saving…" : "Yes, I Received It"}
                 </Button>
                 <Button variant="outline" onClick={() => setSelected(null)} disabled={ackSaving}>Cancel</Button>
               </div>
