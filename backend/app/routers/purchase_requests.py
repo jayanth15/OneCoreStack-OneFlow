@@ -376,6 +376,92 @@ def create_request(
     return _out(req, session)
 
 
+class PurchaseRequestBulkCreate(BaseModel):
+    items: list[PurchaseRequestCreate]
+    # Shared optional fields applied to every item
+    from_whom: Optional[str] = None
+    notes: Optional[str] = None
+    department: Optional[str] = None
+
+
+@router.post("/bulk", response_model=list[PurchaseRequestOut], status_code=status.HTTP_201_CREATED)
+def bulk_create_requests(
+    body: PurchaseRequestBulkCreate,
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> list[PurchaseRequestOut]:
+    """Create multiple purchase requests in one call (one row per item)."""
+    if not body.items:
+        raise HTTPException(status_code=400, detail="At least one item is required")
+
+    admins = session.exec(
+        select(User).where(
+            User.role.in_(["admin", "super_admin"]),  # type: ignore[union-attr]
+            User.is_active == True,  # noqa: E712
+            User.id != current_user.id,
+        )
+    ).all()
+
+    created: list[PurchaseRequest] = []
+    now = datetime.now(tz=timezone.utc)
+
+    for item in body.items:
+        if not item.inventory_item_id and not item.item_name:
+            raise HTTPException(status_code=400, detail="Each item must have inventory_item_id or item_name")
+
+        # Merge shared fields (item-level overrides shared if set)
+        from_whom = item.from_whom or body.from_whom
+        notes = item.notes or body.notes
+        department = item.department or body.department
+
+        # Auto-resolve timeline_days from linked inventory item
+        timeline_days: Optional[int] = item.timeline_days
+        if item.inventory_item_id:
+            inv_item = session.get(InventoryItem, item.inventory_item_id)
+            if inv_item:
+                timeline_days = getattr(inv_item, "timeline_days", None)
+
+        req = PurchaseRequest(
+            sn_no=_next_sn(session),
+            inventory_item_id=item.inventory_item_id,
+            item_name=item.item_name,
+            item_code=item.item_code,
+            item_type=item.item_type,
+            description=item.description,
+            quantity=item.quantity,
+            from_whom=from_whom,
+            timeline_days=timeline_days,
+            notes=notes,
+            department=department,
+            status="pending",
+            requested_by_user_id=current_user.id,
+            requested_by_username=current_user.username,
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(req)
+        session.flush()
+        _record_history(session, req.id, current_user, "created",  # type: ignore[arg-type]
+                        note=f"Request {req.sn_no} created")
+
+        for admin_user in admins:
+            create_notification(
+                session,
+                user_id=admin_user.id,  # type: ignore[arg-type]
+                notif_type="request_created",
+                title="New Purchase Request",
+                body=f"{current_user.username} submitted request {req.sn_no} for {req.item_name or 'item'}{(' — dept: ' + department) if department else ''}.",
+                request_id=req.id,
+            )
+
+        created.append(req)
+
+    session.commit()
+    for req in created:
+        session.refresh(req)
+    return [_out(r, session) for r in created]
+
+
 @router.get("/{req_id}", response_model=PurchaseRequestOut)
 def get_request(
     req_id: int,

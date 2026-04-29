@@ -18,10 +18,22 @@ import {
 import { apiFetchJson } from "@/lib/api";
 import { getCurrentUser, isAdminOrAbove } from "@/lib/user";
 import {
-  ChevronLeft, ChevronRight, PackageCheck, CheckCircle, Clock, Eye, Trash2,
+  ChevronLeft, ChevronRight, PackageCheck, CheckCircle, Clock, Eye, Trash2, Printer,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+
+interface CompanyInfo {
+  company_name: string;
+  company_address: string;
+  company_phone: string;
+  company_email: string;
+  company_gstin: string;
+  company_city: string;
+  company_state: string;
+  company_country: string;
+  company_pincode: string;
+}
 
 interface Receipt {
   id: number;
@@ -103,10 +115,14 @@ export default function ReceiptsPage() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [deletingSn, setDeletingSn] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
 
   useEffect(() => {
     setAdmin(isAdminOrAbove());
     setCurrentUserId(getCurrentUser()?.id ?? null);
+    apiFetchJson<CompanyInfo>("/api/v1/settings/company")
+      .then(info => setCompanyInfo(info))
+      .catch(() => { /* non-admin users may not have access */ });
   }, []);
 
   const PAGE_SIZE = 10;
@@ -151,6 +167,96 @@ export default function ReceiptsPage() {
       setDeleteId(null); load(page);
     } catch { /* ignore */ }
     finally { setDeleting(false); }
+  }
+
+  function handlePrint(r: Receipt) {
+    const statusLabel = r.status === "acknowledged" ? "Confirmed" : "Needs Confirmation";
+    const co = companyInfo;
+    const coHtml = (co && co.company_name) ? `
+      <div style="border-bottom:2px solid #222;padding-bottom:12px;margin-bottom:16px">
+        <div style="font-size:20px;font-weight:800;color:#111">${co.company_name}</div>
+        ${co.company_address ? `<div style="font-size:12px;color:#555;margin-top:2px">${co.company_address}${co.company_city ? ", " + co.company_city : ""}${co.company_state ? ", " + co.company_state : ""}${co.company_pincode ? " - " + co.company_pincode : ""}</div>` : ""}
+        <div style="font-size:11px;color:#777;margin-top:4px">
+          ${co.company_phone ? `&#128222; ${co.company_phone}&nbsp;&nbsp;` : ""}
+          ${co.company_email ? `&#9993; ${co.company_email}&nbsp;&nbsp;` : ""}
+          ${co.company_gstin ? `GSTIN: ${co.company_gstin}` : ""}
+        </div>
+      </div>` : "";
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+      <style>
+        body { font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px; color: #111; }
+        h1 { font-size: 20px; font-weight: bold; letter-spacing: 2px; margin: 0; }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 8px; border: 1px solid #ddd; background: #f3f4f6; font-weight: 600; font-size: 13px; }
+        td { padding: 8px; border: 1px solid #ddd; font-size: 13px; }
+        .meta-label { color: #555; width: 160px; padding: 4px 0; font-size: 13px; }
+        .meta-value { padding: 4px 0; font-size: 13px; }
+        .footer-note { font-size: 10px; color: #aaa; text-align: center; margin-top: 24px; }
+        @media print { @page { margin: 20mm; } }
+      </style>
+    </head><body>
+      ${coHtml}
+      <div style="text-align:center;border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:16px">
+        <h1>GOODS RECEIPT</h1>
+      </div>
+      <table style="margin-bottom:16px">
+        <tr>
+          <td style="width:50%;vertical-align:top;border:none;padding:0 0 12px 0">
+            <p style="margin:0;font-size:12px;color:#666">Receipt No.</p>
+            <p style="margin:2px 0 0;font-size:16px;font-weight:bold;font-family:monospace">${r.sn_no}</p>
+          </td>
+          <td style="width:50%;text-align:right;vertical-align:top;border:none;padding:0 0 12px 0">
+            <p style="margin:0;font-size:12px;color:#666">Date</p>
+            <p style="margin:2px 0 0;font-size:13px">${new Date(r.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })}</p>
+          </td>
+        </tr>
+      </table>
+      <table style="margin-bottom:16px">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Code</th>
+            <th style="text-align:right">Ordered</th>
+            <th style="text-align:right">Delivered</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>${r.item_name ?? "—"}</td>
+            <td style="font-family:monospace">${r.item_code ?? "—"}</td>
+            <td style="text-align:right">${r.quantity_requested}</td>
+            <td style="text-align:right;font-weight:bold">${r.quantity_received}</td>
+          </tr>
+        </tbody>
+      </table>
+      <table style="margin-bottom:16px">
+        <tr><td class="meta-label">Department:</td><td class="meta-value" style="font-weight:500">${r.requesting_department ?? "—"}</td></tr>
+        <tr><td class="meta-label">Requested By:</td><td class="meta-value">${r.requested_by_username ?? "—"}</td></tr>
+        <tr><td class="meta-label">Delivered By:</td><td class="meta-value">${r.created_by_username ?? "—"}</td></tr>
+        <tr><td class="meta-label">Delivery Notes:</td><td class="meta-value" style="font-style:italic">${r.notes ?? "—"}</td></tr>
+        <tr><td class="meta-label">Status:</td><td class="meta-value" style="font-weight:bold">${statusLabel}</td></tr>
+        ${r.acknowledged_by_username ? `<tr><td class="meta-label">Confirmed By:</td><td class="meta-value">${r.acknowledged_by_username} on ${new Date(r.acknowledged_at!).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</td></tr>` : ""}
+        ${r.acknowledgment_note ? `<tr><td class="meta-label">Confirmation Note:</td><td class="meta-value" style="font-style:italic">${r.acknowledgment_note}</td></tr>` : ""}
+      </table>
+      <div style="border-top:1px solid #ddd;padding-top:24px;margin-top:32px">
+        <table>
+          <tr>
+            <td style="width:45%;text-align:center;border:none">
+              <div style="border-bottom:1px solid #000;margin-bottom:6px;height:40px"></div>
+              <p style="font-size:11px;color:#555;margin:0">Delivered By</p>
+            </td>
+            <td style="width:10%;border:none"></td>
+            <td style="width:45%;text-align:center;border:none">
+              <div style="border-bottom:1px solid #000;margin-bottom:6px;height:40px"></div>
+              <p style="font-size:11px;color:#555;margin:0">Received By</p>
+            </td>
+          </tr>
+        </table>
+      </div>
+      <p class="footer-note">Printed from OneFlow ERP &middot; ${new Date().toLocaleString("en-IN")}</p>
+    </body></html>`;
+    const w = window.open("", "_blank", "width=800,height=700");
+    if (w) { w.document.write(html); w.document.close(); w.focus(); w.print(); }
   }
 
   return (
@@ -256,6 +362,9 @@ export default function ReceiptsPage() {
                                 <Button variant="ghost" size="icon" className="size-7" title="View" onClick={() => { setSelected(r); setAckNote(""); setAckErr(null); setViewOpen(true); }}>
                                   <Eye className="size-3.5 text-blue-600" />
                                 </Button>
+                                <Button variant="ghost" size="icon" className="size-7" title="Print" onClick={() => handlePrint(r)}>
+                                  <Printer className="size-3.5 text-muted-foreground" />
+                                </Button>
                                 {r.status === "pending_ack" && (admin || r.requested_by_user_id === currentUserId) && (
                                   <Button variant="outline" size="sm" className="h-7 text-xs text-teal-600 border-teal-200" onClick={() => { setSelected(r); setAckNote(""); setAckErr(null); setViewOpen(false); }}>Confirm Receipt</Button>
                                 )}
@@ -307,6 +416,11 @@ export default function ReceiptsPage() {
                 {selected.acknowledged_by_username && <><dt className="text-muted-foreground">Confirmed By</dt><dd>{selected.acknowledged_by_username}{selected.acknowledged_at && ` on ${fmtDateTime(selected.acknowledged_at)}`}</dd></>}
                 {selected.acknowledgment_note && <><dt className="text-muted-foreground">Confirmation Note</dt><dd className="italic">{selected.acknowledgment_note}</dd></>}
               </dl>
+              <div className="flex justify-end pt-1">
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => handlePrint(selected)}>
+                  <Printer className="size-3.5" />Print Receipt
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>

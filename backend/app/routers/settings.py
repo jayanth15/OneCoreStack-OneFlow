@@ -15,13 +15,20 @@ from sqlmodel import Session, select
 
 from app.core.config import settings as app_settings
 from app.core.database import get_session
-from app.dependencies.auth import require_admin
+from app.dependencies.auth import get_current_active_user, require_admin
 from app.models.company_settings import CompanySettings
 
 router = APIRouter(
     prefix="/api/v1/settings",
     tags=["settings"],
     dependencies=[Depends(require_admin)],
+)
+
+# Public router — any authenticated user can read company info (needed for printing)
+public_router = APIRouter(
+    prefix="/api/v1/settings",
+    tags=["settings"],
+    dependencies=[Depends(get_current_active_user)],
 )
 
 # ── Known company info keys (used to seed defaults) ──────────────────────────
@@ -102,7 +109,7 @@ def _db_file_path() -> str | None:
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
-@router.get("/company", response_model=CompanyInfoResponse)
+@public_router.get("/company", response_model=CompanyInfoResponse)
 def get_company_info(
     session: Annotated[Session, Depends(get_session)],
 ) -> CompanyInfoResponse:

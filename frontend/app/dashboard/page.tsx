@@ -185,6 +185,17 @@ const STATUS_DOT: Record<string, string> = {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+function fmtCurrencyShort(n: number): string {
+  if (n >= 1_00_00_000) return `₹${(n / 1_00_00_000).toFixed(1).replace(/\.0$/, "")}Cr`;
+  if (n >= 1_00_000)    return `₹${(n / 1_00_000).toFixed(1).replace(/\.0$/, "")}L`;
+  if (n >= 1_000)       return `₹${(n / 1_000).toFixed(1).replace(/\.0$/, "")}K`;
+  return `₹${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+}
+
+function fmtCurrencyFull(n: number): string {
+  return `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+}
+
 function formatType(t: string) {
   return t.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
@@ -451,7 +462,7 @@ export default function DashboardPage() {
                 <div>
                   {isAdminOrAbove() && sparesStats.total_value > 0 ? (
                     <>
-                      <p className="text-xl font-bold text-emerald-600">₹{sparesStats.total_value.toLocaleString(undefined, {maximumFractionDigits: 0})}</p>
+                      <p className="text-xl font-bold text-emerald-600 cursor-help" title={fmtCurrencyFull(sparesStats.total_value)}>{fmtCurrencyShort(sparesStats.total_value)}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">Value</p>
                     </>
                   ) : (
@@ -497,7 +508,7 @@ export default function DashboardPage() {
                 <div>
                   {isAdminOrAbove() && consumablesValue !== null && consumablesValue > 0 ? (
                     <>
-                      <p className="text-xl font-bold text-emerald-600">₹{consumablesValue.toLocaleString(undefined, {maximumFractionDigits: 0})}</p>
+                      <p className="text-xl font-bold text-emerald-600 cursor-help" title={fmtCurrencyFull(consumablesValue!)}>{fmtCurrencyShort(consumablesValue!)}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">Value</p>
                     </>
                   ) : (
@@ -543,7 +554,7 @@ export default function DashboardPage() {
                 <div>
                   {isAdminOrAbove() && attachmentsValue !== null && attachmentsValue > 0 ? (
                     <>
-                      <p className="text-xl font-bold text-emerald-600">₹{attachmentsValue.toLocaleString(undefined, {maximumFractionDigits: 0})}</p>
+                      <p className="text-xl font-bold text-emerald-600 cursor-help" title={fmtCurrencyFull(attachmentsValue!)}>{fmtCurrencyShort(attachmentsValue!)}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">Value</p>
                     </>
                   ) : (
@@ -589,7 +600,7 @@ export default function DashboardPage() {
                 <div>
                   {isAdminOrAbove() && weedersValue !== null && weedersValue > 0 ? (
                     <>
-                      <p className="text-xl font-bold text-emerald-600">₹{weedersValue.toLocaleString(undefined, {maximumFractionDigits: 0})}</p>
+                      <p className="text-xl font-bold text-emerald-600 cursor-help" title={fmtCurrencyFull(weedersValue!)}>{fmtCurrencyShort(weedersValue!)}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">Value</p>
                     </>
                   ) : (
@@ -884,8 +895,8 @@ export default function DashboardPage() {
                     {t.total_qty.toLocaleString()} units
                   </p>
                   {t.total_value != null && t.total_value > 0 && (
-                    <p className="text-sm font-medium text-emerald-600 mt-0.5">
-                      ₹{t.total_value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    <p className="text-sm font-medium text-emerald-600 mt-0.5 cursor-help" title={fmtCurrencyFull(t.total_value)}>
+                      {fmtCurrencyShort(t.total_value)}
                     </p>
                   )}
                 </div>

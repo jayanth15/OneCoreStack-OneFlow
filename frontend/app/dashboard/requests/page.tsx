@@ -20,7 +20,7 @@ import { apiFetchJson } from "@/lib/api";
 import { isAdminOrAbove, getCurrentUser, canRequestInventory } from "@/lib/user";
 import {
   PlusIcon, Search, ChevronLeft, ChevronRight, CheckCircle, XCircle,
-  Clock, Ban, Eye, Pencil, History, AlertTriangle, ShoppingCart, X, PackageCheck, Package, Loader2, Trash2,
+  Clock, Ban, Eye, Pencil, History, AlertTriangle, ShoppingCart, X, PackageCheck, Package, Loader2, Trash2, Minus,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -281,6 +281,24 @@ function HistoryDialog({ open, onClose, url, title }: { open: boolean; onClose: 
 
 const P_BLANK = { item_name: "", item_code: "", item_type: "", description: "", quantity: "1", from_whom: "", timeline_days: "", notes: "", department: "" };
 
+interface FormItemRow {
+  _key: number;
+  invType: string;
+  invItemId: number | null;
+  invLabel: string;
+  item_name: string;
+  item_code: string;
+  description: string;
+  quantity: string;
+  timeline_days: string;
+  showManual: boolean;
+}
+
+let _rowKey = 0;
+function newRow(): FormItemRow {
+  return { _key: ++_rowKey, invType: "", invItemId: null, invLabel: "", item_name: "", item_code: "", description: "", quantity: "1", timeline_days: "", showManual: false };
+}
+
 function PurchaseTab({ admin }: { admin: boolean }) {
   const [items, setItems] = useState<PurchaseRequest[]>([]);
   const [total, setTotal] = useState(0); const [page, setPage] = useState(1); const [pages, setPages] = useState(1);
@@ -297,6 +315,10 @@ function PurchaseTab({ admin }: { admin: boolean }) {
   const [invLabel, setInvLabel] = useState("");
   const [saving, setSaving] = useState(false); const [formErr, setFormErr] = useState<string | null>(null);
   const [showManualFields, setShowManualFields] = useState(false);
+  const [formItems, setFormItems] = useState<FormItemRow[]>([newRow()]);
+  // shared create-only fields
+  const [sharedFromWhom, setSharedFromWhom] = useState("");
+  const [sharedNotes, setSharedNotes] = useState("");
 
   const [reviewDialog, setReviewDialog] = useState<"approve" | "reject" | null>(null);
   const [reviewNote, setReviewNote] = useState("");
@@ -356,7 +378,9 @@ function PurchaseTab({ admin }: { admin: boolean }) {
 
   function openCreate() {
     const autoDept = depts.length === 1 ? depts[0].name : "";
-    setSelected(null); setForm({ ...P_BLANK, department: autoDept }); setInvItemId(null); setInvLabel(""); setInvType(""); setFormErr(null); setShowManualFields(false); setDialog("create");
+    setSelected(null); setForm({ ...P_BLANK, department: autoDept }); setInvItemId(null); setInvLabel(""); setInvType(""); setFormErr(null); setShowManualFields(false);
+    setFormItems([newRow()]); setSharedFromWhom(""); setSharedNotes("");
+    setDialog("create");
   }
   function openEdit(r: PurchaseRequest) {
     setSelected(r);
@@ -373,21 +397,49 @@ function PurchaseTab({ admin }: { admin: boolean }) {
   }
 
   async function save() {
-    if (!form.item_name.trim() && !invItemId) { setFormErr("Please select or name an item"); return; }
-    setSaving(true); setFormErr(null);
-    const body = {
-      inventory_item_id: invItemId, item_name: form.item_name || null,
-      item_code: form.item_code || null, item_type: form.item_type || null,
-      description: form.description || null, quantity: parseFloat(form.quantity) || 1,
-      from_whom: form.from_whom || null, timeline_days: form.timeline_days ? parseInt(form.timeline_days) : null,
-      notes: form.notes || null, department: form.department || null,
-    };
-    try {
-      if (dialog === "create") await apiFetchJson("/api/v1/purchase-requests", { method: "POST", body: JSON.stringify(body) });
-      else await apiFetchJson(`/api/v1/purchase-requests/${selected!.id}`, { method: "PUT", body: JSON.stringify(body) });
-      setDialog(null); fetch(dialog === "create" ? 1 : page);
-    } catch (e: unknown) { setFormErr(e instanceof Error ? e.message : "Save failed"); }
-    finally { setSaving(false); }
+    if (dialog === "create") {
+      // Multi-item bulk create
+      for (const row of formItems) {
+        if (!row.item_name.trim() && !row.invItemId) { setFormErr("Every item must have a name or be selected from inventory"); return; }
+        if (!parseFloat(row.quantity) || parseFloat(row.quantity) <= 0) { setFormErr("All quantities must be greater than 0"); return; }
+      }
+      setSaving(true); setFormErr(null);
+      const bulkBody = {
+        from_whom: sharedFromWhom || null,
+        notes: sharedNotes || null,
+        department: form.department || null,
+        items: formItems.map(row => ({
+          inventory_item_id: row.invItemId,
+          item_name: row.item_name || null,
+          item_code: row.item_code || null,
+          item_type: row.invType || null,
+          description: row.description || null,
+          quantity: parseFloat(row.quantity) || 1,
+          timeline_days: row.timeline_days ? parseInt(row.timeline_days) : null,
+        })),
+      };
+      try {
+        await apiFetchJson("/api/v1/purchase-requests/bulk", { method: "POST", body: JSON.stringify(bulkBody) });
+        setDialog(null); fetch(1);
+      } catch (e: unknown) { setFormErr(e instanceof Error ? e.message : "Save failed"); }
+      finally { setSaving(false); }
+    } else {
+      // Single-item edit
+      if (!form.item_name.trim() && !invItemId) { setFormErr("Please select or name an item"); return; }
+      setSaving(true); setFormErr(null);
+      const body = {
+        inventory_item_id: invItemId, item_name: form.item_name || null,
+        item_code: form.item_code || null, item_type: form.item_type || null,
+        description: form.description || null, quantity: parseFloat(form.quantity) || 1,
+        from_whom: form.from_whom || null, timeline_days: form.timeline_days ? parseInt(form.timeline_days) : null,
+        notes: form.notes || null, department: form.department || null,
+      };
+      try {
+        await apiFetchJson(`/api/v1/purchase-requests/${selected!.id}`, { method: "PUT", body: JSON.stringify(body) });
+        setDialog(null); fetch(page);
+      } catch (e: unknown) { setFormErr(e instanceof Error ? e.message : "Save failed"); }
+      finally { setSaving(false); }
+    }
   }
 
   async function doReview() {
@@ -590,80 +642,189 @@ function PurchaseTab({ admin }: { admin: boolean }) {
 
       {/* Create / Edit Dialog */}
       <Dialog open={dialog === "create" || dialog === "edit"} onOpenChange={o => !o && setDialog(null)}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto overflow-x-visible">
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto overflow-x-visible">
           <DialogHeader><DialogTitle>{dialog === "create" ? "New Purchase Request" : `Edit — ${selected?.sn_no ?? ""}`}</DialogTitle></DialogHeader>
-          <div className="space-y-4 mt-1">
-            <div className="space-y-1.5">
-              <Label>Inventory Type *</Label>
-              <select value={invType} onChange={e => { const t = e.target.value; setInvType(t); setInvItemId(null); setInvLabel(""); setForm(f => ({ ...f, item_name: "", item_code: "", item_type: t, timeline_days: "" })); }} disabled={saving}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
-                <option value="">— Select type —</option>
-                {allowedTypes.map(t => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Inventory Item <span className="text-muted-foreground font-normal text-xs">(search to select, or type manually below)</span></Label>
-              <InvCombobox value={invLabel} invType={invType} onChange={item => {
-                const isRegularInv = ["raw_material", "finished_good", "semi_finished"].includes(invType);
-                setInvItemId(isRegularInv ? item.id : null);
-                setInvLabel(item.code ? `${item.code} — ${item.name}` : item.name);
-                setForm(f => ({ ...f, item_name: item.name, item_code: item.code, item_type: invType || item.item_type, description: "", timeline_days: item.timeline_days != null ? String(item.timeline_days) : "" }));
-              }} />
-            </div>
-            <div>
-              <button type="button" className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors" onClick={() => setShowManualFields(v => !v)}>
-                {showManualFields ? "Hide manual entry" : "Type item name manually instead"}
-              </button>
-              {showManualFields && (
-                <div className="grid grid-cols-2 gap-3 mt-2">
+
+          {dialog === "create" ? (
+            /* ── Multi-item create form ── */
+            <div className="space-y-4 mt-1">
+              {/* Item rows */}
+              {formItems.map((row, idx) => (
+                <div key={row._key} className="rounded-lg border p-3 space-y-3 bg-muted/10">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Item {idx + 1}</span>
+                    {formItems.length > 1 && (
+                      <Button variant="ghost" size="icon" className="size-6 text-destructive hover:text-destructive" onClick={() => setFormItems(fi => fi.filter(r => r._key !== row._key))}>
+                        <Minus className="size-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                  {/* Inventory type */}
+                  <div className="space-y-1">
+                    <Label className="text-xs">Inventory Type</Label>
+                    <select value={row.invType} disabled={saving}
+                      onChange={e => setFormItems(fi => fi.map(r => r._key === row._key ? { ...r, invType: e.target.value, invItemId: null, invLabel: "", item_name: "", item_code: "", timeline_days: "" } : r))}
+                      className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
+                      <option value="">— Select type —</option>
+                      {allowedTypes.map(t => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
+                    </select>
+                  </div>
+                  {/* Item search */}
+                  <div className="space-y-1">
+                    <Label className="text-xs">Item <span className="text-muted-foreground font-normal">(search or type manually)</span></Label>
+                    <InvCombobox value={row.invLabel} invType={row.invType} onChange={item => {
+                      const isReg = ["raw_material", "finished_good", "semi_finished"].includes(row.invType);
+                      setFormItems(fi => fi.map(r => r._key === row._key ? {
+                        ...r,
+                        invItemId: isReg ? item.id : null,
+                        invLabel: item.code ? `${item.code} — ${item.name}` : item.name,
+                        item_name: item.name,
+                        item_code: item.code,
+                        timeline_days: item.timeline_days != null ? String(item.timeline_days) : "",
+                        showManual: false,
+                      } : r));
+                    }} />
+                    <button type="button"
+                      className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors mt-0.5"
+                      onClick={() => setFormItems(fi => fi.map(r => r._key === row._key ? { ...r, showManual: !r.showManual } : r))}>
+                      {row.showManual ? "Hide manual entry" : "Type item name manually instead"}
+                    </button>
+                    {row.showManual && (
+                      <div className="grid grid-cols-2 gap-2 mt-1.5">
+                        <Input placeholder="Item name" value={row.item_name} disabled={saving}
+                          onChange={e => setFormItems(fi => fi.map(r => r._key === row._key ? { ...r, item_name: e.target.value } : r))} />
+                        <Input placeholder="Code / SKU" value={row.item_code} disabled={saving}
+                          onChange={e => setFormItems(fi => fi.map(r => r._key === row._key ? { ...r, item_code: e.target.value } : r))} />
+                      </div>
+                    )}
+                  </div>
+                  {/* Description + Qty */}
+                  <div className="grid grid-cols-[1fr_7rem] gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Description</Label>
+                      <Input placeholder="Spec / description…" value={row.description} disabled={saving}
+                        onChange={e => setFormItems(fi => fi.map(r => r._key === row._key ? { ...r, description: e.target.value } : r))} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Qty *</Label>
+                      <Input type="number" min="0.001" step="any" value={row.quantity} disabled={saving}
+                        onChange={e => setFormItems(fi => fi.map(r => r._key === row._key ? { ...r, quantity: e.target.value } : r))} />
+                    </div>
+                  </div>
+                  {row.timeline_days && <p className="text-xs text-muted-foreground">Expected delivery: <span className="font-medium text-foreground">{row.timeline_days} day{Number(row.timeline_days) !== 1 ? "s" : ""}</span></p>}
+                </div>
+              ))}
+
+              {/* Add Item button */}
+              <Button type="button" variant="outline" size="sm" className="w-full gap-1.5" onClick={() => setFormItems(fi => [...fi, newRow()])} disabled={saving}>
+                <PlusIcon className="size-3.5" />Add Another Item
+              </Button>
+
+              {/* Shared fields */}
+              <div className="border-t pt-3 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <Label>Item Name</Label>
-                    <Input placeholder="Item name" value={form.item_name} onChange={e => setForm(f => ({ ...f, item_name: e.target.value }))} disabled={saving} />
+                    <Label>Department</Label>
+                    <select value={form.department} onChange={e => setForm(f => ({ ...f, department: e.target.value }))} disabled={saving}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
+                      <option value="">— select —</option>
+                      {depts.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+                    </select>
                   </div>
                   <div className="space-y-1.5">
-                    <Label>Item Code</Label>
-                    <Input placeholder="Code / SKU" value={form.item_code} onChange={e => setForm(f => ({ ...f, item_code: e.target.value }))} disabled={saving} />
+                    <Label>Supplier / Source</Label>
+                    <Input placeholder="Supplier name or source" value={sharedFromWhom} onChange={e => setSharedFromWhom(e.target.value)} disabled={saving} />
                   </div>
                 </div>
-              )}
-            </div>
-            <div className="space-y-1.5">
-              <Label>Description</Label>
-              <textarea rows={2} placeholder="Description or specification…" value={form.description}
-                onChange={e => setForm(f => ({ ...f, description: e.target.value }))} disabled={saving}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Quantity *</Label>
-                <Input type="number" min="0.001" step="any" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} disabled={saving} />
+                <div className="space-y-1.5">
+                  <Label>Notes</Label>
+                  <textarea rows={2} placeholder="Any additional notes…" value={sharedNotes}
+                    onChange={e => setSharedNotes(e.target.value)} disabled={saving}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
+                </div>
               </div>
+
+              {formErr && <p className="text-sm text-destructive">{formErr}</p>}
+              <div className="flex gap-3 pt-1">
+                <Button onClick={save} disabled={saving} className="flex-1">{saving ? "Saving…" : `Submit ${formItems.length > 1 ? `${formItems.length} Requests` : "Request"}`}</Button>
+                <Button variant="outline" onClick={() => setDialog(null)} disabled={saving}>Cancel</Button>
+              </div>
+            </div>
+          ) : (
+            /* ── Single-item edit form (unchanged) ── */
+            <div className="space-y-4 mt-1">
               <div className="space-y-1.5">
-                <Label>Department</Label>
-                <select value={form.department} onChange={e => setForm(f => ({ ...f, department: e.target.value }))} disabled={saving}
+                <Label>Inventory Type *</Label>
+                <select value={invType} onChange={e => { const t = e.target.value; setInvType(t); setInvItemId(null); setInvLabel(""); setForm(f => ({ ...f, item_name: "", item_code: "", item_type: t, timeline_days: "" })); }} disabled={saving}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
-                  <option value="">— select —</option>
-                  {depts.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+                  <option value="">— Select type —</option>
+                  {allowedTypes.map(t => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
                 </select>
               </div>
+              <div className="space-y-1.5">
+                <Label>Inventory Item <span className="text-muted-foreground font-normal text-xs">(search to select, or type manually below)</span></Label>
+                <InvCombobox value={invLabel} invType={invType} onChange={item => {
+                  const isRegularInv = ["raw_material", "finished_good", "semi_finished"].includes(invType);
+                  setInvItemId(isRegularInv ? item.id : null);
+                  setInvLabel(item.code ? `${item.code} — ${item.name}` : item.name);
+                  setForm(f => ({ ...f, item_name: item.name, item_code: item.code, item_type: invType || item.item_type, description: "", timeline_days: item.timeline_days != null ? String(item.timeline_days) : "" }));
+                }} />
+              </div>
+              <div>
+                <button type="button" className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors" onClick={() => setShowManualFields(v => !v)}>
+                  {showManualFields ? "Hide manual entry" : "Type item name manually instead"}
+                </button>
+                {showManualFields && (
+                  <div className="grid grid-cols-2 gap-3 mt-2">
+                    <div className="space-y-1.5">
+                      <Label>Item Name</Label>
+                      <Input placeholder="Item name" value={form.item_name} onChange={e => setForm(f => ({ ...f, item_name: e.target.value }))} disabled={saving} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Item Code</Label>
+                      <Input placeholder="Code / SKU" value={form.item_code} onChange={e => setForm(f => ({ ...f, item_code: e.target.value }))} disabled={saving} />
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <Label>Description</Label>
+                <textarea rows={2} placeholder="Description or specification…" value={form.description}
+                  onChange={e => setForm(f => ({ ...f, description: e.target.value }))} disabled={saving}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Quantity *</Label>
+                  <Input type="number" min="0.001" step="any" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} disabled={saving} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Department</Label>
+                  <select value={form.department} onChange={e => setForm(f => ({ ...f, department: e.target.value }))} disabled={saving}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
+                    <option value="">— select —</option>
+                    {depts.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+                  </select>
+                </div>
+              </div>
+              {form.timeline_days && <p className="text-xs text-muted-foreground">Expected delivery: <span className="font-medium text-foreground">{form.timeline_days} day{Number(form.timeline_days) !== 1 ? "s" : ""}</span></p>}
+              <div className="space-y-1.5">
+                <Label>Supplier / Source</Label>
+                <Input placeholder="Supplier name or source" value={form.from_whom} onChange={e => setForm(f => ({ ...f, from_whom: e.target.value }))} disabled={saving} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Notes</Label>
+                <textarea rows={2} placeholder="Any additional notes…" value={form.notes}
+                  onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} disabled={saving}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
+              </div>
+              {formErr && <p className="text-sm text-destructive">{formErr}</p>}
+              <div className="flex gap-3 pt-1">
+                <Button onClick={save} disabled={saving} className="flex-1">{saving ? "Saving…" : "Save Changes"}</Button>
+                <Button variant="outline" onClick={() => setDialog(null)} disabled={saving}>Cancel</Button>
+              </div>
             </div>
-            {form.timeline_days && <p className="text-xs text-muted-foreground">Expected delivery: <span className="font-medium text-foreground">{form.timeline_days} day{Number(form.timeline_days) !== 1 ? "s" : ""}</span></p>}
-            <div className="space-y-1.5">
-              <Label>Supplier / Source</Label>
-              <Input placeholder="Supplier name or source" value={form.from_whom} onChange={e => setForm(f => ({ ...f, from_whom: e.target.value }))} disabled={saving} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Notes</Label>
-              <textarea rows={2} placeholder="Any additional notes…" value={form.notes}
-                onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} disabled={saving}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
-            </div>
-            {formErr && <p className="text-sm text-destructive">{formErr}</p>}
-            <div className="flex gap-3 pt-1">
-              <Button onClick={save} disabled={saving} className="flex-1">{saving ? "Saving…" : dialog === "create" ? "Submit Request" : "Save Changes"}</Button>
-              <Button variant="outline" onClick={() => setDialog(null)} disabled={saving}>Cancel</Button>
-            </div>
-          </div>
+          )}
         </DialogContent>
       </Dialog>
 
