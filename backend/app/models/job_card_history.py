@@ -15,6 +15,7 @@ class JobCardHistory(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     job_card_id: int = Field(foreign_key="job_card.id", index=True)
     changed_by_user_id: Optional[int] = Field(default=None, foreign_key="users.id")
+    changed_by_username: Optional[str] = Field(default=None)  # denormalised for fast display
     changed_at: datetime = Field(
         default_factory=lambda: datetime.now(tz=timezone.utc),
         index=True,

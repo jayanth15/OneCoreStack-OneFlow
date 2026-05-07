@@ -25,6 +25,17 @@ import {
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+interface PurchaseRequestItemOut {
+  id: number;
+  inventory_item_id: number | null;
+  item_name: string | null;
+  item_code: string | null;
+  item_type: string | null;
+  description: string | null;
+  quantity: number;
+  timeline_days: number | null;
+}
+
 interface PurchaseRequest {
   id: number; sn_no: string;
   inventory_item_id: number | null; item_name: string | null;
@@ -32,6 +43,7 @@ interface PurchaseRequest {
   description: string | null; quantity: number;
   from_whom: string | null; timeline_days: number | null;
   notes: string | null; status: string;
+  items: PurchaseRequestItemOut[];
   requested_by_user_id: number | null; requested_by_username: string | null; department: string | null;
   reviewed_by_username: string | null; reviewed_at: string | null;
   review_note: string | null; deadline_date: string | null;
@@ -384,12 +396,42 @@ function PurchaseTab({ admin }: { admin: boolean }) {
   }
   function openEdit(r: PurchaseRequest) {
     setSelected(r);
+    // Populate formItems from the request's items (new design) or legacy single-item fields
+    if (r.items && r.items.length > 0) {
+      setFormItems(r.items.map(it => ({
+        _key: ++_rowKey,
+        invType: it.item_type ?? "",
+        invItemId: it.inventory_item_id,
+        invLabel: it.item_code && it.item_name ? `${it.item_code} — ${it.item_name}` : it.item_name ?? "",
+        item_name: it.item_name ?? "",
+        item_code: it.item_code ?? "",
+        description: it.description ?? "",
+        quantity: String(it.quantity),
+        timeline_days: it.timeline_days != null ? String(it.timeline_days) : "",
+        showManual: !it.inventory_item_id,
+      })));
+    } else {
+      setFormItems([{
+        _key: ++_rowKey,
+        invType: r.item_type ?? "",
+        invItemId: r.inventory_item_id,
+        invLabel: r.item_code && r.item_name ? `${r.item_code} — ${r.item_name}` : r.item_name ?? "",
+        item_name: r.item_name ?? "",
+        item_code: r.item_code ?? "",
+        description: r.description ?? "",
+        quantity: String(r.quantity),
+        timeline_days: r.timeline_days != null ? String(r.timeline_days) : "",
+        showManual: !r.inventory_item_id,
+      }]);
+    }
     setForm({
       item_name: r.item_name ?? "", item_code: r.item_code ?? "", item_type: r.item_type ?? "",
       description: r.description ?? "", quantity: String(r.quantity),
       from_whom: r.from_whom ?? "", timeline_days: r.timeline_days != null ? String(r.timeline_days) : "",
       notes: r.notes ?? "", department: r.department ?? "",
     });
+    setSharedFromWhom(r.from_whom ?? "");
+    setSharedNotes(r.notes ?? "");
     setInvItemId(r.inventory_item_id);
     setInvLabel(r.item_code && r.item_name ? `${r.item_code} — ${r.item_name}` : r.item_name ?? "");
     setInvType(r.item_type ?? "");
@@ -419,20 +461,31 @@ function PurchaseTab({ admin }: { admin: boolean }) {
         })),
       };
       try {
-        await apiFetchJson("/api/v1/purchase-requests/bulk", { method: "POST", body: JSON.stringify(bulkBody) });
+        await apiFetchJson("/api/v1/purchase-requests", { method: "POST", body: JSON.stringify(bulkBody) });
         setDialog(null); fetch(1);
       } catch (e: unknown) { setFormErr(e instanceof Error ? e.message : "Save failed"); }
       finally { setSaving(false); }
     } else {
-      // Single-item edit
-      if (!form.item_name.trim() && !invItemId) { setFormErr("Please select or name an item"); return; }
+      // Edit — send header fields + updated items
+      if (!formItems.length) { setFormErr("At least one item is required"); return; }
+      for (const row of formItems) {
+        if (!row.item_name.trim() && !row.invItemId) { setFormErr("Every item must have a name or be selected from inventory"); return; }
+        if (!parseFloat(row.quantity) || parseFloat(row.quantity) <= 0) { setFormErr("All quantities must be greater than 0"); return; }
+      }
       setSaving(true); setFormErr(null);
       const body = {
-        inventory_item_id: invItemId, item_name: form.item_name || null,
-        item_code: form.item_code || null, item_type: form.item_type || null,
-        description: form.description || null, quantity: parseFloat(form.quantity) || 1,
-        from_whom: form.from_whom || null, timeline_days: form.timeline_days ? parseInt(form.timeline_days) : null,
-        notes: form.notes || null, department: form.department || null,
+        from_whom: sharedFromWhom || null,
+        notes: sharedNotes || null,
+        department: form.department || null,
+        items: formItems.map(row => ({
+          inventory_item_id: row.invItemId,
+          item_name: row.item_name || null,
+          item_code: row.item_code || null,
+          item_type: row.invType || null,
+          description: row.description || null,
+          quantity: parseFloat(row.quantity) || 1,
+          timeline_days: row.timeline_days ? parseInt(row.timeline_days) : null,
+        })),
       };
       try {
         await apiFetchJson(`/api/v1/purchase-requests/${selected!.id}`, { method: "PUT", body: JSON.stringify(body) });
@@ -560,8 +613,20 @@ function PurchaseTab({ admin }: { admin: boolean }) {
                     <tr key={r.id} className="hover:bg-muted/20">
                       <td className="px-4 py-3"><Badge variant="secondary" className="font-mono text-xs">{r.sn_no}</Badge></td>
                       <td className="px-4 py-3 max-w-[180px]">
-                        <p className="font-medium truncate">{r.item_name ?? "—"}</p>
-                        {r.item_code && <p className="text-xs text-muted-foreground font-mono">{r.item_code}</p>}
+                        {r.items && r.items.length > 1 ? (
+                          <div>
+                            <p className="font-medium text-xs text-muted-foreground mb-0.5">{r.items.length} items</p>
+                            {r.items.slice(0, 2).map((it, idx) => (
+                              <p key={idx} className="text-xs truncate">{it.item_name ?? "—"}{it.item_code && <span className="font-mono text-muted-foreground ml-1">{it.item_code}</span>}</p>
+                            ))}
+                            {r.items.length > 2 && <p className="text-xs text-muted-foreground">+{r.items.length - 2} more</p>}
+                          </div>
+                        ) : (
+                          <div>
+                            <p className="font-medium truncate">{r.item_name ?? "—"}</p>
+                            {r.item_code && <p className="text-xs text-muted-foreground font-mono">{r.item_code}</p>}
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums font-medium">{r.quantity}</td>
                       <td className="px-4 py-3 text-xs">
@@ -645,9 +710,8 @@ function PurchaseTab({ admin }: { admin: boolean }) {
         <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto overflow-x-visible">
           <DialogHeader><DialogTitle>{dialog === "create" ? "New Purchase Request" : `Edit — ${selected?.sn_no ?? ""}`}</DialogTitle></DialogHeader>
 
-          {dialog === "create" ? (
-            /* ── Multi-item create form ── */
-            <div className="space-y-4 mt-1">
+          {/* Multi-item form — works for both create and edit */}
+          <div className="space-y-4 mt-1">
               {/* Item rows */}
               {formItems.map((row, idx) => (
                 <div key={row._key} className="rounded-lg border p-3 space-y-3 bg-muted/10">
@@ -746,85 +810,10 @@ function PurchaseTab({ admin }: { admin: boolean }) {
 
               {formErr && <p className="text-sm text-destructive">{formErr}</p>}
               <div className="flex gap-3 pt-1">
-                <Button onClick={save} disabled={saving} className="flex-1">{saving ? "Saving…" : `Submit ${formItems.length > 1 ? `${formItems.length} Requests` : "Request"}`}</Button>
+                <Button onClick={save} disabled={saving} className="flex-1">{saving ? "Saving…" : `${dialog === "edit" ? "Save Changes" : "Submit Request"}${formItems.length > 1 ? ` (${formItems.length} items)` : ""}`}</Button>
                 <Button variant="outline" onClick={() => setDialog(null)} disabled={saving}>Cancel</Button>
               </div>
             </div>
-          ) : (
-            /* ── Single-item edit form (unchanged) ── */
-            <div className="space-y-4 mt-1">
-              <div className="space-y-1.5">
-                <Label>Inventory Type *</Label>
-                <select value={invType} onChange={e => { const t = e.target.value; setInvType(t); setInvItemId(null); setInvLabel(""); setForm(f => ({ ...f, item_name: "", item_code: "", item_type: t, timeline_days: "" })); }} disabled={saving}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
-                  <option value="">— Select type —</option>
-                  {allowedTypes.map(t => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Inventory Item <span className="text-muted-foreground font-normal text-xs">(search to select, or type manually below)</span></Label>
-                <InvCombobox value={invLabel} invType={invType} onChange={item => {
-                  const isRegularInv = ["raw_material", "finished_good", "semi_finished"].includes(invType);
-                  setInvItemId(isRegularInv ? item.id : null);
-                  setInvLabel(item.code ? `${item.code} — ${item.name}` : item.name);
-                  setForm(f => ({ ...f, item_name: item.name, item_code: item.code, item_type: invType || item.item_type, description: "", timeline_days: item.timeline_days != null ? String(item.timeline_days) : "" }));
-                }} />
-              </div>
-              <div>
-                <button type="button" className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors" onClick={() => setShowManualFields(v => !v)}>
-                  {showManualFields ? "Hide manual entry" : "Type item name manually instead"}
-                </button>
-                {showManualFields && (
-                  <div className="grid grid-cols-2 gap-3 mt-2">
-                    <div className="space-y-1.5">
-                      <Label>Item Name</Label>
-                      <Input placeholder="Item name" value={form.item_name} onChange={e => setForm(f => ({ ...f, item_name: e.target.value }))} disabled={saving} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Item Code</Label>
-                      <Input placeholder="Code / SKU" value={form.item_code} onChange={e => setForm(f => ({ ...f, item_code: e.target.value }))} disabled={saving} />
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <Label>Description</Label>
-                <textarea rows={2} placeholder="Description or specification…" value={form.description}
-                  onChange={e => setForm(f => ({ ...f, description: e.target.value }))} disabled={saving}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Quantity *</Label>
-                  <Input type="number" min="0.001" step="any" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} disabled={saving} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Department</Label>
-                  <select value={form.department} onChange={e => setForm(f => ({ ...f, department: e.target.value }))} disabled={saving}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
-                    <option value="">— select —</option>
-                    {depts.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
-                  </select>
-                </div>
-              </div>
-              {form.timeline_days && <p className="text-xs text-muted-foreground">Expected delivery: <span className="font-medium text-foreground">{form.timeline_days} day{Number(form.timeline_days) !== 1 ? "s" : ""}</span></p>}
-              <div className="space-y-1.5">
-                <Label>Supplier / Source</Label>
-                <Input placeholder="Supplier name or source" value={form.from_whom} onChange={e => setForm(f => ({ ...f, from_whom: e.target.value }))} disabled={saving} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Notes</Label>
-                <textarea rows={2} placeholder="Any additional notes…" value={form.notes}
-                  onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} disabled={saving}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
-              </div>
-              {formErr && <p className="text-sm text-destructive">{formErr}</p>}
-              <div className="flex gap-3 pt-1">
-                <Button onClick={save} disabled={saving} className="flex-1">{saving ? "Saving…" : "Save Changes"}</Button>
-                <Button variant="outline" onClick={() => setDialog(null)} disabled={saving}>Cancel</Button>
-              </div>
-            </div>
-          )}
         </DialogContent>
       </Dialog>
 
@@ -836,9 +825,31 @@ function PurchaseTab({ admin }: { admin: boolean }) {
             <div className="space-y-3 mt-1 text-sm">
               <div className="flex items-center gap-2"><StatusBadge status={selected.status} />{selected.deadline_date && <DeadlineBadge deadlineDate={selected.deadline_date} />}</div>
               <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
-                {selected.item_name && <><dt className="text-muted-foreground">Item</dt><dd className="font-medium">{selected.item_name}{selected.item_code && <span className="ml-2 font-mono text-xs text-muted-foreground">{selected.item_code}</span>}</dd></>}
-                {selected.description && <><dt className="text-muted-foreground">Description</dt><dd>{selected.description}</dd></>}
-                <dt className="text-muted-foreground">Quantity</dt><dd className="font-semibold tabular-nums">{selected.quantity}</dd>
+                {selected.items && selected.items.length > 0 ? (
+                  <>
+                    <dt className="text-muted-foreground font-semibold">Items</dt>
+                    <dd>
+                      <div className="space-y-1.5">
+                        {selected.items.map((it, idx) => (
+                          <div key={idx} className="rounded-md border p-2 text-sm bg-muted/20">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-medium">{it.item_name ?? "—"}{it.item_code && <span className="ml-2 font-mono text-xs text-muted-foreground">{it.item_code}</span>}</span>
+                              <span className="tabular-nums font-semibold shrink-0">× {it.quantity}</span>
+                            </div>
+                            {it.description && <p className="text-xs text-muted-foreground mt-0.5">{it.description}</p>}
+                            {it.timeline_days && <p className="text-xs text-muted-foreground mt-0.5">{it.timeline_days} day{it.timeline_days !== 1 ? "s" : ""}</p>}
+                          </div>
+                        ))}
+                      </div>
+                    </dd>
+                  </>
+                ) : (
+                  <>
+                    {selected.item_name && <><dt className="text-muted-foreground">Item</dt><dd className="font-medium">{selected.item_name}{selected.item_code && <span className="ml-2 font-mono text-xs text-muted-foreground">{selected.item_code}</span>}</dd></>}
+                    {selected.description && <><dt className="text-muted-foreground">Description</dt><dd>{selected.description}</dd></>}
+                    <dt className="text-muted-foreground">Quantity</dt><dd className="font-semibold tabular-nums">{selected.quantity}</dd>
+                  </>
+                )}
                 {selected.from_whom && <><dt className="text-muted-foreground">Supplier / Source</dt><dd>{selected.from_whom}</dd></>}
                 {selected.timeline_days && <><dt className="text-muted-foreground">Timeline</dt><dd>{selected.timeline_days} days{selected.deadline_date && ` (due ${fmtDate(selected.deadline_date)})`}</dd></>}
                 {selected.department && <><dt className="text-muted-foreground">Department</dt><dd>{selected.department}</dd></>}

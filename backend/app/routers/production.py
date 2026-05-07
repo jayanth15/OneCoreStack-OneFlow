@@ -65,7 +65,7 @@ _JOB_CARD_TRACKED_FIELDS = [
 
 
 def _record_job_card_created(
-    job: JobCard, user_id: int | None, session: Session,
+    job: JobCard, user_id: int | None, session: Session, username: str | None = None,
 ) -> None:
     """Write a single 'created' history row capturing the initial snapshot."""
     now = datetime.now(tz=timezone.utc)
@@ -75,6 +75,7 @@ def _record_job_card_created(
             session.add(JobCardHistory(
                 job_card_id=job.id,  # type: ignore[arg-type]
                 changed_by_user_id=user_id,
+                changed_by_username=username,
                 changed_at=now,
                 change_type="created",
                 field_name=field,
@@ -88,6 +89,7 @@ def _record_job_card_changes(
     job: JobCard,
     user_id: int | None,
     session: Session,
+    username: str | None = None,
 ) -> None:
     """Compare old_snapshot dict to job's current state, write one row per changed field."""
     now = datetime.now(tz=timezone.utc)
@@ -98,6 +100,7 @@ def _record_job_card_changes(
             session.add(JobCardHistory(
                 job_card_id=job.id,  # type: ignore[arg-type]
                 changed_by_user_id=user_id,
+                changed_by_username=username,
                 changed_at=now,
                 change_type="updated",
                 field_name=field,
@@ -1179,7 +1182,7 @@ def create_job(
     _recalc_fg_for_order(order, session)
 
     # Record creation in job card history
-    _record_job_card_created(job, current_user.id, session)
+    _record_job_card_created(job, current_user.id, session, username=current_user.username)
 
     session.commit()
     session.refresh(job)
@@ -1282,7 +1285,7 @@ def update_job(
         _recalc_fg_for_order(order, session)
 
     # Record changes in job card history
-    _record_job_card_changes(old_snapshot, job, current_user.id, session)
+    _record_job_card_changes(old_snapshot, job, current_user.id, session, username=current_user.username)
 
     session.commit()
     session.refresh(job)
@@ -1303,6 +1306,7 @@ def delete_job(
     session.add(JobCardHistory(
         job_card_id=job.id,  # type: ignore[arg-type]
         changed_by_user_id=current_user.id,
+        changed_by_username=current_user.username,
         changed_at=datetime.now(tz=timezone.utc),
         change_type="deleted",
         field_name="is_active",

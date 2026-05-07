@@ -27,6 +27,7 @@ from app.routers import marketing_requests as marketing_requests_router
 from app.routers import receipts as receipts_router
 from app.routers import notifications as notifications_router
 from app.routers import grn as grn_router
+from app.routers import history as history_router
 from app.models.spare_sub_category import SpareSubCategory  # noqa: F401 — ensures table is created
 from app.models.consumable import Consumable  # noqa: F401 — ensures table is created
 from app.models.consumable_history import ConsumableHistory  # noqa: F401 — ensures table is created
@@ -39,6 +40,7 @@ from app.models.weeder_item import WeederItem  # noqa: F401 — ensures table is
 from app.models.weeder_history import WeederHistory  # noqa: F401 — ensures table is created
 from app.models.purchase_request import PurchaseRequest  # noqa: F401 — ensures table is created
 from app.models.purchase_request_history import PurchaseRequestHistory  # noqa: F401 — ensures table is created
+from app.models.purchase_request_item import PurchaseRequestItem  # noqa: F401 — ensures table is created
 from app.models.marketing_request import MarketingRequest  # noqa: F401 — ensures table is created
 from app.models.marketing_request_history import MarketingRequestHistory  # noqa: F401 — ensures table is created
 
@@ -82,6 +84,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _migrate_weeder_tables()
     # Create purchase_request + purchase_request_history tables
     _migrate_purchase_request_tables()
+    # Migrate existing purchase_request rows to purchase_request_item table
+    _migrate_purchase_request_items()
     # Create marketing_request + marketing_request_history tables
     _migrate_marketing_request_tables()
     # Create grn_record + grn_item tables
@@ -90,6 +94,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _migrate_grn_v2()
     # Add quantity_pr_requested column to grn_item (v3)
     _migrate_grn_v3()
+    # Add changed_by_username to inventory_history and job_card_history
+    _migrate_history_username_columns()
     # Auto-seed a default admin user on a brand-new / empty database
     _auto_seed_if_empty()
     # Start daily DB backup scheduler (fires at 17:30 every day)
@@ -802,6 +808,86 @@ def _migrate_grn_v3() -> None:
         conn.commit()
 
 
+def _migrate_purchase_request_items() -> None:
+    """
+    Create purchase_request_item table and migrate existing purchase_request
+    row data (one item per request) into the new line-items table. Idempotent.
+    """
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        # Create table if not exists
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS purchase_request_item (
+                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                request_id          INTEGER NOT NULL REFERENCES purchase_request(id),
+                inventory_item_id   INTEGER,
+                item_name           TEXT,
+                item_code           TEXT,
+                item_type           TEXT,
+                description         TEXT,
+                quantity            REAL NOT NULL DEFAULT 1.0,
+                timeline_days       INTEGER
+            )
+        """))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_purchase_request_item_request_id "
+            "ON purchase_request_item (request_id)"
+        ))
+
+        # Migrate legacy rows: any purchase_request that has an item_name or
+        # inventory_item_id but no corresponding rows in purchase_request_item yet.
+        conn.execute(text("""
+            INSERT INTO purchase_request_item
+                (request_id, inventory_item_id, item_name, item_code,
+                 item_type, description, quantity, timeline_days)
+            SELECT pr.id, pr.inventory_item_id, pr.item_name, pr.item_code,
+                   pr.item_type, pr.description, COALESCE(pr.quantity, 1.0), pr.timeline_days
+            FROM purchase_request pr
+            WHERE (pr.item_name IS NOT NULL OR pr.inventory_item_id IS NOT NULL)
+              AND pr.id NOT IN (
+                  SELECT DISTINCT request_id FROM purchase_request_item
+              )
+        """))
+        conn.commit()
+
+
+def _migrate_history_username_columns() -> None:
+    """Add changed_by_username column to inventory_history and job_card_history.
+    Backfills existing rows by joining against the users table. Idempotent.
+    """
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        # inventory_history
+        ih_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(inventory_history)")).fetchall()}
+        if "changed_by_username" not in ih_cols:
+            conn.execute(text("ALTER TABLE inventory_history ADD COLUMN changed_by_username TEXT"))
+            conn.execute(text("""
+                UPDATE inventory_history
+                SET changed_by_username = (
+                    SELECT username FROM users WHERE users.id = inventory_history.changed_by_user_id
+                )
+                WHERE changed_by_user_id IS NOT NULL
+            """))
+
+        # job_card_history
+        jch_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(job_card_history)")).fetchall()}
+        if "changed_by_username" not in jch_cols:
+            conn.execute(text("ALTER TABLE job_card_history ADD COLUMN changed_by_username TEXT"))
+            conn.execute(text("""
+                UPDATE job_card_history
+                SET changed_by_username = (
+                    SELECT username FROM users WHERE users.id = job_card_history.changed_by_user_id
+                )
+                WHERE changed_by_user_id IS NOT NULL
+            """))
+
+        conn.commit()
+
+
 def _auto_seed_if_empty() -> None:
     """If the database has no users at all (fresh deployment), create a default
     super_admin account so the app is immediately usable.
@@ -873,6 +959,7 @@ app.include_router(marketing_requests_router.router)
 app.include_router(receipts_router.router)
 app.include_router(notifications_router.router)
 app.include_router(grn_router.router)
+app.include_router(history_router.router)
 
 # ── Optional module routers (enabled by env var) ──────────────────────────────
 # Example:

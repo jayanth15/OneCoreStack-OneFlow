@@ -12,6 +12,7 @@ from app.models.department import Department
 from app.models.inventory import InventoryItem
 from app.models.purchase_request import PurchaseRequest
 from app.models.purchase_request_history import PurchaseRequestHistory
+from app.models.purchase_request_item import PurchaseRequestItem
 from app.models.receipt import Receipt
 from app.models.user import User
 from app.models.user_department import UserDepartment
@@ -22,30 +23,39 @@ router = APIRouter(prefix="/api/v1/purchase-requests", tags=["purchase-requests"
 # ── Schemas ───────────────────────────────────────────────────────────────────
 
 
-class PurchaseRequestCreate(BaseModel):
+class PurchaseRequestItemCreate(BaseModel):
     inventory_item_id: Optional[int] = None
     item_name: Optional[str] = None
     item_code: Optional[str] = None
     item_type: Optional[str] = None
     description: Optional[str] = None
     quantity: float = 1.0
-    from_whom: Optional[str] = None
     timeline_days: Optional[int] = None
+
+
+class PurchaseRequestItemOut(BaseModel):
+    id: int
+    inventory_item_id: Optional[int]
+    item_name: Optional[str]
+    item_code: Optional[str]
+    item_type: Optional[str]
+    description: Optional[str]
+    quantity: float
+    timeline_days: Optional[int]
+
+
+class PurchaseRequestCreate(BaseModel):
+    items: list[PurchaseRequestItemCreate]
+    from_whom: Optional[str] = None
     notes: Optional[str] = None
     department: Optional[str] = None
 
 
 class PurchaseRequestUpdate(BaseModel):
-    inventory_item_id: Optional[int] = None
-    item_name: Optional[str] = None
-    item_code: Optional[str] = None
-    item_type: Optional[str] = None
-    description: Optional[str] = None
-    quantity: Optional[float] = None
     from_whom: Optional[str] = None
-    timeline_days: Optional[int] = None
     notes: Optional[str] = None
     department: Optional[str] = None
+    items: Optional[list[PurchaseRequestItemCreate]] = None
 
 
 class ReviewRequest(BaseModel):
@@ -89,6 +99,8 @@ class PurchaseRequestOut(BaseModel):
     # department codes for display in the People column
     requested_by_dept_code: Optional[str] = None
     fulfilled_by_dept_code: Optional[str] = None
+    # Line items (new; may be empty for legacy data before migration)
+    items: list[PurchaseRequestItemOut] = []
 
 
 class HistoryOut(BaseModel):
@@ -125,11 +137,58 @@ def _next_sn(session: Session) -> str:
 
 
 def _out(r: PurchaseRequest, session: Session) -> PurchaseRequestOut:
+    # ── Load line items ───────────────────────────────────────────────────────
+    item_rows = session.exec(
+        select(PurchaseRequestItem).where(PurchaseRequestItem.request_id == r.id)
+    ).all()
+
+    items_out: list[PurchaseRequestItemOut] = []
+    item_name: Optional[str] = None
+    item_code: Optional[str] = None
+    item_type: Optional[str] = None
+    description: Optional[str] = None
+    timeline_days_out: Optional[int] = None
+    quantity: float
+
+    if item_rows:
+        items_out = [
+            PurchaseRequestItemOut(
+                id=i.id,  # type: ignore[arg-type]
+                inventory_item_id=i.inventory_item_id,
+                item_name=i.item_name,
+                item_code=i.item_code,
+                item_type=i.item_type,
+                description=i.description,
+                quantity=i.quantity,
+                timeline_days=i.timeline_days,
+            )
+            for i in item_rows
+        ]
+        if len(item_rows) == 1:
+            item_name = item_rows[0].item_name
+            item_code = item_rows[0].item_code
+            item_type = item_rows[0].item_type
+            description = item_rows[0].description
+            timeline_days_out = item_rows[0].timeline_days
+        else:
+            item_name = f"{len(item_rows)} items"
+            tl_values = [i.timeline_days for i in item_rows if i.timeline_days]
+            timeline_days_out = max(tl_values) if tl_values else None
+        quantity = sum(i.quantity for i in item_rows)
+    else:
+        # Backward compat: fall back to legacy columns on the request row
+        item_name = r.item_name
+        item_code = r.item_code
+        item_type = r.item_type
+        description = r.description
+        timeline_days_out = r.timeline_days
+        quantity = r.quantity
+
     deadline = None
-    if r.timeline_days and r.created_at:
+    if timeline_days_out and r.created_at:
         from datetime import timedelta
-        d = (r.created_at + timedelta(days=r.timeline_days)).date().isoformat()
-        deadline = d
+        deadline = (r.created_at + timedelta(days=timeline_days_out)).date().isoformat()
+
     receipt_rows = session.exec(
         select(Receipt).where(Receipt.request_id == r.id, Receipt.is_active == True)  # noqa: E712
     ).all()
@@ -149,14 +208,14 @@ def _out(r: PurchaseRequest, session: Session) -> PurchaseRequestOut:
     return PurchaseRequestOut(
         id=r.id,  # type: ignore[arg-type]
         sn_no=r.sn_no,
-        inventory_item_id=r.inventory_item_id,
-        item_name=r.item_name,
-        item_code=r.item_code,
-        item_type=r.item_type,
-        description=r.description,
-        quantity=r.quantity,
+        inventory_item_id=item_rows[0].inventory_item_id if len(item_rows) == 1 else r.inventory_item_id,
+        item_name=item_name,
+        item_code=item_code,
+        item_type=item_type,
+        description=description,
+        quantity=quantity,
         from_whom=r.from_whom,
-        timeline_days=r.timeline_days,
+        timeline_days=timeline_days_out,
         notes=r.notes,
         status=r.status,
         requested_by_user_id=r.requested_by_user_id,
@@ -175,6 +234,7 @@ def _out(r: PurchaseRequest, session: Session) -> PurchaseRequestOut:
         fulfillment_note=r.fulfillment_note,
         requested_by_dept_code=_first_dept_code(r.requested_by_user_id),
         fulfilled_by_dept_code=_first_dept_code(r.fulfilled_by_user_id),
+        items=items_out,
     )
 
 
@@ -289,12 +349,21 @@ def list_requests(
 
     if search:
         like = f"%{search}%"
+        # Search in line items table (new design) and legacy columns (backward compat)
+        item_search_subq = (
+            select(PurchaseRequestItem.request_id)
+            .where(or_(
+                PurchaseRequestItem.item_name.like(like),  # type: ignore[union-attr]
+                PurchaseRequestItem.item_code.like(like),  # type: ignore[union-attr]
+            ))
+        )
         q = q.where(or_(
             PurchaseRequest.sn_no.like(like),  # type: ignore[union-attr]
             PurchaseRequest.item_name.like(like),  # type: ignore[union-attr]
             PurchaseRequest.item_code.like(like),  # type: ignore[union-attr]
             PurchaseRequest.requested_by_username.like(like),  # type: ignore[union-attr]
             PurchaseRequest.from_whom.like(like),  # type: ignore[union-attr]
+            PurchaseRequest.id.in_(item_search_subq),  # type: ignore[union-attr]
         ))
 
     total = session.exec(select(func.count()).select_from(q.subquery())).one()
@@ -319,27 +388,17 @@ def create_request(
     session: Annotated[Session, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> PurchaseRequestOut:
-    if not body.inventory_item_id and not body.item_name:
-        raise HTTPException(status_code=400, detail="Either inventory_item_id or item_name is required")
-
-    # Auto-resolve timeline_days from the linked inventory item (overrides body value)
-    timeline_days: Optional[int] = getattr(body, 'timeline_days', None)
-    if body.inventory_item_id:
-        inv_item = session.get(InventoryItem, body.inventory_item_id)
-        if inv_item:
-            timeline_days = getattr(inv_item, 'timeline_days', None)
+    """Create a single purchase request with one or more line items."""
+    if not body.items:
+        raise HTTPException(status_code=400, detail="At least one item is required")
+    for it in body.items:
+        if not it.inventory_item_id and not it.item_name:
+            raise HTTPException(status_code=400, detail="Each item must have inventory_item_id or item_name")
 
     now = datetime.now(tz=timezone.utc)
     req = PurchaseRequest(
         sn_no=_next_sn(session),
-        inventory_item_id=body.inventory_item_id,
-        item_name=body.item_name,
-        item_code=body.item_code,
-        item_type=body.item_type,
-        description=body.description,
-        quantity=body.quantity,
         from_whom=body.from_whom,
-        timeline_days=timeline_days,
         notes=body.notes,
         department=body.department,
         status="pending",
@@ -349,50 +408,35 @@ def create_request(
         updated_at=now,
     )
     session.add(req)
-    session.flush()
+    session.flush()  # get req.id
+
+    for it in body.items:
+        # Auto-resolve timeline_days from linked inventory item
+        timeline_days: Optional[int] = it.timeline_days
+        if it.inventory_item_id and not timeline_days:
+            inv_item = session.get(InventoryItem, it.inventory_item_id)
+            if inv_item:
+                timeline_days = getattr(inv_item, "timeline_days", None)
+
+        session.add(PurchaseRequestItem(
+            request_id=req.id,  # type: ignore[arg-type]
+            inventory_item_id=it.inventory_item_id,
+            item_name=it.item_name,
+            item_code=it.item_code,
+            item_type=it.item_type,
+            description=it.description,
+            quantity=it.quantity,
+            timeline_days=timeline_days,
+        ))
+
+    first_item_name = body.items[0].item_name if body.items else None
+    item_summary = (
+        first_item_name or "item"
+        if len(body.items) == 1
+        else f"{len(body.items)} items"
+    )
     _record_history(session, req.id, current_user, "created",  # type: ignore[arg-type]
-                    note=f"Request {req.sn_no} created")
-
-    # Notify all admin / super_admin users about the new request
-    admins = session.exec(
-        select(User).where(
-            User.role.in_(["admin", "super_admin"]),  # type: ignore[union-attr]
-            User.is_active == True,  # noqa: E712
-            User.id != current_user.id,  # don't notify the creator if they are admin
-        )
-    ).all()
-    for admin_user in admins:
-        create_notification(
-            session,
-            user_id=admin_user.id,  # type: ignore[arg-type]
-            notif_type="request_created",
-            title="New Purchase Request",
-            body=f"{current_user.username} submitted request {req.sn_no} for {req.item_name or 'item'}{(' — dept: ' + req.department) if req.department else ''}.",
-            request_id=req.id,
-        )
-
-    session.commit()
-    session.refresh(req)
-    return _out(req, session)
-
-
-class PurchaseRequestBulkCreate(BaseModel):
-    items: list[PurchaseRequestCreate]
-    # Shared optional fields applied to every item
-    from_whom: Optional[str] = None
-    notes: Optional[str] = None
-    department: Optional[str] = None
-
-
-@router.post("/bulk", response_model=list[PurchaseRequestOut], status_code=status.HTTP_201_CREATED)
-def bulk_create_requests(
-    body: PurchaseRequestBulkCreate,
-    session: Annotated[Session, Depends(get_session)],
-    current_user: Annotated[User, Depends(get_current_user)],
-) -> list[PurchaseRequestOut]:
-    """Create multiple purchase requests in one call (one row per item)."""
-    if not body.items:
-        raise HTTPException(status_code=400, detail="At least one item is required")
+                    note=f"Request {req.sn_no} created with {item_summary}")
 
     admins = session.exec(
         select(User).where(
@@ -401,65 +445,23 @@ def bulk_create_requests(
             User.id != current_user.id,
         )
     ).all()
-
-    created: list[PurchaseRequest] = []
-    now = datetime.now(tz=timezone.utc)
-
-    for item in body.items:
-        if not item.inventory_item_id and not item.item_name:
-            raise HTTPException(status_code=400, detail="Each item must have inventory_item_id or item_name")
-
-        # Merge shared fields (item-level overrides shared if set)
-        from_whom = item.from_whom or body.from_whom
-        notes = item.notes or body.notes
-        department = item.department or body.department
-
-        # Auto-resolve timeline_days from linked inventory item
-        timeline_days: Optional[int] = item.timeline_days
-        if item.inventory_item_id:
-            inv_item = session.get(InventoryItem, item.inventory_item_id)
-            if inv_item:
-                timeline_days = getattr(inv_item, "timeline_days", None)
-
-        req = PurchaseRequest(
-            sn_no=_next_sn(session),
-            inventory_item_id=item.inventory_item_id,
-            item_name=item.item_name,
-            item_code=item.item_code,
-            item_type=item.item_type,
-            description=item.description,
-            quantity=item.quantity,
-            from_whom=from_whom,
-            timeline_days=timeline_days,
-            notes=notes,
-            department=department,
-            status="pending",
-            requested_by_user_id=current_user.id,
-            requested_by_username=current_user.username,
-            created_at=now,
-            updated_at=now,
+    for admin_user in admins:
+        create_notification(
+            session,
+            user_id=admin_user.id,  # type: ignore[arg-type]
+            notif_type="request_created",
+            title="New Purchase Request",
+            body=(
+                f"{current_user.username} submitted request {req.sn_no} "
+                f"for {item_summary}"
+                + (f" — dept: {req.department}" if req.department else ".")
+            ),
+            request_id=req.id,
         )
-        session.add(req)
-        session.flush()
-        _record_history(session, req.id, current_user, "created",  # type: ignore[arg-type]
-                        note=f"Request {req.sn_no} created")
-
-        for admin_user in admins:
-            create_notification(
-                session,
-                user_id=admin_user.id,  # type: ignore[arg-type]
-                notif_type="request_created",
-                title="New Purchase Request",
-                body=f"{current_user.username} submitted request {req.sn_no} for {req.item_name or 'item'}{(' — dept: ' + department) if department else ''}.",
-                request_id=req.id,
-            )
-
-        created.append(req)
 
     session.commit()
-    for req in created:
-        session.refresh(req)
-    return [_out(r, session) for r in created]
+    session.refresh(req)
+    return _out(req, session)
 
 
 @router.get("/{req_id}", response_model=PurchaseRequestOut)
@@ -499,18 +501,47 @@ def update_request(
     if req.status != "pending":
         raise HTTPException(status_code=400, detail="Only pending requests can be edited")
 
-    EDITABLE = [
-        "inventory_item_id", "item_name", "item_code", "item_type",
-        "description", "quantity", "from_whom", "timeline_days", "notes", "department",
-    ]
+    EDITABLE_HDR = ["from_whom", "notes", "department"]
     changes = []
-    for field in EDITABLE:
+    for field in EDITABLE_HDR:
         new_val = getattr(body, field)
         if new_val is not None:
             old_val = getattr(req, field)
             if old_val != new_val:
                 changes.append((field, str(old_val) if old_val is not None else None, str(new_val)))
                 setattr(req, field, new_val)
+
+    # Replace line items if provided
+    if body.items is not None:
+        if not body.items:
+            raise HTTPException(status_code=400, detail="At least one item is required")
+        # Delete existing items
+        old_items = session.exec(
+            select(PurchaseRequestItem).where(PurchaseRequestItem.request_id == req.id)
+        ).all()
+        for oi in old_items:
+            session.delete(oi)
+        session.flush()
+        # Insert new items
+        for it in body.items:
+            if not it.inventory_item_id and not it.item_name:
+                raise HTTPException(status_code=400, detail="Each item must have inventory_item_id or item_name")
+            timeline_days: Optional[int] = it.timeline_days
+            if it.inventory_item_id and not timeline_days:
+                inv_item = session.get(InventoryItem, it.inventory_item_id)
+                if inv_item:
+                    timeline_days = getattr(inv_item, "timeline_days", None)
+            session.add(PurchaseRequestItem(
+                request_id=req.id,
+                inventory_item_id=it.inventory_item_id,
+                item_name=it.item_name,
+                item_code=it.item_code,
+                item_type=it.item_type,
+                description=it.description,
+                quantity=it.quantity,
+                timeline_days=timeline_days,
+            ))
+        changes.append(("items", None, f"{len(body.items)} item(s)"))
 
     req.updated_at = datetime.now(tz=timezone.utc)
     for field, old, new in changes:
@@ -553,7 +584,7 @@ def approve_request(
             user_id=req.requested_by_user_id,
             notif_type="request_approved",
             title="Purchase Request Approved",
-            body=f"Your request {req.sn_no} for {req.item_name or 'item'} has been approved.",
+            body=f"Your request {req.sn_no} has been approved.",
             request_id=req.id,
         )
     session.commit()
@@ -590,7 +621,7 @@ def reject_request(
             user_id=req.requested_by_user_id,
             notif_type="request_rejected",
             title="Purchase Request Not Approved",
-            body=f"Your request {req.sn_no} for {req.item_name or 'item'} was not approved.{(' Note: ' + body.note) if body.note else ''}",
+            body=f"Your request {req.sn_no} was not approved.{(' Note: ' + body.note) if body.note else ''}",
             request_id=req.id,
         )
     session.commit()

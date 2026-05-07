@@ -433,6 +433,7 @@ def fill_items(
                 session.add(InventoryHistory(
                     inventory_item_id=inv.id,  # type: ignore[arg-type]
                     changed_by_user_id=current_user.id,  # type: ignore[arg-type]
+                    changed_by_username=current_user.username,
                     changed_at=now,
                     change_type="add",
                     quantity_before=qty_before,
@@ -498,6 +499,7 @@ def return_items(
                 session.add(InventoryHistory(
                     inventory_item_id=inv.id,  # type: ignore[arg-type]
                     changed_by_user_id=current_user.id,  # type: ignore[arg-type]
+                    changed_by_username=current_user.username,
                     changed_at=now,
                     change_type="remove",
                     quantity_before=qty_before,

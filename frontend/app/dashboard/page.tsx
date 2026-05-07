@@ -16,22 +16,6 @@ import type { PieLabelRenderProps } from "recharts";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-interface SemiFGItem {
-  id: number;
-  code: string;
-  name: string;
-  unit: string;
-  quantity_on_hand: number;
-  reorder_level: number;
-  storage_type: string | null;
-  storage_location: string | null;
-  updated_at: string;
-}
-
-interface PaginatedInventory {
-  items: SemiFGItem[];
-}
-
 interface OverviewCounts {
   total_inventory_items: number;
   raw_materials: number;
@@ -296,7 +280,6 @@ function DashSkeleton() {
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [semiFGItems, setSemiFGItems] = useState<SemiFGItem[]>([]);
   const [sparesStats, setSparesStats] = useState<SparesCatSummary | null>(null);
   const [consumablesTotal, setConsumablesTotal] = useState<number | null>(null);
   const [consumablesValue, setConsumablesValue] = useState<number | null>(null);
@@ -315,9 +298,6 @@ export default function DashboardPage() {
     apiFetchJson<DashboardData>("/api/v1/dashboard")
       .then(setData)
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load dashboard"));
-    apiFetchJson<PaginatedInventory>("/api/v1/inventory?item_type=semi_finished&page_size=20&include_inactive=false")
-      .then((d) => setSemiFGItems(d.items))
-      .catch(() => {});
     apiFetchJson<{items: {id: number; item_count: number; total_value: number | null}[]; total: number}>("/api/v1/spares/categories?include_inactive=false&page_size=500")
       .then(data => setSparesStats({
         categories: data.total,
@@ -822,64 +802,6 @@ export default function DashboardPage() {
             </div>
           </div>
 
-        </div>
-
-        {/* ── Semi Finished Goods ───────────────────────────────────── */}
-        <div className="rounded-xl border bg-card shadow-sm">
-          <div className="flex items-center justify-between px-4 pt-4 pb-2">
-            <div className="flex items-center gap-2">
-              <Package className="size-4 text-indigo-500" />
-              <p className="text-sm font-semibold">Semi Finished Goods</p>
-            </div>
-            <a href="/dashboard/inventory?tab=semi_finished"
-              className="text-xs text-primary hover:underline">
-              View all
-            </a>
-          </div>
-          {semiFGItems.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-6">No semi-finished items found</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-t border-b bg-muted/40">
-                    <th className="px-4 py-2.5 text-left font-medium text-xs">Name / Code</th>
-                    <th className="px-4 py-2.5 text-right font-medium text-xs">Qty on Hand</th>
-                    <th className="px-4 py-2.5 text-right font-medium text-xs">Reorder Lvl</th>
-                    <th className="px-4 py-2.5 text-left font-medium text-xs">Storage/Location</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {semiFGItems.map((item) => {
-                    const low = item.reorder_level > 0 && item.quantity_on_hand <= item.reorder_level;
-                    return (
-                      <tr key={item.id} className="hover:bg-muted/30 transition-colors">
-                        <td className="px-4 py-2.5">
-                          <a href={`/dashboard/inventory/${item.id}`}
-                            className="font-medium hover:underline text-sm">
-                            {item.name}
-                          </a>
-                          <div className="text-[11px] text-muted-foreground font-mono">{item.code}</div>
-                        </td>
-                        <td className="px-4 py-2.5 text-right">
-                          <span className={low ? "text-amber-600 font-medium" : ""}>
-                            {low && <AlertTriangle className="size-3 inline mr-0.5" />}
-                            {item.quantity_on_hand % 1 === 0 ? item.quantity_on_hand.toFixed(0) : item.quantity_on_hand.toFixed(2)} {item.unit}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2.5 text-right text-muted-foreground text-xs">
-                          {item.reorder_level > 0 ? `${item.reorder_level} ${item.unit}` : "—"}
-                        </td>
-                        <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                          {[item.storage_type, item.storage_location].filter(Boolean).join(" · ") || "—"}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
         </div>
 
         {/* ── Inventory Value Summary (admin/super_admin only) ───────── */}

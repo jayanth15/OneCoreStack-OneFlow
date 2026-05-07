@@ -41,6 +41,7 @@ def _write_history(
     qty_after: Optional[float] = None,
     schedule_id: Optional[int] = None,
     notes: Optional[str] = None,
+    username: Optional[str] = None,
 ) -> None:
     delta: Optional[float] = None
     if qty_before is not None and qty_after is not None:
@@ -48,6 +49,7 @@ def _write_history(
     h = InventoryHistory(
         inventory_item_id=item.id,  # type: ignore[arg-type]
         changed_by_user_id=user_id,
+        changed_by_username=username,
         change_type=change_type,
         quantity_before=qty_before,
         quantity_after=qty_after,
@@ -318,6 +320,7 @@ def create_item(
         session, item, "create", current_user.id,
         qty_before=None, qty_after=item.quantity_on_hand,
         notes=f"Item created with qty={item.quantity_on_hand}",
+        username=current_user.username,
     )
     session.commit()
     session.refresh(item)
@@ -394,6 +397,7 @@ def update_item(
         session, item, "edit", current_user.id,
         qty_before=qty_before, qty_after=item.quantity_on_hand,
         notes="Item details updated",
+        username=current_user.username,
     )
     session.add(item)
     session.commit()
@@ -414,7 +418,7 @@ def deactivate_item(
         raise HTTPException(status_code=404, detail="Item not found")
     item.is_active = False
     item.updated_at = datetime.now(tz=timezone.utc)
-    _write_history(session, item, "edit", current_user.id, notes="Item deactivated")
+    _write_history(session, item, "edit", current_user.id, notes="Item deactivated", username=current_user.username)
     session.add(item)
     session.commit()
 
@@ -449,6 +453,7 @@ def adjust_stock(
         qty_before=qty_before, qty_after=item.quantity_on_hand,
         schedule_id=body.schedule_id,
         notes=body.note,
+        username=current_user.username,
     )
     session.add(item)
     session.commit()
