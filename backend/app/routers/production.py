@@ -812,6 +812,9 @@ class JobCardResponse(BaseModel):
     notes: Optional[str]
     status: str
     is_active: bool
+    job_type: str = "internal"
+    supplier_id: Optional[int] = None
+    supplier_name: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -1054,6 +1057,9 @@ class JobCardCreate(BaseModel):
     work_date: Optional[str] = None
     notes: Optional[str] = None
     is_active: bool = True
+    job_type: str = "internal"
+    supplier_id: Optional[int] = None
+    supplier_name: Optional[str] = None
 
 
 class JobCardUpdate(BaseModel):
@@ -1066,6 +1072,9 @@ class JobCardUpdate(BaseModel):
     work_date: Optional[str] = None
     notes: Optional[str] = None
     is_active: Optional[bool] = None
+    job_type: Optional[str] = None
+    supplier_id: Optional[int] = None
+    supplier_name: Optional[str] = None
 
 
 class PaginatedJobs(BaseModel):

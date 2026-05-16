@@ -31,5 +31,9 @@ class User(SQLModel, table=True):
     # Whether this user may access the GRN (Goods Received Notes) module.
     # Admin / super_admin always have GRN access regardless of this flag.
     grn_access: bool = Field(default=False)
+    # Access flags for additional modules
+    dispatch_access: bool = Field(default=False)
+    gate_pass_access: bool = Field(default=False)
+    purchase_access: bool = Field(default=False)
     photo_base64: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))

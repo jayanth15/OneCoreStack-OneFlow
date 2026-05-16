@@ -29,3 +29,8 @@ class JobCard(SQLModel, table=True):
     notes: Optional[str] = None
     status: str = Field(default="open")        # open | in_progress | completed | cancelled
     is_active: bool = Field(default=True)
+
+    # ── Supplier job work ──────────────────────────────────────────────────────
+    job_type: str = Field(default="internal")          # internal | supplier
+    supplier_id: Optional[int] = Field(default=None)   # FK — suppliers.id
+    supplier_name: Optional[str] = None                # denormalized for display

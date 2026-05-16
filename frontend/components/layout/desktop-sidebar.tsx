@@ -13,11 +13,14 @@ import {
   ChevronRight,
   BookOpen,
   Contact,
+  Truck,
   Settings,
   ClipboardList,
   PackageCheck,
   ClipboardCheck,
   History,
+  PackagePlus,
+  ShoppingCart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getCurrentUser, isAdminOrAbove } from "@/lib/user";
@@ -40,7 +43,8 @@ const CORE_NAV: NavItem[] = [
 
 // Only shown to admin / super_admin (alongside Departments, Users, BOM)
 const ADMIN_CORE_NAV: NavItem[] = [
-  { label: "Customers",  href: "/dashboard/customers",    icon: Contact },
+  { label: "Vendors",    href: "/dashboard/vendors",      icon: Contact },
+  { label: "Suppliers",  href: "/dashboard/suppliers",    icon: Truck },
 ];
 
 const ADMIN_NAV: NavItem[] = [
@@ -55,6 +59,9 @@ export function DesktopSidebar() {
   const pathname = usePathname();
   const [isAdmin, setIsAdmin] = useState(false);
   const [grnAccess, setGrnAccess] = useState(false);
+  const [dispatchAccess, setDispatchAccess] = useState(false);
+  const [gatePassAccess, setGatePassAccess] = useState(false);
+  const [purchaseAccess, setPurchaseAccess] = useState(false);
   const [notifCount, setNotifCount] = useState(0);
   const [requestCount, setRequestCount] = useState(0);
   const [receiptCount, setReceiptCount] = useState(0);
@@ -64,6 +71,9 @@ export function DesktopSidebar() {
     if (user) {
       setIsAdmin(isAdminOrAbove());
       setGrnAccess(user.grn_access ?? false);
+      setDispatchAccess(user.dispatch_access ?? false);
+      setGatePassAccess(user.gate_pass_access ?? false);
+      setPurchaseAccess(user.purchase_access ?? false);
     }
   }, [pathname]);
 
@@ -110,7 +120,13 @@ export function DesktopSidebar() {
             Core
           </p>
           <ul className="space-y-0.5">
-            {[...CORE_NAV, ...(grnAccess || isAdmin ? [{ label: "GRN", href: "/dashboard/grn", icon: ClipboardCheck }] : [])].map((item) => (
+            {[
+              ...CORE_NAV,
+              ...(grnAccess || isAdmin ? [{ label: "GRN", href: "/dashboard/grn", icon: ClipboardCheck }] : []),
+              ...(dispatchAccess || isAdmin ? [{ label: "Dispatch", href: "/dashboard/dispatch", icon: PackageCheck }] : []),
+              ...(gatePassAccess || isAdmin ? [{ label: "Gate Passes", href: "/dashboard/gate-passes", icon: PackagePlus }] : []),
+              ...(purchaseAccess || isAdmin ? [{ label: "Purchase Orders", href: "/dashboard/purchase-orders", icon: ShoppingCart }] : []),
+            ].map((item) => (
               <li key={item.href}>
                 <Link
                   href={item.href}

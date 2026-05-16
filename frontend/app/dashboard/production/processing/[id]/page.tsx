@@ -47,6 +47,9 @@ interface JobCard {
   notes: string | null;
   status: string;
   is_active: boolean;
+  job_type: string;
+  supplier_id: number | null;
+  supplier_name: string | null;
 }
 
 interface HistoryEntry {
@@ -530,8 +533,12 @@ export default function ProductionOrderDetailPage() {
                                 <div className="flex items-center gap-1">
                                   <User className="size-3 text-muted-foreground shrink-0" />
                                   <div>
-                                    <span className="text-muted-foreground block">Worker</span>
-                                    <span className="font-medium">{jc.worker_name ?? "—"}</span>
+                                    <span className="text-muted-foreground block">{jc.job_type === "supplier" ? "Supplier" : "Worker"}</span>
+                                    <span className="font-medium">
+                                      {jc.job_type === "supplier"
+                                        ? (jc.supplier_name ?? "—")
+                                        : (jc.worker_name ?? "—")}
+                                    </span>
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-1">
@@ -612,7 +619,7 @@ export default function ProductionOrderDetailPage() {
                               <div>
                                 <span className="font-mono font-medium">{jc.card_number}</span>{" "}
                                 <span className="text-muted-foreground">— {jc.process_name}</span>{" "}
-                                <span className="text-muted-foreground">by {jc.worker_name ?? "—"}</span>
+                                <span className="text-muted-foreground">by {jc.job_type === "supplier" ? (jc.supplier_name ?? "—") : (jc.worker_name ?? "—")}</span>
                               </div>
                               <div className="flex items-center gap-2">
                                 <Badge variant={STATUS_BADGE[jc.status] ?? "outline"} className={`text-xs ${STATUS_COLOR[jc.status] ?? ""}`}>
@@ -779,7 +786,7 @@ export default function ProductionOrderDetailPage() {
                 </AlertDialogTitle>
                 {jc && (
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground pt-1">
-                    <span className="flex items-center gap-1"><User className="size-3" />{jc.worker_name ?? "No worker"}</span>
+                    <span className="flex items-center gap-1"><User className="size-3" />{jc.job_type === "supplier" ? (jc.supplier_name ?? "No supplier") : (jc.worker_name ?? "No worker")}</span>
                     <span className="flex items-center gap-1"><Factory className="size-3" />{jc.process_name}</span>
                     {jc.machine_name && <span className="flex items-center gap-1"><Wrench className="size-3" />{jc.machine_name}</span>}
                     {jc.work_date && <span className="flex items-center gap-1"><CalendarDays className="size-3" />{jc.work_date}</span>}

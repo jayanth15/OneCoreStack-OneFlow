@@ -22,7 +22,7 @@ interface OverviewCounts {
   finished_goods: number;
   semi_finished: number;
   low_stock_alerts: number;
-  total_customers: number;
+  total_vendors: number;
   total_schedules: number;
   total_plans: number;
   total_orders: number;
@@ -334,7 +334,7 @@ export default function DashboardPage() {
   if (error) {
     return (
       <>
-        <header className="flex h-16 shrink-0 items-center border-b px-6">
+        <header className="sticky top-0 z-10 bg-background flex h-16 shrink-0 items-center border-b px-6">
           <h1 className="text-base font-semibold">Dashboard</h1>
         </header>
         <div className="p-6"><p className="text-sm text-destructive">{error}</p></div>
@@ -345,7 +345,7 @@ export default function DashboardPage() {
   if (!data) {
     return (
       <>
-        <header className="flex h-16 shrink-0 items-center border-b px-6">
+        <header className="sticky top-0 z-10 bg-background flex h-16 shrink-0 items-center border-b px-6">
           <h1 className="text-base font-semibold">Dashboard</h1>
         </header>
         <DashSkeleton />
@@ -372,7 +372,7 @@ export default function DashboardPage() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center border-b px-6 md:pr-64">
+      <header className="sticky top-0 z-10 bg-background flex h-16 shrink-0 items-center border-b px-6 md:pr-64">
         <h1 className="text-base font-semibold">Dashboard</h1>
         <span className="ml-auto text-xs text-muted-foreground">
           Last refreshed: {new Date().toLocaleTimeString()}
@@ -383,7 +383,7 @@ export default function DashboardPage() {
 
         {/* ── KPI Cards Row 1 ─────────────────────────────────────────── */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-          <StatCard label="Customers" value={o.total_customers}
+          <StatCard label="Vendors" value={o.total_vendors}
             icon={<Users className="size-5" />} accent="bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400" />
           <StatCard label="Schedules" value={o.total_schedules}
             icon={<Calendar className="size-5" />} accent="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" />
@@ -594,7 +594,27 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
-
+        {isAdminOrAbove() && data.inventory_by_type.length > 0 && (
+          <div className="rounded-xl border bg-card p-4 shadow-sm">
+            <p className="text-sm font-semibold mb-3">Inventory Value Summary</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {data.inventory_by_type.map((t) => (
+                <div key={t.item_type} className="text-center p-3 rounded-lg bg-muted/30">
+                  <p className="text-xs text-muted-foreground">{formatType(t.item_type)}</p>
+                  <p className="text-lg font-bold mt-1">{t.count} items</p>
+                  <p className="text-sm text-muted-foreground">
+                    {t.total_qty.toLocaleString()} units
+                  </p>
+                  {t.total_value != null && t.total_value > 0 && (
+                    <p className="text-sm font-medium text-emerald-600 mt-0.5 cursor-help" title={fmtCurrencyFull(t.total_value)}>
+                      {fmtCurrencyShort(t.total_value)}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {/* ── Status Bars ────────────────────────────────────────────────── */}
         <div className="grid md:grid-cols-2 gap-4">
           <div className="rounded-xl border bg-card p-4 shadow-sm space-y-4">
@@ -693,140 +713,6 @@ export default function DashboardPage() {
             </ResponsiveContainer>
           </div>
         )}
-
-        {/* ── Bottom Row: Recent activity + Low stock ────────────────────── */}
-        <div className="grid lg:grid-cols-3 gap-4">
-
-          {/* Recent inventory activity */}
-          <div className="rounded-xl border bg-card shadow-sm lg:col-span-1 flex flex-col">
-            <div className="flex items-center gap-2 px-4 pt-4 pb-2">
-              <Activity className="size-4 text-muted-foreground" />
-              <p className="text-sm font-semibold">Recent Inventory</p>
-            </div>
-            <div className="flex-1 overflow-auto max-h-80 divide-y">
-              {data.recent_inventory.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-6">No activity yet</p>
-              ) : (
-                data.recent_inventory.map((r) => (
-                  <div key={r.id} className="px-4 py-2.5 flex items-start gap-2.5">
-                    <div className="mt-0.5">{CHANGE_ICON[r.change_type] ?? <Minus className="size-3.5 text-slate-400" />}</div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium truncate">{r.item_code} · {r.item_name}</p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {r.change_type === "add" ? "+" : r.change_type === "subtract" ? "" : ""}
-                        {r.quantity_delta != null ? r.quantity_delta.toLocaleString() : "—"} &rarr; {r.quantity_after?.toLocaleString() ?? "—"}
-                        {r.notes ? ` · ${r.notes}` : ""}
-                      </p>
-                    </div>
-                    <span className="text-[10px] text-muted-foreground whitespace-nowrap mt-0.5">
-                      {timeAgo(r.changed_at)}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Recent production activity */}
-          <div className="rounded-xl border bg-card shadow-sm lg:col-span-1 flex flex-col">
-            <div className="flex items-center gap-2 px-4 pt-4 pb-2">
-              <Factory className="size-4 text-muted-foreground" />
-              <p className="text-sm font-semibold">Recent Production</p>
-            </div>
-            <div className="flex-1 overflow-auto max-h-80 divide-y">
-              {data.recent_production.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-6">No production yet</p>
-              ) : (
-                data.recent_production.map((r) => (
-                  <div key={r.id} className="px-4 py-2.5 flex items-start gap-2.5">
-                    <div className="mt-0.5">
-                      <span className={`block size-2 rounded-full mt-1 ${STATUS_DOT[r.status] ?? "bg-slate-400"}`} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium truncate">
-                        {r.card_number} · {r.process_name}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {r.order_number}
-                        {r.worker_name ? ` · ${r.worker_name}` : ""}
-                        {" · "}
-                        <span className="font-medium text-emerald-600">{r.qty_produced}</span> produced
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                        {r.work_date ?? "—"}
-                      </span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Low stock items */}
-          <div className="rounded-xl border bg-card shadow-sm lg:col-span-1 flex flex-col">
-            <div className="flex items-center gap-2 px-4 pt-4 pb-2">
-              <AlertTriangle className="size-4 text-red-500" />
-              <p className="text-sm font-semibold">Low Stock Alerts</p>
-            </div>
-            <div className="flex-1 overflow-auto max-h-80 divide-y">
-              {data.low_stock_items.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-6">All stock levels healthy</p>
-              ) : (
-                data.low_stock_items.map((item) => {
-                  const pct = item.reorder_level > 0
-                    ? Math.round((item.quantity_on_hand / item.reorder_level) * 100)
-                    : 0;
-                  return (
-                    <div key={item.id} className="px-4 py-2.5 space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-medium">{item.code} · {item.name}</p>
-                        <span className="text-[10px] text-muted-foreground">{formatType(item.item_type)}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all ${pct < 30 ? "bg-red-500" : pct < 70 ? "bg-amber-500" : "bg-emerald-500"}`}
-                            style={{ width: `${Math.min(100, pct)}%` }}
-                          />
-                        </div>
-                        <span className="text-[10px] font-mono text-muted-foreground w-20 text-right">
-                          {item.quantity_on_hand} / {item.reorder_level} {item.unit}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-
-        </div>
-
-        {/* ── Inventory Value Summary (admin/super_admin only) ───────── */}
-        {isAdminOrAbove() && data.inventory_by_type.length > 0 && (
-          <div className="rounded-xl border bg-card p-4 shadow-sm">
-            <p className="text-sm font-semibold mb-3">Inventory Value Summary</p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {data.inventory_by_type.map((t) => (
-                <div key={t.item_type} className="text-center p-3 rounded-lg bg-muted/30">
-                  <p className="text-xs text-muted-foreground">{formatType(t.item_type)}</p>
-                  <p className="text-lg font-bold mt-1">{t.count} items</p>
-                  <p className="text-sm text-muted-foreground">
-                    {t.total_qty.toLocaleString()} units
-                  </p>
-                  {t.total_value != null && t.total_value > 0 && (
-                    <p className="text-sm font-medium text-emerald-600 mt-0.5 cursor-help" title={fmtCurrencyFull(t.total_value)}>
-                      {fmtCurrencyShort(t.total_value)}
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
       </div>
     </>
   );

@@ -16,12 +16,13 @@ export default function DashboardLayout({
 
         {/* Main content column */}
         <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-          {/* Top bar — shows Install App button when PWA is not yet installed */}
-          <TopBar />
           <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
             {children}
           </main>
         </div>
+
+        {/* Top bar — fixed overlay for bell + user icon (desktop only) */}
+        <TopBar />
 
         {/* Bottom nav — mobile only (fixed, outside scroll container) */}
         <BottomNav />

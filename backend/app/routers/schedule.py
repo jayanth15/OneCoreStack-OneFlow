@@ -8,7 +8,7 @@ from sqlmodel import Session, func, select
 from app.core.database import get_session
 from app.dependencies.auth import get_current_user, require_admin
 from app.models.bom_item import BomItem
-from app.models.customer import Customer
+from app.models.vendor import Vendor
 from app.models.inventory import InventoryItem
 from app.models.production_plan import ProductionPlan
 from app.models.schedule import Schedule
@@ -184,9 +184,9 @@ def create_schedule(
     session: Annotated[Session, Depends(get_session)],
     _: Annotated[User, Depends(require_admin)],
 ) -> Schedule:
-    # Auto-resolve customer_id from customer_name
+    # Auto-resolve vendor_id from customer_name
     customer = session.exec(
-        select(Customer).where(Customer.name == body.customer_name)
+        select(Vendor).where(Vendor.name == body.customer_name)
     ).first()
     schedule = Schedule(
         schedule_number=_next_schedule_number(session),

@@ -36,6 +36,9 @@ const BLANK = {
   request_inventory: [] as string[],
   can_create_receipt: false,
   grn_access: false,
+  dispatch_access: false,
+  gate_pass_access: false,
+  purchase_access: false,
   photo_base64: null as string | null,
 };
 
@@ -326,6 +329,39 @@ export default function NewUserPage() {
             <label htmlFor="grn_access" className="text-sm cursor-pointer select-none">
               <span className="font-medium">GRN Access</span>
               <span className="text-muted-foreground ml-1">(can access Goods Received Notes, create entries and mark stock filled)</span>
+            </label>
+          </div>
+
+          {/* Dispatch Access */}
+          <div className="flex items-center gap-3 rounded-md border px-3 py-3">
+            <input type="checkbox" id="dispatch_access" checked={form.dispatch_access}
+              onChange={(e) => setForm({ ...form, dispatch_access: e.target.checked })}
+              disabled={saving} className="size-4 rounded accent-primary" />
+            <label htmlFor="dispatch_access" className="text-sm cursor-pointer select-none">
+              <span className="font-medium">Dispatch Access</span>
+              <span className="text-muted-foreground ml-1">(can access Dispatch module)</span>
+            </label>
+          </div>
+
+          {/* Gate Pass Access */}
+          <div className="flex items-center gap-3 rounded-md border px-3 py-3">
+            <input type="checkbox" id="gate_pass_access" checked={form.gate_pass_access}
+              onChange={(e) => setForm({ ...form, gate_pass_access: e.target.checked })}
+              disabled={saving} className="size-4 rounded accent-primary" />
+            <label htmlFor="gate_pass_access" className="text-sm cursor-pointer select-none">
+              <span className="font-medium">Gate Pass Access</span>
+              <span className="text-muted-foreground ml-1">(can access Gate Pass module)</span>
+            </label>
+          </div>
+
+          {/* Purchase Access */}
+          <div className="flex items-center gap-3 rounded-md border px-3 py-3">
+            <input type="checkbox" id="purchase_access" checked={form.purchase_access}
+              onChange={(e) => setForm({ ...form, purchase_access: e.target.checked })}
+              disabled={saving} className="size-4 rounded accent-primary" />
+            <label htmlFor="purchase_access" className="text-sm cursor-pointer select-none">
+              <span className="font-medium">Purchase Access</span>
+              <span className="text-muted-foreground ml-1">(can access Purchase Order module)</span>
             </label>
           </div>
 

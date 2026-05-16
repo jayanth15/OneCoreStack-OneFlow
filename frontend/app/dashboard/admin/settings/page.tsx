@@ -150,7 +150,7 @@ export default function SettingsPage() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center border-b px-4 md:px-6">
+      <header className="sticky top-0 z-10 bg-background flex h-16 shrink-0 items-center border-b px-4 md:px-6">
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem className="hidden md:block">

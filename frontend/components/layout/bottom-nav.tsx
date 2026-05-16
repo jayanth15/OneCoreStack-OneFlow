@@ -15,6 +15,7 @@ import {
   X,
   BookOpen,
   Contact,
+  Truck,
   Settings,
   Download,
   Share,
@@ -23,6 +24,8 @@ import {
   ClipboardList,
   PackageCheck,
   ClipboardCheck,
+  PackagePlus,
+  ShoppingCart,
 } from "lucide-react";
 import { usePwaInstall } from "@/hooks/use-pwa-install";
 import { cn } from "@/lib/utils";
@@ -52,7 +55,8 @@ const GENERAL_MORE_NAV: NavItem[] = [
 
 // Only shown to admin / super_admin in the More drawer
 const ADMIN_MORE_NAV: NavItem[] = [
-  { label: "Customers",   href: "/dashboard/customers",          icon: Contact },
+  { label: "Vendors",     href: "/dashboard/vendors",            icon: Contact },
+  { label: "Suppliers",   href: "/dashboard/suppliers",          icon: Truck },
   { label: "Departments", href: "/dashboard/admin/departments", icon: Building2 },
   { label: "Users",       href: "/dashboard/admin/users",       icon: Users },
   { label: "BOM",         href: "/dashboard/admin/bom",         icon: BookOpen },
@@ -65,6 +69,9 @@ export function BottomNav() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [grnAccess, setGrnAccess] = useState(false);
+  const [dispatchAccess, setDispatchAccess] = useState(false);
+  const [gatePassAccess, setGatePassAccess] = useState(false);
+  const [purchaseAccess, setPurchaseAccess] = useState(false);
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [requestCount, setRequestCount] = useState(0);
   const [receiptCount, setReceiptCount] = useState(0);
@@ -92,6 +99,9 @@ export function BottomNav() {
     const u = getCurrentUser();
     setUser(u);
     setGrnAccess(u?.grn_access ?? false);
+    setDispatchAccess(u?.dispatch_access ?? false);
+    setGatePassAccess(u?.gate_pass_access ?? false);
+    setPurchaseAccess(u?.purchase_access ?? false);
   }, [pathname]);
 
   // close more menu on route change
@@ -112,6 +122,9 @@ export function BottomNav() {
   const moreNavItems = [
     ...GENERAL_MORE_NAV,
     ...(grnAccess || isAdmin ? [{ label: "GRN", href: "/dashboard/grn", icon: ClipboardCheck }] : []),
+    ...(dispatchAccess || isAdmin ? [{ label: "Dispatch", href: "/dashboard/dispatch", icon: PackageCheck }] : []),
+    ...(gatePassAccess || isAdmin ? [{ label: "Gate Passes", href: "/dashboard/gate-passes", icon: PackagePlus }] : []),
+    ...(purchaseAccess || isAdmin ? [{ label: "Purchase Orders", href: "/dashboard/purchase-orders", icon: ShoppingCart }] : []),
     ...(isAdmin ? ADMIN_MORE_NAV : []),
   ];
 

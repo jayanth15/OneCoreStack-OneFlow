@@ -426,7 +426,7 @@ export default function WeedersPage() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center border-b px-6 gap-4 md:pr-64">
+      <header className="sticky top-0 z-10 bg-background flex h-16 shrink-0 items-center border-b px-6 gap-4 md:pr-64">
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>

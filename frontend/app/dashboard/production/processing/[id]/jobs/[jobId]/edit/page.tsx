@@ -27,6 +27,7 @@ interface OrderInfo {
 }
 
 interface WorkerOption { id: number; username: string; }
+interface SupplierOption { id: number; name: string; }
 
 interface JobCardData {
   id: number;
@@ -43,6 +44,9 @@ interface JobCardData {
   notes: string | null;
   status: string;
   is_active: boolean;
+  job_type: string;
+  supplier_id: number | null;
+  supplier_name: string | null;
 }
 
 
@@ -55,6 +59,7 @@ export default function EditJobCardPage() {
 
   const [order, setOrder] = useState<OrderInfo | null>(null);
   const [workers, setWorkers] = useState<WorkerOption[]>([]);
+  const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
   const [cardNumber, setCardNumber] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -65,6 +70,8 @@ export default function EditJobCardPage() {
   const [worker, setWorker] = useState("");
   const [workerLocked, setWorkerLocked] = useState(false);
   const [dateLocked, setDateLocked] = useState(false);
+  const [jobType, setJobType] = useState<"internal" | "supplier">("internal");
+  const [supplierId, setSupplierId] = useState<string>("");
   const [hoursWorked, setHoursWorked] = useState("0");
   const [qtyProduced, setQtyProduced] = useState("0");
   const [workDate, setWorkDate] = useState(() => new Date().toISOString().split("T")[0]);
@@ -80,14 +87,18 @@ export default function EditJobCardPage() {
       apiFetchJson<OrderInfo>(`/api/v1/production/orders/${id}`),
       apiFetchJson<JobCardData>(`/api/v1/production/jobs/${jobId}`),
       apiFetchJson<WorkerOption[]>("/api/v1/production/workers"),
+      apiFetchJson<SupplierOption[]>("/api/v1/suppliers/names"),
     ])
-      .then(([o, jc, w]) => {
+      .then(([o, jc, w, s]) => {
         setOrder(o);
         setWorkers(w);
+        setSuppliers(s);
         setCardNumber(jc.card_number);
         setProcessName(jc.process_name);
         setToolDie(jc.tool_die_number ?? "");
         setMachine(jc.machine_name ?? "");
+        setJobType((jc.job_type ?? "internal") as "internal" | "supplier");
+        setSupplierId(jc.supplier_id ? String(jc.supplier_id) : "");
         // If worker role, lock to their username; otherwise use saved value
         const me = getCurrentUser();
         if (me && isWorker()) {
@@ -122,12 +133,17 @@ export default function EditJobCardPage() {
         process_name: processName.trim(),
         tool_die_number: toolDie || null,
         machine_name: machine || null,
-        worker_name: worker || null,
+        worker_name: jobType === "internal" ? (worker || null) : null,
         hours_worked: parseFloat(hoursWorked) || 0,
         qty_produced: parseFloat(qtyProduced) || 0,
         work_date: workDate || null,
         notes: notes || null,
         is_active: isActive,
+        job_type: jobType,
+        supplier_id: jobType === "supplier" && supplierId ? parseInt(supplierId) : null,
+        supplier_name: jobType === "supplier" && supplierId
+          ? (suppliers.find(s => s.id === parseInt(supplierId))?.name ?? null)
+          : null,
       };
       await apiFetchJson(`/api/v1/production/jobs/${jobId}`, {
         method: "PUT",
@@ -184,6 +200,42 @@ export default function EditJobCardPage() {
           <div className="space-y-4">{Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-9 w-full" />)}</div>
         ) : (
           <form onSubmit={handleSave} className="space-y-5">
+            {/* Job Type */}
+            <div className="space-y-1.5">
+              <Label>Job Type</Label>
+              <div className="flex rounded-md border border-input overflow-hidden">
+                <button type="button"
+                  className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                    jobType === "internal" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"
+                  }`}
+                  onClick={() => setJobType("internal")} disabled={saving}>
+                  Internal
+                </button>
+                <button type="button"
+                  className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                    jobType === "supplier" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"
+                  }`}
+                  onClick={() => setJobType("supplier")} disabled={saving}>
+                  Supplier
+                </button>
+              </div>
+            </div>
+
+            {/* Supplier picker */}
+            {jobType === "supplier" && (
+              <div className="space-y-1.5">
+                <Label htmlFor="supplier">Supplier <span className="text-destructive">*</span></Label>
+                <select id="supplier" value={supplierId}
+                  onChange={(e) => setSupplierId(e.target.value)} disabled={saving}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
+                  <option value="">— Select supplier —</option>
+                  {suppliers.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             {/* Process */}
             <div className="space-y-1.5">
               <Label htmlFor="process">Process Step <span className="text-destructive">*</span></Label>
@@ -219,24 +271,26 @@ export default function EditJobCardPage() {
               </div>
             </div>
 
-            {/* Worker */}
-            <div className="space-y-1.5">
-              <Label htmlFor="worker">Worker Name</Label>
-              <select id="worker" value={worker}
-                onChange={(e) => setWorker(e.target.value)} disabled={saving || workerLocked}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
-                <option value="">— Select worker —</option>
-                {workers.map((w) => (
-                  <option key={w.id} value={w.username}>{w.username}</option>
-                ))}
-                {worker && !workers.some((w) => w.username === worker) && (
-                  <option value={worker}>{worker} (current)</option>
+            {/* Worker (only for internal jobs) */}
+            {jobType === "internal" && (
+              <div className="space-y-1.5">
+                <Label htmlFor="worker">Worker Name</Label>
+                <select id="worker" value={worker}
+                  onChange={(e) => setWorker(e.target.value)} disabled={saving || workerLocked}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
+                  <option value="">— Select worker —</option>
+                  {workers.map((w) => (
+                    <option key={w.id} value={w.username}>{w.username}</option>
+                  ))}
+                  {worker && !workers.some((w) => w.username === worker) && (
+                    <option value={worker}>{worker} (current)</option>
+                  )}
+                </select>
+                {workerLocked && (
+                  <p className="text-xs text-muted-foreground">Auto-assigned to your account.</p>
                 )}
-              </select>
-              {workerLocked && (
-                <p className="text-xs text-muted-foreground">Auto-assigned to your account.</p>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Qty + Hours */}
             <div className="grid grid-cols-2 gap-4">

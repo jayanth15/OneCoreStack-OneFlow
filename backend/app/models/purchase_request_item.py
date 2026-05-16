@@ -16,3 +16,4 @@ class PurchaseRequestItem(SQLModel, table=True):
     description: Optional[str] = Field(default=None)
     quantity: float = Field(default=1.0)
     timeline_days: Optional[int] = Field(default=None)
+    department: Optional[str] = Field(default=None)

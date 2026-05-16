@@ -9,7 +9,11 @@ from app.core.database import init_db, run_migrations
 from app.core.backup import start_scheduler
 from app.routers import auth as auth_router
 from app.routers import bom as bom_router
-from app.routers import customers as customers_router
+from app.routers import vendors as vendors_router
+from app.routers import suppliers as suppliers_router
+from app.routers import dispatch as dispatch_router
+from app.routers import gate_passes as gate_passes_router
+from app.routers import purchase_orders as purchase_orders_router
 from app.routers import dashboard as dashboard_router
 from app.routers import departments as departments_router
 from app.routers import inventory as inventory_router
@@ -43,6 +47,13 @@ from app.models.purchase_request_history import PurchaseRequestHistory  # noqa: 
 from app.models.purchase_request_item import PurchaseRequestItem  # noqa: F401 — ensures table is created
 from app.models.marketing_request import MarketingRequest  # noqa: F401 — ensures table is created
 from app.models.marketing_request_history import MarketingRequestHistory  # noqa: F401 — ensures table is created
+from app.models.dispatch import Dispatch  # noqa: F401 — ensures table is created
+from app.models.dispatch_item import DispatchItem  # noqa: F401 — ensures table is created
+from app.models.gate_pass import GatePass  # noqa: F401 — ensures table is created
+from app.models.gate_pass_item import GatePassItem  # noqa: F401 — ensures table is created
+from app.models.purchase_order import PurchaseOrder, PurchaseOrderItem  # noqa: F401 — ensures table is created
+from app.models.supplier_job import SupplierJob  # noqa: F401 — ensures table is created
+from app.models.supplier_material import SupplierMaterial  # noqa: F401 — ensures table is created
 
 
 @asynccontextmanager
@@ -96,6 +107,20 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _migrate_grn_v3()
     # Add changed_by_username to inventory_history and job_card_history
     _migrate_history_username_columns()
+    # Rename customers table to vendors (idempotent)
+    _migrate_customers_to_vendors()
+    # Create suppliers table
+    _migrate_suppliers_table()
+    # Add job_type + supplier fields to job_card table
+    _migrate_job_card_supplier_fields()
+    # Add dispatch/gate_pass/purchase_access columns to users table
+    _migrate_user_access_flags()
+    # Create dispatch, gate_pass, purchase_order tables
+    _migrate_new_module_tables()
+    # Add supplier/party fields to dispatch; vendor/party fields to purchase_order
+    _migrate_dispatch_supplier_fields()
+    _migrate_po_vendor_fields()
+    # supplier_jobs and supplier_materials tables created by init_db via SQLModel metadata
     # Auto-seed a default admin user on a brand-new / empty database
     _auto_seed_if_empty()
     # Start daily DB backup scheduler (fires at 17:30 every day)
@@ -146,6 +171,123 @@ def _migrate_job_card_worker_id() -> None:
                 WHERE worker_name IS NOT NULL
             """))
             conn.commit()
+
+
+def _migrate_new_module_tables() -> None:
+    """Create dispatch, gate_pass, purchase_order, purchase_order_item tables if they don't exist."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        tables = {row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'")).fetchall()}
+
+        if "dispatch" not in tables:
+            conn.execute(text("""
+                CREATE TABLE dispatch (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    dispatch_number TEXT NOT NULL UNIQUE,
+                    vendor_id INTEGER,
+                    vendor_name TEXT,
+                    schedule_id INTEGER,
+                    schedule_number TEXT,
+                    product_name TEXT NOT NULL DEFAULT '',
+                    quantity REAL NOT NULL DEFAULT 0,
+                    unit TEXT,
+                    dispatch_date TEXT,
+                    vehicle_number TEXT,
+                    driver_name TEXT,
+                    notes TEXT,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    created_by TEXT,
+                    created_at TEXT
+                )
+            """))
+
+        if "gate_pass" not in tables:
+            conn.execute(text("""
+                CREATE TABLE gate_pass (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    gate_pass_number TEXT NOT NULL UNIQUE,
+                    pass_type TEXT NOT NULL DEFAULT 'out',
+                    vendor_id INTEGER,
+                    vendor_name TEXT,
+                    supplier_id INTEGER,
+                    supplier_name TEXT,
+                    material TEXT NOT NULL DEFAULT '',
+                    quantity REAL NOT NULL DEFAULT 0,
+                    unit TEXT,
+                    purpose TEXT,
+                    vehicle_number TEXT,
+                    date TEXT,
+                    notes TEXT,
+                    status TEXT NOT NULL DEFAULT 'open',
+                    created_by TEXT,
+                    created_at TEXT
+                )
+            """))
+
+        if "purchase_order" not in tables:
+            conn.execute(text("""
+                CREATE TABLE purchase_order (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    po_number TEXT NOT NULL UNIQUE,
+                    supplier_id INTEGER,
+                    supplier_name TEXT,
+                    po_date TEXT,
+                    expected_delivery TEXT,
+                    notes TEXT,
+                    status TEXT NOT NULL DEFAULT 'draft',
+                    created_by TEXT,
+                    created_at TEXT
+                )
+            """))
+
+        if "purchase_order_item" not in tables:
+            conn.execute(text("""
+                CREATE TABLE purchase_order_item (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    purchase_order_id INTEGER NOT NULL REFERENCES purchase_order(id),
+                    item_name TEXT NOT NULL DEFAULT '',
+                    quantity REAL NOT NULL DEFAULT 0,
+                    unit TEXT,
+                    rate REAL,
+                    notes TEXT
+                )
+            """))
+
+        conn.commit()
+
+
+def _migrate_user_access_flags() -> None:
+    """Add dispatch_access, gate_pass_access, purchase_access columns to users table."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        cols = [row[1] for row in conn.execute(text("PRAGMA table_info(users)")).fetchall()]
+        if "dispatch_access" not in cols:
+            conn.execute(text("ALTER TABLE users ADD COLUMN dispatch_access INTEGER NOT NULL DEFAULT 0"))
+        if "gate_pass_access" not in cols:
+            conn.execute(text("ALTER TABLE users ADD COLUMN gate_pass_access INTEGER NOT NULL DEFAULT 0"))
+        if "purchase_access" not in cols:
+            conn.execute(text("ALTER TABLE users ADD COLUMN purchase_access INTEGER NOT NULL DEFAULT 0"))
+        conn.commit()
+
+
+def _migrate_job_card_supplier_fields() -> None:
+    """Add job_type, supplier_id, supplier_name columns to job_card table."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        cols = [row[1] for row in conn.execute(text("PRAGMA table_info(job_card)")).fetchall()]
+        if "job_type" not in cols:
+            conn.execute(text("ALTER TABLE job_card ADD COLUMN job_type TEXT NOT NULL DEFAULT 'internal'"))
+        if "supplier_id" not in cols:
+            conn.execute(text("ALTER TABLE job_card ADD COLUMN supplier_id INTEGER"))
+        if "supplier_name" not in cols:
+            conn.execute(text("ALTER TABLE job_card ADD COLUMN supplier_name TEXT"))
+        conn.commit()
 
 
 def _migrate_spare_item_v2() -> None:
@@ -504,23 +646,23 @@ def _migrate_production_plan_v3() -> None:
 def _seed_customers_from_schedules() -> None:
     """
     One-time idempotent migration: copy unique customer_name values from existing
-    Schedule rows into the Customer table so the dropdown is pre-populated.
+    Schedule rows into the Vendor table so the dropdown is pre-populated.
     """
     from app.core.database import engine
-    from app.models.customer import Customer
+    from app.models.vendor import Vendor
     from app.models.schedule import Schedule
     from sqlmodel import Session, select
 
     with Session(engine) as session:
         existing_names = {
-            c.name for c in session.exec(select(Customer)).all()
+            v.name for v in session.exec(select(Vendor)).all()
         }
         schedule_names = {
             s.customer_name for s in session.exec(select(Schedule)).all()
         }
         for name in sorted(schedule_names - existing_names):
             if name and name.strip():
-                session.add(Customer(name=name.strip()))
+                session.add(Vendor(name=name.strip()))
         session.commit()
 
 
@@ -888,6 +1030,74 @@ def _migrate_history_username_columns() -> None:
         conn.commit()
 
 
+def _migrate_customers_to_vendors() -> None:
+    """Rename the 'customers' table to 'vendors' (idempotent)."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        tables = {row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'")).fetchall()}
+        if "customers" in tables and "vendors" not in tables:
+            conn.execute(text("ALTER TABLE customers RENAME TO vendors"))
+            conn.commit()
+
+
+def _migrate_suppliers_table() -> None:
+    """Create the suppliers table if it doesn't exist (idempotent)."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        tables = {row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'")).fetchall()}
+        if "suppliers" not in tables:
+            conn.execute(text("""
+                CREATE TABLE suppliers (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL UNIQUE,
+                    contact_person TEXT,
+                    phone TEXT,
+                    email TEXT,
+                    address TEXT,
+                    notes TEXT,
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    created_at TEXT
+                )
+            """))
+            conn.commit()
+
+
+def _migrate_dispatch_supplier_fields() -> None:
+    """Add supplier_id, supplier_name, party_type columns to dispatch table."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        cols = [row[1] for row in conn.execute(text("PRAGMA table_info(dispatch)")).fetchall()]
+        if "supplier_id" not in cols:
+            conn.execute(text("ALTER TABLE dispatch ADD COLUMN supplier_id INTEGER"))
+        if "supplier_name" not in cols:
+            conn.execute(text("ALTER TABLE dispatch ADD COLUMN supplier_name TEXT"))
+        if "party_type" not in cols:
+            conn.execute(text("ALTER TABLE dispatch ADD COLUMN party_type TEXT NOT NULL DEFAULT 'vendor'"))
+        conn.commit()
+
+
+def _migrate_po_vendor_fields() -> None:
+    """Add vendor_id, vendor_name, party_type columns to purchase_order table."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        cols = [row[1] for row in conn.execute(text("PRAGMA table_info(purchase_order)")).fetchall()]
+        if "vendor_id" not in cols:
+            conn.execute(text("ALTER TABLE purchase_order ADD COLUMN vendor_id INTEGER"))
+        if "vendor_name" not in cols:
+            conn.execute(text("ALTER TABLE purchase_order ADD COLUMN vendor_name TEXT"))
+        if "party_type" not in cols:
+            conn.execute(text("ALTER TABLE purchase_order ADD COLUMN party_type TEXT NOT NULL DEFAULT 'supplier'"))
+        conn.commit()
+
+
 def _auto_seed_if_empty() -> None:
     """If the database has no users at all (fresh deployment), create a default
     super_admin account so the app is immediately usable.
@@ -938,7 +1148,11 @@ app.add_middleware(
 # ── Core routers (always on) ──────────────────────────────────────────────────
 app.include_router(auth_router.router)
 app.include_router(bom_router.router)
-app.include_router(customers_router.router)
+app.include_router(vendors_router.router)
+app.include_router(suppliers_router.router)
+app.include_router(dispatch_router.router)
+app.include_router(gate_passes_router.router)
+app.include_router(purchase_orders_router.router)
 app.include_router(dashboard_router.router)
 app.include_router(departments_router.router)
 app.include_router(departments_router.public_router)

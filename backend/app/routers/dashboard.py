@@ -9,14 +9,18 @@ from sqlmodel import Session, func, select
 
 from app.core.database import get_session
 from app.dependencies.auth import get_current_user, is_admin_or_above
-from app.models.customer import Customer
+from app.models.attachment_item import AttachmentItem
+from app.models.consumable import Consumable
+from app.models.vendor import Vendor
 from app.models.inventory import InventoryItem
 from app.models.inventory_history import InventoryHistory
 from app.models.job_card import JobCard
 from app.models.production_order import ProductionOrder
 from app.models.production_plan import ProductionPlan
 from app.models.schedule import Schedule
+from app.models.spare_item_variant import SpareItemVariant
 from app.models.user import User
+from app.models.weeder_item import WeederItem
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])
 
@@ -29,7 +33,7 @@ class OverviewCounts(BaseModel):
     finished_goods: int
     semi_finished: int
     low_stock_alerts: int  # qty_on_hand <= reorder_level (where reorder_level > 0)
-    total_customers: int
+    total_vendors: int
     total_schedules: int
     total_plans: int
     total_orders: int
@@ -162,14 +166,43 @@ def get_dashboard(
     inv_sfg = session.exec(
         select(func.count()).where(InventoryItem.is_active == True, InventoryItem.item_type == "semi_finished")  # noqa: E712
     ).one()
-    low_stock = session.exec(
+    low_stock_inv = session.exec(
         select(func.count()).where(
             InventoryItem.is_active == True,  # noqa: E712
             InventoryItem.reorder_level > 0,
             InventoryItem.quantity_on_hand <= InventoryItem.reorder_level,
         )
     ).one()
-    total_customers = session.exec(select(func.count()).select_from(Customer)).one()
+    low_stock_spares = session.exec(
+        select(func.count()).where(
+            SpareItemVariant.is_active == True,  # noqa: E712
+            SpareItemVariant.reorder_level > 0,
+            SpareItemVariant.qty <= SpareItemVariant.reorder_level,
+        )
+    ).one()
+    low_stock_consumables = session.exec(
+        select(func.count()).where(
+            Consumable.is_active == True,  # noqa: E712
+            Consumable.reorder_level > 0,
+            Consumable.qty <= Consumable.reorder_level,
+        )
+    ).one()
+    low_stock_attachments = session.exec(
+        select(func.count()).where(
+            AttachmentItem.is_active == True,  # noqa: E712
+            AttachmentItem.reorder_level > 0,
+            AttachmentItem.qty <= AttachmentItem.reorder_level,
+        )
+    ).one()
+    low_stock_weeders = session.exec(
+        select(func.count()).where(
+            WeederItem.is_active == True,  # noqa: E712
+            WeederItem.reorder_level > 0,
+            WeederItem.qty <= WeederItem.reorder_level,
+        )
+    ).one()
+    low_stock = low_stock_inv + low_stock_spares + low_stock_consumables + low_stock_attachments + low_stock_weeders
+    total_vendors = session.exec(select(func.count()).select_from(Vendor)).one()
     total_schedules = session.exec(select(func.count()).where(Schedule.is_active == True)).one()  # noqa: E712
     total_plans = session.exec(select(func.count()).where(ProductionPlan.is_active == True)).one()  # noqa: E712
     total_orders = session.exec(select(func.count()).where(ProductionOrder.is_active == True)).one()  # noqa: E712
@@ -181,7 +214,7 @@ def get_dashboard(
         finished_goods=inv_fg,
         semi_finished=inv_sfg,
         low_stock_alerts=low_stock,
-        total_customers=total_customers,
+        total_vendors=total_vendors,
         total_schedules=total_schedules,
         total_plans=total_plans,
         total_orders=total_orders,

@@ -94,7 +94,7 @@ export default function EditSchedulePage() {
 
   useEffect(() => {
     // Load dropdown data
-    apiFetchJson<CustomerOption[]>("/api/v1/customers/names").then(setCustomers).catch(() => {});
+    apiFetchJson<CustomerOption[]>("/api/v1/vendors/names").then(setCustomers).catch(() => {});
     apiFetchJson<{ items: FGItem[] }>("/api/v1/inventory?item_type=finished_good&page_size=500").then((d) => setFgItems(d.items)).catch(() => {});
 
     if (!id) return;
@@ -191,14 +191,14 @@ export default function EditSchedulePage() {
           </div>
         ) : (
           <form onSubmit={handleSave} className="space-y-5">
-            {/* Customer name — dropdown */}
+            {/* Vendor name — dropdown */}
             <div className="space-y-1.5">
-              <Label htmlFor="customer_name">Customer / OEM Name <span className="text-destructive">*</span></Label>
+              <Label htmlFor="customer_name">Vendor / OEM Name <span className="text-destructive">*</span></Label>
               {customers.length === 0 ? (
                 <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 flex items-center gap-2">
-                  No customers yet —
-                  <Link href="/dashboard/customers" className="underline font-medium inline-flex items-center gap-1">
-                    Add a customer first <ExternalLink className="size-3" />
+                  No vendors yet —
+                  <Link href="/dashboard/vendors" className="underline font-medium inline-flex items-center gap-1">
+                    Add a vendor first <ExternalLink className="size-3" />
                   </Link>
                 </div>
               ) : (
@@ -209,7 +209,7 @@ export default function EditSchedulePage() {
                   disabled={saving}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
                 >
-                  <option value="">— Select customer —</option>
+                  <option value="">— Select vendor —</option>
                   {customers.map((c) => (
                     <option key={c.id} value={c.name}>{c.name}</option>
                   ))}

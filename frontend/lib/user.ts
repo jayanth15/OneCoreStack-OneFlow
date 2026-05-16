@@ -32,6 +32,9 @@ export interface CurrentUser {
   request_inventory: string[];  // empty = all inventory types
   can_create_receipt?: boolean;
   grn_access?: boolean;
+  dispatch_access?: boolean;
+  gate_pass_access?: boolean;
+  purchase_access?: boolean;
   photo_base64?: string | null;
   department_codes?: string[];  // codes of departments user belongs to
   department_names?: string[];  // full names of departments user belongs to

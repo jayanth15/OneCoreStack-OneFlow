@@ -43,6 +43,9 @@ class UserCreate(BaseModel):
     request_inventory: list[str] = []
     can_create_receipt: bool = False
     grn_access: bool = False
+    dispatch_access: bool = False
+    gate_pass_access: bool = False
+    purchase_access: bool = False
     photo_base64: Optional[str] = None
 
 
@@ -58,6 +61,9 @@ class UserUpdate(BaseModel):
     request_inventory: Optional[list[str]] = None
     can_create_receipt: Optional[bool] = None
     grn_access: Optional[bool] = None
+    dispatch_access: Optional[bool] = None
+    gate_pass_access: Optional[bool] = None
+    purchase_access: Optional[bool] = None
     photo_base64: Optional[str] = None
 
 
@@ -73,6 +79,9 @@ class UserResponse(BaseModel):
     request_inventory: list[str] = []
     can_create_receipt: bool = False
     grn_access: bool = False
+    dispatch_access: bool = False
+    gate_pass_access: bool = False
+    purchase_access: bool = False
     photo_base64: Optional[str] = None
     model_config = {"from_attributes": True}
 
@@ -139,6 +148,9 @@ def _build_response(session: Session, user: User) -> UserResponse:
         request_inventory=_parse_csv(user.request_inventory),
         can_create_receipt=user.can_create_receipt,
         grn_access=user.grn_access,
+        dispatch_access=user.dispatch_access,
+        gate_pass_access=user.gate_pass_access,
+        purchase_access=user.purchase_access,
         photo_base64=user.photo_base64,
     )
 
@@ -179,6 +191,9 @@ def create_user(
         request_inventory=",".join(body.request_inventory),
         can_create_receipt=body.can_create_receipt,
         grn_access=body.grn_access,
+        dispatch_access=body.dispatch_access,
+        gate_pass_access=body.gate_pass_access,
+        purchase_access=body.purchase_access,
         photo_base64=body.photo_base64,
     )
     session.add(user)
@@ -248,6 +263,15 @@ def update_user(
 
     if body.grn_access is not None:
         user.grn_access = body.grn_access
+
+    if body.dispatch_access is not None:
+        user.dispatch_access = body.dispatch_access
+
+    if body.gate_pass_access is not None:
+        user.gate_pass_access = body.gate_pass_access
+
+    if body.purchase_access is not None:
+        user.purchase_access = body.purchase_access
 
     if body.photo_base64 is not None:
         user.photo_base64 = body.photo_base64

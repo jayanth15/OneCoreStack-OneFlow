@@ -61,6 +61,7 @@ function NewInventoryInner() {
     item_type: lockedType ?? BLANK.item_type,
   }));
   const [isCustomUnit, setIsCustomUnit] = useState(false);
+  const [isCustomStorage, setIsCustomStorage] = useState(false);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -244,12 +245,28 @@ function NewInventoryInner() {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="storage_type">Storage Type</Label>
-              <select id="storage_type" value={form.storage_type} onChange={(e) => set("storage_type", e.target.value)} disabled={saving}
+              <select id="storage_type"
+                value={isCustomStorage ? "__custom__" : form.storage_type}
+                onChange={(e) => {
+                  if (e.target.value === "__custom__") {
+                    setIsCustomStorage(true);
+                    set("storage_type", "");
+                  } else {
+                    setIsCustomStorage(false);
+                    set("storage_type", e.target.value);
+                  }
+                }}
+                disabled={saving}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
               >
                 <option value="">— None —</option>
                 {(form.item_type === "semi_finished" ? SFG_STORAGE_TYPES : STORAGE_TYPES).map((s) => <option key={s} value={s}>{s}</option>)}
+                <option value="__custom__">Other…</option>
               </select>
+              {isCustomStorage && (
+                <Input placeholder="Enter storage type" value={form.storage_type}
+                  onChange={(e) => set("storage_type", e.target.value)} disabled={saving} className="mt-1.5" />
+              )}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="storage_location">Storage Location</Label>

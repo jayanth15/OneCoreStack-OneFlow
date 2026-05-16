@@ -261,7 +261,7 @@ export default function ReceiptsPage() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center border-b px-6 gap-4">
+      <header className="sticky top-0 z-10 bg-background flex h-16 shrink-0 items-center border-b px-6 gap-4">
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem><BreadcrumbPage>Receipts</BreadcrumbPage></BreadcrumbItem>

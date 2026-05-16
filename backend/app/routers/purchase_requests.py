@@ -31,6 +31,7 @@ class PurchaseRequestItemCreate(BaseModel):
     description: Optional[str] = None
     quantity: float = 1.0
     timeline_days: Optional[int] = None
+    department: Optional[str] = None
 
 
 class PurchaseRequestItemOut(BaseModel):
@@ -42,6 +43,7 @@ class PurchaseRequestItemOut(BaseModel):
     description: Optional[str]
     quantity: float
     timeline_days: Optional[int]
+    department: Optional[str] = None
 
 
 class PurchaseRequestCreate(BaseModel):
@@ -161,6 +163,7 @@ def _out(r: PurchaseRequest, session: Session) -> PurchaseRequestOut:
                 description=i.description,
                 quantity=i.quantity,
                 timeline_days=i.timeline_days,
+                department=i.department,
             )
             for i in item_rows
         ]
@@ -427,6 +430,7 @@ def create_request(
             description=it.description,
             quantity=it.quantity,
             timeline_days=timeline_days,
+            department=it.department,
         ))
 
     first_item_name = body.items[0].item_name if body.items else None
@@ -540,6 +544,7 @@ def update_request(
                 description=it.description,
                 quantity=it.quantity,
                 timeline_days=timeline_days,
+                department=it.department,
             ))
         changes.append(("items", None, f"{len(body.items)} item(s)"))
 

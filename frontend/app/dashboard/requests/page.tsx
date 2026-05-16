@@ -34,6 +34,7 @@ interface PurchaseRequestItemOut {
   description: string | null;
   quantity: number;
   timeline_days: number | null;
+  department: string | null;
 }
 
 interface PurchaseRequest {
@@ -304,11 +305,12 @@ interface FormItemRow {
   quantity: string;
   timeline_days: string;
   showManual: boolean;
+  department: string;
 }
 
 let _rowKey = 0;
 function newRow(): FormItemRow {
-  return { _key: ++_rowKey, invType: "", invItemId: null, invLabel: "", item_name: "", item_code: "", description: "", quantity: "1", timeline_days: "", showManual: false };
+  return { _key: ++_rowKey, invType: "", invItemId: null, invLabel: "", item_name: "", item_code: "", description: "", quantity: "1", timeline_days: "", showManual: false, department: "" };
 }
 
 function PurchaseTab({ admin }: { admin: boolean }) {
@@ -409,6 +411,7 @@ function PurchaseTab({ admin }: { admin: boolean }) {
         quantity: String(it.quantity),
         timeline_days: it.timeline_days != null ? String(it.timeline_days) : "",
         showManual: !it.inventory_item_id,
+        department: it.department ?? "",
       })));
     } else {
       setFormItems([{
@@ -422,6 +425,7 @@ function PurchaseTab({ admin }: { admin: boolean }) {
         quantity: String(r.quantity),
         timeline_days: r.timeline_days != null ? String(r.timeline_days) : "",
         showManual: !r.inventory_item_id,
+        department: r.department ?? "",
       }]);
     }
     setForm({
@@ -458,6 +462,7 @@ function PurchaseTab({ admin }: { admin: boolean }) {
           description: row.description || null,
           quantity: parseFloat(row.quantity) || 1,
           timeline_days: row.timeline_days ? parseInt(row.timeline_days) : null,
+          department: row.department || null,
         })),
       };
       try {
@@ -485,6 +490,7 @@ function PurchaseTab({ admin }: { admin: boolean }) {
           description: row.description || null,
           quantity: parseFloat(row.quantity) || 1,
           timeline_days: row.timeline_days ? parseInt(row.timeline_days) : null,
+          department: row.department || null,
         })),
       };
       try {
@@ -775,6 +781,18 @@ function PurchaseTab({ admin }: { admin: boolean }) {
                         onChange={e => setFormItems(fi => fi.map(r => r._key === row._key ? { ...r, quantity: e.target.value } : r))} />
                     </div>
                   </div>
+                  {/* Department (per-item) */}
+                  {depts.length > 0 && (
+                    <div className="space-y-1">
+                      <Label className="text-xs">Department <span className="text-muted-foreground font-normal">(for this item)</span></Label>
+                      <select value={row.department} disabled={saving}
+                        onChange={e => setFormItems(fi => fi.map(r => r._key === row._key ? { ...r, department: e.target.value } : r))}
+                        className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
+                        <option value="">— same as request department —</option>
+                        {depts.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+                      </select>
+                    </div>
+                  )}
                   {row.timeline_days && <p className="text-xs text-muted-foreground">Expected delivery: <span className="font-medium text-foreground">{row.timeline_days} day{Number(row.timeline_days) !== 1 ? "s" : ""}</span></p>}
                 </div>
               ))}
@@ -786,20 +804,6 @@ function PurchaseTab({ admin }: { admin: boolean }) {
 
               {/* Shared fields */}
               <div className="border-t pt-3 space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label>Department</Label>
-                    <select value={form.department} onChange={e => setForm(f => ({ ...f, department: e.target.value }))} disabled={saving}
-                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
-                      <option value="">— select —</option>
-                      {depts.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
-                    </select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Supplier / Source</Label>
-                    <Input placeholder="Supplier name or source" value={sharedFromWhom} onChange={e => setSharedFromWhom(e.target.value)} disabled={saving} />
-                  </div>
-                </div>
                 <div className="space-y-1.5">
                   <Label>Notes</Label>
                   <textarea rows={2} placeholder="Any additional notes…" value={sharedNotes}
@@ -837,6 +841,7 @@ function PurchaseTab({ admin }: { admin: boolean }) {
                               <span className="tabular-nums font-semibold shrink-0">× {it.quantity}</span>
                             </div>
                             {it.description && <p className="text-xs text-muted-foreground mt-0.5">{it.description}</p>}
+                            {it.department && <p className="text-xs text-blue-600 font-medium mt-0.5">Dept: {it.department}</p>}
                             {it.timeline_days && <p className="text-xs text-muted-foreground mt-0.5">{it.timeline_days} day{it.timeline_days !== 1 ? "s" : ""}</p>}
                           </div>
                         ))}
@@ -1016,7 +1021,7 @@ export default function RequestsPage() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center border-b px-6 gap-4">
+      <header className="sticky top-0 z-10 bg-background flex h-16 shrink-0 items-center border-b px-6 gap-4">
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem><BreadcrumbPage>Requests</BreadcrumbPage></BreadcrumbItem>

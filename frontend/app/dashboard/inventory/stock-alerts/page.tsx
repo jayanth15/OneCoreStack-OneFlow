@@ -9,7 +9,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiFetchJson } from "@/lib/api";
-import { AlertTriangle, Printer, Package, Wrench, RefreshCw, Box, Layers, FlaskConical, Paperclip, Scissors } from "lucide-react";
+import { AlertTriangle, Printer, Package, Wrench, RefreshCw, Box, Layers, FlaskConical, Paperclip, Scissors, List } from "lucide-react";
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+
+const TABS = [
+  { key: "all",           label: "All",           Icon: List },
+  { key: "raw_material",  label: "Raw Materials",  Icon: Box },
+  { key: "finished_good", label: "Finished Goods", Icon: Package },
+  { key: "semi_finished", label: "Semi Finished",  Icon: Layers },
+  { key: "spare",         label: "Spares",         Icon: Wrench },
+  { key: "consumable",    label: "Consumables",    Icon: FlaskConical },
+  { key: "attachment",    label: "Attachments",    Icon: Paperclip },
+  { key: "weeder",        label: "Weeders",        Icon: Scissors },
+] as const;
+type TabKey = typeof TABS[number]["key"];
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -125,6 +139,7 @@ export default function StockAlertsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [qtyNeeded, setQtyNeeded] = useState<Record<string, string>>({});
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
+  const [activeTab, setActiveTab] = useState<TabKey>("all");
   const printRef = useRef<HTMLDivElement>(null);
 
   const CATEGORY_LABELS: Record<string, string> = {
@@ -224,8 +239,29 @@ export default function StockAlertsPage() {
   useEffect(() => { fetchData(); }, []); // eslint-disable-line
 
   // ── Selection helpers ─────────────────────────────────────────────────────
-  const allSelected = rows.length > 0 && selected.size === rows.length;
-  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(rows.map(r => r.key)));
+  const displayRows = activeTab === "all"
+    ? rows
+    : rows.filter(r => r.type === activeTab);
+
+  const tabCounts: Partial<Record<TabKey, number>> = {
+    all:           rows.length,
+    raw_material:  rows.filter(r => r.type === "raw_material").length,
+    finished_good: rows.filter(r => r.type === "finished_good").length,
+    semi_finished: rows.filter(r => r.type === "semi_finished").length,
+    spare:         rows.filter(r => r.type === "spare").length,
+    consumable:    rows.filter(r => r.type === "consumable").length,
+    attachment:    rows.filter(r => r.type === "attachment").length,
+    weeder:        rows.filter(r => r.type === "weeder").length,
+  };
+
+  const allSelected = displayRows.length > 0 && displayRows.every(r => selected.has(r.key));
+  const toggleAll = () => {
+    if (allSelected) {
+      setSelected(prev => { const n = new Set(prev); displayRows.forEach(r => n.delete(r.key)); return n; });
+    } else {
+      setSelected(prev => { const n = new Set(prev); displayRows.forEach(r => n.add(r.key)); return n; });
+    }
+  };
   const toggle = (key: string) => {
     setSelected(prev => {
       const n = new Set(prev);
@@ -309,7 +345,7 @@ export default function StockAlertsPage() {
   return (
     <>
       {/* Header */}
-      <header className="flex h-16 shrink-0 items-center border-b px-6 gap-4 md:pr-64">
+      <header className="sticky top-0 z-10 bg-background flex h-16 shrink-0 items-center border-b px-6 gap-4 md:pr-64">
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
@@ -348,6 +384,32 @@ export default function StockAlertsPage() {
           </p>
         </div>
 
+        {/* Tabs */}
+        <div className="flex flex-wrap gap-1.5 border-b pb-1">
+          {TABS.map(({ key, label, Icon }) => {
+            const count = tabCounts[key] ?? 0;
+            return (
+              <button
+                key={key}
+                onClick={() => setActiveTab(key)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-t-md text-sm font-medium transition-colors ${
+                  activeTab === key
+                    ? "bg-background border border-b-background -mb-px text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
+              >
+                <Icon className="size-3.5" />
+                {label}
+                {!loading && count > 0 && (
+                  <span className="ml-1 text-[10px] font-semibold bg-amber-100 text-amber-700 rounded-full px-1.5 py-0.5">
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
         {error && <p className="text-sm text-destructive">{error}</p>}
 
         {loading ? (
@@ -361,6 +423,13 @@ export default function StockAlertsPage() {
             </div>
             <p className="text-sm font-medium">All stock levels are healthy!</p>
             <p className="text-xs text-muted-foreground">No inventory items are below their reorder level.</p>
+          </div>
+        ) : displayRows.length === 0 ? (
+          <div className="rounded-xl border p-14 text-center space-y-3">
+            <div className="size-14 rounded-full bg-emerald-100 flex items-center justify-center mx-auto">
+              <Package className="size-7 text-emerald-600" />
+            </div>
+            <p className="text-sm font-medium">No low-stock items in this category!</p>
           </div>
         ) : (
           <>
@@ -398,7 +467,7 @@ export default function StockAlertsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {rows.map(r => (
+                  {displayRows.map(r => (
                     <tr key={r.key} className={`transition-colors ${selected.has(r.key) ? "bg-amber-50/50 dark:bg-amber-950/10" : "hover:bg-muted/20"}`}>
                       <td className="px-3 py-3 text-center">
                         <input type="checkbox" checked={selected.has(r.key)} onChange={() => toggle(r.key)}
@@ -437,7 +506,7 @@ export default function StockAlertsPage() {
 
             {/* Mobile cards */}
             <div className="md:hidden space-y-2">
-              {rows.map(r => (
+              {displayRows.map(r => (
                 <div key={r.key} className={`rounded-lg border p-3 space-y-2 ${selected.has(r.key) ? "border-amber-300 bg-amber-50/50 dark:bg-amber-950/10" : "bg-card"}`}>
                   <div className="flex items-start gap-2">
                     <input type="checkbox" checked={selected.has(r.key)} onChange={() => toggle(r.key)}

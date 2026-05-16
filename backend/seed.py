@@ -19,7 +19,7 @@ from app.models.department import Department
 from app.models.user_department import UserDepartment
 from app.models.inventory import InventoryItem
 from app.models.bom_item import BomItem
-from app.models.customer import Customer
+from app.models.vendor import Vendor
 from app.models.schedule import Schedule
 from app.models.production_plan import ProductionPlan
 from app.models.production_process import ProductionProcess
