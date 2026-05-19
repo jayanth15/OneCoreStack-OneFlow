@@ -1,3 +1,4 @@
+import os
 from collections.abc import Generator
 
 from sqlmodel import Session, SQLModel, create_engine
@@ -18,6 +19,15 @@ def init_db() -> None:
     import app.models  # noqa: F401
 
     SQLModel.metadata.create_all(engine)
+
+    # Ensure the SQLite db file is group-writable so Docker containers running
+    # as a different UID (e.g. appuser) can write to the mounted volume.
+    if "sqlite" in settings.database_url:
+        db_path = settings.database_url.replace("sqlite:///", "").replace("sqlite://", "")
+        try:
+            os.chmod(db_path, 0o664)
+        except OSError:
+            pass  # best-effort — may fail if running as a different owner
 
 
 def run_migrations() -> None:
