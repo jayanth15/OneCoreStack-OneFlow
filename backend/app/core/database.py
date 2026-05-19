@@ -109,6 +109,12 @@ def run_migrations() -> None:
         cursor.execute("CREATE INDEX IF NOT EXISTS ix_receipt_request_id ON receipt(request_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS ix_receipt_status ON receipt(status)")
 
+        # purchase_request_item — department column
+        cursor.execute("PRAGMA table_info(purchase_request_item)")
+        pri_cols = {row[1] for row in cursor.fetchall()}
+        if "department" not in pri_cols:
+            cursor.execute("ALTER TABLE purchase_request_item ADD COLUMN department TEXT")
+
         # purchase_request — fulfilment response columns
         cursor.execute("PRAGMA table_info(purchase_request)")
         pr_cols = {row[1] for row in cursor.fetchall()}
