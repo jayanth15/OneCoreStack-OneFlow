@@ -116,7 +116,7 @@ const isShortfall = (item: InventoryItem) =>
 
 interface Props {
   /** The fixed item_type for this page — drives filtering and the new-item preset */
-  itemType: "finished_good" | "raw_material" | "semi_finished";
+  itemType: "finished_good" | "raw_material" | "semi_finished" | "scrap";
   /** Human-readable label, e.g. "Finished Goods" */
   label: string;
   /** Short description shown below the heading */
