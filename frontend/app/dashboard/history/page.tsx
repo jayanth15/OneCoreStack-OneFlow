@@ -14,7 +14,7 @@ import { isAdminOrAbove } from "@/lib/user";
 import {
   Package, ShoppingCart, Megaphone, ClipboardList, Calendar,
   FlaskConical, Wrench, Scissors, Paperclip, History, ChevronDown,
-  RotateCcw,
+  RotateCcw, Box, PackageCheck, Layers, Recycle,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -56,15 +56,18 @@ interface TabState {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const TABS = [
-  { key: "inventory",          label: "Inventory",          Icon: Package },
-  { key: "purchase-requests",  label: "Purchase Requests",  Icon: ShoppingCart },
-  { key: "marketing-requests", label: "Marketing Requests", Icon: Megaphone },
-  { key: "job-cards",          label: "Job Cards",          Icon: ClipboardList },
-  { key: "schedules",          label: "Schedules",          Icon: Calendar },
+  { key: "raw-materials",      label: "Raw Materials",      Icon: Package },
+  { key: "finished-goods",     label: "Finished Goods",     Icon: PackageCheck },
+  { key: "semi-finished",      label: "Semi-Finished",      Icon: Layers },
+  { key: "scraps",             label: "Scraps",             Icon: Recycle },
   { key: "consumables",        label: "Consumables",        Icon: FlaskConical },
   { key: "spares",             label: "Spare Items",        Icon: Wrench },
   { key: "weeders",            label: "Weeders",            Icon: Scissors },
   { key: "attachments",        label: "Attachments",        Icon: Paperclip },
+  { key: "purchase-requests",  label: "Purchase Requests",  Icon: ShoppingCart },
+  { key: "marketing-requests", label: "Marketing Requests", Icon: Megaphone },
+  { key: "job-cards",          label: "Job Cards",          Icon: ClipboardList },
+  { key: "schedules",          label: "Schedules",          Icon: Calendar },
 ] as const;
 
 type TabKey = typeof TABS[number]["key"];
@@ -180,7 +183,10 @@ function QtyColumns({ h, showVariant }: { h: HistoryItem; showVariant?: boolean 
 // ── Header definitions ─────────────────────────────────────────────────────────
 
 const HEADERS: Record<TabKey, string[]> = {
-  "inventory":          ["Item", "By", "Type", "Qty Before", "Qty After", "Delta", "Note", "Date"],
+  "raw-materials":      ["Item", "By", "Type", "Qty Before", "Qty After", "Delta", "Note", "Date"],
+  "finished-goods":     ["Item", "By", "Type", "Qty Before", "Qty After", "Delta", "Note", "Date"],
+  "semi-finished":      ["Item", "By", "Type", "Qty Before", "Qty After", "Delta", "Note", "Date"],
+  "scraps":             ["Item", "By", "Type", "Qty Before", "Qty After", "Delta", "Note", "Date"],
   "purchase-requests":  ["Request (SN)", "By", "Type", "Field", "Before", "After", "Note", "Date"],
   "marketing-requests": ["Request (SN)", "By", "Type", "Field", "Before", "After", "Note", "Date"],
   "job-cards":          ["Job Card", "By", "Type", "Field", "Before", "After", "Note", "Date"],
@@ -192,7 +198,10 @@ const HEADERS: Record<TabKey, string[]> = {
 };
 
 function RowCells({ tab, h }: { tab: TabKey; h: HistoryItem }) {
-  if (tab === "inventory")          return <InventoryColumns h={h} />;
+  if (tab === "raw-materials")      return <InventoryColumns h={h} />;
+  if (tab === "finished-goods")     return <InventoryColumns h={h} />;
+  if (tab === "semi-finished")      return <InventoryColumns h={h} />;
+  if (tab === "scraps")             return <InventoryColumns h={h} />;
   if (tab === "purchase-requests")  return <RequestColumns h={h} />;
   if (tab === "marketing-requests") return <RequestColumns h={h} />;
   if (tab === "job-cards")          return <RequestColumns h={h} />;
@@ -234,7 +243,7 @@ export default function HistoryPage() {
     }
   }, [router]);
 
-  const [activeTab, setActiveTab] = useState<TabKey>("inventory");
+  const [activeTab, setActiveTab] = useState<TabKey>("raw-materials");
   const [tabState, setTabState] = useState<Record<TabKey, TabState>>(
     () => Object.fromEntries(TABS.map(t => [t.key, { ...INITIAL_TAB_STATE }])) as Record<TabKey, TabState>
   );

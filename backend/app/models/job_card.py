@@ -20,6 +20,7 @@ class JobCard(SQLModel, table=True):
     machine_name: Optional[str] = None         # machine used
     worker_name: Optional[str] = None          # operator / worker name (legacy)
     worker_id: Optional[int] = Field(default=None, foreign_key="users.id")  # FK to users
+    worker_names: Optional[str] = None         # JSON array of worker usernames e.g. '["alice","bob"]'
     hours_worked: float = Field(default=0.0)   # total hours worked
     qty_produced: float = Field(default=0.0)   # quantity produced in this job card
     qty_pending: float = Field(default=0.0)    # remaining quantity

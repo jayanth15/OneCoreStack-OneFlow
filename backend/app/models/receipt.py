@@ -19,6 +19,9 @@ class Receipt(SQLModel, table=True):
     item_code: Optional[str] = Field(default=None)
     quantity_requested: float = Field(default=0.0)   # snapshot of request.quantity
 
+    # Which department created this receipt (for multi-dept requests)
+    department: Optional[str] = Field(default=None)
+
     # Delivery detail
     quantity_received: float = Field(default=0.0)
     notes: Optional[str] = Field(default=None)       # delivery / packing notes

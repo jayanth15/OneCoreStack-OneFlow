@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional
 
 from sqlmodel import Field, SQLModel
@@ -17,3 +18,10 @@ class PurchaseRequestItem(SQLModel, table=True):
     quantity: float = Field(default=1.0)
     timeline_days: Optional[int] = Field(default=None)
     department: Optional[str] = Field(default=None)
+
+    # Per-item acceptance tracking — each target department accepts independently
+    # item_status: None/null = pending, "in_progress" = accepted, "delivered" = delivered
+    item_status: Optional[str] = Field(default=None, index=True)
+    accepted_by_username: Optional[str] = Field(default=None)
+    accepted_at: Optional[datetime] = Field(default=None)
+    acceptance_note: Optional[str] = Field(default=None)

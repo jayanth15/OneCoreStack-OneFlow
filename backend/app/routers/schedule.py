@@ -200,6 +200,74 @@ def create_schedule(
     return ScheduleResponse.from_orm_with_total(schedule)
 
 
+# ── Availability check ────────────────────────────────────────────────────────
+# NOTE: must be defined BEFORE /{schedule_id} so FastAPI doesn't capture
+# "availability" as a schedule_id path parameter.
+
+
+@router.get("/availability")
+def check_availability(
+    session: Annotated[Session, Depends(get_session)],
+    _: Annotated[User, Depends(get_current_user)],
+    product_name: str = "",
+    qty: float = 0.0,
+) -> dict:
+    """Given a product name and required qty, return:
+    - FG currently in stock vs required qty
+    - RM requirements from BOM vs current stock
+    """
+    if not product_name:
+        raise HTTPException(status_code=400, detail="product_name is required")
+
+    # Check FG stock
+    fg_item = session.exec(
+        select(InventoryItem).where(
+            InventoryItem.name == product_name,
+            InventoryItem.item_type == "finished_good",
+            InventoryItem.is_active == True,  # noqa: E712
+        )
+    ).first()
+
+    fg_available = fg_item.quantity_on_hand if fg_item else 0.0
+    fg_shortfall = max(0.0, qty - fg_available)
+
+    # Check RM requirements via BOM
+    bom_entries = list(session.exec(
+        select(BomItem).where(
+            BomItem.product_name == product_name,
+            BomItem.is_active == True,  # noqa: E712
+        )
+    ).all())
+
+    rm_requirements = []
+    for bom in bom_entries:
+        rm = session.get(InventoryItem, bom.raw_material_id)
+        if not rm:
+            continue
+        needed = qty * bom.qty_per_unit
+        available = rm.quantity_on_hand
+        rm_requirements.append({
+            "item_id": rm.id,
+            "code": rm.code,
+            "name": rm.name,
+            "unit": rm.unit,
+            "qty_per_unit": bom.qty_per_unit,
+            "required": needed,
+            "available": available,
+            "shortfall": max(0.0, needed - available),
+        })
+
+    return {
+        "product_name": product_name,
+        "requested_qty": qty,
+        "fg_available": fg_available,
+        "fg_shortfall": fg_shortfall,
+        "rm_requirements": rm_requirements,
+        "has_fg_shortfall": fg_shortfall > 0,
+        "has_rm_shortfall": any(r["shortfall"] > 0 for r in rm_requirements),
+    }
+
+
 @router.get("/{schedule_id}", response_model=ScheduleResponse)
 def get_schedule(
     schedule_id: int,
@@ -329,69 +397,3 @@ def mark_schedule_delivered(
     session.commit()
     session.refresh(s)
     return ScheduleResponse.from_orm_with_total(s)
-
-
-# ── Availability check ────────────────────────────────────────────────────────
-
-
-@router.get("/availability")
-def check_availability(
-    session: Annotated[Session, Depends(get_session)],
-    _: Annotated[User, Depends(get_current_user)],
-    product_name: str = "",
-    qty: float = 0.0,
-) -> dict:
-    """Given a product name and required qty, return:
-    - FG currently in stock vs required qty
-    - RM requirements from BOM vs current stock
-    """
-    if not product_name:
-        raise HTTPException(status_code=400, detail="product_name is required")
-
-    # Check FG stock
-    fg_item = session.exec(
-        select(InventoryItem).where(
-            InventoryItem.name == product_name,
-            InventoryItem.item_type == "finished_good",
-            InventoryItem.is_active == True,  # noqa: E712
-        )
-    ).first()
-
-    fg_available = fg_item.quantity_on_hand if fg_item else 0.0
-    fg_shortfall = max(0.0, qty - fg_available)
-
-    # Check RM requirements via BOM
-    bom_entries = list(session.exec(
-        select(BomItem).where(
-            BomItem.product_name == product_name,
-            BomItem.is_active == True,  # noqa: E712
-        )
-    ).all())
-
-    rm_requirements = []
-    for bom in bom_entries:
-        rm = session.get(InventoryItem, bom.raw_material_id)
-        if not rm:
-            continue
-        needed = qty * bom.qty_per_unit
-        available = rm.quantity_on_hand
-        rm_requirements.append({
-            "item_id": rm.id,
-            "code": rm.code,
-            "name": rm.name,
-            "unit": rm.unit,
-            "qty_per_unit": bom.qty_per_unit,
-            "required": needed,
-            "available": available,
-            "shortfall": max(0.0, needed - available),
-        })
-
-    return {
-        "product_name": product_name,
-        "requested_qty": qty,
-        "fg_available": fg_available,
-        "fg_shortfall": fg_shortfall,
-        "rm_requirements": rm_requirements,
-        "has_fg_shortfall": fg_shortfall > 0,
-        "has_rm_shortfall": any(r["shortfall"] > 0 for r in rm_requirements),
-    }

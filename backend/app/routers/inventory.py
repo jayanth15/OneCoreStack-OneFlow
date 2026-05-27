@@ -25,7 +25,7 @@ router = APIRouter(
     tags=["inventory"],
 )
 
-VALID_TYPES = {"raw_material", "finished_good", "semi_finished"}
+VALID_TYPES = {"raw_material", "finished_good", "semi_finished", "scrap"}
 ACTIVE_SCHEDULE_STATUSES = {"pending", "confirmed", "in_production"}
 
 

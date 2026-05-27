@@ -19,14 +19,14 @@ interface InventoryItem { id: number; code: string; name: string; unit: string; 
 interface PaginatedInventory { items: InventoryItem[]; }
 interface BomDetail {
   id: number; product_name: string; raw_material_id: number;
-  qty_per_unit: number; notes: string | null; is_active: boolean;
+  qty_per_unit: number; material_used: number | null; scrap: number | null; material_unit: string | null; notes: string | null; is_active: boolean;
 }
 
 export default function EditBomPage() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
   const [form, setForm] = useState({
-    product_name: "", raw_material_id: "", qty_per_unit: 1, notes: "", is_active: true,
+    product_name: "", raw_material_id: "", qty_per_unit: 1, material_used: "", scrap: "", material_unit: "", notes: "", is_active: true,
   });
   const [finishedGoods, setFinishedGoods] = useState<InventoryItem[]>([]);
   const [rawMaterials, setRawMaterials] = useState<InventoryItem[]>([]);
@@ -51,6 +51,9 @@ export default function EditBomPage() {
             product_name: d.product_name,
             raw_material_id: String(d.raw_material_id),
             qty_per_unit: d.qty_per_unit,
+            material_used: d.material_used != null ? String(d.material_used) : "",
+            scrap: d.scrap != null ? String(d.scrap) : "",
+            material_unit: d.material_unit ?? "",
             notes: d.notes ?? "",
             is_active: d.is_active,
           });
@@ -75,6 +78,9 @@ export default function EditBomPage() {
           product_name: form.product_name.trim(),
           raw_material_id: parseInt(form.raw_material_id),
           qty_per_unit: form.qty_per_unit,
+          material_used: form.material_used !== "" ? parseFloat(String(form.material_used)) : null,
+          scrap: form.scrap !== "" ? parseFloat(String(form.scrap)) : null,
+          material_unit: form.material_unit.trim() || null,
           notes: form.notes || null,
           is_active: form.is_active,
         }),
@@ -156,6 +162,47 @@ export default function EditBomPage() {
                 onChange={(e) => set("qty_per_unit", parseFloat(e.target.value) || 0)}
                 disabled={saving}
               />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="material_used">
+                Material Used per Unit{selectedRM ? ` (${selectedRM.unit})` : ""} <span className="text-xs text-muted-foreground">(optional)</span>
+              </Label>
+              <Input id="material_used" type="number" inputMode="decimal" min="0" step="any" placeholder="e.g. 1.05"
+                value={form.material_used}
+                onChange={(e) => set("material_used", e.target.value)}
+                disabled={saving}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="scrap">
+                Scrap per Unit{selectedRM ? ` (${selectedRM.unit})` : ""} <span className="text-xs text-muted-foreground">(optional — auto-recorded to Scraps inventory)</span>
+              </Label>
+              <Input id="scrap" type="number" inputMode="decimal" min="0" step="any" placeholder="e.g. 0.05"
+                value={form.scrap}
+                onChange={(e) => set("scrap", e.target.value)}
+                disabled={saving}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="material_unit">Unit for Material Used / Scrap <span className="text-xs text-muted-foreground">(optional)</span></Label>
+              <select id="material_unit" value={form.material_unit} onChange={(e) => set("material_unit", e.target.value)} disabled={saving}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+              >
+                <option value="">— Select unit —</option>
+                <option value="kg">kg — Kilograms</option>
+                <option value="g">g — Grams</option>
+                <option value="MT">MT — Metric Tonne</option>
+                <option value="L">L — Litres</option>
+                <option value="mL">mL — Millilitres</option>
+                <option value="m">m — Metres</option>
+                <option value="mm">mm — Millimetres</option>
+                <option value="m²">m² — Square Metres</option>
+                <option value="m³">m³ — Cubic Metres</option>
+                <option value="pcs">pcs — Pieces</option>
+                <option value="nos">nos — Numbers</option>
+                <option value="rolls">rolls</option>
+                <option value="sheets">sheets</option>
+              </select>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="notes">Notes</Label>

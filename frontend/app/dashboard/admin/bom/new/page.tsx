@@ -23,6 +23,9 @@ interface RMRow {
   key: number;
   raw_material_id: string;
   qty_per_unit: number;
+  material_used: string;
+  scrap: string;
+  material_unit: string;
   notes: string;
 }
 
@@ -36,7 +39,7 @@ function NewBomForm() {
   const [productName, setProductName] = useState(searchParams.get("product") ?? "");
   const [finishedGoods, setFinishedGoods] = useState<InventoryItem[]>([]);
   const [rawMaterials, setRawMaterials] = useState<InventoryItem[]>([]);
-  const [rows, setRows] = useState<RMRow[]>([{ key: nextKey.current++, raw_material_id: "", qty_per_unit: 1, notes: "" }]);
+  const [rows, setRows] = useState<RMRow[]>([{ key: nextKey.current++, raw_material_id: "", qty_per_unit: 1, material_used: "", scrap: "", material_unit: "", notes: "" }]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,7 +62,7 @@ function NewBomForm() {
   // ── Row helpers ─────────────────────────────────────────────────────────────────────────────
 
   function addRow() {
-    setRows((r) => [...r, { key: nextKey.current++, raw_material_id: "", qty_per_unit: 1, notes: "" }]);
+    setRows((r) => [...r, { key: nextKey.current++, raw_material_id: "", qty_per_unit: 1, material_used: "", scrap: "", material_unit: "", notes: "" }]);
   }
 
   function removeRow(key: number) {
@@ -91,6 +94,9 @@ function NewBomForm() {
               product_name: productName.trim(),
               raw_material_id: parseInt(r.raw_material_id),
               qty_per_unit: r.qty_per_unit,
+              material_used: r.material_used !== "" ? parseFloat(String(r.material_used)) : null,
+              scrap: r.scrap !== "" ? parseFloat(String(r.scrap)) : null,
+              material_unit: r.material_unit.trim() || null,
               notes: r.notes.trim() || null,
               is_active: true,
             }),
@@ -165,9 +171,12 @@ function NewBomForm() {
 
             <div className="rounded-lg border divide-y overflow-hidden">
               {/* Header */}
-              <div className="hidden sm:grid grid-cols-[1fr_120px_120px_32px] gap-2 items-center bg-muted/40 px-3 py-2 text-xs font-medium text-muted-foreground">
+              <div className="hidden sm:grid grid-cols-[2fr_90px_70px_70px_80px_110px_32px] gap-2 items-center bg-muted/40 px-3 py-2 text-xs font-medium text-muted-foreground">
                 <span>Raw Material / Semi-finished</span>
                 <span>Qty per Unit</span>
+                <span>Mat. Used</span>
+                <span>Scrap</span>
+                <span>Unit</span>
                 <span>Notes</span>
                 <span></span>
               </div>
@@ -175,7 +184,7 @@ function NewBomForm() {
               {rows.map((row, idx) => {
                 const rm = rawMaterials.find((r) => String(r.id) === row.raw_material_id);
                 return (
-                  <div key={row.key} className="grid grid-cols-[1fr_32px] sm:grid-cols-[1fr_120px_120px_32px] gap-2 items-center px-3 py-2.5">
+                  <div key={row.key} className="grid grid-cols-[1fr_32px] sm:grid-cols-[2fr_90px_70px_70px_80px_110px_32px] gap-2 items-center px-3 py-2.5">
                     {/* Material select */}
                     <div className="space-y-1 sm:space-y-0">
                       <p className="text-xs text-muted-foreground sm:hidden">Material</p>
@@ -210,6 +219,61 @@ function NewBomForm() {
                         className="h-8 text-sm"
                         title={rm ? `${rm.unit} per finished unit` : ""}
                       />
+                    </div>
+
+                    {/* Material Used */}
+                    <div className="hidden sm:block">
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        min="0"
+                        step="any"
+                        placeholder="—"
+                        value={row.material_used}
+                        onChange={(e) => updateRow(row.key, "material_used", e.target.value)}
+                        disabled={saving}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+
+                    {/* Scrap */}
+                    <div className="hidden sm:block">
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        min="0"
+                        step="any"
+                        placeholder="—"
+                        value={row.scrap}
+                        onChange={(e) => updateRow(row.key, "scrap", e.target.value)}
+                        disabled={saving}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+
+                    {/* Unit */}
+                    <div className="hidden sm:block">
+                      <select
+                        value={row.material_unit}
+                        onChange={(e) => updateRow(row.key, "material_unit", e.target.value)}
+                        disabled={saving}
+                        className="w-full h-8 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+                      >
+                        <option value="">—</option>
+                        <option value="kg">kg</option>
+                        <option value="g">g</option>
+                        <option value="MT">MT (tonne)</option>
+                        <option value="L">L</option>
+                        <option value="mL">mL</option>
+                        <option value="m">m</option>
+                        <option value="mm">mm</option>
+                        <option value="m²">m²</option>
+                        <option value="m³">m³</option>
+                        <option value="pcs">pcs</option>
+                        <option value="nos">nos</option>
+                        <option value="rolls">rolls</option>
+                        <option value="sheets">sheets</option>
+                      </select>
                     </div>
 
                     {/* Notes */}

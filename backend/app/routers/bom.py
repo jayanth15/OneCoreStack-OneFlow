@@ -28,6 +28,9 @@ class BomItemCreate(BaseModel):
     product_name: str
     raw_material_id: int
     qty_per_unit: float = 1.0
+    material_used: Optional[float] = None
+    scrap: Optional[float] = None
+    material_unit: Optional[str] = None
     notes: Optional[str] = None
     is_active: bool = True
 
@@ -43,6 +46,9 @@ class BomItemUpdate(BaseModel):
     product_name: Optional[str] = None
     raw_material_id: Optional[int] = None
     qty_per_unit: Optional[float] = None
+    material_used: Optional[float] = None
+    scrap: Optional[float] = None
+    material_unit: Optional[str] = None
     notes: Optional[str] = None
     is_active: Optional[bool] = None
 
@@ -62,6 +68,9 @@ class BomItemResponse(BaseModel):
     raw_material_name: Optional[str] = None
     raw_material_unit: Optional[str] = None
     qty_per_unit: float
+    material_used: Optional[float] = None
+    scrap: Optional[float] = None
+    material_unit: Optional[str] = None
     notes: Optional[str]
     is_active: bool
 
@@ -126,6 +135,9 @@ def create_bom_item(
         product_name=body.product_name.strip(),
         raw_material_id=body.raw_material_id,
         qty_per_unit=body.qty_per_unit,
+        material_used=body.material_used,
+        scrap=body.scrap,
+        material_unit=body.material_unit,
         notes=body.notes,
         is_active=body.is_active,
     )
@@ -180,6 +192,12 @@ def update_bom_item(
         bom.raw_material_id = body.raw_material_id
     if body.qty_per_unit is not None:
         bom.qty_per_unit = body.qty_per_unit
+    if body.material_used is not None:
+        bom.material_used = body.material_used
+    if body.scrap is not None:
+        bom.scrap = body.scrap
+    if body.material_unit is not None:
+        bom.material_unit = body.material_unit
     if body.notes is not None:
         bom.notes = body.notes
     if body.is_active is not None:

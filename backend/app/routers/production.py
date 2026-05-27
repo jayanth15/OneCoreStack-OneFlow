@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timezone
 from typing import Annotated, Optional
 
@@ -233,7 +234,7 @@ def _consume_bom_materials(
         item.updated_at = datetime.now(tz=timezone.utc)
         session.add(item)
 
-        # Audit trail
+        # Audit trail — RM consumption
         session.add(InventoryHistory(
             inventory_item_id=item.id,
             change_type="subtract",
@@ -243,6 +244,47 @@ def _consume_bom_materials(
             schedule_id=schedule_id,
             notes=f"BOM consumption: {qty_delta} units of {product_name} produced",
         ))
+
+        # Auto-record scrap if the BOM entry has a scrap rate defined
+        if b.scrap and b.scrap > 0:
+            scrap_qty = round(b.scrap * qty_delta, 4)
+            scrap_name = f"{item.name} Scrap"
+            scrap_code = f"SCRAP-{item.code}" if item.code else f"SCRAP-{item.id}"
+
+            # Find existing active scrap inventory item or auto-create it
+            scrap_item = session.exec(
+                select(InventoryItem).where(
+                    InventoryItem.item_type == "scrap",
+                    InventoryItem.name == scrap_name,
+                    InventoryItem.is_active == True,  # noqa: E712
+                )
+            ).first()
+
+            if scrap_item is None:
+                scrap_item = InventoryItem(
+                    code=scrap_code,
+                    name=scrap_name,
+                    item_type="scrap",
+                    unit=item.unit,
+                    quantity_on_hand=0.0,
+                )
+                session.add(scrap_item)
+                session.flush()  # obtain id before writing history
+
+            scrap_before = scrap_item.quantity_on_hand
+            scrap_item.quantity_on_hand = round(scrap_before + scrap_qty, 4)
+            scrap_item.updated_at = datetime.now(tz=timezone.utc)
+            session.add(scrap_item)
+
+            session.add(InventoryHistory(
+                inventory_item_id=scrap_item.id,
+                change_type="add",
+                quantity_before=scrap_before,
+                quantity_after=scrap_item.quantity_on_hand,
+                quantity_delta=scrap_qty,
+                schedule_id=schedule_id,
+                notes=f"Scrap from BOM: {qty_delta} units of {product_name} produced",
+            ))
 
 
 def _recalc_fg_for_order(order: ProductionOrder, session: Session) -> None:
@@ -363,12 +405,20 @@ class ProcessCreate(BaseModel):
     name: str
     sequence: int = 0
     notes: Optional[str] = None
+    estimated_time_minutes: Optional[float] = None
+    material_qty: Optional[float] = None
+    waste_qty: Optional[float] = None
+    material_unit: Optional[str] = None
 
 
 class ProcessUpdate(BaseModel):
     name: Optional[str] = None
     sequence: Optional[int] = None
     notes: Optional[str] = None
+    estimated_time_minutes: Optional[float] = None
+    material_qty: Optional[float] = None
+    waste_qty: Optional[float] = None
+    material_unit: Optional[str] = None
 
 
 class ProcessResponse(BaseModel):
@@ -377,6 +427,10 @@ class ProcessResponse(BaseModel):
     name: str
     sequence: int
     notes: Optional[str]
+    estimated_time_minutes: Optional[float] = None
+    material_qty: Optional[float] = None
+    waste_qty: Optional[float] = None
+    material_unit: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -805,6 +859,7 @@ class JobCardResponse(BaseModel):
     tool_die_number: Optional[str]
     machine_name: Optional[str]
     worker_name: Optional[str]
+    worker_names: list[str] = []
     hours_worked: float
     qty_produced: float
     qty_pending: float
@@ -815,6 +870,19 @@ class JobCardResponse(BaseModel):
     job_type: str = "internal"
     supplier_id: Optional[int] = None
     supplier_name: Optional[str] = None
+
+    @field_validator("worker_names", mode="before")
+    @classmethod
+    def _parse_worker_names(cls, v: object) -> list[str]:
+        if isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            try:
+                parsed = json.loads(v)
+                return parsed if isinstance(parsed, list) else [v]
+            except Exception:
+                return [v] if v else []
+        return []
 
     model_config = {"from_attributes": True}
 
@@ -1052,6 +1120,7 @@ class JobCardCreate(BaseModel):
     tool_die_number: Optional[str] = None
     machine_name: Optional[str] = None
     worker_name: Optional[str] = None
+    worker_names: list[str] = []   # multi-worker support
     hours_worked: float = 0.0
     qty_produced: float = 0.0
     work_date: Optional[str] = None
@@ -1067,6 +1136,7 @@ class JobCardUpdate(BaseModel):
     tool_die_number: Optional[str] = None
     machine_name: Optional[str] = None
     worker_name: Optional[str] = None
+    worker_names: Optional[list[str]] = None   # multi-worker support
     hours_worked: Optional[float] = None
     qty_produced: Optional[float] = None
     work_date: Optional[str] = None
@@ -1143,12 +1213,23 @@ def create_job(
     # to account for all other cards for the same process
     auto_status = "open"
 
+    # Build the job data — extract worker_names (list) separately since model stores JSON string
+    body_dump = body.model_dump(exclude={"worker_names"})
+    worker_names_list = body.worker_names or []
+    # Keep worker_name in sync: use first name from list if not explicitly set
+    if worker_names_list and not body_dump.get("worker_name"):
+        body_dump["worker_name"] = worker_names_list[0]
+    elif not worker_names_list and body_dump.get("worker_name"):
+        worker_names_list = [body_dump["worker_name"]]
+    worker_names_json = json.dumps(worker_names_list) if worker_names_list else None
+
     job = JobCard(
         card_number=_next_card_number(session),
         production_order_id=order_id,
         qty_pending=0.0,
         status=auto_status,
-        **body.model_dump(),
+        worker_names=worker_names_json,
+        **body_dump,
     )
     # Resolve worker_name → worker_id
     if job.worker_name:
@@ -1231,6 +1312,24 @@ def update_job(
             )
 
     data = body.model_dump(exclude_unset=True)
+
+    # Handle worker_names (list) → serialize to JSON string separately
+    if "worker_names" in data:
+        worker_names_list: list[str] = data.pop("worker_names") or []
+        data["worker_names"] = json.dumps(worker_names_list) if worker_names_list else None
+        # Keep worker_name in sync with first entry
+        if worker_names_list and "worker_name" not in data:
+            data["worker_name"] = worker_names_list[0]
+    elif "worker_name" in data and data["worker_name"]:
+        # Backward compat: if only worker_name updated, also refresh worker_names list
+        existing_names = []
+        try:
+            existing_names = json.loads(job.worker_names or "[]")
+        except Exception:
+            existing_names = [job.worker_name] if job.worker_name else []
+        if data["worker_name"] not in existing_names:
+            existing_names = [data["worker_name"]]
+        data["worker_names"] = json.dumps(existing_names)
 
     # If worker role, force worker_name to their own username
     if current_user.role == "worker":
@@ -1400,13 +1499,13 @@ class WorkerOption(BaseModel):
 def list_workers(
     session: Annotated[Session, Depends(get_session)],
     _: Annotated[User, Depends(get_current_user)],
+    search: str = "",
 ) -> list[WorkerOption]:
-    """Return active users for worker assignment dropdowns."""
-    users = list(session.exec(
-        select(User)
-        .where(User.is_active == True)  # noqa: E712
-        .order_by(User.username)
-    ).all())
+    """Return active users for worker assignment dropdowns. Supports ?search= for SSR filtering."""
+    q = select(User).where(User.is_active == True)  # noqa: E712
+    if search.strip():
+        q = q.where(User.username.ilike(f"%{search.strip()}%"))  # type: ignore[union-attr]
+    users = list(session.exec(q.order_by(User.username)).all())
     return [WorkerOption(id=u.id, username=u.username) for u in users]  # type: ignore[arg-type]
 
 
@@ -1415,14 +1514,55 @@ def list_workers(
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+class ProcessBreakdown(BaseModel):
+    process_name: str
+    hours: float
+    qty_produced: float       # full qty (no split) — worker's contribution
+    card_count: int
+    shared_cards: int         # how many of these cards had multiple workers
+
+
+class OrderBreakdown(BaseModel):
+    order_number: str
+    hours: float
+    qty_produced: float
+    card_count: int
+    shared_cards: int
+
+
+class DateBreakdown(BaseModel):
+    date: str
+    hours: float
+    qty_produced: float
+    card_count: int
+    shared_cards: int
+
+
+class MachineBreakdown(BaseModel):
+    machine_name: str
+    hours: float
+    qty_produced: float
+    card_count: int
+    shared_cards: int
+
+
 class WorkerTimeSummaryItem(BaseModel):
     user_id: Optional[int]
     username: str
-    total_hours: float
+    total_hours: float              # personal hours (split across co-workers)
+    total_qty_produced: float       # full qty this worker contributed to (no split)
     job_card_count: int
+    shared_card_count: int          # job cards shared with other workers
+    avg_qty_per_hour: float         # total_qty_produced / total_hours
     process_names: list[str]
     order_numbers: list[str]
     work_dates: list[str]
+    machines_used: list[str]
+    tool_die_numbers: list[str]
+    by_process: list[ProcessBreakdown]
+    by_order: list[OrderBreakdown]
+    by_date: list[DateBreakdown]
+    by_machine: list[MachineBreakdown]
 
 
 @router.get("/time-report", response_model=list[WorkerTimeSummaryItem])
@@ -1434,8 +1574,9 @@ def worker_time_summary(
     user_id: Optional[int] = None,
 ) -> list[WorkerTimeSummaryItem]:
     """
-    Aggregate job-card hours per worker.
+    Aggregate job-card hours/qty per worker with detailed breakdowns.
     Workers/managers see only their own job cards; admin/super_admin see all.
+    Supports worker_names JSON array (multi-worker job cards).
     """
     q = select(JobCard).where(JobCard.hours_worked > 0)
     if date_from:
@@ -1458,33 +1599,140 @@ def worker_time_summary(
 
     jobs = list(session.exec(q).all())
 
+    # Pre-fetch all orders for enrichment
+    order_id_set = {c.production_order_id for c in jobs if c.production_order_id}
+    order_map: dict[int, str] = {}
+    if order_id_set:
+        orders = list(session.exec(
+            select(ProductionOrder).where(ProductionOrder.id.in_(list(order_id_set)))  # type: ignore[attr-defined]
+        ).all())
+        order_map = {o.id: (o.order_number or "") for o in orders}
+
     from collections import defaultdict
-    by_worker: dict[str, list[JobCard]] = defaultdict(list)
+
+    # Expand worker_names JSON array.
+    # hours are split (personal time contribution),
+    # qty is NOT split (each worker contributed to the full output).
+    # ratio is used only for hours.
+    by_worker: dict[str, list[tuple[JobCard, int]]] = defaultdict(list)  # (card, num_coworkers)
     for job in jobs:
-        key = job.worker_name or "Unassigned"
-        by_worker[key].append(job)
+        worker_list: list[str] = []
+        if job.worker_names:
+            try:
+                parsed = json.loads(job.worker_names)
+                if isinstance(parsed, list):
+                    worker_list = [str(w) for w in parsed if w]
+            except Exception:
+                pass
+        if not worker_list and job.worker_name:
+            worker_list = [job.worker_name]
+        if not worker_list:
+            worker_list = ["Unassigned"]
+        num_workers = len(worker_list)
+        for wname in worker_list:
+            by_worker[wname].append((job, num_workers))
 
     result = []
-    for worker_name, cards in by_worker.items():
+    for worker_name, card_entries in by_worker.items():
         user = session.exec(select(User).where(User.username == worker_name)).first()
-        # Collect enrichment data
-        order_id_set = {c.production_order_id for c in cards if c.production_order_id}
-        order_numbers: list[str] = []
-        if order_id_set:
-            orders = list(session.exec(
-                select(ProductionOrder).where(ProductionOrder.id.in_(list(order_id_set)))  # type: ignore[attr-defined]
-            ).all())
-            order_numbers = sorted({o.order_number for o in orders if o.order_number})
-        process_names = sorted({c.process_name for c in cards if c.process_name})
-        work_dates = sorted({c.work_date for c in cards if c.work_date})  # type: ignore[misc]
+
+        # hours: personal share (split); qty: full contribution (no split)
+        total_hours = round(sum(c.hours_worked / n for c, n in card_entries), 2)
+        total_qty   = round(sum(c.qty_produced for c, _ in card_entries), 2)
+        card_count  = len(card_entries)
+        shared_count = sum(1 for _, n in card_entries if n > 1)
+        avg_qty_per_hour = round(total_qty / total_hours, 2) if total_hours > 0 else 0.0
+
+        # Breakdowns — hours split, qty full
+        proc_map: dict[str, dict] = defaultdict(lambda: {"hours": 0.0, "qty": 0.0, "count": 0, "shared": 0})
+        ord_map_local: dict[str, dict] = defaultdict(lambda: {"hours": 0.0, "qty": 0.0, "count": 0, "shared": 0})
+        date_map: dict[str, dict] = defaultdict(lambda: {"hours": 0.0, "qty": 0.0, "count": 0, "shared": 0})
+        mach_map: dict[str, dict] = defaultdict(lambda: {"hours": 0.0, "qty": 0.0, "count": 0, "shared": 0})
+        machines_set: set[str] = set()
+        tool_die_set: set[str] = set()
+
+        for card, num_workers in card_entries:
+            h   = card.hours_worked / num_workers   # personal hours
+            qty = card.qty_produced                 # full contribution qty
+            is_shared = 1 if num_workers > 1 else 0
+            if card.process_name:
+                proc_map[card.process_name]["hours"]  += h
+                proc_map[card.process_name]["qty"]    += qty
+                proc_map[card.process_name]["count"]  += 1
+                proc_map[card.process_name]["shared"] += is_shared
+            onum = order_map.get(card.production_order_id or 0, "") if card.production_order_id else ""
+            if onum:
+                ord_map_local[onum]["hours"]  += h
+                ord_map_local[onum]["qty"]    += qty
+                ord_map_local[onum]["count"]  += 1
+                ord_map_local[onum]["shared"] += is_shared
+            if card.work_date:
+                date_map[card.work_date]["hours"]  += h
+                date_map[card.work_date]["qty"]    += qty
+                date_map[card.work_date]["count"]  += 1
+                date_map[card.work_date]["shared"] += is_shared
+            if card.machine_name:
+                machines_set.add(card.machine_name)
+                mach_map[card.machine_name]["hours"]  += h
+                mach_map[card.machine_name]["qty"]    += qty
+                mach_map[card.machine_name]["count"]  += 1
+                mach_map[card.machine_name]["shared"] += is_shared
+            if card.tool_die_number:
+                tool_die_set.add(card.tool_die_number)
+
         result.append(WorkerTimeSummaryItem(
             user_id=user.id if user else None,  # type: ignore[arg-type]
             username=worker_name,
-            total_hours=round(sum(c.hours_worked for c in cards), 2),
-            job_card_count=len(cards),
-            process_names=process_names,
-            order_numbers=order_numbers,
-            work_dates=work_dates,
+            total_hours=total_hours,
+            total_qty_produced=total_qty,
+            job_card_count=card_count,
+            shared_card_count=shared_count,
+            avg_qty_per_hour=avg_qty_per_hour,
+            process_names=sorted(proc_map.keys()),
+            order_numbers=sorted(ord_map_local.keys()),
+            work_dates=sorted(date_map.keys()),
+            machines_used=sorted(machines_set),
+            tool_die_numbers=sorted(tool_die_set),
+            by_process=[
+                ProcessBreakdown(
+                    process_name=k,
+                    hours=round(v["hours"], 2),
+                    qty_produced=round(v["qty"], 2),
+                    card_count=v["count"],
+                    shared_cards=v["shared"],
+                )
+                for k, v in sorted(proc_map.items(), key=lambda x: x[1]["hours"], reverse=True)
+            ],
+            by_order=[
+                OrderBreakdown(
+                    order_number=k,
+                    hours=round(v["hours"], 2),
+                    qty_produced=round(v["qty"], 2),
+                    card_count=v["count"],
+                    shared_cards=v["shared"],
+                )
+                for k, v in sorted(ord_map_local.items(), key=lambda x: x[1]["hours"], reverse=True)
+            ],
+            by_date=[
+                DateBreakdown(
+                    date=k,
+                    hours=round(v["hours"], 2),
+                    qty_produced=round(v["qty"], 2),
+                    card_count=v["count"],
+                    shared_cards=v["shared"],
+                )
+                for k, v in sorted(date_map.items())
+            ],
+            by_machine=[
+                MachineBreakdown(
+                    machine_name=k,
+                    hours=round(v["hours"], 2),
+                    qty_produced=round(v["qty"], 2),
+                    card_count=v["count"],
+                    shared_cards=v["shared"],
+                )
+                for k, v in sorted(mach_map.items(), key=lambda x: x[1]["hours"], reverse=True)
+            ],
         ))
 
     return sorted(result, key=lambda x: x.total_hours, reverse=True)

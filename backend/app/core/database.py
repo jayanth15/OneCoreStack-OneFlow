@@ -114,6 +114,21 @@ def run_migrations() -> None:
         pri_cols = {row[1] for row in cursor.fetchall()}
         if "department" not in pri_cols:
             cursor.execute("ALTER TABLE purchase_request_item ADD COLUMN department TEXT")
+        # purchase_request_item — per-item acceptance tracking columns
+        if "item_status" not in pri_cols:
+            cursor.execute("ALTER TABLE purchase_request_item ADD COLUMN item_status TEXT")
+        if "accepted_by_username" not in pri_cols:
+            cursor.execute("ALTER TABLE purchase_request_item ADD COLUMN accepted_by_username TEXT")
+        if "accepted_at" not in pri_cols:
+            cursor.execute("ALTER TABLE purchase_request_item ADD COLUMN accepted_at TEXT")
+        if "acceptance_note" not in pri_cols:
+            cursor.execute("ALTER TABLE purchase_request_item ADD COLUMN acceptance_note TEXT")
+
+        # receipt — department column (for multi-dept requests)
+        cursor.execute("PRAGMA table_info(receipt)")
+        rcpt_cols = {row[1] for row in cursor.fetchall()}
+        if "department" not in rcpt_cols:
+            cursor.execute("ALTER TABLE receipt ADD COLUMN department TEXT")
 
         # purchase_request — fulfilment response columns
         cursor.execute("PRAGMA table_info(purchase_request)")
@@ -145,6 +160,16 @@ def run_migrations() -> None:
         )
         cursor.execute("CREATE INDEX IF NOT EXISTS ix_notification_user_id ON notification(user_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS ix_notification_is_read ON notification(is_read)")
+
+        # bom_item — material_used and scrap columns
+        cursor.execute("PRAGMA table_info(bom_item)")
+        bom_cols = {row[1] for row in cursor.fetchall()}
+        if "material_used" not in bom_cols:
+            cursor.execute("ALTER TABLE bom_item ADD COLUMN material_used REAL")
+        if "scrap" not in bom_cols:
+            cursor.execute("ALTER TABLE bom_item ADD COLUMN scrap REAL")
+        if "material_unit" not in bom_cols:
+            cursor.execute("ALTER TABLE bom_item ADD COLUMN material_unit TEXT")
 
         conn.commit()
         conn.close()

@@ -16,5 +16,8 @@ class BomItem(SQLModel, table=True):
     product_name: str = Field(index=True)          # matches Schedule.description / FG item name
     raw_material_id: int = Field(foreign_key="inventory_item.id")
     qty_per_unit: float = Field(default=1.0)       # RM qty needed per 1 finished unit
+    material_used: Optional[float] = Field(default=None)  # actual material consumed per unit (tracking)
+    scrap: Optional[float] = Field(default=None)          # scrap generated per unit of this RM
+    material_unit: Optional[str] = None                   # unit for material_used / scrap (e.g. kg, MT)
     notes: Optional[str] = None
     is_active: bool = Field(default=True)

@@ -32,6 +32,9 @@ router = APIRouter(prefix="/api/v1/history", tags=["history"])
 
 VALID_CATEGORIES = {
     "inventory",
+    "raw-materials",
+    "finished-goods",
+    "semi-finished",
     "purchase-requests",
     "marketing-requests",
     "job-cards",
@@ -116,7 +119,15 @@ def list_history(
     offset = (page - 1) * page_size
 
     if category == "inventory":
-        return _inventory_history(session, page, page_size, offset, start_dt, end_dt, changed_by)
+        return _inventory_history(session, page, page_size, offset, start_dt, end_dt, changed_by, item_type=None)
+    elif category == "raw-materials":
+        return _inventory_history(session, page, page_size, offset, start_dt, end_dt, changed_by, item_type="raw_material")
+    elif category == "finished-goods":
+        return _inventory_history(session, page, page_size, offset, start_dt, end_dt, changed_by, item_type="finished_good")
+    elif category == "semi-finished":
+        return _inventory_history(session, page, page_size, offset, start_dt, end_dt, changed_by, item_type="semi_finished")
+    elif category == "scraps":
+        return _inventory_history(session, page, page_size, offset, start_dt, end_dt, changed_by, item_type="scrap")
     elif category == "purchase-requests":
         return _pr_history(session, page, page_size, offset, start_dt, end_dt, changed_by)
     elif category == "marketing-requests":
@@ -165,8 +176,17 @@ def _apply_filters(q, model, start_dt, end_dt, changed_by):  # type: ignore[no-u
 def _inventory_history(
     session: Session, page: int, page_size: int, offset: int,
     start_dt, end_dt, changed_by,
+    item_type: Optional[str] = None,
 ) -> HistoryPage:
-    q = select(InventoryHistory)
+    if item_type is not None:
+        # Filter by item_type via a join to InventoryItem
+        q = (
+            select(InventoryHistory)
+            .join(InventoryItem, InventoryHistory.inventory_item_id == InventoryItem.id)
+            .where(InventoryItem.item_type == item_type)
+        )
+    else:
+        q = select(InventoryHistory)
     q = _apply_filters(q, InventoryHistory, start_dt, end_dt, changed_by)
     total = session.exec(select(func.count()).select_from(q.subquery())).one()
     rows = session.exec(q.order_by(InventoryHistory.changed_at.desc()).offset(offset).limit(page_size)).all()  # type: ignore[union-attr]

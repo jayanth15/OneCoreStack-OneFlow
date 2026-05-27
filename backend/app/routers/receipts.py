@@ -11,6 +11,7 @@ from app.dependencies.auth import get_current_user, is_admin_or_above
 from app.models.department import Department
 from app.models.purchase_request import PurchaseRequest
 from app.models.purchase_request_history import PurchaseRequestHistory
+from app.models.purchase_request_item import PurchaseRequestItem
 from app.models.receipt import Receipt
 from app.models.user import User
 from app.models.user_department import UserDepartment
@@ -47,6 +48,7 @@ class ReceiptOut(BaseModel):
     acknowledged_by_username: Optional[str]
     acknowledged_at: Optional[str]
     acknowledgment_note: Optional[str]
+    department: Optional[str] = None
     created_at: str
     updated_at: str
     # Enriched from the parent purchase request
@@ -90,6 +92,7 @@ def _out(
         quantity_requested=r.quantity_requested,
         quantity_received=r.quantity_received,
         notes=r.notes,
+        department=r.department,
         created_by_user_id=r.created_by_user_id,
         created_by_username=r.created_by_username,
         status=r.status,
@@ -158,27 +161,68 @@ def create_receipt(
             status_code=403,
             detail="Requesters cannot create receipts — use the Acknowledge action to sign off on a delivery",
         )
-    # Non-admins must belong to the fulfilling (target) department to record a delivery
-    if not is_admin_or_above(current_user) and req.department:
+
+    # Determine if this is a multi-dept request (per-item department assignments)
+    all_items = session.exec(
+        select(PurchaseRequestItem).where(PurchaseRequestItem.request_id == req.id)
+    ).all()
+    has_explicit_item_depts = any(i.department for i in all_items)
+
+    # Resolve which items and department label apply to this receipt creator
+    receipt_department: Optional[str] = None
+    if has_explicit_item_depts and not is_admin_or_above(current_user):
+        # Multi-dept: only allow items explicitly assigned to the user's dept(s)
         user_dept_names = list(session.exec(
             select(Department.name)
             .join(UserDepartment, UserDepartment.department_id == Department.id)
             .where(UserDepartment.user_id == current_user.id)
         ).all())
-        if req.department not in user_dept_names:
+        dept_items = [i for i in all_items if i.department and i.department in user_dept_names]
+        if not dept_items:
             raise HTTPException(
                 status_code=403,
                 detail="Only members of the fulfilling department can create receipts for this request",
             )
+        # Derive single dept label (should all be the same dept for this user)
+        receipt_department = dept_items[0].department
+        receipt_item_name = ", ".join(
+            i.item_name for i in dept_items if i.item_name
+        ) or req.item_name
+        receipt_item_code: Optional[str] = None  # multiple codes — omit for clarity
+        receipt_qty_requested = sum(i.quantity for i in dept_items)
+    elif has_explicit_item_depts and is_admin_or_above(current_user):
+        # Admin on multi-dept: receipt covers all items
+        receipt_item_name = req.item_name
+        receipt_item_code = req.item_code
+        receipt_qty_requested = req.quantity
+    else:
+        # Legacy single-dept: keep existing header-level check
+        if not is_admin_or_above(current_user) and req.department:
+            user_dept_names = list(session.exec(
+                select(Department.name)
+                .join(UserDepartment, UserDepartment.department_id == Department.id)
+                .where(UserDepartment.user_id == current_user.id)
+            ).all())
+            if req.department not in user_dept_names:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Only members of the fulfilling department can create receipts for this request",
+                )
+        receipt_department = req.department
+        receipt_item_name = req.item_name
+        receipt_item_code = req.item_code
+        receipt_qty_requested = req.quantity
 
-    # Block new delivery while a previous one is pending acknowledgment
-    pending_count = session.exec(
-        select(func.count()).select_from(Receipt).where(
-            Receipt.request_id == req.id,  # type: ignore[union-attr]
-            Receipt.status == "pending_ack",
-            Receipt.is_active == True,  # noqa: E712
-        )
-    ).one()
+    # Block new delivery while a pending-ack receipt already exists for the same dept scope
+    pending_query = select(func.count()).select_from(Receipt).where(
+        Receipt.request_id == req.id,  # type: ignore[union-attr]
+        Receipt.status == "pending_ack",
+        Receipt.is_active == True,  # noqa: E712
+    )
+    if receipt_department:
+        # Scope the block to the same department — other depts can create theirs independently
+        pending_query = pending_query.where(Receipt.department == receipt_department)  # type: ignore[union-attr]
+    pending_count = session.exec(pending_query).one()
     if pending_count > 0:
         raise HTTPException(
             status_code=400,
@@ -191,10 +235,11 @@ def create_receipt(
     receipt = Receipt(
         sn_no=_next_sn(session),
         request_id=req.id,  # type: ignore[arg-type]
-        item_name=req.item_name,
-        item_code=req.item_code,
-        quantity_requested=req.quantity,
+        item_name=receipt_item_name,
+        item_code=receipt_item_code,
+        quantity_requested=receipt_qty_requested,
         quantity_received=payload.quantity_received,
+        department=receipt_department,
         notes=payload.notes,
         created_by_user_id=current_user.id,
         created_by_username=current_user.username,
@@ -217,12 +262,13 @@ def create_receipt(
             note=f"Receipt {receipt.sn_no} created — awaiting sign-off from requester",
         )
 
+    dept_label = f" [{receipt_department}]" if receipt_department else ""
     _record_history(
         session,
         req.id,  # type: ignore[arg-type]
         current_user.username,
         "receipt_created",
-        note=f"Received {payload.quantity_received} of {req.quantity} — {payload.notes or ''}",
+        note=f"Received {payload.quantity_received} of {receipt_qty_requested}{dept_label} — {payload.notes or ''}",
     )
 
     # Notify the original requester that a delivery is ready to acknowledge

@@ -25,6 +25,8 @@ interface BomItem {
   raw_material_name: string | null;
   raw_material_unit: string | null;
   qty_per_unit: number;
+  material_used: number | null;
+  scrap: number | null;
   notes: string | null;
   is_active: boolean;
 }
@@ -172,6 +174,18 @@ export default function BomPage() {
                         <span className="text-muted-foreground">Qty / Unit:</span>{" "}
                         <span className="font-medium">{line.qty_per_unit} {line.raw_material_unit}</span>
                       </div>
+                      {line.material_used != null && (
+                        <div className="text-xs">
+                          <span className="text-muted-foreground">Material Used / Unit:</span>{" "}
+                          <span className="font-medium">{line.material_used} {line.raw_material_unit}</span>
+                        </div>
+                      )}
+                      {line.scrap != null && (
+                        <div className="text-xs">
+                          <span className="text-muted-foreground">Scrap / Unit:</span>{" "}
+                          <span className="font-medium">{line.scrap} {line.raw_material_unit}</span>
+                        </div>
+                      )}
                       {line.notes && <p className="text-xs text-muted-foreground">{line.notes}</p>}
                     </div>
                   ))}
@@ -182,6 +196,8 @@ export default function BomPage() {
                     <tr className="border-b bg-muted/10">
                       <th className="px-4 py-2 text-left font-medium text-xs">Raw Material</th>
                       <th className="px-4 py-2 text-right font-medium text-xs">Qty / Unit</th>
+                      <th className="px-4 py-2 text-right font-medium text-xs">Material Used / Unit</th>
+                      <th className="px-4 py-2 text-right font-medium text-xs">Scrap / Unit</th>
                       <th className="px-4 py-2 text-left font-medium text-xs">Notes</th>
                       <th className="px-4 py-2 text-right font-medium text-xs">Actions</th>
                     </tr>
@@ -195,6 +211,12 @@ export default function BomPage() {
                         </td>
                         <td className="px-4 py-2.5 text-right tabular-nums">
                           {line.qty_per_unit} {line.raw_material_unit}
+                        </td>
+                        <td className="px-4 py-2.5 text-right tabular-nums">
+                          {line.material_used != null ? `${line.material_used} ${line.raw_material_unit ?? ""}` : "—"}
+                        </td>
+                        <td className="px-4 py-2.5 text-right tabular-nums">
+                          {line.scrap != null ? `${line.scrap} ${line.raw_material_unit ?? ""}` : "—"}
                         </td>
                         <td className="px-4 py-2.5 text-muted-foreground text-xs">
                           {line.notes ?? "—"}

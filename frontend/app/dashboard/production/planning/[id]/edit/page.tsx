@@ -70,9 +70,12 @@ interface ProcessItem {
   name: string;
   sequence: number;
   notes: string | null;
+  estimated_time_minutes: number | null;
   // local editing state
   _editName?: string;
   _editNotes?: string;
+  _editTimeVal?: string;      // display value before converting to minutes
+  _editTimeUnit?: "seconds" | "minutes" | "hours";
 }
 
 interface MaterialRequirement {
@@ -158,7 +161,21 @@ export default function EditPlanPage() {
           is_active: plan.is_active,
         });
         setProcesses(
-          (plan.processes ?? []).map((p) => ({ ...p, _editName: p.name, _editNotes: p.notes ?? "" }))
+          (plan.processes ?? []).map((p) => ({
+          ...p,
+          _editName: p.name,
+          _editNotes: p.notes ?? "",
+          _editTimeVal: p.estimated_time_minutes != null
+            ? (p.estimated_time_minutes < 1
+                ? String(Math.round(p.estimated_time_minutes * 60))
+                : p.estimated_time_minutes >= 60
+                  ? String(+(p.estimated_time_minutes / 60).toFixed(2))
+                  : String(p.estimated_time_minutes))
+            : "",
+          _editTimeUnit: (p.estimated_time_minutes != null
+            ? (p.estimated_time_minutes < 1 ? "seconds" : p.estimated_time_minutes >= 60 ? "hours" : "minutes")
+            : "minutes") as "seconds" | "minutes" | "hours",
+        }))
         );
         if (plan.schedule_id != null) {
           const found = schedList.find((s) => s.id === plan.schedule_id) ?? null;
@@ -206,9 +223,9 @@ export default function EditPlanPage() {
       const seq = processes.length;
       const created = await apiFetchJson<ProcessItem>(
         `/api/v1/production/plans/${id}/processes`,
-        { method: "POST", body: JSON.stringify({ name, sequence: seq, notes: null }) },
+        { method: "POST", body: JSON.stringify({ name, sequence: seq, notes: null, estimated_time_minutes: null, material_qty: null, waste_qty: null, material_unit: null }) },
       );
-      setProcesses((p) => [...p, { ...created, _editName: created.name, _editNotes: "" }]);
+      setProcesses((p) => [...p, { ...created, _editName: created.name, _editNotes: "", _editTimeVal: "", _editTimeUnit: "minutes" }]);
       setProcessInput("");
     } catch (e: unknown) {
       setProcError(e instanceof Error ? e.message : "Failed to add process");
@@ -226,7 +243,7 @@ export default function EditPlanPage() {
     }
   }
 
-  function updateLocalProcess(procId: number, field: "_editName" | "_editNotes", val: string) {
+  function updateLocalProcess(procId: number, field: keyof ProcessItem, val: string) {
     setProcesses((p) => p.map((x) => x.id === procId ? { ...x, [field]: val } : x));
   }
 
@@ -234,20 +251,35 @@ export default function EditPlanPage() {
     if (!id) return;
     const name = proc._editName?.trim();
     if (!name) return;
-    if (name === proc.name && (proc._editNotes ?? "") === (proc.notes ?? "")) return; // no change
+    // Compute estimated_time_minutes from display value + unit
+    const rawTime = proc._editTimeVal !== undefined ? proc._editTimeVal : String(proc.estimated_time_minutes ?? "");
+    const timeUnit = proc._editTimeUnit ?? "minutes";
+    const estimated_time_minutes = rawTime
+      ? ((timeUnit === "hours"
+          ? parseFloat(rawTime) * 60
+          : timeUnit === "seconds"
+            ? parseFloat(rawTime) / 60
+            : parseFloat(rawTime)) || null)
+      : null;
+    const notes = proc._editNotes?.trim() || null;
+    // Skip if nothing changed
+    const unchanged = name === proc.name
+      && notes === (proc.notes ?? null)
+      && estimated_time_minutes === proc.estimated_time_minutes;
+    if (unchanged) return;
     try {
       await apiFetchJson(`/api/v1/production/plans/${id}/processes/${proc.id}`, {
         method: "PUT",
-        body: JSON.stringify({ name, notes: proc._editNotes?.trim() || null }),
+        body: JSON.stringify({ name, notes, estimated_time_minutes, material_qty: null, waste_qty: null, material_unit: null }),
       });
       setProcesses((p) => p.map((x) => x.id === proc.id
-        ? { ...x, name, notes: proc._editNotes?.trim() || null }
+        ? { ...x, name, notes, estimated_time_minutes }
         : x
       ));
     } catch {
       // silently revert
       setProcesses((p) => p.map((x) => x.id === proc.id
-        ? { ...x, _editName: x.name, _editNotes: x.notes ?? "" }
+        ? { ...x, _editName: x.name, _editNotes: x.notes ?? "", _editTimeVal: "", _editTimeUnit: "minutes" }
         : x
       ));
     }
@@ -494,6 +526,29 @@ export default function EditPlanPage() {
                           placeholder="Notes (optional)"
                           className="h-7 text-xs text-muted-foreground"
                         />
+                        {/* Time estimate */}
+                        <div className="flex gap-1.5 items-center">
+                          <Input
+                            type="number" min={0} step="any"
+                            value={proc._editTimeVal ?? (proc.estimated_time_minutes != null ? String(proc.estimated_time_minutes) : "")}
+                            onChange={(e) => updateLocalProcess(proc.id, "_editTimeVal", e.target.value)}
+                            onBlur={() => void saveProcess(proc)}
+                            placeholder="Est. time"
+                            className="h-7 text-xs w-24"
+                          />
+                          <select
+                            value={proc._editTimeUnit ?? "minutes"}
+                            onChange={(e) => updateLocalProcess(proc.id, "_editTimeUnit", e.target.value)}
+                            onBlur={() => void saveProcess(proc)}
+                            className="h-7 text-xs rounded-md border border-input bg-background px-2 focus:outline-none focus:ring-1 focus:ring-ring"
+                          >
+                            <option value="seconds">sec</option>
+                            <option value="minutes">min</option>
+                            <option value="hours">hrs</option>
+                          </select>
+                          <span className="text-xs text-muted-foreground">per unit</span>
+                        </div>
+                        {/* Material usage & waste — removed; managed via BOM */}
                       </div>
                       <Button
                         type="button" variant="ghost" size="icon"

@@ -22,7 +22,7 @@ import { isAdminOrAbove, canAccessInventory } from "@/lib/user";
 import {
   PlusIcon, Pencil, Trash2, AlertTriangle, PackagePlus,
   PackageMinus, History, TrendingDown, Eye, Search, ChevronLeft, ChevronRight,
-  Package, Box, Layers, Wrench, FlaskConical, Paperclip, Scissors,
+  Package, Box, Layers, Wrench, FlaskConical, Paperclip, Scissors, Recycle,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -130,7 +130,7 @@ function InventoryLanding() {
   const router = useRouter();
   const [counts, setCounts] = useState<Record<string, number | null>>({
     finished_good: null, raw_material: null, semi_finished: null, spares: null, consumables: null,
-    attachments: null, weeders: null,
+    attachments: null, weeders: null, scrap: null,
   });
 
   useEffect(() => {
@@ -174,8 +174,9 @@ function InventoryLanding() {
       fetchConsumables(),
       fetchAttachments(),
       fetchWeeders(),
-    ]).then(([fg, rm, sf, sp, con, att, weed]) =>
-      setCounts({ finished_good: fg, raw_material: rm, semi_finished: sf, spares: sp, consumables: con, attachments: att, weeders: weed })
+      fetchCount("scrap"),
+    ]).then(([fg, rm, sf, sp, con, att, weed, scrap]) =>
+      setCounts({ finished_good: fg, raw_material: rm, semi_finished: sf, spares: sp, consumables: con, attachments: att, weeders: weed, scrap })
     );
   }, []);
 
@@ -228,6 +229,13 @@ function InventoryLanding() {
       icon: <Scissors className="size-8" />,
       accent: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
       border: "hover:border-green-400",
+    },
+    {
+      id: "scrap", label: "Scraps", desc: "Scrap materials from production",
+      href: "/dashboard/inventory/scraps",
+      icon: <Recycle className="size-8" />,
+      accent: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
+      border: "hover:border-rose-400",
     },
     {
       id: "stock_alerts", label: "Stock Alerts", desc: "Items below reorder level",

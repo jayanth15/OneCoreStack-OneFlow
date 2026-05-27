@@ -16,3 +16,11 @@ class ProductionProcess(SQLModel, table=True):
     name: str                                    # e.g. "Blanking"
     sequence: int = Field(default=0)            # ordering; 0-based or 1-based
     notes: Optional[str] = None
+
+    # ── Time estimate ──────────────────────────────────────────────────────────
+    estimated_time_minutes: Optional[float] = None  # time per unit in minutes (fractional OK)
+
+    # ── Material usage / waste ─────────────────────────────────────────────────
+    material_qty: Optional[float] = None    # material consumed per unit in this step
+    waste_qty: Optional[float] = None       # waste generated per unit in this step
+    material_unit: Optional[str] = None     # unit label, e.g. "kg", "pcs", "m"

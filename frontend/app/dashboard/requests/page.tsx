@@ -35,6 +35,10 @@ interface PurchaseRequestItemOut {
   quantity: number;
   timeline_days: number | null;
   department: string | null;
+  item_status: string | null;
+  accepted_by_username: string | null;
+  accepted_at: string | null;
+  acceptance_note: string | null;
 }
 
 interface PurchaseRequest {
@@ -348,6 +352,7 @@ function PurchaseTab({ admin }: { admin: boolean }) {
   const [receiptNotes, setReceiptNotes] = useState("");
   const [receiptSaving, setReceiptSaving] = useState(false);
   const [receiptErr, setReceiptErr] = useState<string | null>(null);
+  const [receiptDeptItems, setReceiptDeptItems] = useState<PurchaseRequestItemOut[]>([]);
 
   const [respondReq, setRespondReq] = useState<PurchaseRequest | null>(null);
   const [respondNote, setRespondNote] = useState("");
@@ -682,13 +687,49 @@ function PurchaseTab({ admin }: { admin: boolean }) {
                             <Button variant="ghost" size="icon" className="size-7" title="Reject" onClick={() => { setSelected(r); setReviewNote(""); setReviewDialog("reject"); }}><XCircle className="size-3.5 text-red-600" /></Button>
                           </>}
                           {r.status === "pending" && <Button variant="ghost" size="icon" className="size-7" title="Cancel" onClick={() => { setCancelId(r.id); setCancelNote(""); }}><Ban className="size-3.5 text-amber-600" /></Button>}
-                          {/* Respond: non-admin, approved request, not the requester themselves */}
-                          {!admin && r.status === "approved" && r.requested_by_user_id !== currentUserId && (
-                            <Button variant="outline" size="sm" className="h-7 text-xs text-blue-600 border-blue-200" onClick={() => { setRespondReq(r); setRespondNote(""); setRespondErr(null); }}>Accept</Button>
-                          )}
-                          {(r.status === "approved" || r.status === "in_progress" || r.status === "awaiting_signoff") && r.requested_by_user_id !== currentUserId && (
-                            <Button variant="outline" size="sm" className="h-7 text-xs text-teal-600 border-teal-200" onClick={() => { setReceiptReq(r); setReceiptQty(String(r.quantity)); setReceiptNotes(""); setReceiptErr(null); }}>Mark Delivered</Button>
-                          )}
+                          {/* Respond: non-admin, approved/in-progress request, and user has unaccepted items in their dept */}
+                          {!admin && (r.status === "approved" || r.status === "in_progress") && (() => {
+                            const myDeptNames: string[] = getCurrentUser()?.department_names ?? [];
+                            const reqDept = r.department;
+                            const hasDeptItems = r.items?.some(i => i.department || reqDept);
+                            // If no dept assignments anywhere, block self-fulfillment (legacy)
+                            if (!hasDeptItems && r.requested_by_user_id === currentUserId) return null;
+                            const hasUnaccepted = r.items?.some(i => {
+                              const effDept = i.department || reqDept;
+                              if (effDept) return myDeptNames.includes(effDept) && !i.item_status;
+                              // no dept anywhere — legacy: show Accept if status is approved
+                              return !i.item_status && r.status === "approved";
+                            }) ?? (!hasDeptItems && r.status === "approved");
+                            return hasUnaccepted ? (
+                              <Button variant="outline" size="sm" className="h-7 text-xs text-blue-600 border-blue-200" onClick={() => { setRespondReq(r); setRespondNote(""); setRespondErr(null); }}>Accept</Button>
+                            ) : null;
+                          })()}
+                          {(r.status === "approved" || r.status === "in_progress" || r.status === "awaiting_signoff") && (() => {
+                            const myDeptNames: string[] = getCurrentUser()?.department_names ?? [];
+                            const reqDept = r.department;
+                            const hasDeptItems = r.items?.some(i => i.department || reqDept);
+                            if (!hasDeptItems && r.requested_by_user_id === currentUserId) return null;
+                            const hasMyItem = hasDeptItems
+                              ? r.items?.some(i => myDeptNames.includes(i.department || reqDept || ""))
+                              : r.requested_by_user_id !== currentUserId;
+                            return hasMyItem ? (
+                              <Button variant="outline" size="sm" className="h-7 text-xs text-teal-600 border-teal-200" onClick={() => {
+                                const myDeptNamesClick: string[] = getCurrentUser()?.department_names ?? [];
+                                const hasExplicit = r.items?.some(i => i.department);
+                                const deptItems = hasExplicit
+                                  ? (r.items ?? []).filter(i => i.department && myDeptNamesClick.includes(i.department))
+                                  : (r.items ?? []);
+                                const deptQty = deptItems.length > 0
+                                  ? deptItems.reduce((s, i) => s + i.quantity, 0)
+                                  : r.quantity;
+                                setReceiptReq(r);
+                                setReceiptDeptItems(deptItems);
+                                setReceiptQty(String(deptQty));
+                                setReceiptNotes("");
+                                setReceiptErr(null);
+                              }}>Mark Delivered</Button>
+                            ) : null;
+                          })()}
                           <Button variant="ghost" size="icon" className="size-7" title="History" onClick={() => setHistReq(r)}><History className="size-3.5 text-muted-foreground" /></Button>
                           {admin && <Button variant="ghost" size="icon" className="size-7" title="Delete" onClick={() => { setDeleteId(r.id); setDeletingSn(r.sn_no); }}><Trash2 className="size-3.5 text-red-500" /></Button>}
                         </div>
@@ -843,6 +884,14 @@ function PurchaseTab({ admin }: { admin: boolean }) {
                             {it.description && <p className="text-xs text-muted-foreground mt-0.5">{it.description}</p>}
                             {it.department && <p className="text-xs text-blue-600 font-medium mt-0.5">Dept: {it.department}</p>}
                             {it.timeline_days && <p className="text-xs text-muted-foreground mt-0.5">{it.timeline_days} day{it.timeline_days !== 1 ? "s" : ""}</p>}
+                            {it.item_status && (
+                              <p className="text-xs mt-0.5">
+                                <span className={`font-semibold ${it.item_status === "in_progress" ? "text-blue-600" : "text-teal-600"}`}>
+                                  {it.item_status === "in_progress" ? "Being Arranged" : "Delivered"}
+                                </span>
+                                {it.accepted_by_username && <span className="text-muted-foreground ml-1">by {it.accepted_by_username}</span>}
+                              </p>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -953,29 +1002,47 @@ function PurchaseTab({ admin }: { admin: boolean }) {
               <Loader2 className="size-4 text-blue-600" /> Accept &amp; Respond — {respondReq?.sn_no}
             </DialogTitle>
           </DialogHeader>
-          {respondReq && (
-            <div className="space-y-3 mt-1">
-              <p className="text-sm text-muted-foreground">
-                Mark this request as <span className="font-semibold text-blue-700">In Progress</span>. This tells the requester that you have acknowledged the request and are working on it.
-              </p>
-              <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
-                <dt className="text-muted-foreground">Item</dt><dd className="font-medium">{respondReq.item_name ?? "—"}</dd>
-                <dt className="text-muted-foreground">Qty</dt><dd>{respondReq.quantity}</dd>
-                {respondReq.from_whom && <><dt className="text-muted-foreground">From</dt><dd>{respondReq.from_whom}</dd></>}
-              </dl>
-              <div className="space-y-1.5">
-                <Label>Response Note <span className="text-xs text-muted-foreground">(optional)</span></Label>
-                <textarea rows={3} placeholder="e.g. Will arrange by Friday, checking stock…" value={respondNote}
-                  onChange={e => setRespondNote(e.target.value)} disabled={respondSaving}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
+          {respondReq && (() => {
+            const myDeptNames: string[] = getCurrentUser()?.department_names ?? [];
+            const reqDept = respondReq.department;
+            const myItems = (respondReq.items ?? []).filter(i => {
+              const effDept = i.department || reqDept;
+              if (effDept) return myDeptNames.includes(effDept) && !i.item_status;
+              return !i.item_status; // no dept: legacy
+            });
+            return (
+              <div className="space-y-3 mt-1">
+                <p className="text-sm text-muted-foreground">
+                  Mark your department&apos;s items as <span className="font-semibold text-blue-700">In Progress</span>. Other departments can accept their own items separately.
+                </p>
+                {myItems.length > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Items you are accepting</p>
+                    {myItems.map((it, idx) => (
+                      <div key={idx} className="rounded-md border p-2 text-xs bg-muted/20">
+                        <div className="flex justify-between gap-2">
+                          <span className="font-medium">{it.item_name ?? "—"}</span>
+                          <span className="tabular-nums font-semibold">× {it.quantity}</span>
+                        </div>
+                        {it.department && <p className="text-blue-600 font-medium mt-0.5">{it.department}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="space-y-1.5">
+                  <Label>Response Note <span className="text-xs text-muted-foreground">(optional)</span></Label>
+                  <textarea rows={3} placeholder="e.g. Will arrange by Friday, checking stock…" value={respondNote}
+                    onChange={e => setRespondNote(e.target.value)} disabled={respondSaving}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
+                </div>
+                {respondErr && <p className="text-sm text-destructive">{respondErr}</p>}
+                <div className="flex gap-3">
+                  <Button onClick={doRespond} disabled={respondSaving} className="flex-1">{respondSaving ? "Saving…" : "Accept Request"}</Button>
+                  <Button variant="outline" onClick={() => setRespondReq(null)} disabled={respondSaving}>Cancel</Button>
+                </div>
               </div>
-              {respondErr && <p className="text-sm text-destructive">{respondErr}</p>}
-              <div className="flex gap-3">
-                <Button onClick={doRespond} disabled={respondSaving} className="flex-1">{respondSaving ? "Saving…" : "Accept Request"}</Button>
-                <Button variant="outline" onClick={() => setRespondReq(null)} disabled={respondSaving}>Cancel</Button>
-              </div>
-            </div>
-          )}
+            );
+          })()}
         </DialogContent>
       </Dialog>
 
@@ -985,13 +1052,33 @@ function PurchaseTab({ admin }: { admin: boolean }) {
           <DialogHeader><DialogTitle className="flex items-center gap-2"><Package className="size-4 text-teal-600" /> Create Receipt — {receiptReq?.sn_no}</DialogTitle></DialogHeader>
           {receiptReq && (
             <div className="space-y-3 mt-1">
-              <p className="text-sm text-muted-foreground">
-                Item: <span className="font-medium text-foreground">{receiptReq.item_name ?? "—"}</span> · Ordered: <span className="font-semibold">{receiptReq.quantity}</span>
-                {receiptReq.receipt_count > 0 && <span className="ml-1">(already received: {receiptReq.total_received})</span>}
-              </p>
+              {receiptDeptItems.length > 0 ? (
+                <div className="space-y-1.5">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Items you are delivering</p>
+                  {receiptDeptItems.map((it, idx) => (
+                    <div key={idx} className="rounded-md border p-2 text-xs bg-muted/20">
+                      <div className="flex justify-between gap-2">
+                        <span className="font-medium">{it.item_name ?? "—"}{it.item_code && <span className="ml-1.5 font-mono text-muted-foreground">{it.item_code}</span>}</span>
+                        <span className="tabular-nums font-semibold shrink-0">× {it.quantity}</span>
+                      </div>
+                      {it.department && <p className="text-teal-600 font-medium mt-0.5">{it.department}</p>}
+                    </div>
+                  ))}
+                  {receiptReq.receipt_count > 0 && (
+                    <p className="text-xs text-muted-foreground">(already received for whole request: {receiptReq.total_received})</p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Item: <span className="font-medium text-foreground">{receiptReq.item_name ?? "—"}</span> · Ordered: <span className="font-semibold">{receiptReq.quantity}</span>
+                  {receiptReq.receipt_count > 0 && <span className="ml-1">(already received: {receiptReq.total_received})</span>}
+                </p>
+              )}
               <div className="space-y-1.5">
                 <Label>Quantity to Deliver *</Label>
-                <Input type="number" min="0.001" step="any" value={receiptQty} onChange={e => setReceiptQty(e.target.value)} disabled={receiptSaving} />
+                <Input type="number" min="0.001" step="any"
+                  max={receiptDeptItems.length > 0 ? receiptDeptItems.reduce((s, i) => s + i.quantity, 0) : undefined}
+                  value={receiptQty} onChange={e => setReceiptQty(e.target.value)} disabled={receiptSaving} />
               </div>
               <div className="space-y-1.5">
                 <Label>Delivery Notes <span className="text-xs text-muted-foreground">(optional)</span></Label>

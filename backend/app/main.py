@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import json
 from typing import AsyncGenerator
 
 from fastapi import FastAPI
@@ -120,6 +121,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Add supplier/party fields to dispatch; vendor/party fields to purchase_order
     _migrate_dispatch_supplier_fields()
     _migrate_po_vendor_fields()
+    # Add estimated_time_minutes, material_qty, waste_qty, material_unit to production_process
+    _migrate_production_process_v2()
+    # Add worker_names JSON column to job_card table
+    _migrate_job_card_worker_names()
     # supplier_jobs and supplier_materials tables created by init_db via SQLModel metadata
     # Auto-seed a default admin user on a brand-new / empty database
     _auto_seed_if_empty()
@@ -129,7 +134,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 
 def _migrate_schedule_created_at() -> None:
-    """Add created_at column to schedule table if it doesn't exist (SQLite)."""
+    """Add created_at and customer_id columns to schedule table if they don't exist (SQLite)."""
     from app.core.database import engine
     from sqlalchemy import text
 
@@ -137,6 +142,9 @@ def _migrate_schedule_created_at() -> None:
         cols = [row[1] for row in conn.execute(text("PRAGMA table_info(schedule)")).fetchall()]
         if "created_at" not in cols:
             conn.execute(text("ALTER TABLE schedule ADD COLUMN created_at TEXT"))
+            conn.commit()
+        if "customer_id" not in cols:
+            conn.execute(text("ALTER TABLE schedule ADD COLUMN customer_id INTEGER REFERENCES vendors(id)"))
             conn.commit()
 
 
@@ -1095,6 +1103,37 @@ def _migrate_po_vendor_fields() -> None:
             conn.execute(text("ALTER TABLE purchase_order ADD COLUMN vendor_name TEXT"))
         if "party_type" not in cols:
             conn.execute(text("ALTER TABLE purchase_order ADD COLUMN party_type TEXT NOT NULL DEFAULT 'supplier'"))
+        conn.commit()
+
+
+def _migrate_production_process_v2() -> None:
+    """Add estimated_time_minutes, material_qty, waste_qty, material_unit columns
+    to the production_process table (SQLite ALTER TABLE, idempotent)."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        cols = [row[1] for row in conn.execute(text("PRAGMA table_info(production_process)")).fetchall()]
+        if "estimated_time_minutes" not in cols:
+            conn.execute(text("ALTER TABLE production_process ADD COLUMN estimated_time_minutes REAL"))
+        if "material_qty" not in cols:
+            conn.execute(text("ALTER TABLE production_process ADD COLUMN material_qty REAL"))
+        if "waste_qty" not in cols:
+            conn.execute(text("ALTER TABLE production_process ADD COLUMN waste_qty REAL"))
+        if "material_unit" not in cols:
+            conn.execute(text("ALTER TABLE production_process ADD COLUMN material_unit TEXT"))
+        conn.commit()
+
+
+def _migrate_job_card_worker_names() -> None:
+    """Add worker_names TEXT column (JSON array) to job_card table (idempotent)."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        cols = [row[1] for row in conn.execute(text("PRAGMA table_info(job_card)")).fetchall()]
+        if "worker_names" not in cols:
+            conn.execute(text("ALTER TABLE job_card ADD COLUMN worker_names TEXT"))
         conn.commit()
 
 

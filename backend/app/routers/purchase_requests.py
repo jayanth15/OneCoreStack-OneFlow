@@ -44,6 +44,11 @@ class PurchaseRequestItemOut(BaseModel):
     quantity: float
     timeline_days: Optional[int]
     department: Optional[str] = None
+    # Per-item acceptance
+    item_status: Optional[str] = None
+    accepted_by_username: Optional[str] = None
+    accepted_at: Optional[str] = None
+    acceptance_note: Optional[str] = None
 
 
 class PurchaseRequestCreate(BaseModel):
@@ -164,6 +169,10 @@ def _out(r: PurchaseRequest, session: Session) -> PurchaseRequestOut:
                 quantity=i.quantity,
                 timeline_days=i.timeline_days,
                 department=i.department,
+                item_status=i.item_status,
+                accepted_by_username=i.accepted_by_username,
+                accepted_at=i.accepted_at.isoformat() if i.accepted_at else None,
+                acceptance_note=i.acceptance_note,
             )
             for i in item_rows
         ]
@@ -309,8 +318,16 @@ def active_count(
             ),
         ]
         if user_dept_names:
+            # Match on header department OR any line-item department
+            item_dept_subq = (
+                select(PurchaseRequestItem.request_id)
+                .where(PurchaseRequestItem.department.in_(user_dept_names))  # type: ignore[union-attr]
+            )
             conditions.append(and_(
-                PurchaseRequest.department.in_(user_dept_names),  # type: ignore[union-attr]
+                or_(
+                    PurchaseRequest.department.in_(user_dept_names),  # type: ignore[union-attr]
+                    PurchaseRequest.id.in_(item_dept_subq),  # type: ignore[union-attr]
+                ),
                 PurchaseRequest.status.in_(["approved", "in_progress", "awaiting_signoff"]),  # type: ignore[union-attr]
             ))
         q = q.where(or_(*conditions))
@@ -341,8 +358,16 @@ def list_requests(
             ),
         ]
         if user_dept_names:
+            # Match on header department OR any line-item department (per-item dept takes priority)
+            item_dept_subq = (
+                select(PurchaseRequestItem.request_id)
+                .where(PurchaseRequestItem.department.in_(user_dept_names))  # type: ignore[union-attr]
+            )
             conditions.append(and_(
-                PurchaseRequest.department.in_(user_dept_names),  # type: ignore[union-attr]
+                or_(
+                    PurchaseRequest.department.in_(user_dept_names),  # type: ignore[union-attr]
+                    PurchaseRequest.id.in_(item_dept_subq),  # type: ignore[union-attr]
+                ),
                 PurchaseRequest.status.in_(["approved", "in_progress", "awaiting_signoff", "received"]),  # type: ignore[union-attr]
             ))
         q = q.where(or_(*conditions))
@@ -398,12 +423,17 @@ def create_request(
         if not it.inventory_item_id and not it.item_name:
             raise HTTPException(status_code=400, detail="Each item must have inventory_item_id or item_name")
 
+    # Derive header department from items if not explicitly provided
+    header_dept = body.department or next(
+        (it.department for it in body.items if it.department), None
+    )
+
     now = datetime.now(tz=timezone.utc)
     req = PurchaseRequest(
         sn_no=_next_sn(session),
         from_whom=body.from_whom,
         notes=body.notes,
-        department=body.department,
+        department=header_dept,
         status="pending",
         requested_by_user_id=current_user.id,
         requested_by_username=current_user.username,
@@ -483,7 +513,17 @@ def get_request(
             pass  # fulfiller can always view
         elif req.status in ("approved", "in_progress", "awaiting_signoff", "received"):
             user_dept_names = _get_user_dept_names(session, current_user.id)  # type: ignore[arg-type]
-            if req.department and req.department not in user_dept_names:
+            # Allow if header department matches OR any line item's department matches
+            item_dept_match = session.exec(
+                select(PurchaseRequestItem.id)
+                .where(
+                    PurchaseRequestItem.request_id == req.id,
+                    PurchaseRequestItem.department.in_(user_dept_names),  # type: ignore[union-attr]
+                )
+                .limit(1)
+            ).first()
+            header_match = req.department and req.department in user_dept_names
+            if not header_match and not item_dept_match:
                 raise HTTPException(status_code=403, detail="Access denied")
         else:
             raise HTTPException(status_code=403, detail="Access denied")
@@ -748,39 +788,104 @@ def respond_to_request(
     session: Annotated[Session, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> PurchaseRequestOut:
-    """Fulfilling department accepts an approved request and marks it In Progress."""
+    """Fulfilling department accepts approved/in-progress items directed to them."""
     req = session.get(PurchaseRequest, req_id)
     if not req or not req.is_active:
         raise HTTPException(status_code=404, detail="Request not found")
-    if req.status != "approved":
+    if req.status not in ("approved", "in_progress"):
         raise HTTPException(
             status_code=400,
-            detail=f"Only approved requests can be responded to (current status: {req.status})",
+            detail=f"Only approved or in-progress requests can be responded to (current status: {req.status})",
         )
-    # Prevent the original requester from responding to their own request
+    user_dept_names = (
+        None if is_admin_or_above(current_user)
+        else _get_user_dept_names(session, current_user.id)  # type: ignore[arg-type]
+    )
+
+    # Prevent self-fulfillment only when there are no department assignments to isolate by.
+    # If the request has dept-assigned items, a user who is both the requester AND a member
+    # of a target department is legitimately fulfilling their dept's items — allow it.
     if req.requested_by_user_id == current_user.id and not is_admin_or_above(current_user):
-        raise HTTPException(status_code=403, detail="You cannot respond to your own request")
-    # Only members of the target department may respond (non-admins)
-    if not is_admin_or_above(current_user):
-        user_dept_names = _get_user_dept_names(session, current_user.id)  # type: ignore[arg-type]
-        if req.department and req.department not in user_dept_names:
+        all_items_check = session.exec(
+            select(PurchaseRequestItem).where(PurchaseRequestItem.request_id == req.id)
+        ).all()
+        has_any_dept = any((i.department or req.department) for i in all_items_check)
+        if not has_any_dept:
+            raise HTTPException(status_code=403, detail="You cannot respond to your own request")
+
+    all_items = session.exec(
+        select(PurchaseRequestItem).where(PurchaseRequestItem.request_id == req.id)
+    ).all()
+
+    # Determine whether this request uses explicit per-item department assignments.
+    # NEVER fall back to req.department for item matching — that causes one dept to steal
+    # another dept's items when some items have department=NULL.
+    has_explicit_item_depts = any(i.department for i in all_items)
+
+    if has_explicit_item_depts:
+        if user_dept_names is not None:
+            # Multi-dept request: only accept items explicitly assigned to this user's dept(s).
+            items_to_accept = [
+                i for i in all_items
+                if i.department and i.department in user_dept_names and not i.item_status
+            ]
+            if not items_to_accept:
+                raise HTTPException(
+                    status_code=400,
+                    detail="No pending items found for your department on this request",
+                )
+        else:
+            # Admin supervisor override: accept ALL remaining pending items.
+            items_to_accept = [i for i in all_items if not i.item_status]
+            if not items_to_accept:
+                raise HTTPException(
+                    status_code=400,
+                    detail="All items on this request have already been accepted",
+                )
+    else:
+        # Legacy / single-dept request: no per-item depts assigned.
+        if user_dept_names is not None:
+            if req.department and req.department not in user_dept_names:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Only members of the target department can respond to this request",
+                )
+        items_to_accept = [i for i in all_items if not i.item_status]
+        if not items_to_accept:
             raise HTTPException(
-                status_code=403,
-                detail="Only members of the target department can respond to this request",
+                status_code=400,
+                detail="All items on this request have already been accepted",
             )
+
+    has_dept_items = has_explicit_item_depts
+
     now = datetime.now(tz=timezone.utc)
+    for item in items_to_accept:
+        item.item_status = "in_progress"
+        item.accepted_by_username = current_user.username
+        item.accepted_at = now
+        item.acceptance_note = body.note
+
+    # Overall request moves to in_progress (stays there until manually delivered)
     req.status = "in_progress"
+    # Keep backward-compat fulfillment fields — record the first (or latest) acceptor
     req.fulfilled_by_user_id = current_user.id
     req.fulfilled_by_username = current_user.username
-    req.fulfillment_accepted_at = now
+    if not req.fulfillment_accepted_at:
+        req.fulfillment_accepted_at = now
     req.fulfillment_note = body.note
     req.updated_at = now
+
+    dept_label = (
+        f" for dept {', '.join(sorted(set(i.department for i in items_to_accept if i.department)))}"
+        if has_dept_items else ""
+    )
     _record_history(
         session, req.id, current_user, "responded",  # type: ignore[arg-type]
         field_name="status",
-        old_value="approved",
+        old_value=req.status,
         new_value="in_progress",
-        note=body.note,
+        note=f"{current_user.username} accepted {len(items_to_accept)} item(s){dept_label}. {body.note or ''}".strip(),
     )
     if req.requested_by_user_id:
         create_notification(
@@ -788,7 +893,7 @@ def respond_to_request(
             user_id=req.requested_by_user_id,
             notif_type="request_responded",
             title="Request Being Fulfilled",
-            body=f"{current_user.username} has accepted your request {req.sn_no} and will deliver the items.",
+            body=f"{current_user.username} has accepted your request {req.sn_no}{dept_label} and will deliver the items.",
             request_id=req.id,
         )
     session.commit()

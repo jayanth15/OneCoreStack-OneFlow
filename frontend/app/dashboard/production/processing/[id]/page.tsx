@@ -30,6 +30,17 @@ interface ProcessItem {
   name: string;
   sequence: number;
   notes: string | null;
+  estimated_time_minutes: number | null;
+}
+
+// BOM summary line
+interface BomLine {
+  id: number;
+  raw_material_name: string | null;
+  raw_material_unit: string | null;
+  material_used: number | null;
+  scrap: number | null;
+  material_unit: string | null;
 }
 
 interface JobCard {
@@ -40,6 +51,7 @@ interface JobCard {
   tool_die_number: string | null;
   machine_name: string | null;
   worker_name: string | null;
+  worker_names: string[];
   hours_worked: number;
   qty_produced: number;
   qty_pending: number;
@@ -112,6 +124,7 @@ export default function ProductionOrderDetailPage() {
   const [deleting, setDeleting] = useState(false);
   const [admin, setAdmin] = useState(false);
   const [currentUsername, setCurrentUsername] = useState<string | null>(null);
+  const [bomLines, setBomLines] = useState<BomLine[]>([]);
 
   // History modal state
   const [historyJobId, setHistoryJobId] = useState<number | null>(null);
@@ -124,7 +137,14 @@ export default function ProductionOrderDetailPage() {
     if (!id) return;
     setLoading(true);
     apiFetchJson<ProductionOrder>(`/api/v1/production/orders/${id}`)
-      .then(setOrder)
+      .then((o) => {
+        setOrder(o);
+        if (o.product_description) {
+          apiFetchJson<BomLine[]>(`/api/v1/bom?product_name=${encodeURIComponent(o.product_description)}`)
+            .then((lines) => setBomLines(lines.filter((l) => l.material_used != null || l.scrap != null)))
+            .catch(() => {});
+        }
+      })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "Not found"))
       .finally(() => setLoading(false));
   }, [id]);
@@ -208,6 +228,11 @@ export default function ProductionOrderDetailPage() {
   const totalProduced = order?.job_cards.reduce((s, jc) => s + jc.qty_produced, 0) ?? 0;
   const totalHours    = order?.job_cards.reduce((s, jc) => s + jc.hours_worked, 0) ?? 0;
   const effectiveQty  = order?.effective_qty ?? 0;
+  // Total estimated time = sum of estimated_time_minutes per process × planned_qty
+  const totalEstimatedMinutes = order
+    ? order.processes.reduce((s, p) => s + (p.estimated_time_minutes ?? 0), 0) * (order.planned_qty ?? 1)
+    : 0;
+  const hasEstimatedTime = order ? order.processes.some((p) => p.estimated_time_minutes != null) : false;
   // FG pending = how many more finished goods still need to complete all processes
   const fgPending = order?.planned_qty != null ? Math.max(0, order.planned_qty - effectiveQty) : null;
   // Per-process produced / pending breakdown
@@ -353,10 +378,50 @@ export default function ProductionOrderDetailPage() {
                 <div className="p-2 rounded-md text-purple-600 bg-purple-50"><Clock className="size-4" /></div>
                 <div>
                   <p className="text-lg font-semibold leading-none">{totalHours.toFixed(1)}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Total Hours</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Actual Hours</p>
+                  {hasEstimatedTime && (
+                    <p className="text-[10px] text-muted-foreground/70">
+                      Est: {totalEstimatedMinutes < 1
+                        ? `${Math.round(totalEstimatedMinutes * 60)} sec`
+                        : totalEstimatedMinutes >= 60
+                          ? `${(totalEstimatedMinutes / 60).toFixed(1)} hr`
+                          : `${Math.round(totalEstimatedMinutes)} min`}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
+
+            {/* ── BOM Materials Summary ──────────────────────────────────── */}
+            {bomLines.length > 0 && (
+              <div className="rounded-lg border overflow-hidden">
+                <div className="bg-muted/40 px-4 py-2.5 flex items-center gap-2">
+                  <Package className="size-4 text-muted-foreground" />
+                  <span className="font-medium text-sm">Materials Used &amp; Scrap</span>
+                  <span className="text-xs text-muted-foreground">— based on BOM × {effectiveQty} units produced</span>
+                </div>
+                <div className="divide-y text-xs">
+                  <div className="hidden sm:grid grid-cols-[2fr_1fr_1fr_80px] gap-3 px-4 py-2 text-muted-foreground font-medium bg-muted/20">
+                    <span>Material</span>
+                    <span>Consumed</span>
+                    <span>Scrap Generated</span>
+                    <span>Unit</span>
+                  </div>
+                  {bomLines.map((l) => (
+                    <div key={l.id} className="grid grid-cols-1 sm:grid-cols-[2fr_1fr_1fr_80px] gap-2 sm:gap-3 px-4 py-2.5 hover:bg-muted/20">
+                      <span className="font-medium">{l.raw_material_name ?? "—"}</span>
+                      <span className={l.material_used != null ? "text-blue-700 font-mono font-semibold" : "text-muted-foreground"}>
+                        {l.material_used != null ? (l.material_used * effectiveQty).toFixed(3) : "—"}
+                      </span>
+                      <span className={l.scrap != null ? "text-amber-600 font-mono font-semibold" : "text-muted-foreground"}>
+                        {l.scrap != null ? (l.scrap * effectiveQty).toFixed(3) : "—"}
+                      </span>
+                      <span className="text-muted-foreground">{l.material_unit ?? l.raw_material_unit ?? "—"}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* FG explanation note */}
             <div className="rounded-lg border border-dashed bg-green-50/50 p-3 text-xs text-muted-foreground">
@@ -415,15 +480,18 @@ export default function ProductionOrderDetailPage() {
 
             {/* ── Worker Activity Summary ───────────────────────────────── */}
             {order.job_cards.length > 0 && (() => {
-              // Aggregate by worker_name
+              // Aggregate by worker_name; expand worker_names array when present
               const byWorker: Record<string, { hours: number; produced: number; cards: number; dates: Set<string> }> = {};
               order.job_cards.forEach((jc) => {
-                const w = jc.worker_name ?? "Unassigned";
-                if (!byWorker[w]) byWorker[w] = { hours: 0, produced: 0, cards: 0, dates: new Set() };
-                byWorker[w].hours    += jc.hours_worked;
-                byWorker[w].produced += jc.qty_produced;
-                byWorker[w].cards    += 1;
-                if (jc.work_date) byWorker[w].dates.add(jc.work_date);
+                if (jc.job_type === "supplier") return;
+                const workers = jc.worker_names?.length ? jc.worker_names : (jc.worker_name ? [jc.worker_name] : ["Unassigned"]);
+                workers.forEach((w) => {
+                  if (!byWorker[w]) byWorker[w] = { hours: 0, produced: 0, cards: 0, dates: new Set() };
+                  byWorker[w].hours    += jc.hours_worked / workers.length;
+                  byWorker[w].produced += jc.qty_produced / workers.length;
+                  byWorker[w].cards    += 1;
+                  if (jc.work_date) byWorker[w].dates.add(jc.work_date);
+                });
               });
               const entries = Object.entries(byWorker);
               if (entries.length === 0) return null;
@@ -498,16 +566,35 @@ export default function ProductionOrderDetailPage() {
                     <div key={process.id} className="rounded-lg border overflow-hidden">
                       {/* Process header */}
                       <div className="bg-muted/40 px-4 py-2.5 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center justify-center size-6 rounded-full bg-primary/10 text-primary text-xs font-bold">
+                        <div className="flex items-start gap-2 flex-1 min-w-0">
+                          <span className="inline-flex items-center justify-center size-6 rounded-full bg-primary/10 text-primary text-xs font-bold shrink-0 mt-0.5">
                             {process.sequence}
                           </span>
-                          <span className="font-medium text-sm">{process.name}</span>
-                          {process.notes && (
-                            <span className="text-xs text-muted-foreground hidden sm:inline">— {process.notes}</span>
-                          )}
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-medium text-sm">{process.name}</span>
+                              {process.notes && (
+                                <span className="text-xs text-muted-foreground hidden sm:inline">— {process.notes}</span>
+                              )}
+                            </div>
+                            {/* Time summary */}
+                            {(process.estimated_time_minutes != null) && (
+                              <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                                {process.estimated_time_minutes != null && (
+                                  <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
+                                    <Clock className="size-3" />
+                                    {process.estimated_time_minutes < 1
+                                      ? `${Math.round(process.estimated_time_minutes * 60)} sec`
+                                      : process.estimated_time_minutes >= 60
+                                        ? `${(process.estimated_time_minutes / 60).toFixed(1)} hr`
+                                        : `${process.estimated_time_minutes} min`} / unit
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <Button variant="ghost" size="sm" className="h-7 text-xs"
+                        <Button variant="ghost" size="sm" className="h-7 text-xs shrink-0"
                           onClick={() =>
                             router.push(`/dashboard/production/processing/${order.id}/jobs/new?process=${encodeURIComponent(process.name)}`)
                           }>
@@ -537,7 +624,9 @@ export default function ProductionOrderDetailPage() {
                                     <span className="font-medium">
                                       {jc.job_type === "supplier"
                                         ? (jc.supplier_name ?? "—")
-                                        : (jc.worker_name ?? "—")}
+                                        : (jc.worker_names?.length
+                                            ? jc.worker_names.join(", ")
+                                            : (jc.worker_name ?? "—"))}
                                     </span>
                                   </div>
                                 </div>
@@ -581,7 +670,7 @@ export default function ProductionOrderDetailPage() {
                                   title="History">
                                   <History className="size-3" />
                                 </Button>
-                                {(admin || jc.worker_name === currentUsername) && (
+                                {(admin || (jc.worker_names?.includes(currentUsername ?? "") ?? jc.worker_name === currentUsername)) && (
                                   <Button variant="ghost" size="icon" className="size-7"
                                     onClick={() => router.push(`/dashboard/production/processing/${order.id}/jobs/${jc.id}/edit`)}
                                     title="Edit">
@@ -619,13 +708,13 @@ export default function ProductionOrderDetailPage() {
                               <div>
                                 <span className="font-mono font-medium">{jc.card_number}</span>{" "}
                                 <span className="text-muted-foreground">— {jc.process_name}</span>{" "}
-                                <span className="text-muted-foreground">by {jc.job_type === "supplier" ? (jc.supplier_name ?? "—") : (jc.worker_name ?? "—")}</span>
+                                <span className="text-muted-foreground">by {jc.job_type === "supplier" ? (jc.supplier_name ?? "—") : (jc.worker_names?.length ? jc.worker_names.join(", ") : (jc.worker_name ?? "—"))}</span>
                               </div>
                               <div className="flex items-center gap-2">
                                 <Badge variant={STATUS_BADGE[jc.status] ?? "outline"} className={`text-xs ${STATUS_COLOR[jc.status] ?? ""}`}>
                                   {STATUS_LABELS[jc.status] ?? jc.status}
                                 </Badge>
-                                {(admin || jc.worker_name === currentUsername) && (
+                                {(admin || (jc.worker_names?.includes(currentUsername ?? "") ?? jc.worker_name === currentUsername)) && (
                                   <Button variant="ghost" size="icon" className="size-7"
                                     onClick={() => router.push(`/dashboard/production/processing/${order.id}/jobs/${jc.id}/edit`)}>
                                     <Pencil className="size-3" />
@@ -664,17 +753,20 @@ export default function ProductionOrderDetailPage() {
                 cards: JobCard[];
               }> = {};
               order.job_cards.forEach((jc) => {
-                const key = jc.worker_name ?? "(unassigned)";
-                if (!byWorker[key]) {
-                  byWorker[key] = { name: key, totalHours: 0, totalQty: 0, processes: [], dates: [], cards: [] };
-                }
-                byWorker[key].totalHours += jc.hours_worked;
-                byWorker[key].totalQty   += jc.qty_produced;
-                byWorker[key].cards.push(jc);
-                if (!byWorker[key].processes.includes(jc.process_name))
-                  byWorker[key].processes.push(jc.process_name);
-                if (jc.work_date && !byWorker[key].dates.includes(jc.work_date))
-                  byWorker[key].dates.push(jc.work_date);
+                if (jc.job_type === "supplier") return;
+                const workers = jc.worker_names?.length ? jc.worker_names : (jc.worker_name ? [jc.worker_name] : ["(unassigned)"]);
+                workers.forEach((key) => {
+                  if (!byWorker[key]) {
+                    byWorker[key] = { name: key, totalHours: 0, totalQty: 0, processes: [], dates: [], cards: [] };
+                  }
+                  byWorker[key].totalHours += jc.hours_worked / workers.length;
+                  byWorker[key].totalQty   += jc.qty_produced / workers.length;
+                  byWorker[key].cards.push(jc);
+                  if (!byWorker[key].processes.includes(jc.process_name))
+                    byWorker[key].processes.push(jc.process_name);
+                  if (jc.work_date && !byWorker[key].dates.includes(jc.work_date))
+                    byWorker[key].dates.push(jc.work_date);
+                });
               });
               const workers = Object.values(byWorker).sort((a, b) => b.totalHours - a.totalHours);
 
@@ -786,7 +878,7 @@ export default function ProductionOrderDetailPage() {
                 </AlertDialogTitle>
                 {jc && (
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground pt-1">
-                    <span className="flex items-center gap-1"><User className="size-3" />{jc.job_type === "supplier" ? (jc.supplier_name ?? "No supplier") : (jc.worker_name ?? "No worker")}</span>
+                    <span className="flex items-center gap-1"><User className="size-3" />{jc.job_type === "supplier" ? (jc.supplier_name ?? "No supplier") : (jc.worker_names?.length ? jc.worker_names.join(", ") : (jc.worker_name ?? "No worker"))}</span>
                     <span className="flex items-center gap-1"><Factory className="size-3" />{jc.process_name}</span>
                     {jc.machine_name && <span className="flex items-center gap-1"><Wrench className="size-3" />{jc.machine_name}</span>}
                     {jc.work_date && <span className="flex items-center gap-1"><CalendarDays className="size-3" />{jc.work_date}</span>}

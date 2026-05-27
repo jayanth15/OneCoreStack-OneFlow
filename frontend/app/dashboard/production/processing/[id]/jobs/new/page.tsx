@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -11,9 +11,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Combobox, ComboboxContent, ComboboxEmpty,
+  ComboboxInput, ComboboxItem, ComboboxList,
+} from "@/components/ui/combobox";
 import { apiFetchJson } from "@/lib/api";
 import { getCurrentUser, isWorker, isAdminOrAbove } from "@/lib/user";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, X } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -27,6 +31,114 @@ interface OrderInfo {
 interface WorkerOption { id: number; username: string; }
 interface SupplierOption { id: number; name: string; }
 
+// ── Worker Multi-Select Combobox ──────────────────────────────────────────────
+
+function WorkerMultiSelect({
+  value,
+  onChange,
+  disabled,
+  locked,
+}: {
+  value: string[];
+  onChange: (v: string[]) => void;
+  disabled: boolean;
+  locked: boolean;
+}) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [options, setOptions] = useState<WorkerOption[]>([]);
+  const [fetching, setFetching] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fetchWorkers = useCallback((q: string) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      setFetching(true);
+      try {
+        const data = await apiFetchJson<WorkerOption[]>(
+          `/api/v1/production/workers?search=${encodeURIComponent(q)}`
+        );
+        setOptions(data);
+      } catch { /* ignore */ } finally {
+        setFetching(false);
+      }
+    }, 250);
+  }, []);
+
+  // Initial load
+  useEffect(() => { fetchWorkers(""); }, [fetchWorkers]);
+
+  function remove(username: string) {
+    onChange(value.filter((v) => v !== username));
+  }
+
+  return (
+    <div className="space-y-2">
+      {/* Selected worker chips */}
+      {value.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {value.map((w) => (
+            <span
+              key={w}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-medium border border-primary/20"
+            >
+              {w}
+              {!locked && !disabled && (
+                <button
+                  type="button"
+                  onClick={() => remove(w)}
+                  className="ml-0.5 hover:text-destructive transition-colors"
+                  aria-label={`Remove ${w}`}
+                >
+                  <X className="size-3" />
+                </button>
+              )}
+            </span>
+          ))}
+        </div>
+      )}
+      {!locked && (
+        <Combobox
+          multiple
+          value={value}
+          onValueChange={(newVal: unknown[]) => onChange(newVal as string[])}
+          filter={(_item: unknown) => true}
+        >
+          <ComboboxInput
+            placeholder={value.length > 0 ? "Add more workers…" : "Search workers…"}
+            value={searchQuery}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+              setSearchQuery(e.target.value);
+              fetchWorkers(e.target.value);
+            }}
+            showTrigger
+            showClear={searchQuery.length > 0}
+            disabled={disabled}
+            className="w-full"
+          />
+          <ComboboxContent>
+            <ComboboxList>
+              {fetching && (
+                <div className="py-2 px-3 text-xs text-muted-foreground">Searching…</div>
+              )}
+              <ComboboxEmpty>No workers found</ComboboxEmpty>
+              {options.map((w) => (
+                <ComboboxItem key={w.id} value={w.username}>
+                  <span className={value.includes(w.username) ? "font-medium text-primary" : ""}>
+                    {w.username}
+                  </span>
+                  {value.includes(w.username) && (
+                    <span className="ml-auto text-[10px] text-muted-foreground">selected</span>
+                  )}
+                </ComboboxItem>
+              ))}
+            </ComboboxList>
+          </ComboboxContent>
+        </Combobox>
+      )}
+    </div>
+  );
+}
+
 // ── Inner ─────────────────────────────────────────────────────────────────────
 
 function NewJobCardInner() {
@@ -36,14 +148,13 @@ function NewJobCardInner() {
   const preSelectedProcess = searchParams.get("process") ?? "";
 
   const [order, setOrder] = useState<OrderInfo | null>(null);
-  const [workers, setWorkers] = useState<WorkerOption[]>([]);
   const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [processName, setProcessName] = useState(preSelectedProcess);
   const [toolDie, setToolDie] = useState("");
   const [machine, setMachine] = useState("");
-  const [worker, setWorker] = useState("");
+  const [selectedWorkers, setSelectedWorkers] = useState<string[]>([]);
   const [workerLocked, setWorkerLocked] = useState(false);
   const [jobType, setJobType] = useState<"internal" | "supplier">("internal");
   const [supplierId, setSupplierId] = useState<string>("");
@@ -60,12 +171,10 @@ function NewJobCardInner() {
     if (!id) return;
     Promise.all([
       apiFetchJson<OrderInfo>(`/api/v1/production/orders/${id}`),
-      apiFetchJson<WorkerOption[]>("/api/v1/production/workers"),
       apiFetchJson<SupplierOption[]>("/api/v1/suppliers/names"),
     ])
-      .then(([o, w, s]) => {
+      .then(([o, s]) => {
         setOrder(o);
-        setWorkers(w);
         setSuppliers(s);
         if (!processName && o.processes.length > 0) {
           setProcessName(o.processes[0].name);
@@ -73,7 +182,7 @@ function NewJobCardInner() {
         // Auto-select worker for worker-role users
         const me = getCurrentUser();
         if (me && isWorker()) {
-          setWorker(me.username);
+          setSelectedWorkers([me.username]);
           setWorkerLocked(true);
         }
         // Lock date for non-admins — always today
@@ -96,7 +205,8 @@ function NewJobCardInner() {
         process_name: processName.trim(),
         tool_die_number: toolDie || null,
         machine_name: machine || null,
-        worker_name: jobType === "internal" ? (worker || null) : null,
+        worker_name: jobType === "internal" ? (selectedWorkers[0] ?? null) : null,
+        worker_names: jobType === "internal" ? selectedWorkers : [],
         hours_worked: parseFloat(hoursWorked) || 0,
         qty_produced: parseFloat(qtyProduced) || 0,
         work_date: workDate || null,
@@ -148,7 +258,7 @@ function NewJobCardInner() {
         <div className="mb-6">
           <h1 className="text-xl font-semibold">New Job Card</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Track a worker&apos;s production for a specific process step.
+            Track workers&apos; production for a specific process step.
           </p>
         </div>
 
@@ -224,18 +334,16 @@ function NewJobCardInner() {
               </div>
             </div>
 
-            {/* Worker (only for internal jobs) */}
+            {/* Workers (multi-select, only for internal jobs) */}
             {jobType === "internal" && (
               <div className="space-y-1.5">
-                <Label htmlFor="worker">Worker Name</Label>
-                <select id="worker" value={worker}
-                  onChange={(e) => setWorker(e.target.value)} disabled={saving || workerLocked}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
-                  <option value="">— Select worker —</option>
-                  {workers.map((w) => (
-                    <option key={w.id} value={w.username}>{w.username}</option>
-                  ))}
-                </select>
+                <Label>Workers</Label>
+                <WorkerMultiSelect
+                  value={selectedWorkers}
+                  onChange={setSelectedWorkers}
+                  disabled={saving}
+                  locked={workerLocked}
+                />
                 {workerLocked && (
                   <p className="text-xs text-muted-foreground">Auto-assigned to your account.</p>
                 )}
@@ -310,3 +418,5 @@ export default function NewJobCardPage() {
     </Suspense>
   );
 }
+
+

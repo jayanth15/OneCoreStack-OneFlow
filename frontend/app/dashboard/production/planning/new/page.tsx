@@ -52,6 +52,8 @@ interface LocalProcess {
   key: number;
   name: string;
   notes: string;
+  estimated_time_minutes: string; // stored as string in form, converted to float on save
+  time_unit: "seconds" | "minutes" | "hours";  // UI convenience — converted before POST
 }
 
 const BLANK = {
@@ -140,7 +142,7 @@ export default function NewPlanPage() {
   function addProcess() {
     const name = processInput.trim();
     if (!name) return;
-    setProcesses((p) => [...p, { key: nextKey.current++, name, notes: "" }]);
+    setProcesses((p) => [...p, { key: nextKey.current++, name, notes: "", estimated_time_minutes: "", time_unit: "minutes" }]);
     setProcessInput("");
   }
 
@@ -148,7 +150,7 @@ export default function NewPlanPage() {
     setProcesses((p) => p.filter((x) => x.key !== key));
   }
 
-  function updateProcess(key: number, field: "name" | "notes", val: string) {
+  function updateProcess(key: number, field: keyof LocalProcess, val: string) {
     setProcesses((p) => p.map((x) => x.key === key ? { ...x, [field]: val } : x));
   }
 
@@ -178,7 +180,21 @@ export default function NewPlanPage() {
           processes.map((p, idx) =>
             apiFetchJson(`/api/v1/production/plans/${created.id}/processes`, {
               method: "POST",
-              body: JSON.stringify({ name: p.name, sequence: idx, notes: p.notes || null }),
+              body: JSON.stringify({
+                name: p.name,
+                sequence: idx,
+                notes: p.notes || null,
+                estimated_time_minutes: p.estimated_time_minutes
+                  ? (p.time_unit === "hours"
+                      ? parseFloat(p.estimated_time_minutes) * 60
+                      : p.time_unit === "seconds"
+                        ? parseFloat(p.estimated_time_minutes) / 60
+                        : parseFloat(p.estimated_time_minutes)) || null
+                  : null,
+                material_qty: null,
+                waste_qty: null,
+                material_unit: null,
+              }),
             }),
           ),
         );
@@ -391,6 +407,27 @@ export default function NewPlanPage() {
                         disabled={saving}
                         className="h-7 text-xs text-muted-foreground"
                       />
+                      {/* Time estimate */}
+                      <div className="flex gap-1.5 items-center">
+                        <Input
+                          type="number" min={0} step="any"
+                          value={proc.estimated_time_minutes}
+                          onChange={(e) => updateProcess(proc.key, "estimated_time_minutes", e.target.value)}
+                          placeholder="Est. time"
+                          disabled={saving}
+                          className="h-7 text-xs w-24"
+                        />
+                        <select
+                          value={proc.time_unit}
+                          onChange={(e) => updateProcess(proc.key, "time_unit", e.target.value)}
+                          disabled={saving}
+                          className="h-7 text-xs rounded-md border border-input bg-background px-2 focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
+                        >                            <option value="seconds">sec</option>                          <option value="minutes">min</option>
+                          <option value="hours">hrs</option>
+                        </select>
+                        <span className="text-xs text-muted-foreground">per unit</span>
+                      </div>
+                      {/* Material usage & waste — removed; managed via BOM */}
                     </div>
                     <Button
                       type="button" variant="ghost" size="icon"
