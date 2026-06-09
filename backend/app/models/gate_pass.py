@@ -30,3 +30,7 @@ class GatePass(SQLModel, table=True):
     status: str = Field(default="open")                     # open | closed
     created_by: Optional[str] = None
     created_at: Optional[str] = None
+
+    # Linked purchase request (optional)
+    purchase_request_id: Optional[int] = Field(default=None)
+    purchase_request_number: Optional[str] = None           # denormalized

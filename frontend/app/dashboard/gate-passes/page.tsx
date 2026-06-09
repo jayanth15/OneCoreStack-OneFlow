@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { apiFetchJson } from "@/lib/api";
 import { getCurrentUser, isAdminOrAbove } from "@/lib/user";
-import { ClipboardList, Plus, Search, Eye, MoreVertical, X, Minus } from "lucide-react";
+import { ClipboardList, Plus, Search, Eye, MoreVertical, X, Minus, Printer, Link2 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -47,6 +47,8 @@ interface GatePass {
   created_by: string | null;
   created_at: string | null;
   items: GatePassAPIItem[];
+  purchase_request_id: number | null;
+  purchase_request_number: string | null;
 }
 
 interface GPItemForm {
@@ -69,6 +71,8 @@ interface GPFormState {
   date: string;
   notes: string;
   status: string;
+  purchase_request_id: number | null;
+  purchase_request_number: string;
 }
 
 interface NameOption { id: number; name: string; }
@@ -108,6 +112,8 @@ function BLANK_FORM(): GPFormState {
     vendor_name: "", supplier_name: "",
     items: [blankGPItem()],
     purpose: "", vehicle_number: "", date: "", notes: "", status: "open",
+    purchase_request_id: null,
+    purchase_request_number: "",
   };
 }
 
@@ -143,6 +149,8 @@ export default function GatePassesPage() {
   const [viewTarget, setViewTarget] = useState<GatePass | null>(null);
   const [closingId, setClosingId] = useState<number | null>(null);
 
+  const [purchaseRequests, setPurchaseRequests] = useState<{ id: number; sn_no: string; item_name: string | null }[]>([]);
+
   const searchRef = useRef<HTMLInputElement>(null);
 
   function load() {
@@ -163,6 +171,9 @@ export default function GatePassesPage() {
   useEffect(() => {
     apiFetchJson<NameOption[]>("/api/v1/vendors/names").then(setVendors).catch(() => {});
     apiFetchJson<NameOption[]>("/api/v1/suppliers/names").then(setSuppliers).catch(() => {});
+    apiFetchJson<{ items: { id: number; sn_no: string; item_name: string | null }[] }>(
+      "/api/v1/purchase-requests?status_filter=approved&page_size=100"
+    ).then(r => setPurchaseRequests(r.items)).catch(() => {});
   }, []);
 
   function buildPayload(form: GPFormState) {
@@ -184,6 +195,8 @@ export default function GatePassesPage() {
       date: form.date || null,
       notes: form.notes || null,
       status: form.status,
+      purchase_request_id: form.purchase_request_id,
+      purchase_request_number: form.purchase_request_number || null,
       items: validItems.map(it => ({
         item_name: it.item_name.trim(),
         inv_type: it.inv_type || null,
@@ -235,6 +248,8 @@ export default function GatePassesPage() {
       date: gp.date ?? "",
       notes: gp.notes ?? "",
       status: gp.status,
+      purchase_request_id: gp.purchase_request_id,
+      purchase_request_number: gp.purchase_request_number ?? "",
     });
     setEditError(null);
     setViewTarget(null);
@@ -269,6 +284,92 @@ export default function GatePassesPage() {
     } catch { /* ignore */ } finally { setClosingId(null); }
   }
 
+  function printGatePass(gp: GatePass) {
+    const items = gp.items && gp.items.length > 0 ? gp.items : [{ item_name: gp.material, quantity: gp.quantity, unit: gp.unit, inv_type: null }];
+    const partyName = gp.vendor_name ?? gp.supplier_name ?? "—";
+    const partyLabel = gp.supplier_name ? "Supplier" : "Vendor";
+    const win = window.open("", "_blank", "width=800,height=600");
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html><html><head><title>Gate Pass — ${gp.gate_pass_number}</title>
+<style>
+  body { font-family: Arial, sans-serif; font-size: 13px; margin: 24px; color: #111; }
+  h2 { margin: 0 0 4px; font-size: 18px; }
+  .meta { color: #555; font-size: 12px; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
+  th { background: #f5f5f5; font-weight: 600; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .row { display: flex; gap: 32px; margin-bottom: 8px; }
+  .lbl { color: #666; font-size: 11px; }
+  @media print { body { margin: 0; } }
+</style></head><body>
+<h2>Gate Pass — ${gp.gate_pass_number}</h2>
+<p class="meta">Generated on ${new Date().toLocaleString("en-IN")}</p>
+<div class="row">
+  <div><div class="lbl">Type</div><div>${gp.pass_type === "out" ? "Outward" : "Inward"}</div></div>
+  <div><div class="lbl">Status</div><div>${gp.status}</div></div>
+  ${gp.date ? `<div><div class="lbl">Date</div><div>${gp.date}</div></div>` : ""}
+</div>
+<div class="row">
+  <div><div class="lbl">${partyLabel}</div><div>${partyName}</div></div>
+  ${gp.purpose ? `<div><div class="lbl">Purpose</div><div>${gp.purpose}</div></div>` : ""}
+  ${gp.vehicle_number ? `<div><div class="lbl">Vehicle</div><div>${gp.vehicle_number}</div></div>` : ""}
+  ${gp.purchase_request_number ? `<div><div class="lbl">Linked PR</div><div>${gp.purchase_request_number}</div></div>` : ""}
+</div>
+<table>
+  <thead><tr><th>#</th><th>Item</th><th>Quantity</th><th>Unit</th></tr></thead>
+  <tbody>
+    ${items.map((it, i) => `<tr><td>${i + 1}</td><td>${it.item_name ?? ""}</td><td>${it.quantity}</td><td>${it.unit ?? ""}</td></tr>`).join("")}
+  </tbody>
+</table>
+${gp.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${gp.notes}</p>` : ""}
+<p style="margin-top:16px;font-size:11px;color:#666">Created by: ${gp.created_by ?? "—"}</p>
+</body></html>`);
+    win.document.close();
+    win.focus();
+    win.print();
+  }
+
+  function printAllGatePasses() {
+    const win = window.open("", "_blank", "width=900,height=700");
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html><html><head><title>Gate Passes History</title>
+<style>
+  body { font-family: Arial, sans-serif; font-size: 12px; margin: 24px; }
+  h2 { margin: 0 0 4px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  th, td { border: 1px solid #ccc; padding: 5px 8px; text-align: left; }
+  th { background: #f5f5f5; font-weight: 600; }
+  @media print { body { margin: 0; } }
+</style></head><body>
+<h2>Gate Passes History</h2>
+<p style="color:#666;font-size:11px">Printed on ${new Date().toLocaleString("en-IN")} &mdash; ${passes.length} record${passes.length !== 1 ? "s" : ""}</p>
+<table>
+  <thead><tr><th>GP No.</th><th>Type</th><th>Party</th><th>Items</th><th>Date</th><th>Vehicle</th><th>Purpose</th><th>Status</th><th>Linked PR</th></tr></thead>
+  <tbody>
+    ${passes.map(gp => {
+      const partyName = gp.vendor_name ?? gp.supplier_name ?? "—";
+      const itemSummary = gp.items && gp.items.length > 0 ? (gp.items.length === 1 ? gp.items[0].item_name : `${gp.items.length} items`) : gp.material;
+      return `<tr>
+        <td>${gp.gate_pass_number}</td>
+        <td>${gp.pass_type === "out" ? "Outward" : "Inward"}</td>
+        <td>${partyName}</td>
+        <td>${itemSummary}</td>
+        <td>${gp.date ?? ""}</td>
+        <td>${gp.vehicle_number ?? ""}</td>
+        <td>${gp.purpose ?? ""}</td>
+        <td>${gp.status}</td>
+        <td>${gp.purchase_request_number ?? ""}</td>
+      </tr>`;
+    }).join("")}
+  </tbody>
+</table>
+</body></html>`);
+    win.document.close();
+    win.focus();
+    win.print();
+  }
+
   const adminUser = isAdminOrAbove();
 
   return (
@@ -294,6 +395,9 @@ export default function GatePassesPage() {
           <Button size="sm" onClick={() => { setCreateForm(BLANK_FORM()); setCreateError(null); setShowCreate(true); }}>
             <Plus className="size-4 mr-1.5" />New Gate Pass
           </Button>
+          <Button size="sm" variant="outline" onClick={printAllGatePasses} title="Print all gate passes">
+            <Printer className="size-4" />
+          </Button>
         </div>
       </header>
 
@@ -303,7 +407,7 @@ export default function GatePassesPage() {
           <DialogHeader><DialogTitle>New Gate Pass</DialogTitle></DialogHeader>
           <GPForm form={createForm} vendors={vendors} suppliers={suppliers}
             saving={createSaving} error={createError} onChange={setCreateForm}
-            onSubmit={handleCreate} isCreate />
+            onSubmit={handleCreate} isCreate purchaseRequests={purchaseRequests} />
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowCreate(false)} disabled={createSaving}>Cancel</Button>
             <Button disabled={createSaving} onClick={handleCreate}>
@@ -361,6 +465,14 @@ export default function GatePassesPage() {
                     <p className="font-medium">{viewTarget.vehicle_number}</p>
                   </div>
                 )}
+                {viewTarget.purchase_request_number && (
+                  <div>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Link2 className="size-3" />Linked Purchase Request
+                    </p>
+                    <p className="font-medium text-blue-600">{viewTarget.purchase_request_number}</p>
+                  </div>
+                )}
                 {viewTarget.notes && (
                   <div className="col-span-2">
                     <p className="text-xs text-muted-foreground">Notes</p>
@@ -412,6 +524,9 @@ export default function GatePassesPage() {
             {adminUser && (
               <Button variant="outline" onClick={() => viewTarget && openEdit(viewTarget)}>Edit</Button>
             )}
+            <Button variant="outline" onClick={() => viewTarget && printGatePass(viewTarget)}>
+              <Printer className="size-3.5 mr-1.5" />Print
+            </Button>
             <Button onClick={() => setViewTarget(null)}>Done</Button>
           </DialogFooter>
         </DialogContent>
@@ -423,7 +538,7 @@ export default function GatePassesPage() {
           <DialogHeader><DialogTitle>Edit Gate Pass</DialogTitle></DialogHeader>
           <GPForm form={editForm} vendors={vendors} suppliers={suppliers}
             saving={editSaving} error={editError} onChange={setEditForm}
-            onSubmit={handleEdit} isCreate={false} />
+            onSubmit={handleEdit} isCreate={false} purchaseRequests={purchaseRequests} />
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setEditTarget(null)} disabled={editSaving}>Cancel</Button>
             <Button disabled={editSaving} onClick={handleEdit}>
@@ -535,7 +650,7 @@ export default function GatePassesPage() {
 // ── Form ──────────────────────────────────────────────────────────────────────
 
 function GPForm({
-  form, vendors, suppliers, saving, error, onChange, onSubmit, isCreate,
+  form, vendors, suppliers, saving, error, onChange, onSubmit, isCreate, purchaseRequests,
 }: {
   form: GPFormState;
   vendors: NameOption[];
@@ -545,6 +660,7 @@ function GPForm({
   onChange: (f: GPFormState) => void;
   onSubmit: (e: React.FormEvent) => void;
   isCreate: boolean;
+  purchaseRequests: { id: number; sn_no: string; item_name: string | null }[];
 }) {
   function updateItem(key: string, patch: Partial<GPItemForm>) {
     onChange({ ...form, items: form.items.map(i => i._key === key ? { ...i, ...patch } : i) });
@@ -734,6 +850,23 @@ function GPForm({
         <textarea id="gp-notes" rows={2} placeholder="Remarks…" value={form.notes}
           onChange={(e) => onChange({ ...form, notes: e.target.value })} disabled={saving}
           className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 resize-none" />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="gp-pr">Linked Purchase Request <span className="text-xs text-muted-foreground">(optional)</span></Label>
+        <select id="gp-pr" value={form.purchase_request_id ?? ""}
+          onChange={(e) => {
+            const pr = purchaseRequests.find(p => p.id === parseInt(e.target.value));
+            onChange({ ...form, purchase_request_id: pr?.id ?? null, purchase_request_number: pr?.sn_no ?? "" });
+          }}
+          disabled={saving}
+          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
+          <option value="">— None —</option>
+          {purchaseRequests.map(pr => (
+            <option key={pr.id} value={pr.id}>
+              {pr.sn_no}{pr.item_name ? ` — ${pr.item_name}` : ""}
+            </option>
+          ))}
+        </select>
       </div>
       {error && <p className="text-sm text-destructive">{error}</p>}
     </form>

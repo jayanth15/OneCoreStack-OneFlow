@@ -80,6 +80,8 @@ def create_po(
         status=body.get("status") or "draft",
         created_by=current_user.username,
         created_at=datetime.now(timezone.utc).isoformat(),
+        purchase_request_id=body.get("purchase_request_id"),
+        purchase_request_number=(body.get("purchase_request_number") or "").strip() or None,
     )
     session.add(po)
     session.flush()
@@ -134,7 +136,8 @@ def update_po(
         raise HTTPException(status_code=404, detail="Purchase order not found")
 
     for field in ("party_type", "supplier_id", "supplier_name", "vendor_id", "vendor_name",
-                  "po_date", "expected_delivery", "notes", "status"):
+                  "po_date", "expected_delivery", "notes", "status",
+                  "purchase_request_id", "purchase_request_number"):
         if field in body:
             val = body[field]
             if isinstance(val, str):
@@ -216,6 +219,8 @@ def _to_dict(po: PurchaseOrder, items: list[PurchaseOrderItem]) -> dict[str, Any
         "created_by": po.created_by,
         "created_at": po.created_at,
         "total_value": total_value if total_value > 0 else None,
+        "purchase_request_id": po.purchase_request_id,
+        "purchase_request_number": po.purchase_request_number,
         "items": [
             {
                 "id": i.id,

@@ -97,6 +97,8 @@ def create_gate_pass(
         status="open",
         created_by=current_user.username,
         created_at=datetime.now(timezone.utc).isoformat(),
+        purchase_request_id=body.get("purchase_request_id"),
+        purchase_request_number=(body.get("purchase_request_number") or "").strip() or None,
     )
     session.add(gp)
     session.flush()
@@ -147,7 +149,8 @@ def update_gate_pass(
         raise HTTPException(status_code=404, detail="Gate pass not found")
 
     for field in ("pass_type", "vendor_id", "vendor_name", "supplier_id", "supplier_name",
-                  "material", "quantity", "unit", "purpose", "vehicle_number", "date", "notes", "status"):
+                  "material", "quantity", "unit", "purpose", "vehicle_number", "date", "notes", "status",
+                  "purchase_request_id", "purchase_request_number"):
         if field in body:
             val = body[field]
             if isinstance(val, str):
@@ -227,6 +230,8 @@ def _to_dict(g: GatePass, items: list[GatePassItem] | None = None) -> dict[str, 
         "status": g.status,
         "created_by": g.created_by,
         "created_at": g.created_at,
+        "purchase_request_id": g.purchase_request_id,
+        "purchase_request_number": g.purchase_request_number,
         "items": [
             {
                 "id": i.id,

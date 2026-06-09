@@ -16,6 +16,7 @@ from sqlmodel import Session, select
 from app.core.database import get_session
 from app.dependencies.auth import get_current_user
 from app.models.dispatch import Dispatch
+from app.models.dispatch_history import DispatchHistory
 from app.models.dispatch_item import DispatchItem
 from app.models.user import User
 
@@ -156,6 +157,8 @@ def update_dispatch(
     if not dispatch:
         raise HTTPException(status_code=404, detail="Dispatch not found")
 
+    old_status = dispatch.status
+
     for field in ("party_type", "vendor_id", "vendor_name", "supplier_id", "supplier_name",
                   "schedule_id", "schedule_number",
                   "product_name", "quantity", "unit", "dispatch_date",
@@ -198,6 +201,27 @@ def update_dispatch(
     session.commit()
     session.refresh(dispatch)
     saved_items = list(session.exec(select(DispatchItem).where(DispatchItem.dispatch_id == dispatch.id)).all())
+
+    # Record history if status changed
+    new_status = dispatch.status
+    if old_status != new_status:
+        session.add(DispatchHistory(
+            dispatch_id=dispatch.id,  # type: ignore[arg-type]
+            changed_by_username=current_user.username,
+            change_type="status_change",
+            old_status=old_status,
+            new_status=new_status,
+        ))
+    else:
+        session.add(DispatchHistory(
+            dispatch_id=dispatch.id,  # type: ignore[arg-type]
+            changed_by_username=current_user.username,
+            change_type="updated",
+            old_status=old_status,
+            new_status=new_status,
+        ))
+    session.commit()
+
     return _to_dict(dispatch, saved_items)
 
 
@@ -211,9 +235,53 @@ def delete_dispatch(
     dispatch = session.get(Dispatch, dispatch_id)
     if not dispatch:
         raise HTTPException(status_code=404, detail="Dispatch not found")
+    old_status_del = dispatch.status
     dispatch.status = "cancelled"
     session.add(dispatch)
+    session.add(DispatchHistory(
+        dispatch_id=dispatch.id,  # type: ignore[arg-type]
+        changed_by_username=current_user.username,
+        change_type="status_change",
+        old_status=old_status_del,
+        new_status="cancelled",
+        notes="Dispatch cancelled",
+    ))
     session.commit()
+
+
+@router.get("/{dispatch_id}/history")
+def get_dispatch_history(
+    dispatch_id: int,
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    limit: int = 20,
+    offset: int = 0,
+) -> list[dict[str, Any]]:
+    """Get history for a dispatch."""
+    _require_dispatch_access(current_user)
+    dispatch = session.get(Dispatch, dispatch_id)
+    if not dispatch:
+        raise HTTPException(status_code=404, detail="Dispatch not found")
+    history = list(session.exec(
+        select(DispatchHistory)
+        .where(DispatchHistory.dispatch_id == dispatch_id)
+        .order_by(DispatchHistory.id.desc())  # type: ignore[union-attr]
+        .offset(offset)
+        .limit(limit)
+    ).all())
+    return [
+        {
+            "id": h.id,
+            "dispatch_id": h.dispatch_id,
+            "changed_by_username": h.changed_by_username,
+            "changed_at": h.changed_at.isoformat(),
+            "change_type": h.change_type,
+            "old_status": h.old_status,
+            "new_status": h.new_status,
+            "notes": h.notes,
+        }
+        for h in history
+    ]
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

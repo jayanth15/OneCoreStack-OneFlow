@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { apiFetchJson } from "@/lib/api";
 import { getCurrentUser, isAdminOrAbove } from "@/lib/user";
-import { ShoppingCart, Plus, Eye, Trash2, PlusCircle, MoreVertical, CheckCircle2 } from "lucide-react";
+import { ShoppingCart, Plus, Eye, Trash2, PlusCircle, MoreVertical, CheckCircle2, Printer, Link2, ClipboardCopy } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -46,6 +46,8 @@ interface PurchaseOrder {
   items: POItem[];
   created_by: string | null;
   created_at: string | null;
+  purchase_request_id: number | null;
+  purchase_request_number: string | null;
 }
 
 interface NameOption { id: number; name: string; }
@@ -64,6 +66,8 @@ const BLANK_FORM = () => ({
   supplier_name: "", vendor_name: "",
   po_date: "", expected_delivery: "", notes: "", status: "draft",
   items: [BLANK_ITEM()],
+  purchase_request_id: null as number | null,
+  purchase_request_number: "",
 });
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -96,6 +100,13 @@ export default function PurchaseOrdersPage() {
   const [editError, setEditError] = useState<string | null>(null);
   const [statusChangingId, setStatusChangingId] = useState<number | null>(null);
 
+  const [purchaseRequests, setPurchaseRequests] = useState<{
+    id: number; sn_no: string; item_name: string | null;
+    items: { item_name: string | null; quantity: number; }[];
+  }[]>([]);
+  const [showFromRequest, setShowFromRequest] = useState(false);
+  const [selectedPR, setSelectedPR] = useState<string>("");
+
   function load() {
     setLoading(true);
     const params = new URLSearchParams();
@@ -112,6 +123,9 @@ export default function PurchaseOrdersPage() {
   useEffect(() => {
     apiFetchJson<NameOption[]>("/api/v1/suppliers/names").then(setSuppliers).catch(() => {});
     apiFetchJson<NameOption[]>("/api/v1/vendors/names").then(setVendors).catch(() => {});
+    apiFetchJson<{ items: { id: number; sn_no: string; item_name: string | null; items: { item_name: string | null; quantity: number }[] }[] }>(
+      "/api/v1/purchase-requests?status_filter=approved&page_size=100"
+    ).then(r => setPurchaseRequests(r.items)).catch(() => {});
   }, []);
 
   function buildPayload(form: ReturnType<typeof BLANK_FORM>) {
@@ -127,6 +141,8 @@ export default function PurchaseOrdersPage() {
       expected_delivery: form.expected_delivery || null,
       notes: form.notes || null,
       status: form.status,
+      purchase_request_id: form.purchase_request_id,
+      purchase_request_number: form.purchase_request_number || null,
       items: form.items.map(it => ({
         item_name: it.item_name,
         quantity: Number(it.quantity) || 0,
@@ -167,6 +183,8 @@ export default function PurchaseOrdersPage() {
         rate: i.rate ?? 0,
         notes: i.notes ?? "",
       })) : [BLANK_ITEM()],
+      purchase_request_id: po.purchase_request_id,
+      purchase_request_number: po.purchase_request_number ?? "",
     });
     setEditError(null);
   }
@@ -198,6 +216,69 @@ export default function PurchaseOrdersPage() {
     } finally { setStatusChangingId(null); }
   }
 
+  function applyFromRequest() {
+    const pr = purchaseRequests.find(p => p.id === parseInt(selectedPR));
+    if (!pr) return;
+    const prItems = pr.items && pr.items.length > 0
+      ? pr.items.map(i => ({ item_name: i.item_name ?? "", quantity: i.quantity, unit: "", rate: 0, notes: "" }))
+      : [{ item_name: pr.item_name ?? "", quantity: 1, unit: "", rate: 0, notes: "" }];
+    setCreateForm(f => ({
+      ...f,
+      items: prItems,
+      purchase_request_id: pr.id,
+      purchase_request_number: pr.sn_no,
+    }));
+    setShowFromRequest(false);
+    setSelectedPR("");
+    setShowCreate(true);
+  }
+
+  function printPurchaseOrder(po: PurchaseOrder) {
+    const partyName = po.party_type === "vendor" ? po.vendor_name : po.supplier_name;
+    const partyLabel = po.party_type === "vendor" ? "Vendor" : "Supplier";
+    const win = window.open("", "_blank", "width=800,height=700");
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html><html><head><title>Purchase Order — ${po.po_number}</title>
+<style>
+  body { font-family: Arial, sans-serif; font-size: 13px; margin: 24px; color: #111; }
+  h2 { margin: 0 0 4px; font-size: 18px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
+  th { background: #f5f5f5; font-weight: 600; }
+  .row { display: flex; gap: 32px; margin-bottom: 8px; }
+  .lbl { color: #666; font-size: 11px; }
+  tfoot td { font-weight: 600; background: #f9f9f9; }
+  @media print { body { margin: 0; } }
+</style></head><body>
+<h2>Purchase Order — ${po.po_number}</h2>
+<p style="color:#666;font-size:11px">Generated on ${new Date().toLocaleString("en-IN")}</p>
+<div class="row">
+  <div><div class="lbl">${partyLabel}</div><div>${partyName ?? "—"}</div></div>
+  <div><div class="lbl">Status</div><div>${po.status}</div></div>
+  ${po.po_date ? `<div><div class="lbl">PO Date</div><div>${po.po_date}</div></div>` : ""}
+  ${po.expected_delivery ? `<div><div class="lbl">Expected Delivery</div><div>${po.expected_delivery}</div></div>` : ""}
+  ${po.purchase_request_number ? `<div><div class="lbl">Linked PR</div><div>${po.purchase_request_number}</div></div>` : ""}
+</div>
+<table>
+  <thead><tr><th>#</th><th>Item</th><th>Qty</th><th>Unit</th><th>Rate (₹)</th><th>Amount (₹)</th><th>Notes</th></tr></thead>
+  <tbody>
+    ${po.items.map((it, i) => `<tr>
+      <td>${i + 1}</td><td>${it.item_name}</td><td>${it.quantity}</td><td>${it.unit ?? ""}</td>
+      <td>${it.rate > 0 ? it.rate.toFixed(2) : "—"}</td>
+      <td>${it.rate > 0 ? (it.quantity * it.rate).toLocaleString("en-IN") : "—"}</td>
+      <td>${it.notes ?? ""}</td>
+    </tr>`).join("")}
+  </tbody>
+  ${po.total_value > 0 ? `<tfoot><tr><td colspan="5" style="text-align:right">Total</td><td>₹${po.total_value.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td><td></td></tr></tfoot>` : ""}
+</table>
+${po.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${po.notes}</p>` : ""}
+<p style="margin-top:16px;font-size:11px;color:#666">Created by: ${po.created_by ?? "—"}</p>
+</body></html>`);
+    win.document.close();
+    win.focus();
+    win.print();
+  }
+
   return (
     <>
       <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4 md:pr-64">
@@ -212,18 +293,47 @@ export default function PurchaseOrdersPage() {
             <option value="">All statuses</option>
             {STATUSES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
           </select>
+          <Button size="sm" variant="outline" onClick={() => { setSelectedPR(""); setShowFromRequest(true); }}>
+            <ClipboardCopy className="size-4 mr-1.5" />From Request
+          </Button>
           <Button size="sm" onClick={() => { setCreateForm(BLANK_FORM()); setCreateError(null); setShowCreate(true); }}>
             <Plus className="size-4 mr-1.5" />New PO
           </Button>
         </div>
       </header>
 
+      {/* From Request Dialog */}
+      <Dialog open={showFromRequest} onOpenChange={setShowFromRequest}>
+        <DialogContent className="w-full sm:max-w-sm">
+          <DialogHeader><DialogTitle>Create PO from Purchase Request</DialogTitle></DialogHeader>
+          <div className="px-4 pb-2 space-y-3">
+            <div className="space-y-1.5">
+              <Label>Select Approved Purchase Request</Label>
+              <select value={selectedPR}
+                onChange={(e) => setSelectedPR(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                <option value="">— Select request —</option>
+                {purchaseRequests.map(pr => (
+                  <option key={pr.id} value={pr.id}>
+                    {pr.sn_no}{pr.item_name ? ` — ${pr.item_name}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <DialogFooter className="px-4 gap-2">
+            <Button variant="outline" onClick={() => setShowFromRequest(false)}>Cancel</Button>
+            <Button disabled={!selectedPR} onClick={applyFromRequest}>Use Request</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Create Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>New Purchase Order</DialogTitle></DialogHeader>
           <POForm form={createForm} suppliers={suppliers} vendors={vendors} saving={createSaving} error={createError}
-            onChange={setCreateForm} onSubmit={handleCreate} isCreate />
+            onChange={setCreateForm} onSubmit={handleCreate} isCreate purchaseRequests={purchaseRequests} />
           <DialogFooter className="px-4 gap-2">
             <Button variant="outline" onClick={() => setShowCreate(false)} disabled={createSaving}>Cancel</Button>
             <Button disabled={createSaving} onClick={handleCreate}>
@@ -256,6 +366,12 @@ export default function PurchaseOrdersPage() {
                 {viewTarget.po_date && <div><p className="text-xs text-muted-foreground">PO Date</p><p className="font-medium">{viewTarget.po_date}</p></div>}
                 {viewTarget.expected_delivery && <div><p className="text-xs text-muted-foreground">Expected Delivery</p><p className="font-medium">{viewTarget.expected_delivery}</p></div>}
                 {viewTarget.total_value > 0 && <div><p className="text-xs text-muted-foreground">Total Value</p><p className="font-semibold text-violet-700">₹{viewTarget.total_value.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p></div>}
+                {viewTarget.purchase_request_number && (
+                  <div>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1"><Link2 className="size-3" />Linked PR</p>
+                    <p className="font-medium text-blue-600">{viewTarget.purchase_request_number}</p>
+                  </div>
+                )}
                 {viewTarget.notes && <div className="col-span-2"><p className="text-xs text-muted-foreground">Notes</p><p className="font-medium">{viewTarget.notes}</p></div>}
               </div>
               {viewTarget.items.length > 0 && (
@@ -280,6 +396,9 @@ export default function PurchaseOrdersPage() {
           )}
           <DialogFooter className="px-4 gap-2">
             <Button variant="outline" onClick={() => { if (viewTarget) { openEdit(viewTarget); setViewTarget(null); } }}>Edit</Button>
+            <Button variant="outline" onClick={() => viewTarget && printPurchaseOrder(viewTarget)}>
+              <Printer className="size-3.5 mr-1.5" />Print
+            </Button>
             <Button onClick={() => setViewTarget(null)}>Done</Button>
           </DialogFooter>
         </DialogContent>
@@ -290,7 +409,7 @@ export default function PurchaseOrdersPage() {
         <DialogContent className="w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Edit Purchase Order</DialogTitle></DialogHeader>
           <POForm form={editForm} suppliers={suppliers} vendors={vendors} saving={editSaving} error={editError}
-            onChange={setEditForm} onSubmit={handleEdit} isCreate={false} />
+            onChange={setEditForm} onSubmit={handleEdit} isCreate={false} purchaseRequests={purchaseRequests} />
           <DialogFooter className="px-4 gap-2">
             <Button variant="outline" onClick={() => setEditTarget(null)} disabled={editSaving}>Cancel</Button>
             <Button disabled={editSaving} onClick={handleEdit}>
@@ -346,6 +465,9 @@ export default function PurchaseOrdersPage() {
                       {po.items.map(i => i.item_name).join(", ")}
                     </p>
                   )}
+                  {po.purchase_request_number && (
+                    <p className="text-xs text-blue-600 mt-0.5">PR: {po.purchase_request_number}</p>
+                  )}
                   {po.notes && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{po.notes}</p>}
                 </div>
                 <DropdownMenu>
@@ -357,6 +479,9 @@ export default function PurchaseOrdersPage() {
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={() => setViewTarget(po)}>
                       <Eye className="size-3.5 mr-2" />View Details
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => printPurchaseOrder(po)}>
+                      <Printer className="size-3.5 mr-2" />Print
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <p className="text-xs text-muted-foreground px-2 py-1">Set Status</p>
@@ -379,7 +504,7 @@ export default function PurchaseOrdersPage() {
 
 // ── Form ──────────────────────────────────────────────────────────────────────
 
-function POForm({ form, suppliers, vendors, saving, error, onChange, onSubmit, isCreate }: {
+function POForm({ form, suppliers, vendors, saving, error, onChange, onSubmit, isCreate, purchaseRequests }: {
   form: ReturnType<typeof BLANK_FORM>;
   suppliers: NameOption[];
   vendors: NameOption[];
@@ -388,6 +513,7 @@ function POForm({ form, suppliers, vendors, saving, error, onChange, onSubmit, i
   onChange: (f: ReturnType<typeof BLANK_FORM>) => void;
   onSubmit: (e: React.FormEvent) => void;
   isCreate: boolean;
+  purchaseRequests?: { id: number; sn_no: string; item_name: string | null }[];
 }) {
   function updateItem(idx: number, field: keyof POItem, value: string | number) {
     const newItems = form.items.map((it, i) => i === idx ? { ...it, [field]: value } : it);
@@ -514,6 +640,25 @@ function POForm({ form, suppliers, vendors, saving, error, onChange, onSubmit, i
           onChange={(e) => onChange({ ...form, notes: e.target.value })} disabled={saving}
           className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 resize-none" />
       </div>
+      {purchaseRequests && purchaseRequests.length > 0 && (
+        <div className="space-y-1.5">
+          <Label htmlFor="po-pr">Linked Purchase Request <span className="text-xs text-muted-foreground">(optional)</span></Label>
+          <select id="po-pr" value={form.purchase_request_id ?? ""}
+            onChange={(e) => {
+              const pr = purchaseRequests.find(p => p.id === parseInt(e.target.value));
+              onChange({ ...form, purchase_request_id: pr?.id ?? null, purchase_request_number: pr?.sn_no ?? "" });
+            }}
+            disabled={saving}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
+            <option value="">— None —</option>
+            {purchaseRequests.map(pr => (
+              <option key={pr.id} value={pr.id}>
+                {pr.sn_no}{pr.item_name ? ` — ${pr.item_name}` : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       {error && <p className="text-sm text-destructive">{error}</p>}
     </form>
   );

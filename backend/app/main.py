@@ -50,6 +50,7 @@ from app.models.marketing_request import MarketingRequest  # noqa: F401 — ensu
 from app.models.marketing_request_history import MarketingRequestHistory  # noqa: F401 — ensures table is created
 from app.models.dispatch import Dispatch  # noqa: F401 — ensures table is created
 from app.models.dispatch_item import DispatchItem  # noqa: F401 — ensures table is created
+from app.models.dispatch_history import DispatchHistory  # noqa: F401 — ensures table is created
 from app.models.gate_pass import GatePass  # noqa: F401 — ensures table is created
 from app.models.gate_pass_item import GatePassItem  # noqa: F401 — ensures table is created
 from app.models.purchase_order import PurchaseOrder, PurchaseOrderItem  # noqa: F401 — ensures table is created
@@ -125,6 +126,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _migrate_production_process_v2()
     # Add worker_names JSON column to job_card table
     _migrate_job_card_worker_names()
+    # Add purchase_request_id/number to gate_pass and purchase_order
+    _migrate_gate_pass_pr_fields()
+    _migrate_po_pr_fields()
+    # Create dispatch_history table
+    _migrate_dispatch_history_table()
     # supplier_jobs and supplier_materials tables created by init_db via SQLModel metadata
     # Auto-seed a default admin user on a brand-new / empty database
     _auto_seed_if_empty()
@@ -1134,6 +1140,55 @@ def _migrate_job_card_worker_names() -> None:
         cols = [row[1] for row in conn.execute(text("PRAGMA table_info(job_card)")).fetchall()]
         if "worker_names" not in cols:
             conn.execute(text("ALTER TABLE job_card ADD COLUMN worker_names TEXT"))
+        conn.commit()
+
+
+def _migrate_gate_pass_pr_fields() -> None:
+    """Add purchase_request_id and purchase_request_number to gate_pass table (idempotent)."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        cols = [row[1] for row in conn.execute(text("PRAGMA table_info(gate_pass)")).fetchall()]
+        if "purchase_request_id" not in cols:
+            conn.execute(text("ALTER TABLE gate_pass ADD COLUMN purchase_request_id INTEGER"))
+        if "purchase_request_number" not in cols:
+            conn.execute(text("ALTER TABLE gate_pass ADD COLUMN purchase_request_number TEXT"))
+        conn.commit()
+
+
+def _migrate_po_pr_fields() -> None:
+    """Add purchase_request_id and purchase_request_number to purchase_order table (idempotent)."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        cols = [row[1] for row in conn.execute(text("PRAGMA table_info(purchase_order)")).fetchall()]
+        if "purchase_request_id" not in cols:
+            conn.execute(text("ALTER TABLE purchase_order ADD COLUMN purchase_request_id INTEGER"))
+        if "purchase_request_number" not in cols:
+            conn.execute(text("ALTER TABLE purchase_order ADD COLUMN purchase_request_number TEXT"))
+        conn.commit()
+
+
+def _migrate_dispatch_history_table() -> None:
+    """Create dispatch_history table if it doesn't exist (idempotent)."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS dispatch_history (
+                id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+                dispatch_id           INTEGER NOT NULL REFERENCES dispatch(id),
+                changed_by_username   TEXT,
+                changed_at            TEXT NOT NULL,
+                change_type           TEXT NOT NULL DEFAULT 'status_change',
+                old_status            TEXT,
+                new_status            TEXT,
+                notes                 TEXT
+            )
+        """))
         conn.commit()
 
 

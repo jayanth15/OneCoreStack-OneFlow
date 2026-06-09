@@ -28,6 +28,10 @@ class PurchaseOrder(SQLModel, table=True):
     created_by: Optional[str] = None
     created_at: Optional[str] = None
 
+    # Linked purchase request (optional)
+    purchase_request_id: Optional[int] = Field(default=None)
+    purchase_request_number: Optional[str] = None          # denormalized
+
 
 class PurchaseOrderItem(SQLModel, table=True):
     __tablename__ = "purchase_order_item"

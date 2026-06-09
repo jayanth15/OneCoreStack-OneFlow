@@ -159,6 +159,9 @@ export default function InventoryTypePage({ itemType, label, description, basePa
   const [historyPage, setHistoryPage]       = useState(1);
   const [historyHasMore, setHistoryHasMore] = useState(false);
 
+  // Customer-wise view (finished goods only)
+  const [customerView, setCustomerView] = useState(false);
+
   useEffect(() => {
     setAdmin(isAdminOrAbove());
     if (!canAccessInventory(itemType)) {
@@ -297,6 +300,27 @@ export default function InventoryTypePage({ itemType, label, description, basePa
   const showRMCols = itemType === "raw_material";
   const showFGCols = itemType === "finished_good" || itemType === "semi_finished";
 
+  // Group items by customer for the customer-wise view
+  const customerGroups: { customer: string; items: InventoryItem[]; totalQty: number }[] = (() => {
+    if (!showFGCols || !customerView) return [];
+    const map = new Map<string, InventoryItem[]>();
+    for (const item of items) {
+      const customers = item.customer_names ? item.customer_names.split(", ") : ["(No Customer)"];
+      for (const c of customers) {
+        const existing = map.get(c) ?? [];
+        existing.push(item);
+        map.set(c, existing);
+      }
+    }
+    return Array.from(map.entries())
+      .map(([customer, its]) => ({
+        customer,
+        items: its,
+        totalQty: its.reduce((s, i) => s + i.quantity_on_hand, 0),
+      }))
+      .sort((a, b) => a.customer.localeCompare(b.customer));
+  })();
+
   return (
     <>
       {/* Header */}
@@ -352,6 +376,14 @@ export default function InventoryTypePage({ itemType, label, description, basePa
         {/* Search + Inactive toggle */}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
           <div className="flex items-center gap-3 ml-auto flex-wrap">
+            {showFGCols && (
+              <Button size="sm" variant={customerView ? "default" : "outline"}
+                className="h-8 text-xs"
+                onClick={() => setCustomerView(v => !v)}>
+                <Eye className="size-3.5 mr-1" />
+                {customerView ? "All Items" : "Customer View"}
+              </Button>
+            )}
             <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
               <input type="checkbox" checked={showInactive}
                 onChange={(e) => toggleInactive(e.target.checked)} className="size-3 rounded" />
@@ -381,6 +413,94 @@ export default function InventoryTypePage({ itemType, label, description, basePa
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
+        {/* ── Customer-wise View (finished goods only) ───────────────────── */}
+        {showFGCols && customerView && (
+          <div className="space-y-4">
+            {loading ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="rounded-lg border p-4"><Skeleton className="h-32 w-full" /></div>
+              ))
+            ) : customerGroups.length === 0 ? (
+              <div className="rounded-lg border px-4 py-12 text-center text-muted-foreground text-sm">
+                No items found.
+              </div>
+            ) : (
+              customerGroups.map((group) => (
+                <div key={group.customer} className="rounded-lg border overflow-hidden">
+                  <div className="flex items-center justify-between bg-muted/40 px-4 py-2.5 border-b">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-sm">{group.customer}</span>
+                      <Badge variant="secondary" className="text-xs">{group.items.length} item{group.items.length !== 1 ? "s" : ""}</Badge>
+                    </div>
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      Total: {fmtQty(group.totalQty)} {group.items[0]?.unit ?? ""}
+                    </span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm min-w-[500px]">
+                      <thead>
+                        <tr className="border-b bg-muted/20">
+                          <th className="px-4 py-2 text-left font-medium text-xs">Item</th>
+                          <th className="px-4 py-2 text-right font-medium text-xs">Available</th>
+                          <th className="px-4 py-2 text-left font-medium text-xs">Storage</th>
+                          <th className="px-4 py-2 text-center font-medium text-xs">Sched.</th>
+                          <th className="px-4 py-2 text-right font-medium text-xs">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {group.items.map((item) => {
+                          const low = isLow(item);
+                          return (
+                            <tr key={item.id} className={`border-b last:border-0 hover:bg-muted/20 ${!item.is_active ? "opacity-60" : ""}`}>
+                              <td className="px-4 py-2">
+                                <Link href={`/dashboard/inventory/${item.id}`}
+                                  className="font-medium text-sm hover:underline">{item.name}</Link>
+                                <div className="text-xs text-muted-foreground font-mono">{item.code}</div>
+                              </td>
+                              <td className={`px-4 py-2 text-right tabular-nums font-medium text-sm ${low ? "text-amber-600" : ""}`}>
+                                {low && <AlertTriangle className="size-3 inline mr-0.5" />}
+                                {fmtQty(item.quantity_on_hand)} {item.unit}
+                              </td>
+                              <td className="px-4 py-2 text-xs text-muted-foreground">
+                                {item.storage_location ?? item.storage_type ?? "—"}
+                              </td>
+                              <td className="px-4 py-2 text-center">
+                                {item.linked_schedule_count > 0
+                                  ? <Badge variant="secondary" className="text-xs">{item.linked_schedule_count}</Badge>
+                                  : <span className="text-muted-foreground text-xs">—</span>}
+                              </td>
+                              <td className="px-4 py-2 text-right">
+                                <div className="inline-flex gap-0.5">
+                                  <Button variant="ghost" size="icon" className="size-7"
+                                    onClick={() => router.push(`/dashboard/inventory/${item.id}`)}>
+                                    <Eye className="size-3.5 text-blue-600" />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" className="size-7"
+                                    onClick={() => { setAdjustType("add"); openAdjust(item); }}>
+                                    <PackagePlus className="size-3.5 text-emerald-600" />
+                                  </Button>
+                                  {admin && (
+                                    <Button variant="ghost" size="icon" className="size-7"
+                                      onClick={() => openHistory(item)}>
+                                      <History className="size-3.5 text-blue-600" />
+                                    </Button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* ── Standard views (mobile cards + desktop table) ─────────────── */}
+        {(!showFGCols || !customerView) && (<>
         {/* Mobile cards */}
         <div className="md:hidden space-y-3">
           {loading ? (
@@ -643,6 +763,8 @@ export default function InventoryTypePage({ itemType, label, description, basePa
               </Button>
             </div>
           </div>
+        )}
+        </>
         )}
       </div>
 
