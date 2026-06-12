@@ -131,6 +131,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _migrate_po_pr_fields()
     # Create dispatch_history table
     _migrate_dispatch_history_table()
+    # Create gate_pass_history table
+    _migrate_gate_pass_history_table()
+    # Add vendor_name column to inventory_item table
+    _migrate_inventory_vendor_name()
+    # Add design_drawing_pdf column to inventory_item table
+    _migrate_inventory_drawing_pdf()
     # supplier_jobs and supplier_materials tables created by init_db via SQLModel metadata
     # Auto-seed a default admin user on a brand-new / empty database
     _auto_seed_if_empty()
@@ -1190,6 +1196,51 @@ def _migrate_dispatch_history_table() -> None:
             )
         """))
         conn.commit()
+
+
+def _migrate_gate_pass_history_table() -> None:
+    """Create gate_pass_history table if it doesn't exist (idempotent)."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS gate_pass_history (
+                id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+                gate_pass_id          INTEGER NOT NULL REFERENCES gate_pass(id),
+                changed_by_username   TEXT,
+                changed_at            TEXT NOT NULL,
+                change_type           TEXT NOT NULL DEFAULT 'status_change',
+                old_status            TEXT,
+                new_status            TEXT,
+                notes                 TEXT
+            )
+        """))
+        conn.commit()
+
+
+def _migrate_inventory_vendor_name() -> None:
+    """Add vendor_name column to inventory_item if it doesn't exist (idempotent)."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        cols = [r[1] for r in conn.execute(text("PRAGMA table_info(inventory_item)")).fetchall()]
+        if "vendor_name" not in cols:
+            conn.execute(text("ALTER TABLE inventory_item ADD COLUMN vendor_name TEXT"))
+            conn.commit()
+
+
+def _migrate_inventory_drawing_pdf() -> None:
+    """Add design_drawing_pdf column to inventory_item if it doesn't exist (idempotent)."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        cols = [r[1] for r in conn.execute(text("PRAGMA table_info(inventory_item)")).fetchall()]
+        if "design_drawing_pdf" not in cols:
+            conn.execute(text("ALTER TABLE inventory_item ADD COLUMN design_drawing_pdf TEXT"))
+            conn.commit()
 
 
 def _auto_seed_if_empty() -> None:

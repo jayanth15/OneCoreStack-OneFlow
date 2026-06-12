@@ -239,7 +239,7 @@ function SchedulePageInner() {
           <div>
             <h1 className="text-xl font-semibold">Schedule</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Customer / OEM delivery schedules — the starting point for production planning.
+              Vendor / OEM delivery schedules — the starting point for production planning.
             </p>
           </div>
           {admin && (
@@ -287,7 +287,7 @@ function SchedulePageInner() {
                 type="text"
                 value={searchDraft}
                 onChange={(e) => setSearchDraft(e.target.value)}
-                placeholder="Search customer / product…"
+                placeholder="Search vendor / product…"
                 className="pl-8 pr-3 py-1.5 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring w-48"
               />
             </div>
@@ -368,7 +368,7 @@ function SchedulePageInner() {
               <thead>
                 <tr className="border-b bg-muted/40">
                   <th className="px-4 py-3 text-left font-medium">Sch #</th>
-                  <th className="px-4 py-3 text-left font-medium">Customer</th>
+                  <th className="px-4 py-3 text-left font-medium">Vendor</th>
                   <th className="px-4 py-3 text-left font-medium">Product</th>
                   <th className="px-4 py-3 text-left font-medium">Created</th>
                   <th className="px-4 py-3 text-left font-medium">Delivery</th>

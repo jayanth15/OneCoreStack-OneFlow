@@ -127,6 +127,7 @@ class InventoryItemCreate(BaseModel):
     rate: Optional[float] = None
     timeline_days: Optional[int] = None
     image_base64: Optional[str] = None
+    vendor_name: Optional[str] = None
     is_active: bool = True
 
     @field_validator("item_type")
@@ -149,6 +150,7 @@ class InventoryItemUpdate(BaseModel):
     rate: Optional[float] = None
     timeline_days: Optional[int] = None
     image_base64: Optional[str] = None
+    vendor_name: Optional[str] = None
     is_active: Optional[bool] = None
 
     @field_validator("item_type")
@@ -176,6 +178,7 @@ class InventoryItemResponse(BaseModel):
     customer_names: Optional[str] = None
     required_qty: Optional[float] = None
     rate: Optional[float] = None
+    vendor_name: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -233,6 +236,7 @@ def list_items(
     item_type: Optional[str] = None,
     include_inactive: bool = False,
     search: Optional[str] = None,
+    vendor_name: Optional[str] = None,
     page: int = 1,
     page_size: int = 20,
 ) -> dict[str, Any]:
@@ -249,6 +253,21 @@ def list_items(
         query = query.where(
             InventoryItem.name.ilike(term) | InventoryItem.code.ilike(term)  # type: ignore[union-attr]
         )
+    if vendor_name:
+        # Match by direct vendor_name field OR by schedule customer_name linkage
+        schedule_product_names = list(session.exec(
+            select(Schedule.description).where(Schedule.customer_name == vendor_name)  # type: ignore[union-attr]
+        ).all())
+        from sqlalchemy import or_ as sa_or
+        if schedule_product_names:
+            query = query.where(
+                sa_or(
+                    InventoryItem.vendor_name == vendor_name,
+                    InventoryItem.name.in_(schedule_product_names),  # type: ignore[union-attr]
+                )
+            )
+        else:
+            query = query.where(InventoryItem.vendor_name == vendor_name)
 
     count_q = select(func.count()).select_from(query.subquery())
     total: int = session.exec(count_q).one()
@@ -279,6 +298,7 @@ def list_items(
             "is_active": item.is_active,
             "updated_at": item.updated_at,
             "rate": item.rate if admin else None,
+            "vendor_name": item.vendor_name,
             **extra,
         }
         result.append(d)
@@ -310,6 +330,7 @@ def create_item(
         rate=body.rate if admin else None,
         timeline_days=body.timeline_days,
         image_base64=body.image_base64,
+        vendor_name=body.vendor_name or None,
         is_active=body.is_active,
         updated_at=datetime.now(tz=timezone.utc),
     )
@@ -390,6 +411,8 @@ def update_item(
         item.rate = body.rate
     if body.timeline_days is not None:
         item.timeline_days = body.timeline_days
+    if body.vendor_name is not None:
+        item.vendor_name = body.vendor_name or None
 
     item.updated_at = datetime.now(tz=timezone.utc)
 
@@ -504,6 +527,41 @@ def get_history(
     return result
 
 
+@router.get("/{item_id}/drawing")
+def get_drawing(
+    item_id: int,
+    session: Annotated[Session, Depends(get_session)],
+    _: Annotated[User, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Return the base64 design drawing PDF for an item."""
+    item = session.get(InventoryItem, item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    if not item.design_drawing_pdf:
+        raise HTTPException(status_code=404, detail="No design drawing uploaded")
+    return {"design_drawing_pdf": item.design_drawing_pdf}
+
+
+@router.put("/{item_id}/drawing", status_code=status.HTTP_200_OK)
+def upload_drawing(
+    item_id: int,
+    body: dict[str, Any],
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Upload (or clear) a design drawing PDF for a finished good.
+    Body: { design_drawing_pdf: "<base64 data URL>" } or { design_drawing_pdf: null } to clear.
+    """
+    item = session.get(InventoryItem, item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    item.design_drawing_pdf = body.get("design_drawing_pdf") or None
+    item.updated_at = datetime.now(tz=timezone.utc)
+    session.add(item)
+    session.commit()
+    return {"has_design_drawing": item.design_drawing_pdf is not None}
+
+
 @router.get("/{item_id}/stats")
 def get_item_stats(
     item_id: int,
@@ -578,6 +636,8 @@ def get_item_detail(
         "updated_at": item.updated_at,
         "rate": item.rate if admin else None,
         "image_base64": item.image_base64,
+        "vendor_name": item.vendor_name,
+        "has_design_drawing": item.design_drawing_pdf is not None,
     }
 
     # ── Raw Material ──────────────────────────────────────────────────────────

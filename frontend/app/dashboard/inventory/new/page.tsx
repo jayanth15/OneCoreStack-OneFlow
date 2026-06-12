@@ -45,6 +45,7 @@ const BLANK = {
   storage_location: "",
   rate: "",
   timeline_days: "",
+  vendor_name: "",
   is_active: true,
 };
 
@@ -67,11 +68,18 @@ function NewInventoryInner() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [admin, setAdmin] = useState(false);
+  const [vendors, setVendors] = useState<{ id: number | null; name: string }[]>([]);
   const codeRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setAdmin(isAdminOrAbove());
     codeRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    apiFetchJson<{ id: number; name: string }[]>("/api/v1/vendors/names")
+      .then(setVendors)
+      .catch(() => {});
   }, []);
 
   function set(key: string, val: unknown) {
@@ -123,6 +131,7 @@ function NewInventoryInner() {
           rate: admin && form.rate !== "" ? parseFloat(form.rate) : null,
           timeline_days: form.timeline_days !== "" ? parseInt(form.timeline_days) : null,
           image_base64: imageBase64,
+          vendor_name: form.vendor_name.trim() || null,
           is_active: form.is_active,
         }),
       });
@@ -293,6 +302,24 @@ function NewInventoryInner() {
               disabled={saving}
             />
           </div>
+          {/* Vendor (finished goods / semi-finished only) */}
+          {(form.item_type === "finished_good" || form.item_type === "semi_finished") && (
+            <div className="space-y-1.5">
+              <Label htmlFor="vendor_name">Vendor</Label>
+              <select
+                id="vendor_name"
+                value={form.vendor_name}
+                onChange={(e) => set("vendor_name", e.target.value)}
+                disabled={saving}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+              >
+                <option value="">— Select vendor —</option>
+                {vendors.map((v) => (
+                  <option key={v.name} value={v.name}>{v.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label>Item Photo</Label>
             {imagePreview ? (

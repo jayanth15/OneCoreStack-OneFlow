@@ -32,6 +32,7 @@ interface ItemDetail {
   rate: number | null;
   timeline_days: number | null;
   image_base64: string | null;
+  vendor_name: string | null;
   is_active: boolean;
 }
 
@@ -42,11 +43,11 @@ export default function EditInventoryPage() {
     code: string; name: string; item_type: string; unit: string; customUnit: string;
     quantity_on_hand: number; reorder_level: number;
     storage_type: string; storage_location: string;
-    rate: string; timeline_days: string; is_active: boolean;
+    rate: string; timeline_days: string; vendor_name: string; is_active: boolean;
   }>({
     code: "", name: "", item_type: "raw_material", unit: "pcs", customUnit: "",
     quantity_on_hand: 0, reorder_level: 0,
-    storage_type: "", storage_location: "", rate: "", timeline_days: "", is_active: true,
+    storage_type: "", storage_location: "", rate: "", timeline_days: "", vendor_name: "", is_active: true,
   });
   const [isCustomUnit, setIsCustomUnit] = useState(false);
   const [isCustomStorage, setIsCustomStorage] = useState(false);
@@ -58,9 +59,13 @@ export default function EditInventoryPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [admin, setAdmin] = useState(false);
+  const [vendors, setVendors] = useState<{ id: number | null; name: string }[]>([]);
 
   useEffect(() => {
     setAdmin(isAdminOrAbove());
+    apiFetchJson<{ id: number; name: string }[]>("/api/v1/vendors/names")
+      .then(setVendors)
+      .catch(() => {});
     if (!id) return;
     apiFetchJson<ItemDetail>(`/api/v1/inventory/${id}`)
       .then((d) => {
@@ -81,6 +86,7 @@ export default function EditInventoryPage() {
           storage_location: d.storage_location ?? "",
           rate: d.rate != null ? String(d.rate) : "",
           timeline_days: d.timeline_days != null ? String(d.timeline_days) : "",
+          vendor_name: d.vendor_name ?? "",
           is_active: d.is_active,
         });
         if (d.image_base64) {
@@ -147,6 +153,7 @@ export default function EditInventoryPage() {
       };
       if (admin && form.rate !== "") body.rate = parseFloat(form.rate);
       if (form.timeline_days !== "") body.timeline_days = parseInt(form.timeline_days);
+      body.vendor_name = form.vendor_name.trim() || null;
       if (imageChanged) body.image_base64 = imageBase64;
       await apiFetchJson(`/api/v1/inventory/${id}`, { method: "PUT", body: JSON.stringify(body) });
       router.push("/dashboard/inventory");
@@ -296,6 +303,24 @@ export default function EditInventoryPage() {
                 disabled={saving}
               />
             </div>
+            {/* Vendor (finished goods / semi-finished only) */}
+            {(form.item_type === "finished_good" || form.item_type === "semi_finished") && (
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-vendor_name">Vendor</Label>
+                <select
+                  id="edit-vendor_name"
+                  value={form.vendor_name}
+                  onChange={(e) => set("vendor_name", e.target.value)}
+                  disabled={saving}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+                >
+                  <option value="">— Select vendor —</option>
+                  {vendors.map((v) => (
+                    <option key={v.name} value={v.name}>{v.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             {/* Image */}
             <div className="space-y-1.5">
               <Label>Item Photo</Label>

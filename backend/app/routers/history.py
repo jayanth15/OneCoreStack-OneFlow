@@ -27,6 +27,10 @@ from app.models.spare_item_history import SpareItemHistory
 from app.models.user import User
 from app.models.weeder_history import WeederHistory
 from app.models.weeder_item import WeederItem
+from app.models.dispatch import Dispatch
+from app.models.dispatch_history import DispatchHistory
+from app.models.gate_pass import GatePass
+from app.models.gate_pass_history import GatePassHistory
 
 router = APIRouter(prefix="/api/v1/history", tags=["history"])
 
@@ -43,6 +47,9 @@ VALID_CATEGORIES = {
     "spares",
     "weeders",
     "attachments",
+    "dispatches",
+    "gate-passes",
+    "scraps",
 }
 
 # ── Schemas ────────────────────────────────────────────────────────────────────
@@ -144,6 +151,10 @@ def list_history(
         return _weeder_history(session, page, page_size, offset, start_dt, end_dt, changed_by)
     elif category == "attachments":
         return _attachment_history(session, page, page_size, offset, start_dt, end_dt, changed_by)
+    elif category == "dispatches":
+        return _dispatch_history(session, page, page_size, offset, start_dt, end_dt, changed_by)
+    elif category == "gate-passes":
+        return _gate_pass_history(session, page, page_size, offset, start_dt, end_dt, changed_by)
     # Should never reach here
     raise HTTPException(status_code=500, detail="Unhandled category")
 
@@ -474,6 +485,70 @@ def _attachment_history(
             qty_before=r.qty_before,
             qty_after=r.qty_after,
             qty_delta=r.qty_delta,
+        )
+        for r in rows
+    ]
+    return _page_result(out, total, page, page_size)
+
+
+def _dispatch_history(
+    session: Session, page: int, page_size: int, offset: int,
+    start_dt, end_dt, changed_by,
+) -> HistoryPage:
+    q = select(DispatchHistory)
+    q = _apply_filters(q, DispatchHistory, start_dt, end_dt, changed_by)
+    total = session.exec(select(func.count()).select_from(q.subquery())).one()
+    rows = session.exec(q.order_by(DispatchHistory.changed_at.desc()).offset(offset).limit(page_size)).all()  # type: ignore[union-attr]
+
+    ids = {r.dispatch_id for r in rows}
+    name_map: dict[int, str] = {}
+    if ids:
+        dispatches = session.exec(select(Dispatch).where(Dispatch.id.in_(list(ids)))).all()  # type: ignore[union-attr]
+        name_map = {d.id: d.dispatch_number for d in dispatches if d.id}  # type: ignore[index]
+
+    out = [
+        HistoryItem(
+            id=r.id,  # type: ignore[arg-type]
+            entity_id=r.dispatch_id,
+            entity_name=name_map.get(r.dispatch_id),
+            changed_by_username=r.changed_by_username,
+            changed_at=r.changed_at.isoformat() if r.changed_at else "",
+            change_type=r.change_type,
+            old_value=r.old_status,
+            new_value=r.new_status,
+            note=r.notes,
+        )
+        for r in rows
+    ]
+    return _page_result(out, total, page, page_size)
+
+
+def _gate_pass_history(
+    session: Session, page: int, page_size: int, offset: int,
+    start_dt, end_dt, changed_by,
+) -> HistoryPage:
+    q = select(GatePassHistory)
+    q = _apply_filters(q, GatePassHistory, start_dt, end_dt, changed_by)
+    total = session.exec(select(func.count()).select_from(q.subquery())).one()
+    rows = session.exec(q.order_by(GatePassHistory.changed_at.desc()).offset(offset).limit(page_size)).all()  # type: ignore[union-attr]
+
+    ids = {r.gate_pass_id for r in rows}
+    name_map: dict[int, str] = {}
+    if ids:
+        gate_passes = session.exec(select(GatePass).where(GatePass.id.in_(list(ids)))).all()  # type: ignore[union-attr]
+        name_map = {g.id: g.gate_pass_number for g in gate_passes if g.id}  # type: ignore[index]
+
+    out = [
+        HistoryItem(
+            id=r.id,  # type: ignore[arg-type]
+            entity_id=r.gate_pass_id,
+            entity_name=name_map.get(r.gate_pass_id),
+            changed_by_username=r.changed_by_username,
+            changed_at=r.changed_at.isoformat() if r.changed_at else "",
+            change_type=r.change_type,
+            old_value=r.old_status,
+            new_value=r.new_status,
+            note=r.notes,
         )
         for r in rows
     ]

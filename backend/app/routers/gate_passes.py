@@ -16,6 +16,7 @@ from sqlmodel import Session, select
 from app.core.database import get_session
 from app.dependencies.auth import get_current_user
 from app.models.gate_pass import GatePass
+from app.models.gate_pass_history import GatePassHistory
 from app.models.gate_pass_item import GatePassItem
 from app.models.user import User
 
@@ -118,11 +119,16 @@ def create_gate_pass(
 
     session.commit()
     session.refresh(gp)
+    session.add(GatePassHistory(
+        gate_pass_id=gp.id,  # type: ignore[arg-type]
+        changed_by_username=current_user.username,
+        changed_at=datetime.now(timezone.utc),
+        change_type="created",
+        new_status=gp.status,
+    ))
+    session.commit()
     saved_items = list(session.exec(select(GatePassItem).where(GatePassItem.gate_pass_id == gp.id)).all())
     return _to_dict(gp, saved_items)
-
-
-@router.get("/{gp_id}")
 def get_gate_pass(
     gp_id: int,
     session: Annotated[Session, Depends(get_session)],
@@ -147,6 +153,8 @@ def update_gate_pass(
     gp = session.get(GatePass, gp_id)
     if not gp:
         raise HTTPException(status_code=404, detail="Gate pass not found")
+
+    old_status = gp.status
 
     for field in ("pass_type", "vendor_id", "vendor_name", "supplier_id", "supplier_name",
                   "material", "quantity", "unit", "purpose", "vehicle_number", "date", "notes", "status",
@@ -184,6 +192,17 @@ def update_gate_pass(
     session.add(gp)
     session.commit()
     session.refresh(gp)
+    new_status = gp.status
+    if old_status != new_status:
+        session.add(GatePassHistory(
+            gate_pass_id=gp.id,  # type: ignore[arg-type]
+            changed_by_username=current_user.username,
+            changed_at=datetime.now(timezone.utc),
+            change_type="status_change",
+            old_status=old_status,
+            new_status=new_status,
+        ))
+        session.commit()
     saved_items = list(session.exec(select(GatePassItem).where(GatePassItem.gate_pass_id == gp.id)).all())
     return _to_dict(gp, saved_items)
 

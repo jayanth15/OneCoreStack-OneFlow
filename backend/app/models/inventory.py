@@ -19,5 +19,7 @@ class InventoryItem(SQLModel, table=True):
     rate: Optional[float] = None                # cost per unit — admin-visible only
     timeline_days: Optional[int] = None         # expected fulfillment / lead time in days
     image_base64: Optional[str] = None          # base64-encoded image — omitted from list responses
+    vendor_name: Optional[str] = None           # primary vendor (for finished goods / semi-finished)
+    design_drawing_pdf: Optional[str] = None    # base64-encoded design drawing PDF
     is_active: bool = Field(default=True)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))

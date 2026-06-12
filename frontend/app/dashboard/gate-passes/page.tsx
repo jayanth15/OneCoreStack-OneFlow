@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { apiFetchJson } from "@/lib/api";
 import { getCurrentUser, isAdminOrAbove } from "@/lib/user";
-import { ClipboardList, Plus, Search, Eye, MoreVertical, X, Minus, Printer, Link2 } from "lucide-react";
+import { ClipboardList, Plus, Search, Eye, MoreVertical, X, Minus, Printer, Link2, Pencil } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -616,27 +616,40 @@ ${gp.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${gp.notes}</p>
                     </div>
                     {gp.notes && <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{gp.notes}</p>}
                   </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button size="icon" variant="ghost" className="size-8 shrink-0">
-                        <MoreVertical className="size-3.5" />
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button size="icon" variant="ghost" className="size-8" title="Print" onClick={() => printGatePass(gp)}>
+                      <Printer className="size-3.5" />
+                    </Button>
+                    {adminUser && gp.status !== "closed" && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-8 text-orange-600 hover:text-orange-600 hover:bg-orange-50"
+                        title="Close Gate Pass"
+                        disabled={closingId === gp.id}
+                        onClick={() => closeGatePass(gp.id)}
+                      >
+                        <X className="size-3.5" />
                       </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setViewTarget(gp)}>
-                        <Eye className="size-3.5 mr-2" />View Details
-                      </DropdownMenuItem>
-                      {adminUser && gp.status !== "closed" && (
-                        <DropdownMenuItem
-                          className="text-orange-600 focus:text-orange-600"
-                          disabled={closingId === gp.id}
-                          onClick={() => closeGatePass(gp.id)}
-                        >
-                          <X className="size-3.5 mr-2" />Close
+                    )}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="icon" variant="ghost" className="size-8">
+                          <MoreVertical className="size-3.5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setViewTarget(gp)}>
+                          <Eye className="size-3.5 mr-2" />View Details
                         </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                        {adminUser && (
+                          <DropdownMenuItem onClick={() => openEdit(gp)}>
+                            <Pencil className="size-3.5 mr-2" />Edit
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
               );
             })}

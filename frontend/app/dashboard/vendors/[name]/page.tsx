@@ -45,6 +45,17 @@ interface ProductSummary {
   fg_code: string | null;
 }
 
+interface FGItem {
+  id: number;
+  code: string;
+  name: string;
+  item_type: string;
+  unit: string;
+  quantity_on_hand: number;
+  is_active: boolean;
+  has_design_drawing: boolean;
+}
+
 interface VendorDetail {
   vendor_name: string;
   total_schedules: number;
@@ -55,6 +66,7 @@ interface VendorDetail {
   status_counts: Record<string, number>;
   schedules: ScheduleEntry[];
   products: ProductSummary[];
+  fg_items?: FGItem[];
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -332,6 +344,47 @@ export default function VendorDetailPage() {
                 })}
               </div>
             </div>
+
+            {/* ── Finished Goods ── */}
+            {data.fg_items && data.fg_items.length > 0 && (
+              <div className="rounded-xl border bg-card p-5">
+                <SectionHeader icon={Package} title={`Finished Goods (${data.fg_items.length})`} />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {data.fg_items.map((fg) => (
+                    <Link
+                      key={fg.id}
+                      href={`/dashboard/inventory/${fg.id}`}
+                      className="flex items-center gap-3 rounded-lg border p-3 hover:bg-muted/40 transition-colors"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium text-sm truncate">{fg.name}</span>
+                          <span className="text-xs font-mono text-muted-foreground">{fg.code}</span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground flex-wrap">
+                          <span>{fg.item_type === "finished_good" ? "Finished Good" : "Semi-Finished"}</span>
+                          <span>·</span>
+                          <span className={fg.quantity_on_hand > 0 ? "text-emerald-600" : "text-amber-600"}>
+                            {fg.quantity_on_hand} {fg.unit} in stock
+                          </span>
+                          {fg.has_design_drawing && (
+                            <>
+                              <span>·</span>
+                              <span className="text-blue-600">Has Drawing</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      {!fg.is_active && (
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
+                          Inactive
+                        </span>
+                      )}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <Separator />
 

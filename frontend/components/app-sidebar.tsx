@@ -17,6 +17,7 @@ import {
   ClipboardCheck,
   PackageCheck,
   History,
+  Contact,
 } from "lucide-react";
 import {
   Sidebar,
@@ -47,6 +48,7 @@ const coreNav = [
 const adminNav = [
   { title: "Departments", url: "/dashboard/admin/departments", icon: Building2 },
   { title: "Users", url: "/dashboard/admin/users", icon: Users },
+  { title: "Vendors", url: "/dashboard/vendors", icon: Contact },
   { title: "Bill of Materials", url: "/dashboard/admin/bom", icon: BookOpen },
   { title: "History", url: "/dashboard/history", icon: History },
   { title: "Settings", url: "/dashboard/admin/settings", icon: Settings },

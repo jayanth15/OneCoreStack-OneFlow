@@ -42,6 +42,7 @@ interface InventoryItem {
   customer_names: string | null;
   required_qty: number | null;
   rate: number | null;
+  vendor_name: string | null;
 }
 
 interface PaginatedInventory {
@@ -134,6 +135,7 @@ export default function InventoryTypePage({ itemType, label, description, basePa
   const page         = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
   const showInactive = searchParams.get("inactive") === "1";
   const search       = searchParams.get("search") ?? "";
+  const vendorFilter = searchParams.get("vendor") ?? "";
 
   const [data, setData]       = useState<PaginatedInventory | null>(null);
   const [loading, setLoading] = useState(true);
@@ -159,8 +161,9 @@ export default function InventoryTypePage({ itemType, label, description, basePa
   const [historyPage, setHistoryPage]       = useState(1);
   const [historyHasMore, setHistoryHasMore] = useState(false);
 
-  // Customer-wise view (finished goods only)
-  const [customerView, setCustomerView] = useState(false);
+  // Vendor filter (finished goods / semi-finished only)
+
+  const [allVendors, setAllVendors] = useState<string[]>([]);
 
   useEffect(() => {
     setAdmin(isAdminOrAbove());
@@ -169,6 +172,15 @@ export default function InventoryTypePage({ itemType, label, description, basePa
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemType]);
+
+  // Fetch all vendors for the filter dropdown (FG/semi-finished pages only)
+  useEffect(() => {
+    if (itemType !== "finished_good" && itemType !== "semi_finished") return;
+    apiFetchJson<{ id: number | null; name: string }[]>("/api/v1/vendors/names")
+      .then((list) => setAllVendors(list.map((v) => v.name)))
+      .catch(() => {});
+  }, [itemType]);
+
   useEffect(() => { setSearchDraft(search); }, [search]);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
@@ -181,12 +193,13 @@ export default function InventoryTypePage({ itemType, label, description, basePa
       page_size:        "20",
       include_inactive: String(showInactive),
     });
-    if (search) params.set("search", search);
+    if (search)       params.set("search", search);
+    if (vendorFilter) params.set("vendor_name", vendorFilter);
     apiFetchJson<PaginatedInventory>(`/api/v1/inventory?${params}`)
       .then(setData)
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load"))
       .finally(() => setLoading(false));
-  }, [itemType, page, showInactive, search]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [itemType, page, showInactive, search, vendorFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Navigation ─────────────────────────────────────────────────────────────
   function nav(updates: Record<string, string>) {
@@ -200,6 +213,7 @@ export default function InventoryTypePage({ itemType, label, description, basePa
   function setPage(n: number)          { nav({ page: String(n) }); }
   function toggleInactive(v: boolean)  { nav({ inactive: v ? "1" : "", page: "1" }); }
   function submitSearch()              { nav({ search: searchDraft.trim(), page: "1" }); }
+  function setVendorFilter(v: string)  { nav({ vendor: v, page: "1" }); }
 
   // ── Adjust stock ───────────────────────────────────────────────────────────
   function openAdjust(item: InventoryItem) {
@@ -300,26 +314,17 @@ export default function InventoryTypePage({ itemType, label, description, basePa
   const showRMCols = itemType === "raw_material";
   const showFGCols = itemType === "finished_good" || itemType === "semi_finished";
 
-  // Group items by customer for the customer-wise view
-  const customerGroups: { customer: string; items: InventoryItem[]; totalQty: number }[] = (() => {
-    if (!showFGCols || !customerView) return [];
-    const map = new Map<string, InventoryItem[]>();
-    for (const item of items) {
-      const customers = item.customer_names ? item.customer_names.split(", ") : ["(No Customer)"];
-      for (const c of customers) {
-        const existing = map.get(c) ?? [];
-        existing.push(item);
-        map.set(c, existing);
-      }
-    }
-    return Array.from(map.entries())
-      .map(([customer, its]) => ({
-        customer,
-        items: its,
-        totalQty: its.reduce((s, i) => s + i.quantity_on_hand, 0),
-      }))
-      .sort((a, b) => a.customer.localeCompare(b.customer));
+  // Build vendor options list from the API-fetched vendors list
+  const customerOptions: { name: string }[] = (() => {
+    if (!showFGCols) return [];
+    const vendorSet = new Set(allVendors ?? []);
+    return Array.from(vendorSet)
+      .sort((a, b) => a.localeCompare(b))
+      .map((name) => ({ name }));
   })();
+
+  // Items after vendor filter are now returned server-side; alias for clarity
+  const filteredItems = items;
 
   return (
     <>
@@ -373,16 +378,22 @@ export default function InventoryTypePage({ itemType, label, description, basePa
           </div>
         )}
 
-        {/* Search + Inactive toggle */}
+        {/* Search + filter row */}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
           <div className="flex items-center gap-3 ml-auto flex-wrap">
             {showFGCols && (
-              <Button size="sm" variant={customerView ? "default" : "outline"}
-                className="h-8 text-xs"
-                onClick={() => setCustomerView(v => !v)}>
-                <Eye className="size-3.5 mr-1" />
-                {customerView ? "All Items" : "Customer View"}
-              </Button>
+              <select
+                value={vendorFilter}
+                onChange={(e) => setVendorFilter(e.target.value)}
+                className="h-8 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="">All vendors ({total})</option>
+                {customerOptions.map(opt => (
+                  <option key={opt.name} value={opt.name}>
+                    {opt.name}
+                  </option>
+                ))}
+              </select>
             )}
             <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
               <input type="checkbox" checked={showInactive}
@@ -413,106 +424,35 @@ export default function InventoryTypePage({ itemType, label, description, basePa
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
-        {/* ── Customer-wise View (finished goods only) ───────────────────── */}
-        {showFGCols && customerView && (
-          <div className="space-y-4">
-            {loading ? (
-              Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="rounded-lg border p-4"><Skeleton className="h-32 w-full" /></div>
-              ))
-            ) : customerGroups.length === 0 ? (
-              <div className="rounded-lg border px-4 py-12 text-center text-muted-foreground text-sm">
-                No items found.
-              </div>
-            ) : (
-              customerGroups.map((group) => (
-                <div key={group.customer} className="rounded-lg border overflow-hidden">
-                  <div className="flex items-center justify-between bg-muted/40 px-4 py-2.5 border-b">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-sm">{group.customer}</span>
-                      <Badge variant="secondary" className="text-xs">{group.items.length} item{group.items.length !== 1 ? "s" : ""}</Badge>
-                    </div>
-                    <span className="text-xs text-muted-foreground tabular-nums">
-                      Total: {fmtQty(group.totalQty)} {group.items[0]?.unit ?? ""}
-                    </span>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm min-w-[500px]">
-                      <thead>
-                        <tr className="border-b bg-muted/20">
-                          <th className="px-4 py-2 text-left font-medium text-xs">Item</th>
-                          <th className="px-4 py-2 text-right font-medium text-xs">Available</th>
-                          <th className="px-4 py-2 text-left font-medium text-xs">Storage</th>
-                          <th className="px-4 py-2 text-center font-medium text-xs">Sched.</th>
-                          <th className="px-4 py-2 text-right font-medium text-xs">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {group.items.map((item) => {
-                          const low = isLow(item);
-                          return (
-                            <tr key={item.id} className={`border-b last:border-0 hover:bg-muted/20 ${!item.is_active ? "opacity-60" : ""}`}>
-                              <td className="px-4 py-2">
-                                <Link href={`/dashboard/inventory/${item.id}`}
-                                  className="font-medium text-sm hover:underline">{item.name}</Link>
-                                <div className="text-xs text-muted-foreground font-mono">{item.code}</div>
-                              </td>
-                              <td className={`px-4 py-2 text-right tabular-nums font-medium text-sm ${low ? "text-amber-600" : ""}`}>
-                                {low && <AlertTriangle className="size-3 inline mr-0.5" />}
-                                {fmtQty(item.quantity_on_hand)} {item.unit}
-                              </td>
-                              <td className="px-4 py-2 text-xs text-muted-foreground">
-                                {item.storage_location ?? item.storage_type ?? "—"}
-                              </td>
-                              <td className="px-4 py-2 text-center">
-                                {item.linked_schedule_count > 0
-                                  ? <Badge variant="secondary" className="text-xs">{item.linked_schedule_count}</Badge>
-                                  : <span className="text-muted-foreground text-xs">—</span>}
-                              </td>
-                              <td className="px-4 py-2 text-right">
-                                <div className="inline-flex gap-0.5">
-                                  <Button variant="ghost" size="icon" className="size-7"
-                                    onClick={() => router.push(`/dashboard/inventory/${item.id}`)}>
-                                    <Eye className="size-3.5 text-blue-600" />
-                                  </Button>
-                                  <Button variant="ghost" size="icon" className="size-7"
-                                    onClick={() => { setAdjustType("add"); openAdjust(item); }}>
-                                    <PackagePlus className="size-3.5 text-emerald-600" />
-                                  </Button>
-                                  {admin && (
-                                    <Button variant="ghost" size="icon" className="size-7"
-                                      onClick={() => openHistory(item)}>
-                                      <History className="size-3.5 text-blue-600" />
-                                    </Button>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              ))
-            )}
+        {/* ── Vendor filter banner (when a vendor is selected) ──── */}
+        {showFGCols && vendorFilter && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/40 border rounded-md px-3 py-1.5">
+            <span>Showing items for <strong className="text-foreground">{vendorFilter}</strong></span>
+            <span>·</span>
+            <span>{total} item{total !== 1 ? "s" : ""}</span>
+            <button
+              className="ml-auto text-xs underline hover:text-foreground"
+              onClick={() => setVendorFilter("")}
+            >
+              Clear
+            </button>
           </div>
         )}
 
         {/* ── Standard views (mobile cards + desktop table) ─────────────── */}
-        {(!showFGCols || !customerView) && (<>
+        <>
         {/* Mobile cards */}
         <div className="md:hidden space-y-3">
           {loading ? (
             Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="rounded-lg border p-4"><Skeleton className="h-28 w-full" /></div>
             ))
-          ) : items.length === 0 ? (
+          ) : filteredItems.length === 0 ? (
             <div className="rounded-lg border px-4 py-12 text-center text-muted-foreground text-sm">
               {search ? `No items matching "${search}".` : "No items found."}
             </div>
           ) : (
-            items.map((item) => {
+            filteredItems.map((item) => {
               const low   = isLow(item);
               const short = isShortfall(item);
               return (
@@ -553,8 +493,13 @@ export default function InventoryTypePage({ itemType, label, description, basePa
                     )}
                     <div className="text-muted-foreground">{fmtDate(item.updated_at)}</div>
                   </div>
-                  {showFGCols && item.customer_names && (
-                    <p className="text-xs text-muted-foreground truncate">{item.customer_names}</p>
+                  {showFGCols && (item.vendor_name || item.customer_names) && (
+                    <p className="text-xs text-muted-foreground truncate">
+                      {item.vendor_name
+                        ? <><span className="font-medium text-foreground">{item.vendor_name}</span>{item.customer_names ? ` · ${item.customer_names}` : ""}</>
+                        : item.customer_names
+                      }
+                    </p>
                   )}
                   <div className="flex justify-end gap-0.5 pt-1 border-t">
                     <Button variant="ghost" size="icon" className="size-7" title="View Details"
@@ -601,7 +546,7 @@ export default function InventoryTypePage({ itemType, label, description, basePa
                   <th className="px-4 py-3 text-left font-medium">Name / Code</th>
                   <th className="px-4 py-3 text-right font-medium">Available</th>
                   {showRMCols && <th className="px-4 py-3 text-right font-medium">Required</th>}
-                  {showFGCols && <th className="px-4 py-3 text-left font-medium">Customers</th>}
+                  {showFGCols && <th className="px-4 py-3 text-left font-medium">Vendors</th>}
                   <th className="px-4 py-3 text-left font-medium">Storage / Location</th>
                   <th className="px-4 py-3 text-center font-medium w-16">Sched.</th>
                   {admin && <th className="px-4 py-3 text-right font-medium w-24">Rate</th>}
@@ -617,14 +562,14 @@ export default function InventoryTypePage({ itemType, label, description, basePa
                       ))}
                     </tr>
                   ))
-                ) : items.length === 0 ? (
+                ) : filteredItems.length === 0 ? (
                   <tr>
                     <td colSpan={10} className="px-4 py-12 text-center text-muted-foreground">
                       {search ? `No items matching "${search}". Try a different search.` : "No items found."}
                     </td>
                   </tr>
                 ) : (
-                  items.map((item) => {
+                  filteredItems.map((item) => {
                     const low   = isLow(item);
                     const short = isShortfall(item);
                     return (
@@ -660,8 +605,11 @@ export default function InventoryTypePage({ itemType, label, description, basePa
                         )}
                         {showFGCols && (
                           <td className="px-4 py-3 text-xs text-muted-foreground max-w-[180px] truncate"
-                            title={item.customer_names ?? ""}>
-                            {item.customer_names ?? "—"}
+                            title={[item.vendor_name, item.customer_names].filter(Boolean).join(" · ") || ""}>
+                            {item.vendor_name
+                              ? <><span className="font-medium text-foreground/80">{item.vendor_name}</span>{item.customer_names ? <span className="ml-1">· {item.customer_names}</span> : null}</>
+                              : (item.customer_names ?? "—")
+                            }
                           </td>
                         )}
                         <td className="px-4 py-3 text-xs text-muted-foreground max-w-[160px]">
@@ -765,7 +713,6 @@ export default function InventoryTypePage({ itemType, label, description, basePa
           </div>
         )}
         </>
-        )}
       </div>
 
       {/* ── Adjust Stock Dialog ────────────────────────────────────────────── */}

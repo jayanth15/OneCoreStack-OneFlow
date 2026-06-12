@@ -92,10 +92,22 @@ def list_vendor_names(
 ) -> list[dict[str, Any]]:
     """
     Lightweight dropdown data — [{id, name}] sorted by name.
-    Includes all vendors in the Vendor table.
+    Includes all vendors in the Vendor table PLUS any names that appear
+    only in schedules (customer_name) but aren't registered yet.
     """
-    vendors = session.exec(select(Vendor).order_by(Vendor.name)).all()  # type: ignore[union-attr]
-    return [{"id": v.id, "name": v.name} for v in vendors]
+    registered = {v.name: v for v in session.exec(select(Vendor).order_by(Vendor.name)).all()}  # type: ignore[union-attr]
+
+    # Names that only live in schedules
+    schedule_names: set[str] = {
+        s.customer_name
+        for s in session.exec(select(Schedule)).all()
+        if s.customer_name and s.customer_name not in registered
+    }
+
+    result = [{"id": v.id, "name": name} for name, v in sorted(registered.items())]
+    result += [{"id": None, "name": name} for name in sorted(schedule_names)]
+    result.sort(key=lambda x: x["name"])
+    return result
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -202,6 +214,9 @@ def get_vendor_detail(
     """
     Full detail for a single vendor: all schedules + per-product breakdown.
     """
+    # First confirm the vendor exists in the Vendor table (or has schedule history)
+    registered = session.exec(select(Vendor).where(Vendor.name == vendor_name)).first()
+
     schedules = list(session.exec(
         select(Schedule).where(
             Schedule.customer_name == vendor_name,
@@ -209,13 +224,43 @@ def get_vendor_detail(
         ).order_by(Schedule.scheduled_date)  # type: ignore[union-attr]
     ).all())
 
-    if not schedules:
+    if not registered and not schedules:
         raise HTTPException(status_code=404, detail=f"Vendor '{vendor_name}' not found")
 
     active = [s for s in schedules if s.status in ACTIVE_STATUSES]
     total_active_qty = sum(s.scheduled_qty for s in active)
     total_backlog = sum(s.backlog_qty for s in active)
     total_delivered = sum(s.scheduled_qty for s in schedules if s.status == "delivered")
+
+    # FG inventory items directly assigned to this vendor
+    # Also include items whose name matches a scheduled product for this vendor
+    schedule_product_names = {s.description for s in schedules}
+    fg_items_direct = list(session.exec(
+        select(InventoryItem).where(InventoryItem.vendor_name == vendor_name)
+    ).all())
+    fg_items_by_schedule = list(session.exec(
+        select(InventoryItem).where(
+            InventoryItem.item_type.in_(["finished_good", "semi_finished"]),  # type: ignore[union-attr]
+            InventoryItem.name.in_(list(schedule_product_names)),  # type: ignore[union-attr]
+        )
+    ).all()) if schedule_product_names else []
+
+    seen_fg_ids: set[int] = set()
+    fg_items_list = []
+    for fg in fg_items_direct + fg_items_by_schedule:
+        if fg.id in seen_fg_ids:
+            continue
+        seen_fg_ids.add(fg.id)  # type: ignore[arg-type]
+        fg_items_list.append({
+            "id": fg.id,
+            "code": fg.code,
+            "name": fg.name,
+            "item_type": fg.item_type,
+            "unit": fg.unit,
+            "quantity_on_hand": fg.quantity_on_hand,
+            "is_active": fg.is_active,
+            "has_design_drawing": fg.design_drawing_pdf is not None,
+        })
 
     schedule_list = [
         {
@@ -241,4 +286,5 @@ def get_vendor_detail(
         "status_counts": _status_counts(schedules),
         "schedules": schedule_list,
         "products": _product_summary(schedules, session),
+        "fg_items": fg_items_list,
     }

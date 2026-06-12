@@ -14,7 +14,7 @@ import { isAdminOrAbove } from "@/lib/user";
 import {
   Package, ShoppingCart, Megaphone, ClipboardList, Calendar,
   FlaskConical, Wrench, Scissors, Paperclip, History, ChevronDown,
-  RotateCcw, Box, PackageCheck, Layers, Recycle,
+  RotateCcw, Box, PackageCheck, Layers, Recycle, PackageSearch, Truck,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -68,6 +68,8 @@ const TABS = [
   { key: "marketing-requests", label: "Marketing Requests", Icon: Megaphone },
   { key: "job-cards",          label: "Job Cards",          Icon: ClipboardList },
   { key: "schedules",          label: "Schedules",          Icon: Calendar },
+  { key: "dispatches",         label: "Dispatches",         Icon: Truck },
+  { key: "gate-passes",        label: "Gate Passes",        Icon: PackageSearch },
 ] as const;
 
 type TabKey = typeof TABS[number]["key"];
@@ -195,6 +197,8 @@ const HEADERS: Record<TabKey, string[]> = {
   "spares":             ["Item", "By", "Variant", "Type", "Qty Before", "Qty After", "Delta", "Note", "Date"],
   "weeders":            ["Item", "By", "Type", "Qty Before", "Qty After", "Delta", "Note", "Date"],
   "attachments":        ["Item", "By", "Type", "Qty Before", "Qty After", "Delta", "Note", "Date"],
+  "dispatches":         ["Dispatch #", "By", "Type", "Old Status", "New Status", "Note", "Date"],
+  "gate-passes":        ["Gate Pass #", "By", "Type", "Old Status", "New Status", "Note", "Date"],
 };
 
 function RowCells({ tab, h }: { tab: TabKey; h: HistoryItem }) {
@@ -210,6 +214,8 @@ function RowCells({ tab, h }: { tab: TabKey; h: HistoryItem }) {
   if (tab === "spares")             return <QtyColumns h={h} showVariant />;
   if (tab === "weeders")            return <QtyColumns h={h} />;
   if (tab === "attachments")        return <QtyColumns h={h} />;
+  if (tab === "dispatches")         return <ScheduleColumns h={h} />;
+  if (tab === "gate-passes")        return <ScheduleColumns h={h} />;
   return null;
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -16,7 +16,7 @@ import { isAdminOrAbove } from "@/lib/user";
 import {
   ArrowLeft, Pencil, Package, PackageCheck, PackageX,
   Factory, Users, Layers, TrendingDown, TrendingUp,
-  MapPin, BarChart3, Wrench,
+  MapPin, BarChart3, Wrench, Building2, FileText, Upload, ExternalLink,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -78,6 +78,8 @@ interface ItemDetail {
   updated_at: string;
   rate: number | null;
   image_base64: string | null;
+  vendor_name?: string | null;
+  has_design_drawing?: boolean;
   // RM
   bom_usage?: BomUsage[];
   // FG / SFG
@@ -148,6 +150,55 @@ export default function InventoryDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const admin = isAdminOrAbove();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pdfUploading, setPdfUploading] = useState(false);
+  const [pdfViewing, setPdfViewing] = useState(false);
+
+  async function handlePdfUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPdfUploading(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      await apiFetchJson(`/api/v1/inventory/${id}/drawing`, {
+        method: "PUT",
+        body: JSON.stringify({ design_drawing_pdf: base64 }),
+      });
+      setItem((prev) => (prev ? { ...prev, has_design_drawing: true } : prev));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setPdfUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  async function handleViewDrawing() {
+    setPdfViewing(true);
+    try {
+      const res = await apiFetchJson<{ design_drawing_pdf: string }>(
+        `/api/v1/inventory/${id}/drawing`
+      );
+      const dataUrl = res.design_drawing_pdf;
+      const rawBase64 = dataUrl.includes(",") ? dataUrl.split(",")[1] : dataUrl;
+      const byteStr = atob(rawBase64);
+      const arr = new Uint8Array(byteStr.length);
+      for (let i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
+      const blob = new Blob([arr], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to load drawing");
+    } finally {
+      setPdfViewing(false);
+    }
+  }
 
   useEffect(() => {
     apiFetchJson<ItemDetail>(`/api/v1/inventory/${id}/detail`)
@@ -243,6 +294,18 @@ export default function InventoryDetailPage() {
                     </span>
                   )}
                   <span>Unit: <strong className="text-foreground">{item.unit}</strong></span>
+                  {(item.item_type === "finished_good" || item.item_type === "semi_finished") && item.vendor_name && (
+                    <span className="flex items-center gap-1">
+                      <Building2 className="size-3.5" />
+                      Vendor:{" "}
+                      <Link
+                        href={`/dashboard/vendors/${encodeURIComponent(item.vendor_name)}`}
+                        className="font-semibold text-blue-600 hover:underline"
+                      >
+                        {item.vendor_name}
+                      </Link>
+                    </span>
+                  )}
                   <span>Last updated: <strong className="text-foreground">{new Date(item.updated_at).toLocaleDateString()}</strong></span>
                 </div>
               </div>
@@ -536,6 +599,59 @@ export default function InventoryDetailPage() {
                       </table>
                     </div>
                     </>
+                  )}
+                </div>
+
+                {/* Design Drawing */}
+                <div className="rounded-xl border bg-card p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <FileText className="size-4 text-muted-foreground" />
+                      <h2 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">Design Drawing</h2>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {item.has_design_drawing && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5"
+                          disabled={pdfViewing}
+                          onClick={handleViewDrawing}
+                        >
+                          <ExternalLink className="size-3.5" />
+                          {pdfViewing ? "Loading…" : "View Drawing"}
+                        </Button>
+                      )}
+                      {admin && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5"
+                            disabled={pdfUploading}
+                            onClick={() => fileInputRef.current?.click()}
+                          >
+                            <Upload className="size-3.5" />
+                            {pdfUploading ? "Uploading…" : item.has_design_drawing ? "Replace PDF" : "Upload PDF"}
+                          </Button>
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="application/pdf"
+                            className="hidden"
+                            onChange={handlePdfUpload}
+                          />
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  {!item.has_design_drawing ? (
+                    <p className="text-sm text-muted-foreground">No design drawing uploaded yet.</p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+                      <FileText className="size-4 text-blue-500" />
+                      PDF drawing attached. Click “View Drawing” to open.
+                    </p>
                   )}
                 </div>
 
