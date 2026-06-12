@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { apiFetchJson } from "@/lib/api";
 import { getCurrentUser, isAdminOrAbove } from "@/lib/user";
-import { PackageCheck, Plus, Search, Pencil, Minus } from "lucide-react";
+import { PackageCheck, Plus, Search, Pencil, Minus, Printer } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -133,6 +133,7 @@ export default function DispatchPage() {
   const [editError, setEditError] = useState<string | null>(null);
 
   const searchRef = useRef<HTMLInputElement>(null);
+  const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
 
   function load() {
     setLoading(true);
@@ -244,6 +245,69 @@ export default function DispatchPage() {
     } finally { setEditSaving(false); }
   }
 
+  async function handleStatusChange(dispatchId: number, newStatus: string) {
+    setStatusUpdatingId(dispatchId);
+    try {
+      await apiFetchJson(`/api/v1/dispatch/${dispatchId}`, {
+        method: "PUT",
+        body: JSON.stringify({ status: newStatus }),
+      });
+      setItems(prev => prev.map(item =>
+        item.id === dispatchId ? { ...item, status: newStatus } : item
+      ));
+    } catch {
+      load();
+    } finally {
+      setStatusUpdatingId(null);
+    }
+  }
+
+  function printDispatch(d: Dispatch) {
+    const items = d.items && d.items.length > 0
+      ? d.items
+      : [{ item_name: d.product_name, quantity: d.quantity, unit: d.unit, inv_type: null }];
+    const partyName = d.party_type === "supplier" ? d.supplier_name : d.vendor_name;
+    const partyLabel = d.party_type === "vendor" ? "Vendor" : "Supplier";
+    const win = window.open("", "_blank", "width=800,height=600");
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html><html><head><title>Dispatch &mdash; ${d.dispatch_number}</title>
+<style>
+  body { font-family: Arial, sans-serif; font-size: 13px; margin: 24px; color: #111; }
+  h2 { margin: 0 0 4px; font-size: 18px; }
+  .meta { color: #555; font-size: 12px; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
+  th { background: #f5f5f5; font-weight: 600; }
+  .row { display: flex; gap: 32px; margin-bottom: 8px; }
+  .lbl { color: #666; font-size: 11px; }
+  @media print { body { margin: 0; } }
+</style></head><body>
+<h2>Dispatch &mdash; ${d.dispatch_number}</h2>
+<p class="meta">Generated on ${new Date().toLocaleString("en-IN")}</p>
+<div class="row">
+  <div><div class="lbl">Party</div><div>${partyLabel}: ${partyName ?? "&mdash;"}</div></div>
+  <div><div class="lbl">Status</div><div>${d.status}</div></div>
+  ${d.dispatch_date ? `<div><div class="lbl">Date</div><div>${d.dispatch_date}</div></div>` : ""}
+</div>
+<div class="row">
+  ${d.vehicle_number ? `<div><div class="lbl">Vehicle</div><div>${d.vehicle_number}</div></div>` : ""}
+  ${d.driver_name ? `<div><div class="lbl">Driver</div><div>${d.driver_name}</div></div>` : ""}
+  ${d.schedule_number ? `<div><div class="lbl">Schedule</div><div>${d.schedule_number}</div></div>` : ""}
+</div>
+<table>
+  <thead><tr><th>#</th><th>Item</th><th>Type</th><th>Quantity</th><th>Unit</th></tr></thead>
+  <tbody>
+    ${items.map((it, i) => `<tr><td>${i + 1}</td><td>${it.item_name ?? ""}</td><td>${it.inv_type ?? "&mdash;"}</td><td>${it.quantity}</td><td>${it.unit ?? ""}</td></tr>`).join("")}
+  </tbody>
+</table>
+${d.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${d.notes}</p>` : ""}
+<p style="margin-top:16px;font-size:11px;color:#666">Created by: ${d.created_by ?? "&mdash;"} | Printed: ${new Date().toLocaleString("en-IN")}</p>
+</body></html>`);
+    win.document.close();
+    win.focus();
+    win.print();
+  }
+
   return (
     <>
       <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4 md:pr-64">
@@ -325,7 +389,7 @@ export default function DispatchPage() {
           <div className="space-y-3">
             {items.map((d) => {
               const partyName = d.party_type === "supplier" ? d.supplier_name : d.vendor_name;
-              const partyLabel = d.party_type === "supplier" ? "Customer" : "Vendor";
+              const partyLabel = d.party_type === "vendor" ? "Vendor" : "Supplier";
               const itemSummary =
                 d.items && d.items.length > 0
                   ? d.items.length === 1
@@ -340,9 +404,16 @@ export default function DispatchPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-mono font-semibold text-sm">{d.dispatch_number}</span>
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[d.status] ?? "bg-slate-100 text-slate-600"}`}>
-                        {d.status}
-                      </span>
+                      <select
+                        value={d.status}
+                        onChange={(e) => handleStatusChange(d.id, e.target.value)}
+                        disabled={statusUpdatingId === d.id}
+                        className={`text-xs px-2 py-0.5 rounded-full font-medium border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 ${STATUS_COLORS[d.status] ?? "bg-slate-100 text-slate-600"}`}
+                      >
+                        {STATUSES.map(s => (
+                          <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                        ))}
+                      </select>
                     </div>
                     <p className="text-sm font-medium mt-0.5">{itemSummary}</p>
                     <div className="flex flex-wrap gap-x-4 gap-y-0 text-xs text-muted-foreground mt-1">
@@ -365,9 +436,14 @@ export default function DispatchPage() {
                     </div>
                     {d.notes && <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{d.notes}</p>}
                   </div>
-                  <Button size="icon" variant="ghost" className="size-8 shrink-0" onClick={() => openEdit(d)}>
-                    <Pencil className="size-3.5" />
-                  </Button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button size="icon" variant="ghost" className="size-8" onClick={() => printDispatch(d)}>
+                      <Printer className="size-3.5" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="size-8" onClick={() => openEdit(d)}>
+                      <Pencil className="size-3.5" />
+                    </Button>
+                  </div>
                 </div>
               );
             })}
@@ -426,7 +502,7 @@ function DispatchForm({
             }`}
             onClick={() => onChange({ ...form, party_type: "supplier", vendor_name: "" })}
             disabled={saving}>
-            Customer
+            Dealer / Supplier
           </button>
         </div>
       </div>
@@ -445,7 +521,7 @@ function DispatchForm({
         </div>
       ) : (
         <div className="space-y-1.5">
-          <Label htmlFor="d-customer-type">Customer Type</Label>
+          <Label htmlFor="d-customer-type">Dealer / Supplier</Label>
           <select id="d-customer-type" value={form.supplier_name}
             onChange={(e) => onChange({ ...form, supplier_name: e.target.value })}
             disabled={saving}
