@@ -1,8 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Nunito_Sans } from "next/font/google";
+import { Geist, Geist_Mono, Nunito_Sans, Figtree } from "next/font/google";
 import "./globals.css";
+import { cn } from "@/lib/utils";
 
-const nunitoSans = Nunito_Sans({ variable: "--font-sans", subsets: ["latin"] });
+const figtree = Figtree({subsets:['latin'],variable:'--font-sans'});
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,7 +39,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={nunitoSans.variable}>
+    <html lang="en" className={cn("font-sans", figtree.variable)}>
       <head>
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
       </head>
