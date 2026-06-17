@@ -33,6 +33,7 @@ import {
   Loader2,
   RotateCcw,
   Pencil,
+  Printer,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -618,6 +619,86 @@ export default function GRNPage() {
     } catch (e: unknown) {
       setFillErr(e instanceof Error ? e.message : "Fill failed");
     } finally { setFilling(false); }
+  }
+
+  function printGRN(grn: GRNRecord) {
+    const win = window.open("", "_blank", "width=800,height=700");
+    if (!win) return;
+    const totalReceived = grn.items.reduce((s, it) => s + it.quantity_received, 0);
+    const totalFilled = grn.items.reduce((s, it) => s + it.quantity_filled, 0);
+    const totalReturned = grn.items.reduce((s, it) => s + it.quantity_returned, 0);
+    win.document.write(`<!DOCTYPE html><html><head><title>GRN — ${grn.grn_number}</title>
+<style>
+  body { font-family: Arial, sans-serif; font-size: 13px; margin: 24px; color: #111; }
+  h2 { margin: 0 0 4px; font-size: 18px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
+  th { background: #f5f5f5; font-weight: 600; }
+  .row { display: flex; gap: 32px; margin-bottom: 8px; flex-wrap: wrap; }
+  .lbl { color: #666; font-size: 11px; }
+  tfoot td { font-weight: 600; background: #f9f9f9; }
+  .text-right { text-align: right; }
+  @media print { body { margin: 0; } }
+</style></head><body>
+<h2>Goods Received Note — ${grn.grn_number}</h2>
+<p style="color:#666;font-size:11px">Generated on ${new Date().toLocaleString("en-IN")}</p>
+<div class="row">
+  <div><div class="lbl">Received By</div><div>${grn.received_by_username ?? "—"}</div></div>
+  <div><div class="lbl">Date</div><div>${grn.created_at?.slice(0, 10) ?? "—"}</div></div>
+  <div><div class="lbl">Status</div><div>${grn.status}</div></div>
+  ${grn.transport_type ? `<div><div class="lbl">Transport</div><div>${grn.transport_type === "company" ? "Company Transport" : "Own Transport"}${grn.vehicle_number ? ` (${grn.vehicle_number})` : ""}</div></div>` : ""}
+  ${grn.inspected_by_username ? `<div><div class="lbl">Inspected By</div><div>${grn.inspected_by_username}</div></div>` : ""}
+  ${grn.purchase_request_sn_no ? `<div><div class="lbl">Linked PR</div><div>${grn.purchase_request_sn_no}</div></div>` : ""}
+  ${grn.po_number ? `<div><div class="lbl">PO Number</div><div>${grn.po_number}</div></div>` : ""}
+  ${grn.dc_number ? `<div><div class="lbl">DC Number</div><div>${grn.dc_number}</div></div>` : ""}
+</div>
+<table>
+  <thead><tr>
+    <th>#</th><th>Item</th><th>Code</th>
+    <th class="text-right">PR Qty</th>
+    <th class="text-right">Received</th>
+    <th class="text-right">Filled</th>
+    <th class="text-right">Returned</th>
+    <th class="text-right">Remaining</th>
+    <th>Unit</th>
+  </tr></thead>
+  <tbody>
+    ${grn.items.map((it, i) => {
+      const remaining = it.quantity_received - it.quantity_filled - it.quantity_returned;
+      return `<tr>
+        <td>${i + 1}</td>
+        <td>${it.item_name ?? "—"}</td>
+        <td style="font-family:monospace">${it.item_code ?? "—"}</td>
+        <td class="text-right">${it.quantity_pr_requested != null ? it.quantity_pr_requested : "—"}</td>
+        <td class="text-right">${it.quantity_received}</td>
+        <td class="text-right">${it.quantity_filled}</td>
+        <td class="text-right">${it.quantity_returned}</td>
+        <td class="text-right">${(Math.round(remaining * 1000) / 1000).toLocaleString("en-IN")}</td>
+        <td>${it.unit ?? ""}</td>
+      </tr>`;
+    }).join("")}
+  </tbody>
+  <tfoot>
+    <tr>
+      <td colspan="3" style="text-align:right">Totals</td>
+      <td class="text-right">—</td>
+      <td class="text-right">${totalReceived.toLocaleString("en-IN")}</td>
+      <td class="text-right">${totalFilled.toLocaleString("en-IN")}</td>
+      <td class="text-right">${totalReturned.toLocaleString("en-IN")}</td>
+      <td class="text-right">${(totalReceived - totalFilled - totalReturned).toLocaleString("en-IN")}</td>
+      <td></td>
+    </tr>
+  </tfoot>
+</table>
+${grn.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${grn.notes}</p>` : ""}
+<p style="margin-top:24px;font-size:11px;color:#666">
+  Received By: ${grn.received_by_username ?? "—"} &nbsp;&nbsp;&nbsp;
+  Inspected By: ${grn.inspected_by_username ?? "—"}
+</p>
+</body></html>`);
+    win.document.close();
+    win.focus();
+    win.print();
   }
 
   async function handleReturnItems() {
@@ -1224,6 +1305,15 @@ export default function GRNPage() {
             <DialogTitle className="flex items-center gap-2">
               <Package className="size-4" /> {viewGrn?.grn_number}
               {viewGrn && <StatusBadge status={viewGrn.status} />}
+              {viewGrn && (
+                <Button
+                  size="sm" variant="outline" className="ml-auto h-7 text-xs"
+                  onClick={() => printGRN(viewGrn)}
+                >
+                  <Printer className="size-3 mr-1" />
+                  Print
+                </Button>
+              )}
             </DialogTitle>
           </DialogHeader>
           {viewGrn && (
