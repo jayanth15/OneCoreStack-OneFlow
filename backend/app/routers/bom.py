@@ -85,6 +85,7 @@ def list_bom(
     session: Annotated[Session, Depends(get_session)],
     _: Annotated[User, Depends(get_current_user)],
     product_name: Optional[str] = None,
+    vendor: Optional[str] = None,
     include_inactive: bool = False,
 ) -> list[dict]:
     q = select(BomItem)
@@ -92,6 +93,19 @@ def list_bom(
         q = q.where(BomItem.is_active == True)  # noqa: E712
     if product_name:
         q = q.where(BomItem.product_name == product_name)
+    if vendor:
+        # Filter by the finished good's vendor — joined through InventoryItem.name
+        vendor_product_names = set(
+            session.exec(
+                select(InventoryItem.name).where(
+                    InventoryItem.item_type == "finished_good",
+                    InventoryItem.vendor_name == vendor,
+                )
+            ).all()
+        )
+        if not vendor_product_names:
+            return []
+        q = q.where(BomItem.product_name.in_(vendor_product_names))
     entries = list(session.exec(q.order_by(BomItem.product_name)).all())
 
     result = []

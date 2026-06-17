@@ -38,6 +38,8 @@ export default function BomPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchProduct, setSearchProduct] = useState("");
+  const [vendor, setVendor] = useState("");
+  const [vendors, setVendors] = useState<{ id: number | null; name: string }[]>([]);
   const [showInactive, setShowInactive] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -50,12 +52,19 @@ export default function BomPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    apiFetchJson<{ id: number | null; name: string }[]>("/api/v1/vendors/names")
+      .then(setVendors)
+      .catch(() => {});
+  }, []);
+
   async function load() {
     setLoading(true);
     setError(null);
     try {
       const p = new URLSearchParams({ include_inactive: String(showInactive) });
       if (searchProduct) p.set("product_name", searchProduct);
+      if (vendor) p.set("vendor", vendor);
       const data = await apiFetchJson<BomItem[]>(`/api/v1/bom?${p}`);
       setItems(data);
     } catch (e: unknown) {
@@ -65,7 +74,7 @@ export default function BomPage() {
     }
   }
 
-  useEffect(() => { load(); }, [showInactive]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [showInactive, vendor]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleDelete() {
     if (deleteId === null) return;
@@ -126,6 +135,16 @@ export default function BomPage() {
             onKeyDown={(e) => e.key === "Enter" && load()}
             className="rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring w-64"
           />
+          <select
+            value={vendor}
+            onChange={(e) => setVendor(e.target.value)}
+            className="rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            <option value="">All vendors</option>
+            {vendors.map((v) => (
+              <option key={v.id ?? v.name} value={v.name}>{v.name}</option>
+            ))}
+          </select>
           <Button size="sm" variant="outline" onClick={load}>Search</Button>
           <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none ml-auto">
             <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} className="size-3 rounded" />
