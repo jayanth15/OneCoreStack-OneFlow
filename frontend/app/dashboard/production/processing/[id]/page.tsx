@@ -562,32 +562,62 @@ export default function ProductionOrderDetailPage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {jobsByProcess.map(({ process, cards }) => (
+                  {jobsByProcess.map(({ process, cards }) => {
+                    const processProduced = cards
+                      .filter(jc => jc.is_active)
+                      .reduce((s, jc) => s + jc.qty_produced, 0);
+                    const processPlanned = order.planned_qty ?? 0;
+                    const processPending = Math.max(0, processPlanned - processProduced);
+                    const processPct = processPlanned > 0 ? Math.min(100, Math.round((processProduced / processPlanned) * 100)) : 0;
+                    return (
                     <div key={process.id} className="rounded-lg border overflow-hidden">
                       {/* Process header */}
-                      <div className="bg-muted/40 px-4 py-2.5 flex items-center justify-between">
+                      <div className="bg-muted/40 px-4 py-2.5 flex items-center justify-between gap-3">
                         <div className="flex items-start gap-2 flex-1 min-w-0">
                           <span className="inline-flex items-center justify-center size-6 rounded-full bg-primary/10 text-primary text-xs font-bold shrink-0 mt-0.5">
                             {process.sequence}
                           </span>
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-medium text-sm">{process.name}</span>
                               {process.notes && (
                                 <span className="text-xs text-muted-foreground hidden sm:inline">— {process.notes}</span>
                               )}
+                              {processPlanned > 0 && (
+                                <span className="text-[11px] text-muted-foreground font-mono">
+                                  {processProduced} / {processPlanned} ({processPct}%)
+                                </span>
+                              )}
                             </div>
+                            {/* Progress bar */}
+                            {processPlanned > 0 && (
+                              <div className="mt-1.5 h-1.5 w-full rounded-full bg-background/60 overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all ${
+                                    processPct >= 100
+                                      ? "bg-emerald-500"
+                                      : processPct >= 50
+                                        ? "bg-blue-500"
+                                        : "bg-amber-500"
+                                  }`}
+                                  style={{ width: `${processPct}%` }}
+                                />
+                              </div>
+                            )}
                             {/* Time summary */}
                             {(process.estimated_time_minutes != null) && (
-                              <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-                                {process.estimated_time_minutes != null && (
-                                  <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
-                                    <Clock className="size-3" />
-                                    {process.estimated_time_minutes < 1
-                                      ? `${Math.round(process.estimated_time_minutes * 60)} sec`
-                                      : process.estimated_time_minutes >= 60
-                                        ? `${(process.estimated_time_minutes / 60).toFixed(1)} hr`
-                                        : `${process.estimated_time_minutes} min`} / unit
+                              <div className="flex items-center gap-3 mt-1 flex-wrap">
+                                <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
+                                  <Clock className="size-3" />
+                                  {process.estimated_time_minutes < 1
+                                    ? `${Math.round(process.estimated_time_minutes * 60)} sec`
+                                    : process.estimated_time_minutes >= 60
+                                      ? `${(process.estimated_time_minutes / 60).toFixed(1)} hr`
+                                      : `${process.estimated_time_minutes} min`} / unit
+                                </span>
+                                {processPending > 0 && (
+                                  <span className="text-[11px] text-amber-600 font-medium">
+                                    {processPending} unit{processPending !== 1 ? "s" : ""} pending
                                   </span>
                                 )}
                               </div>
@@ -670,6 +700,24 @@ export default function ProductionOrderDetailPage() {
                                   title="History">
                                   <History className="size-3" />
                                 </Button>
+                                <Button
+                                  variant="ghost" size="sm"
+                                  className="h-7 text-xs px-2 text-primary hover:text-primary"
+                                  onClick={() => {
+                                    const params = new URLSearchParams({ process: jc.process_name });
+                                    if (jc.worker_names?.length) params.set("worker", jc.worker_names.join(", "));
+                                    else if (jc.worker_name) params.set("worker", jc.worker_name);
+                                    if (jc.tool_die_number) params.set("tool_die", jc.tool_die_number);
+                                    if (jc.machine_name) params.set("machine", jc.machine_name);
+                                    if (jc.job_type) params.set("job_type", jc.job_type);
+                                    if (jc.supplier_id) params.set("supplier_id", String(jc.supplier_id));
+                                    router.push(`/dashboard/production/processing/${order.id}/jobs/new?${params}`);
+                                  }}
+                                  title="Log another entry with the same worker / tool / machine"
+                                >
+                                  <PlusIcon className="size-3 mr-1" />
+                                  Log
+                                </Button>
                                 {(admin || (jc.worker_names?.includes(currentUsername ?? "") ?? jc.worker_name === currentUsername)) && (
                                   <Button variant="ghost" size="icon" className="size-7"
                                     onClick={() => router.push(`/dashboard/production/processing/${order.id}/jobs/${jc.id}/edit`)}
@@ -690,7 +738,8 @@ export default function ProductionOrderDetailPage() {
                         </div>
                       )}
                     </div>
-                  ))}
+                    );
+                  })}
 
                   {/* Orphaned job cards (process not in plan) */}
                   {order.job_cards

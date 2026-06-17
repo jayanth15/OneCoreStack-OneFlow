@@ -33,17 +33,22 @@ function NewJobCardInner() {
   const { id } = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const preSelectedProcess = searchParams.get("process") ?? "";
+  const prefillWorker = searchParams.get("worker") ?? "";
+  const prefillToolDie = searchParams.get("tool_die") ?? "";
+  const prefillMachine = searchParams.get("machine") ?? "";
+  const prefillJobType = (searchParams.get("job_type") ?? "internal") as "internal" | "supplier";
+  const prefillSupplierId = searchParams.get("supplier_id") ?? "";
 
   const [order, setOrder] = useState<OrderInfo | null>(null);
   const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [processName, setProcessName] = useState(preSelectedProcess);
-  const [toolDie, setToolDie] = useState("");
-  const [machine, setMachine] = useState("");
-  const [workersText, setWorkersText] = useState("");
-  const [jobType, setJobType] = useState<"internal" | "supplier">("internal");
-  const [supplierId, setSupplierId] = useState<string>("");
+  const [toolDie, setToolDie] = useState(prefillToolDie);
+  const [machine, setMachine] = useState(prefillMachine);
+  const [workersText, setWorkersText] = useState(prefillWorker);
+  const [jobType, setJobType] = useState<"internal" | "supplier">(prefillJobType);
+  const [supplierId, setSupplierId] = useState<string>(prefillSupplierId);
   const [hoursWorked, setHoursWorked] = useState("0");
   const [qtyProduced, setQtyProduced] = useState("0");
   const [workDate, setWorkDate] = useState(() => new Date().toISOString().split("T")[0]);
@@ -66,8 +71,9 @@ function NewJobCardInner() {
           setProcessName(o.processes[0].name);
         }
         // Pre-fill the worker field with the current user's username for worker-role users
+        // (overrides any URL prefill, since the worker is locked to their account)
         const me = getCurrentUser();
-        if (me && isWorker()) {
+        if (me && isWorker() && !prefillWorker) {
           setWorkersText(me.username);
         }
         // Lock date for non-admins — always today
