@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -11,13 +11,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Combobox, ComboboxContent, ComboboxEmpty,
-  ComboboxInput, ComboboxItem, ComboboxList,
-} from "@/components/ui/combobox";
 import { apiFetchJson } from "@/lib/api";
 import { getCurrentUser, isWorker, isAdminOrAbove } from "@/lib/user";
-import { ArrowLeft, X } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -28,116 +24,7 @@ interface OrderInfo {
   processes: ProcessItem[];
   planned_qty: number | null;
 }
-interface WorkerOption { id: number; username: string; }
 interface SupplierOption { id: number; name: string; }
-
-// ── Worker Multi-Select Combobox ──────────────────────────────────────────────
-
-function WorkerMultiSelect({
-  value,
-  onChange,
-  disabled,
-  locked,
-}: {
-  value: string[];
-  onChange: (v: string[]) => void;
-  disabled: boolean;
-  locked: boolean;
-}) {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [options, setOptions] = useState<WorkerOption[]>([]);
-  const [fetching, setFetching] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const fetchWorkers = useCallback((q: string) => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(async () => {
-      setFetching(true);
-      try {
-        const data = await apiFetchJson<WorkerOption[]>(
-          `/api/v1/production/workers?search=${encodeURIComponent(q)}`
-        );
-        setOptions(data);
-      } catch { /* ignore */ } finally {
-        setFetching(false);
-      }
-    }, 250);
-  }, []);
-
-  // Initial load
-  useEffect(() => { fetchWorkers(""); }, [fetchWorkers]);
-
-  function remove(username: string) {
-    onChange(value.filter((v) => v !== username));
-  }
-
-  return (
-    <div className="space-y-2">
-      {/* Selected worker chips */}
-      {value.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {value.map((w) => (
-            <span
-              key={w}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-medium border border-primary/20"
-            >
-              {w}
-              {!locked && !disabled && (
-                <button
-                  type="button"
-                  onClick={() => remove(w)}
-                  className="ml-0.5 hover:text-destructive transition-colors"
-                  aria-label={`Remove ${w}`}
-                >
-                  <X className="size-3" />
-                </button>
-              )}
-            </span>
-          ))}
-        </div>
-      )}
-      {!locked && (
-        <Combobox
-          multiple
-          value={value}
-          onValueChange={(newVal: unknown[]) => onChange(newVal as string[])}
-          filter={(_item: unknown) => true}
-        >
-          <ComboboxInput
-            placeholder={value.length > 0 ? "Add more workers…" : "Search workers…"}
-            value={searchQuery}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-              setSearchQuery(e.target.value);
-              fetchWorkers(e.target.value);
-            }}
-            showTrigger
-            showClear={searchQuery.length > 0}
-            disabled={disabled}
-            className="w-full"
-          />
-          <ComboboxContent>
-            <ComboboxList>
-              {fetching && (
-                <div className="py-2 px-3 text-xs text-muted-foreground">Searching…</div>
-              )}
-              <ComboboxEmpty>No workers found</ComboboxEmpty>
-              {options.map((w) => (
-                <ComboboxItem key={w.id} value={w.username}>
-                  <span className={value.includes(w.username) ? "font-medium text-primary" : ""}>
-                    {w.username}
-                  </span>
-                  {value.includes(w.username) && (
-                    <span className="ml-auto text-[10px] text-muted-foreground">selected</span>
-                  )}
-                </ComboboxItem>
-              ))}
-            </ComboboxList>
-          </ComboboxContent>
-        </Combobox>
-      )}
-    </div>
-  );
-}
 
 // ── Inner ─────────────────────────────────────────────────────────────────────
 
@@ -154,8 +41,7 @@ function NewJobCardInner() {
   const [processName, setProcessName] = useState(preSelectedProcess);
   const [toolDie, setToolDie] = useState("");
   const [machine, setMachine] = useState("");
-  const [selectedWorkers, setSelectedWorkers] = useState<string[]>([]);
-  const [workerLocked, setWorkerLocked] = useState(false);
+  const [workersText, setWorkersText] = useState("");
   const [jobType, setJobType] = useState<"internal" | "supplier">("internal");
   const [supplierId, setSupplierId] = useState<string>("");
   const [hoursWorked, setHoursWorked] = useState("0");
@@ -179,11 +65,10 @@ function NewJobCardInner() {
         if (!processName && o.processes.length > 0) {
           setProcessName(o.processes[0].name);
         }
-        // Auto-select worker for worker-role users
+        // Pre-fill the worker field with the current user's username for worker-role users
         const me = getCurrentUser();
         if (me && isWorker()) {
-          setSelectedWorkers([me.username]);
-          setWorkerLocked(true);
+          setWorkersText(me.username);
         }
         // Lock date for non-admins — always today
         if (!isAdminOrAbove()) {
@@ -198,15 +83,23 @@ function NewJobCardInner() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!processName.trim()) { setError("Select a process"); return; }
+    if (jobType === "internal" && !workersText.trim()) { setError("Enter at least one worker name"); return; }
     setSaving(true);
     setError(null);
     try {
+      // Parse the workers text into a list — supports commas, semicolons, "and"
+      const workerNames = jobType === "internal"
+        ? workersText
+            .split(/[,;]+|\band\b/)
+            .map(w => w.trim())
+            .filter(w => w.length > 0)
+        : [];
       const body = {
         process_name: processName.trim(),
         tool_die_number: toolDie || null,
         machine_name: machine || null,
-        worker_name: jobType === "internal" ? (selectedWorkers[0] ?? null) : null,
-        worker_names: jobType === "internal" ? selectedWorkers : [],
+        worker_name: jobType === "internal" ? (workerNames[0] ?? null) : null,
+        worker_names: workerNames,
         hours_worked: parseFloat(hoursWorked) || 0,
         qty_produced: parseFloat(qtyProduced) || 0,
         work_date: workDate || null,
@@ -334,19 +227,22 @@ function NewJobCardInner() {
               </div>
             </div>
 
-            {/* Workers (multi-select, only for internal jobs) */}
+            {/* Workers (free-text input, only for internal jobs) */}
             {jobType === "internal" && (
               <div className="space-y-1.5">
-                <Label>Workers</Label>
-                <WorkerMultiSelect
-                  value={selectedWorkers}
-                  onChange={setSelectedWorkers}
+                <Label htmlFor="workers">
+                  Worker(s) <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="workers"
+                  value={workersText}
+                  onChange={(e) => setWorkersText(e.target.value)}
                   disabled={saving}
-                  locked={workerLocked}
+                  placeholder="e.g. Ravi Kumar, Suresh"
                 />
-                {workerLocked && (
-                  <p className="text-xs text-muted-foreground">Auto-assigned to your account.</p>
-                )}
+                <p className="text-xs text-muted-foreground">
+                  Type employee names. Separate multiple with commas, semicolons, or &quot;and&quot;.
+                </p>
               </div>
             )}
 
