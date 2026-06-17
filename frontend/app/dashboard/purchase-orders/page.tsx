@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
@@ -74,6 +74,7 @@ const BLANK_FORM = () => ({
 
 export default function PurchaseOrdersPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     const user = getCurrentUser();
@@ -124,7 +125,7 @@ export default function PurchaseOrdersPage() {
     apiFetchJson<NameOption[]>("/api/v1/suppliers/names").then(setSuppliers).catch(() => {});
     apiFetchJson<NameOption[]>("/api/v1/vendors/names").then(setVendors).catch(() => {});
     apiFetchJson<{ items: { id: number; sn_no: string; item_name: string | null; items: { item_name: string | null; quantity: number }[] }[] }>(
-      "/api/v1/purchase-requests?status_filter=approved&page_size=100"
+      "/api/v1/purchase-requests?status=approved&page_size=100"
     ).then(r => setPurchaseRequests(r.items)).catch(() => {});
   }, []);
 
@@ -216,8 +217,8 @@ export default function PurchaseOrdersPage() {
     } finally { setStatusChangingId(null); }
   }
 
-  function applyFromRequest() {
-    const pr = purchaseRequests.find(p => p.id === parseInt(selectedPR));
+  function seedFromPR(prId: number) {
+    const pr = purchaseRequests.find(p => p.id === prId);
     if (!pr) return;
     const prItems = pr.items && pr.items.length > 0
       ? pr.items.map(i => ({ item_name: i.item_name ?? "", quantity: i.quantity, unit: "", rate: 0, notes: "" }))
@@ -228,10 +229,28 @@ export default function PurchaseOrdersPage() {
       purchase_request_id: pr.id,
       purchase_request_number: pr.sn_no,
     }));
-    setShowFromRequest(false);
-    setSelectedPR("");
     setShowCreate(true);
   }
+
+  function applyFromRequest() {
+    const prId = parseInt(selectedPR);
+    if (!prId) return;
+    seedFromPR(prId);
+    setShowFromRequest(false);
+    setSelectedPR("");
+  }
+
+  // Auto-open create dialog when arriving from a PR's "Create PO" button
+  useEffect(() => {
+    const fromPr = searchParams.get("from_pr");
+    if (!fromPr) return;
+    const prId = parseInt(fromPr);
+    if (!prId) return;
+    if (purchaseRequests.length === 0) return;  // wait for the list to load
+    seedFromPR(prId);
+    router.replace("/dashboard/purchase-orders");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, purchaseRequests]);
 
   function printPurchaseOrder(po: PurchaseOrder) {
     const partyName = po.party_type === "vendor" ? po.vendor_name : po.supplier_name;

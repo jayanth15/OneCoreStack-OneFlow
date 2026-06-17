@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
@@ -318,11 +319,14 @@ function newRow(): FormItemRow {
 }
 
 function PurchaseTab({ admin }: { admin: boolean }) {
+  const router = useRouter();
   const [items, setItems] = useState<PurchaseRequest[]>([]);
   const [total, setTotal] = useState(0); const [page, setPage] = useState(1); const [pages, setPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState(""); const [searchDraft, setSearchDraft] = useState("");
+  // map of pr_id → linked PO (po_number, status) so we can show a badge
+  const [linkedPOs, setLinkedPOs] = useState<Record<number, { po_number: string; status: string }>>({});
 
   const [dialog, setDialog] = useState<"create" | "edit" | "view" | null>(null);
   const [selected, setSelected] = useState<PurchaseRequest | null>(null);
@@ -386,6 +390,23 @@ function PurchaseTab({ admin }: { admin: boolean }) {
       .then(d => { setItems(d.items); setTotal(d.total); setPage(d.page); setPages(d.pages); })
       .catch(() => {}).finally(() => setLoading(false));
   }, [statusFilter, search, page]); // eslint-disable-line
+
+  // Load linked POs (any page size is fine — we only need purchase_request_id + po_number)
+  const fetchLinkedPOs = useCallback(() => {
+    apiFetchJson<{ items: { id: number; po_number: string; status: string; purchase_request_id: number | null }[] }>(
+      "/api/v1/purchase-orders?page_size=200"
+    ).then(d => {
+      const map: Record<number, { po_number: string; status: string }> = {};
+      for (const po of d.items || []) {
+        if (po.purchase_request_id != null) {
+          map[po.purchase_request_id] = { po_number: po.po_number, status: po.status };
+        }
+      }
+      setLinkedPOs(map);
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => { fetchLinkedPOs(); }, [fetchLinkedPOs]);
 
   useEffect(() => { fetch(1); }, [statusFilter, search]); // eslint-disable-line
 
@@ -676,7 +697,16 @@ function PurchaseTab({ admin }: { admin: boolean }) {
                           </div>
                         ) : <span className="text-muted-foreground text-xs">—</span>}
                       </td>
-                      <td className="px-4 py-3"><StatusBadge status={r.status} /></td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <StatusBadge status={r.status} />
+                          {linkedPOs[r.id] && (
+                            <span className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded-full border bg-blue-50 border-blue-200 text-blue-700 font-mono">
+                              PO: {linkedPOs[r.id].po_number}
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{fmtDate(r.created_at)}</td>
                       <td className="px-4 py-3 text-right">
                         <div className="inline-flex gap-1">
@@ -868,7 +898,26 @@ function PurchaseTab({ admin }: { admin: boolean }) {
           <DialogHeader><DialogTitle>{selected?.sn_no}</DialogTitle></DialogHeader>
           {selected && (
             <div className="space-y-3 mt-1 text-sm">
-              <div className="flex items-center gap-2"><StatusBadge status={selected.status} />{selected.deadline_date && <DeadlineBadge deadlineDate={selected.deadline_date} />}</div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <StatusBadge status={selected.status} />
+                {selected.deadline_date && <DeadlineBadge deadlineDate={selected.deadline_date} />}
+                {linkedPOs[selected.id] && (
+                  <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border bg-blue-50 border-blue-200 text-blue-700">
+                    PO: {linkedPOs[selected.id].po_number}
+                  </span>
+                )}
+                {selected.status === "approved" && !linkedPOs[selected.id] && (admin || true) && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 text-xs ml-auto"
+                    onClick={() => router.push(`/dashboard/purchase-orders?from_pr=${selected.id}`)}
+                  >
+                    <ShoppingCart className="size-3 mr-1" />
+                    Create PO
+                  </Button>
+                )}
+              </div>
               <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
                 {selected.items && selected.items.length > 0 ? (
                   <>
