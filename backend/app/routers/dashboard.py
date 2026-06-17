@@ -11,6 +11,7 @@ from app.core.database import get_session
 from app.dependencies.auth import get_current_user, is_admin_or_above
 from app.models.attachment_item import AttachmentItem
 from app.models.consumable import Consumable
+from app.models.dispatch import Dispatch
 from app.models.vendor import Vendor
 from app.models.inventory import InventoryItem
 from app.models.inventory_history import InventoryHistory
@@ -107,6 +108,12 @@ class ProductionOutputPoint(BaseModel):
     qty_produced: float
 
 
+class DispatchOutputPoint(BaseModel):
+    """One data point for a daily dispatch (sales) chart."""
+    date: str  # YYYY-MM-DD
+    qty_dispatched: float
+
+
 class LowStockItem(BaseModel):
     id: int
     code: str
@@ -128,6 +135,7 @@ class DashboardResponse(BaseModel):
     recent_production: list[RecentProductionActivity]
     top_products: list[TopProduct]
     daily_production_output: list[ProductionOutputPoint]
+    daily_dispatch_output: list[DispatchOutputPoint]
     low_stock_items: list[LowStockItem]
 
 
@@ -340,6 +348,27 @@ def get_dashboard(
         for r in daily_rows
     ]
 
+    # ── Daily dispatch output (last 30 days) — represents "sales" ────────
+    dispatch_rows = list(
+        session.exec(
+            select(
+                Dispatch.dispatch_date,
+                func.sum(Dispatch.quantity).label("total"),
+            )
+            .where(
+                Dispatch.is_active == True,  # noqa: E712
+                Dispatch.dispatch_date.is_not(None),  # type: ignore[union-attr]
+                Dispatch.dispatch_date >= thirty_days_ago,  # type: ignore[operator]
+            )
+            .group_by(Dispatch.dispatch_date)
+            .order_by(Dispatch.dispatch_date)  # type: ignore[arg-type]
+        ).all()
+    )
+    daily_dispatch_output = [
+        DispatchOutputPoint(date=r[0], qty_dispatched=float(r[1]))  # type: ignore[arg-type]
+        for r in dispatch_rows
+    ]
+
     # ── Low stock items ────────────────────────────────────────────────────
     low_stock_rows = list(
         session.exec(
@@ -374,6 +403,7 @@ def get_dashboard(
         recent_production=recent_production,
         top_products=top_products,
         daily_production_output=daily_production_output,
+        daily_dispatch_output=daily_dispatch_output,
         low_stock_items=low_stock_items,
     )
 

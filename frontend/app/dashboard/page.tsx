@@ -71,6 +71,11 @@ interface DailyOutput {
   qty_produced: number;
 }
 
+interface DailyDispatch {
+  date: string;
+  qty_dispatched: number;
+}
+
 interface LowStockItem {
   id: number;
   code: string;
@@ -116,6 +121,7 @@ interface DashboardData {
   recent_production: RecentProduction[];
   top_products: TopProduct[];
   daily_production_output: DailyOutput[];
+  daily_dispatch_output: DailyDispatch[];
   low_stock_items: LowStockItem[];
 }
 
@@ -693,6 +699,31 @@ export default function DashboardPage() {
                 <Tooltip />
                 <Area type="monotone" dataKey="qty_produced" stroke="#3b82f6" fill="url(#colorQty)"
                   strokeWidth={2} name="Qty Produced" />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        {/* ── Sales / Dispatch Graph (last 30 days) ────────────────────── */}
+        <div className="rounded-xl border bg-card p-4 shadow-sm">
+          <p className="text-sm font-semibold mb-3">Sales / Dispatch (last 30 days)</p>
+          {data.daily_dispatch_output.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-10">No dispatches recorded yet</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={250}>
+              <AreaChart data={data.daily_dispatch_output}>
+                <defs>
+                  <linearGradient id="colorDispatch" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(d: string) => d.slice(5)} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip />
+                <Area type="monotone" dataKey="qty_dispatched" stroke="#10b981" fill="url(#colorDispatch)"
+                  strokeWidth={2} name="Qty Dispatched" />
               </AreaChart>
             </ResponsiveContainer>
           )}
