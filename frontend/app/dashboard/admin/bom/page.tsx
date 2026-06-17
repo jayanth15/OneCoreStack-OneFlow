@@ -27,6 +27,7 @@ interface BomItem {
   qty_per_unit: number;
   material_used: number | null;
   scrap: number | null;
+  material_unit: string | null;
   notes: string | null;
   is_active: boolean;
 }
@@ -152,7 +153,9 @@ export default function BomPage() {
                 </div>
                 {/* Mobile cards */}
                 <div className="md:hidden divide-y">
-                  {lines.map((line) => (
+                  {lines.map((line) => {
+                    const usedUnit = line.material_unit ?? line.raw_material_unit;
+                    return (
                     <div key={line.id} className={`px-4 py-3 space-y-1.5 ${!line.is_active ? "opacity-60" : ""}`}>
                       <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0">
@@ -177,18 +180,23 @@ export default function BomPage() {
                       {line.material_used != null && (
                         <div className="text-xs">
                           <span className="text-muted-foreground">Material Used / Unit:</span>{" "}
-                          <span className="font-medium">{line.material_used} {line.raw_material_unit}</span>
+                          <span className="font-medium">{line.material_used} {usedUnit ?? "—"}</span>
                         </div>
                       )}
                       {line.scrap != null && (
                         <div className="text-xs">
                           <span className="text-muted-foreground">Scrap / Unit:</span>{" "}
-                          <span className="font-medium">{line.scrap} {line.raw_material_unit}</span>
+                          <span className="font-medium">{line.scrap} {usedUnit ?? "—"}</span>
                         </div>
                       )}
+                      <div className="text-xs">
+                        <span className="text-muted-foreground">Unit (Used / Scrap):</span>{" "}
+                        <span className="font-medium">{line.material_unit ?? <span className="text-muted-foreground">inherits RM unit</span>}</span>
+                      </div>
                       {line.notes && <p className="text-xs text-muted-foreground">{line.notes}</p>}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 {/* Desktop table */}
                 <table className="hidden md:table w-full text-sm">
@@ -198,12 +206,15 @@ export default function BomPage() {
                       <th className="px-4 py-2 text-right font-medium text-xs">Qty / Unit</th>
                       <th className="px-4 py-2 text-right font-medium text-xs">Material Used / Unit</th>
                       <th className="px-4 py-2 text-right font-medium text-xs">Scrap / Unit</th>
+                      <th className="px-4 py-2 text-left font-medium text-xs">Unit (Used/Scrap)</th>
                       <th className="px-4 py-2 text-left font-medium text-xs">Notes</th>
                       <th className="px-4 py-2 text-right font-medium text-xs">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {lines.map((line) => (
+                    {lines.map((line) => {
+                      const usedUnit = line.material_unit ?? line.raw_material_unit;
+                      return (
                       <tr key={line.id} className={["border-b last:border-0 hover:bg-muted/20", !line.is_active ? "opacity-60" : ""].join(" ")}>
                         <td className="px-4 py-2.5">
                           <div className="font-medium">{line.raw_material_name}</div>
@@ -213,10 +224,13 @@ export default function BomPage() {
                           {line.qty_per_unit} {line.raw_material_unit}
                         </td>
                         <td className="px-4 py-2.5 text-right tabular-nums">
-                          {line.material_used != null ? `${line.material_used} ${line.raw_material_unit ?? ""}` : "—"}
+                          {line.material_used != null ? `${line.material_used} ${usedUnit ?? ""}` : "—"}
                         </td>
                         <td className="px-4 py-2.5 text-right tabular-nums">
-                          {line.scrap != null ? `${line.scrap} ${line.raw_material_unit ?? ""}` : "—"}
+                          {line.scrap != null ? `${line.scrap} ${usedUnit ?? ""}` : "—"}
+                        </td>
+                        <td className="px-4 py-2.5 text-xs">
+                          {line.material_unit ?? <span className="text-muted-foreground">inherits RM unit</span>}
                         </td>
                         <td className="px-4 py-2.5 text-muted-foreground text-xs">
                           {line.notes ?? "—"}
@@ -236,7 +250,8 @@ export default function BomPage() {
                           </div>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
