@@ -15,6 +15,7 @@ import {
   Package, ShoppingCart, Megaphone, ClipboardList, Calendar,
   FlaskConical, Wrench, Scissors, Paperclip, History, ChevronDown,
   RotateCcw, Box, PackageCheck, Layers, Recycle, PackageSearch, Truck,
+  LayoutGrid, Rows3, ArrowRight, User,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -237,6 +238,76 @@ function SkeletonRows({ cols, rows = 8 }: { cols: number; rows?: number }) {
   );
 }
 
+// ── History Card (card-view renderer) ─────────────────────────────────────────
+
+function HistoryCard({ tab, h }: { tab: TabKey; h: HistoryItem }) {
+  const isQty = tab === "raw-materials" || tab === "finished-goods" ||
+                tab === "semi-finished" || tab === "scraps" ||
+                tab === "consumables" || tab === "spares" ||
+                tab === "weeders" || tab === "attachments";
+  const isStatus = tab === "schedules" || tab === "dispatches" || tab === "gate-passes";
+
+  return (
+    <div className="rounded-lg border bg-card p-3 hover:shadow-sm transition-shadow">
+      {/* Top row: entity name + change type badge */}
+      <div className="flex items-start justify-between gap-2 mb-1.5">
+        <div className="min-w-0 flex-1">
+          <p className="font-medium text-sm truncate">{h.entity_name ?? "—"}</p>
+          {h.variant_label && (
+            <p className="text-xs text-muted-foreground truncate">{h.variant_label}</p>
+          )}
+        </div>
+        <ChangeTypeBadge type={h.change_type} />
+      </div>
+
+      {/* Middle: change detail */}
+      <div className="text-xs space-y-1.5">
+        {isQty && h.qty_before != null && h.qty_after != null ? (
+          <div className="flex items-center gap-1.5">
+            <span className="font-mono text-muted-foreground tabular-nums">{h.qty_before}</span>
+            <ArrowRight className="size-3 text-muted-foreground" />
+            <span className="font-mono font-semibold text-foreground tabular-nums">{h.qty_after}</span>
+            <DeltaBadge delta={h.qty_delta} />
+          </div>
+        ) : isStatus && (h.old_value || h.new_value) ? (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {h.old_value && (
+              <span className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground line-through text-[10px]">
+                {h.old_value}
+              </span>
+            )}
+            {h.old_value && h.new_value && <ArrowRight className="size-3 text-muted-foreground" />}
+            {h.new_value && (
+              <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-medium">
+                {h.new_value}
+              </span>
+            )}
+          </div>
+        ) : (h.old_value || h.new_value) ? (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {h.field_name && <span className="text-muted-foreground">{h.field_name}:</span>}
+            {h.old_value && (
+              <span className="font-mono text-muted-foreground line-through">{h.old_value}</span>
+            )}
+            {h.old_value && h.new_value && <ArrowRight className="size-3 text-muted-foreground" />}
+            {h.new_value && <span className="font-mono font-semibold">{h.new_value}</span>}
+          </div>
+        ) : null}
+        {h.note && <p className="text-muted-foreground italic truncate" title={h.note}>"{h.note}"</p>}
+      </div>
+
+      {/* Bottom: by user + date */}
+      <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t text-[11px] text-muted-foreground">
+        <span className="flex items-center gap-1 truncate">
+          <User className="size-3" />
+          {h.changed_by_username ?? "—"}
+        </span>
+        <span className="whitespace-nowrap">{fmtDate(h.changed_at)}</span>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────────
 
 export default function HistoryPage() {
@@ -250,6 +321,7 @@ export default function HistoryPage() {
   }, [router]);
 
   const [activeTab, setActiveTab] = useState<TabKey>("raw-materials");
+  const [viewMode, setViewMode] = useState<"table" | "cards">("cards");
   const [tabState, setTabState] = useState<Record<TabKey, TabState>>(
     () => Object.fromEntries(TABS.map(t => [t.key, { ...INITIAL_TAB_STATE }])) as Record<TabKey, TabState>
   );
@@ -375,24 +447,82 @@ export default function HistoryPage() {
       </div>
 
       {/* Tab bar */}
-      <div className="flex flex-wrap gap-1.5 border-b pb-1">
-        {TABS.map(({ key, label, Icon }) => (
+      <div className="flex flex-wrap items-end gap-1.5 border-b pb-1">
+        <div className="flex flex-wrap gap-1.5 flex-1">
+          {TABS.map(({ key, label, Icon }) => (
+            <button
+              key={key}
+              onClick={() => setActiveTab(key)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-t-md text-sm font-medium transition-colors
+                ${activeTab === key
+                  ? "bg-background border border-b-background border-b-white -mb-px text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
+            >
+              <Icon className="size-3.5" />
+              {label}
+            </button>
+          ))}
+        </div>
+        {/* View mode toggle */}
+        <div className="flex rounded-md border bg-card p-0.5 ml-auto">
           <button
-            key={key}
-            onClick={() => setActiveTab(key)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-t-md text-sm font-medium transition-colors
-              ${activeTab === key
-                ? "bg-background border border-b-background border-b-white -mb-px text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              }`}
+            onClick={() => setViewMode("cards")}
+            title="Card view"
+            className={`px-2 py-1 rounded text-xs font-medium flex items-center gap-1 transition-colors ${
+              viewMode === "cards" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+            }`}
           >
-            <Icon className="size-3.5" />
-            {label}
+            <LayoutGrid className="size-3.5" />Cards
           </button>
-        ))}
+          <button
+            onClick={() => setViewMode("table")}
+            title="Table view"
+            className={`px-2 py-1 rounded text-xs font-medium flex items-center gap-1 transition-colors ${
+              viewMode === "table" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Rows3 className="size-3.5" />Table
+          </button>
+        </div>
       </div>
 
-      {/* Table */}
+      {/* Content */}
+      {viewMode === "cards" ? (
+        <div className="rounded-lg border bg-card p-3">
+          {st.loading && st.items.length === 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {Array.from({ length: 9 }).map((_, i) => (
+                <Skeleton key={i} className="h-28 w-full" />
+              ))}
+            </div>
+          ) : st.items.length === 0 ? (
+            <p className="text-center text-muted-foreground text-sm py-12">No history found.</p>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {st.items.map(h => <HistoryCard key={h.id} tab={activeTab} h={h} />)}
+              </div>
+              {st.loading && st.items.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
+                  {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-28 w-full" />)}
+                </div>
+              )}
+            </>
+          )}
+          {st.loaded && (
+            <div className="flex items-center justify-between mt-3 pt-3 border-t text-xs text-muted-foreground">
+              <span>Showing {st.items.length} of {st.total} records</span>
+              {st.page < st.total_pages && (
+                <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs"
+                  disabled={st.loading} onClick={() => loadTab(activeTab, st.page + 1, true)}>
+                  <ChevronDown className="size-3.5" />Load more
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      ) : (
       <div className="rounded-lg border bg-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -449,6 +579,7 @@ export default function HistoryPage() {
           </div>
         )}
       </div>
+      )}
 
     </div>
   );
