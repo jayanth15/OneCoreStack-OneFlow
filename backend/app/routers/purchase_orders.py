@@ -32,6 +32,7 @@ def list_pos(
     current_user: Annotated[User, Depends(get_current_user)],
     search: str = "",
     status_filter: str = "",
+    vendor: str = "",
     page: int = 1,
     page_size: int = 50,
 ) -> dict[str, Any]:
@@ -40,6 +41,8 @@ def list_pos(
 
     if status_filter:
         pos = [p for p in pos if p.status == status_filter]
+    if vendor:
+        pos = [p for p in pos if p.vendor_name == vendor]
     if search:
         s = search.lower()
         pos = [p for p in pos

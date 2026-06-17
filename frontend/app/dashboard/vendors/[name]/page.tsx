@@ -14,7 +14,7 @@ import { apiFetchJson } from "@/lib/api";
 import { isAdminOrAbove } from "@/lib/user";
 import {
   ArrowLeft, Package, PackageCheck, PackageX, CalendarDays,
-  TrendingDown, TrendingUp, Clock, Users, Layers,
+  TrendingDown, TrendingUp, Clock, Users, Layers, ShoppingCart, FileText,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -28,6 +28,19 @@ interface ScheduleEntry {
   scheduled_date: string;
   status: string;
   notes: string | null;
+}
+
+interface POEntry {
+  id: number;
+  po_number: string;
+  status: string;
+  po_date: string | null;
+  expected_delivery: string | null;
+  total_value: number;
+  supplier_name: string | null;
+  vendor_name: string | null;
+  purchase_request_number: string | null;
+  items: { item_name: string; quantity: number; rate: number | null; unit: string | null }[];
 }
 
 interface ProductSummary {
@@ -133,6 +146,7 @@ export default function VendorDetailPage() {
   }, [router]);
 
   const [data, setData] = useState<VendorDetail | null>(null);
+  const [purchaseOrders, setPurchaseOrders] = useState<POEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -141,6 +155,10 @@ export default function VendorDetailPage() {
       .then(setData)
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "Not found"))
       .finally(() => setLoading(false));
+    // Also fetch POs for this vendor
+    apiFetchJson<{ items: POEntry[] }>(`/api/v1/purchase-orders?vendor=${encodeURIComponent(vendorName)}&page_size=50`)
+      .then(r => setPurchaseOrders(r.items || []))
+      .catch(() => setPurchaseOrders([]));
   }, [vendorName]);
 
   const initials = (() => {
@@ -505,6 +523,95 @@ export default function VendorDetailPage() {
                   )}
                 </table>
               </div>
+            </div>
+
+            {/* ── Current jobs (in-production schedules, prominently) ── */}
+            {(() => {
+              const inProd = data.schedules.filter(s => s.status === "in_production");
+              if (inProd.length === 0) return null;
+              return (
+                <div className="rounded-xl border-2 border-amber-200 bg-amber-50/50 p-5">
+                  <SectionHeader icon={Clock} title={`Current Jobs (${inProd.length})`} />
+                  <div className="space-y-2">
+                    {inProd.map(s => {
+                      const days = daysUntil(s.scheduled_date);
+                      return (
+                        <div key={s.id} className="rounded-lg border bg-card p-3 flex items-center justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-mono text-xs text-muted-foreground">{s.schedule_number}</p>
+                            <p className="font-medium text-sm truncate">{s.description}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              Qty: <span className="font-semibold text-foreground">{fmt(s.scheduled_qty)}</span>
+                              {s.backlog_qty > 0 && <span className="text-amber-600 ml-2">+{fmt(s.backlog_qty)} backlog</span>}
+                            </p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-xs text-muted-foreground">Delivery</p>
+                            <p className="text-sm font-medium">{fmtDate(s.scheduled_date)}</p>
+                            {days !== null && (
+                              <p className={`text-xs font-medium ${days < 0 ? "text-red-600" : days <= 7 ? "text-amber-600" : "text-emerald-600"}`}>
+                                {days === 0 ? "Today" : days < 0 ? `${Math.abs(days)}d overdue` : `in ${days}d`}
+                              </p>
+                            )}
+                          </div>
+                          <Button
+                            size="sm" variant="outline" className="h-7 text-xs"
+                            onClick={() => router.push(`/dashboard/schedule/${s.id}/edit`)}
+                          >
+                            Open
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* ── Purchase orders ── */}
+            <div className="rounded-xl border bg-card p-5">
+              <SectionHeader icon={ShoppingCart} title={`Purchase Orders (${purchaseOrders.length})`} />
+              {purchaseOrders.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No purchase orders linked to this vendor.</p>
+              ) : (
+                <div className="space-y-2">
+                  {purchaseOrders.map(po => (
+                    <div key={po.id} className="rounded-lg border p-3 hover:bg-muted/20 transition-colors">
+                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="font-mono text-xs">{po.po_number}</span>
+                          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                            po.status === "received" ? "bg-emerald-100 text-emerald-700" :
+                            po.status === "approved" ? "bg-blue-100 text-blue-700" :
+                            po.status === "cancelled" ? "bg-red-100 text-red-700" :
+                            "bg-slate-100 text-slate-700"
+                          }`}>
+                            {po.status}
+                          </span>
+                          {po.purchase_request_number && (
+                            <span className="text-[10px] text-blue-600 font-mono">PR: {po.purchase_request_number}</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground shrink-0">
+                          {po.po_date && <span>Created: {fmtDate(po.po_date)}</span>}
+                          {po.expected_delivery && <span>Due: {fmtDate(po.expected_delivery)}</span>}
+                          {po.total_value > 0 && <span className="font-mono font-semibold text-foreground">₹{po.total_value.toLocaleString("en-IN")}</span>}
+                        </div>
+                      </div>
+                      {po.items.length > 0 && (
+                        <div className="mt-2 text-xs text-muted-foreground">
+                          {po.items.slice(0, 3).map((it, i) => (
+                            <span key={i}>
+                              {it.item_name}{it.quantity ? ` × ${it.quantity}` : ""}{i < Math.min(po.items.length, 3) - 1 ? ", " : ""}
+                            </span>
+                          ))}
+                          {po.items.length > 3 && <span> +{po.items.length - 3} more</span>}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </>
         )}
