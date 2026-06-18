@@ -33,6 +33,7 @@ interface Department {
   name: string;
   description: string | null;
   is_active: boolean;
+  handles_customer_dispatch: boolean;
   user_count: number;
 }
 
@@ -170,9 +171,14 @@ export default function DepartmentsPage() {
                     <p className="font-medium truncate">{dept.name}</p>
                     <p className="text-xs text-muted-foreground font-mono">{dept.code}</p>
                   </div>
-                  <Badge variant={dept.is_active ? "default" : "secondary"} className="shrink-0">
-                    {dept.is_active ? "Active" : "Inactive"}
-                  </Badge>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {dept.handles_customer_dispatch && (
+                      <Badge variant="default">Dispatch</Badge>
+                    )}
+                    <Badge variant={dept.is_active ? "default" : "secondary"}>
+                      {dept.is_active ? "Active" : "Inactive"}
+                    </Badge>
+                  </div>
                 </div>
                 {dept.description && <p className="text-xs text-muted-foreground line-clamp-2">{dept.description}</p>}
                 <div className="flex items-center justify-between pt-2 border-t">
@@ -204,6 +210,7 @@ export default function DepartmentsPage() {
                 <th className="px-4 py-3 text-left font-medium">Name</th>
                 <th className="px-4 py-3 text-left font-medium">Description</th>
                 <th className="px-4 py-3 text-center font-medium">Users</th>
+                <th className="px-4 py-3 text-left font-medium">Customer Dispatch</th>
                 <th className="px-4 py-3 text-left font-medium">Status</th>
                 <th className="px-4 py-3 text-right font-medium">Actions</th>
               </tr>
@@ -222,7 +229,7 @@ export default function DepartmentsPage() {
                 ))
               ) : depts.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">
                     No departments yet. Click &quot;Add Department&quot; to create one.
                   </td>
                 </tr>
@@ -241,6 +248,11 @@ export default function DepartmentsPage() {
                         <Users className="size-3" />
                         {dept.user_count}
                       </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge variant={dept.handles_customer_dispatch ? "default" : "secondary"}>
+                        {dept.handles_customer_dispatch ? "Handles" : "—"}
+                      </Badge>
                     </td>
                     <td className="px-4 py-3">
                       <Badge variant={dept.is_active ? "default" : "secondary"}>

@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { TypeTabs, type TypeTabsValue } from "@/components/requests/type-tabs";
 import { RequestForm } from "@/components/requests/request-form";
-import { RequestDetailDrawer } from "@/components/requests/request-detail-drawer";
+import { RequestDetailDialog } from "@/components/requests/request-detail-dialog";
 
 const STATUS_BADGES: Record<string, string> = {
   pending: "bg-slate-100 text-slate-700",
@@ -135,7 +135,7 @@ export default function RequestsPage() {
                     <p className="font-medium text-sm">{r.sn_no}</p>
                     <p className="text-xs text-slate-500 truncate">
                       {r.request_type.replace(/_/g, " ")}
-                      {r.department && ` · ${r.department}`}
+                      {r.department_label && ` · ${r.department_label}`}
                       {r.from_whom && ` · from ${r.from_whom}`}
                       {r.requested_by_username && ` · ${r.requested_by_username}`}
                     </p>
@@ -153,7 +153,7 @@ export default function RequestsPage() {
         </ul>
       )}
 
-      <RequestDetailDrawer
+      <RequestDetailDialog
         requestId={detailId}
         open={detailId != null}
         onOpenChange={(o) => !o && setDetailId(null)}

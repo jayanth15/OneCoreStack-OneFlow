@@ -28,41 +28,48 @@ from app.schemas.request import (
     RequestReviewAction, RequestItemAcceptAction, RequestStatusUpdate,
     RequestItemRead, RequestCustomerDispatchRead, RequestHistoryRead,
 )
-from app.routers.requests_helpers import generate_sn, log_history
+from app.routers.requests_helpers import (
+    generate_sn, log_history, get_user_departments,
+    build_department_label_map, label_for_code,
+)
 
 router = APIRouter(prefix="/api/v1/requests", tags=["requests"])
 
 
 # --- auth/visibility helpers ---
 
-def _user_can_see_type(user: User, request_type: str) -> bool:
+def _user_can_see_type(user: User, request_type: str, user_depts: list) -> bool:
     """Authorisation model (from spec): by request_type.
 
     internal_transfer → any user can see (their own dept by default)
-    vendor_purchase  → admin only
-    customer_dispatch → marketing/sales dept
+    vendor_purchase   → admin only
+    customer_dispatch → user belongs to a department flagged as handling
+                        customer dispatches, or user is admin.
     """
     if request_type == REQUEST_TYPE_VENDOR_PURCHASE:
         return user.role == "admin"
     if request_type == REQUEST_TYPE_CUSTOMER_DISPATCH:
-        return user.department in ("marketing", "sales") or user.role == "admin"
+        if user.role == "admin":
+            return True
+        return any(d.handles_customer_dispatch for d in user_depts)
     return True  # internal_transfer: all users
 
 
-def _apply_visibility_filter(stmt, user: User):
+def _apply_visibility_filter(stmt, user: User, user_depts: list):
     """Restrict stmt to request types the user is allowed to see."""
-    allowed = [rt for rt in REQUEST_TYPES if _user_can_see_type(user, rt)]
+    allowed = [rt for rt in REQUEST_TYPES if _user_can_see_type(user, rt, user_depts)]
     return stmt.where(Request.request_type.in_(allowed))
 
 
-def _user_can_accept(user: User, req: Request, session: Session) -> bool:
+def _user_can_accept(user: User, req: Request, session: Session, user_depts: list) -> bool:
     """Fulfiller authorisation (from spec §Auth Model, lines 318-321).
 
-    `internal_transfer`  → user.department matches req.department OR any
-                           line item's department, or user is admin
+    `internal_transfer`  → user belongs to a department whose code matches
+                           req.department OR any line item's department, or
+                           user is admin
     `vendor_purchase`    → user is admin or super_admin only
-    `customer_dispatch`  → user.department is "marketing" or "sales", or
-                           user is admin/super_admin
+    `customer_dispatch`  → user belongs to a department flagged as handling
+                           customer dispatches, or user is admin/super_admin
     """
     if user.role in ("admin", "super_admin"):
         return True
@@ -71,9 +78,13 @@ def _user_can_accept(user: User, req: Request, session: Session) -> bool:
         return False  # admin-only, and we already returned above for admins
 
     if req.request_type == REQUEST_TYPE_CUSTOMER_DISPATCH:
-        return user.department in ("marketing", "sales")
+        return any(d.handles_customer_dispatch for d in user_depts)
 
-    # internal_transfer — match header or any per-item department
+    # internal_transfer — match header or any per-item department code against
+    # the codes of the departments the user belongs to.
+    user_dept_codes = {d.code for d in user_depts}
+    if not user_dept_codes:
+        return False
     target_depts = set()
     if req.department:
         target_depts.add(req.department)
@@ -81,7 +92,7 @@ def _user_can_accept(user: User, req: Request, session: Session) -> bool:
     for it in items:
         if it.department:
             target_depts.add(it.department)
-    return user.department is not None and user.department in target_depts
+    return bool(target_depts & user_dept_codes)
 
 
 # --- list ---
@@ -108,9 +119,21 @@ def list_requests(
         stmt = stmt.where(Request.status == status)
     if department:
         stmt = stmt.where(Request.department == department)
-    stmt = _apply_visibility_filter(stmt, current_user)
+    user_depts = get_user_departments(session, current_user.id)  # type: ignore[arg-type]
+    stmt = _apply_visibility_filter(stmt, current_user, user_depts)
     stmt = stmt.order_by(Request.created_at.desc()).offset(offset).limit(limit)
-    return session.exec(stmt).all()
+    rows = session.exec(stmt).all()
+    label_map = build_department_label_map(session)
+    return [
+        RequestListRead(
+            id=r.id, sn_no=r.sn_no, request_type=r.request_type, department=r.department,
+            department_label=label_for_code(r.department, label_map),
+            from_whom=r.from_whom, quantity=r.quantity, status=r.status,
+            requested_by_username=r.requested_by_username, created_at=r.created_at,
+            is_active=r.is_active,
+        )
+        for r in rows
+    ]
 
 
 # --- create ---
@@ -121,7 +144,7 @@ def create_request(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
-    if not _user_can_see_type(current_user, payload.request_type):
+    if not _user_can_see_type(current_user, payload.request_type, get_user_departments(session, current_user.id)):  # type: ignore[arg-type]
         raise HTTPException(status_code=403, detail=f"Not allowed to create {payload.request_type} requests")
 
     sn_no = generate_sn(session, payload.request_type)
@@ -185,7 +208,7 @@ def get_request(
     req = session.get(Request, request_id)
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
-    if not _user_can_see_type(current_user, req.request_type):
+    if not _user_can_see_type(current_user, req.request_type, get_user_departments(session, current_user.id)):  # type: ignore[arg-type]
         raise HTTPException(status_code=403, detail="Not allowed to view this request")
     return _build_read(req, session)
 
@@ -320,7 +343,7 @@ def accept_fulfilment(
         raise HTTPException(status_code=404, detail="Request not found")
     if req.status != "approved":
         raise HTTPException(status_code=409, detail=f"Cannot accept a request in status '{req.status}'")
-    if not _user_can_accept(current_user, req, session):
+    if not _user_can_accept(current_user, req, session, get_user_departments(session, current_user.id)):  # type: ignore[arg-type]
         raise HTTPException(status_code=403, detail="Not allowed to accept this request")
     req.status = "in_progress"
     req.fulfilled_by_user_id = current_user.id
@@ -351,7 +374,7 @@ def accept_item(
             status_code=409,
             detail=f"Cannot accept items on a request in status '{req.status}'"
         )
-    if not _user_can_accept(current_user, req, session):
+    if not _user_can_accept(current_user, req, session, get_user_departments(session, current_user.id)):  # type: ignore[arg-type]
         raise HTTPException(status_code=403, detail="Not allowed to accept this request")
     item = session.get(RequestItem, payload.item_id)
     if not item or item.request_id != req.id:
@@ -404,7 +427,7 @@ def get_history(
     req = session.get(Request, request_id)
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
-    if not _user_can_see_type(current_user, req.request_type):
+    if not _user_can_see_type(current_user, req.request_type, get_user_departments(session, current_user.id)):  # type: ignore[arg-type]
         raise HTTPException(status_code=403, detail="Not allowed to view this request's history")
     return session.exec(
         select(RequestHistory).where(RequestHistory.request_id == request_id).order_by(RequestHistory.changed_at.asc())
@@ -419,8 +442,10 @@ def _build_read(req: Request, session: Session) -> RequestRead:
     history = session.exec(
         select(RequestHistory).where(RequestHistory.request_id == req.id).order_by(RequestHistory.changed_at.asc())
     ).all()
+    label_map = build_department_label_map(session)
     return RequestRead(
         id=req.id, sn_no=req.sn_no, request_type=req.request_type, department=req.department,
+        department_label=label_for_code(req.department, label_map),
         from_whom=req.from_whom, quantity=req.quantity, notes=req.notes, status=req.status,
         requested_by_user_id=req.requested_by_user_id, requested_by_username=req.requested_by_username,
         created_at=req.created_at, updated_at=req.updated_at,
@@ -429,7 +454,13 @@ def _build_read(req: Request, session: Session) -> RequestRead:
         fulfilled_by_user_id=req.fulfilled_by_user_id, fulfilled_by_username=req.fulfilled_by_username,
         fulfillment_accepted_at=req.fulfillment_accepted_at, fulfillment_note=req.fulfillment_note,
         is_active=req.is_active,
-        items=[RequestItemRead.model_validate(i) for i in items],
+        items=[RequestItemRead(
+            id=i.id, inventory_item_id=i.inventory_item_id, item_name=i.item_name, item_code=i.item_code,
+            item_type=i.item_type, description=i.description, quantity=i.quantity, timeline_days=i.timeline_days,
+            department=i.department, department_label=label_for_code(i.department, label_map),
+            item_status=i.item_status, accepted_by_username=i.accepted_by_username, accepted_at=i.accepted_at,
+            acceptance_note=i.acceptance_note,
+        ) for i in items],
         dispatch=RequestCustomerDispatchRead.model_validate(dispatch) if dispatch else None,
         history=[RequestHistoryRead.model_validate(h) for h in history],
     )

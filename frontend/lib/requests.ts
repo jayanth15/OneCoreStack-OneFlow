@@ -15,6 +15,7 @@ export interface RequestItem {
   quantity: number;
   timeline_days?: number | null;
   department?: string | null;
+  department_label?: string | null;
   item_status?: string | null;
   accepted_by_username?: string | null;
   accepted_at?: string | null;
@@ -50,6 +51,7 @@ export interface UnifiedRequest {
   sn_no: string;
   request_type: RequestType;
   department?: string | null;
+  department_label?: string | null;
   from_whom?: string | null;
   quantity: number;
   notes?: string | null;
@@ -77,6 +79,7 @@ export interface RequestListItem {
   sn_no: string;
   request_type: RequestType;
   department?: string | null;
+  department_label?: string | null;
   from_whom?: string | null;
   quantity: number;
   status: RequestStatus;

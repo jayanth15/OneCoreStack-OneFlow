@@ -24,6 +24,7 @@ class DeptSimple(BaseModel):
     id: int
     code: str
     name: str
+    handles_customer_dispatch: bool = False
 
 
 @public_router.get("", response_model=list[DeptSimple])
@@ -35,7 +36,7 @@ def list_departments_public(
     depts = session.exec(
         select(Department).where(Department.is_active == True).order_by(Department.code)  # noqa: E712
     ).all()
-    return [DeptSimple(id=d.id, code=d.code, name=d.name) for d in depts]  # type: ignore[arg-type]
+    return [DeptSimple(id=d.id, code=d.code, name=d.name, handles_customer_dispatch=d.handles_customer_dispatch) for d in depts]  # type: ignore[arg-type]
 
 
 # ── Schemas ──────────────────────────────────────────────────────────────────
@@ -45,6 +46,7 @@ class DepartmentCreate(BaseModel):
     name: str
     description: Optional[str] = None
     is_active: bool = True
+    handles_customer_dispatch: bool = False
 
 
 class DepartmentUpdate(BaseModel):
@@ -52,6 +54,7 @@ class DepartmentUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     is_active: Optional[bool] = None
+    handles_customer_dispatch: Optional[bool] = None
 
 
 class DepartmentResponse(BaseModel):
@@ -60,6 +63,7 @@ class DepartmentResponse(BaseModel):
     name: str
     description: Optional[str] = None
     is_active: bool
+    handles_customer_dispatch: bool = False
     user_count: int = 0
 
     model_config = {"from_attributes": True}
@@ -91,6 +95,7 @@ def list_departments(
             name=d.name,
             description=d.description,
             is_active=d.is_active,
+            handles_customer_dispatch=d.handles_customer_dispatch,
             user_count=counts.get(d.id, 0),  # type: ignore[arg-type]
         )
         for d in depts
@@ -111,6 +116,7 @@ def create_department(
         name=body.name.strip(),
         description=body.description.strip() if body.description else None,
         is_active=body.is_active,
+        handles_customer_dispatch=body.handles_customer_dispatch,
     )
     session.add(dept)
     session.commit()
@@ -154,6 +160,8 @@ def update_department(
         dept.description = body.description.strip() or None
     if body.is_active is not None:
         dept.is_active = body.is_active
+    if body.handles_customer_dispatch is not None:
+        dept.handles_customer_dispatch = body.handles_customer_dispatch
 
     session.add(dept)
     session.commit()

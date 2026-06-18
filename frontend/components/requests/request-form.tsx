@@ -16,6 +16,7 @@ interface DeptRef {
   id: number;
   code: string;
   name: string;
+  handles_customer_dispatch?: boolean;
 }
 
 interface InventoryItem {
@@ -79,7 +80,10 @@ export function RequestForm({
   const [itemType, setItemType] = useState<RequestableItemType>("raw_material");
 
   useEffect(() => {
-    apiFetchJson<DeptRef[]>("/api/v1/admin/departments?include_inactive=false")
+    // Public endpoint — any authenticated user can list active departments.
+    // The admin-only endpoint 403s for workers/managers and silently fell back
+    // to a free-text input, which broke department selection for non-admins.
+    apiFetchJson<DeptRef[]>("/api/v1/departments")
       .then((all) => {
         const user = getCurrentUser();
         const isAdmin = user?.role === "admin" || user?.role === "super_admin";
@@ -162,7 +166,7 @@ export function RequestForm({
           >
             <option value="">—</option>
             {depts.map((d) => (
-              <option key={d.id} value={`${d.code} — ${d.name}`}>
+              <option key={d.id} value={d.code}>
                 {d.code} — {d.name}
               </option>
             ))}

@@ -4,14 +4,48 @@ from typing import Optional
 
 from sqlmodel import Session, select
 
+from app.models.department import Department
 from app.models.request import Request, REQUEST_TYPE_INTERNAL_TRANSFER, REQUEST_TYPE_VENDOR_PURCHASE, REQUEST_TYPE_CUSTOMER_DISPATCH
 from app.models.request_history import RequestHistory
+from app.models.user_department import UserDepartment
 
 
 def _prefix_for(request_type: str) -> str:
     if request_type == REQUEST_TYPE_CUSTOMER_DISPATCH:
         return "MKT"
     return "REQ"
+
+
+def get_user_departments(session: Session, user_id: int) -> list[Department]:
+    """Return the Department rows the given user belongs to (via the
+    user_departments M2M junction that is populated at user creation/edit)."""
+    links = session.exec(
+        select(UserDepartment).where(UserDepartment.user_id == user_id)
+    ).all()
+    dept_ids = [lnk.department_id for lnk in links]
+    if not dept_ids:
+        return []
+    return list(session.exec(
+        select(Department).where(Department.id.in_(dept_ids))  # type: ignore[arg-defined]
+    ).all())
+
+
+def build_department_label_map(session: Session) -> dict[str, str]:
+    """Return {code: "CODE — Name"} for all active departments. Used to attach
+    a human-readable `department_label` to request payloads while storing only
+    the stable code on the row."""
+    depts = session.exec(
+        select(Department).where(Department.is_active == True)  # noqa: E712
+    ).all()
+    return {d.code: f"{d.code} — {d.name}" for d in depts}
+
+
+def label_for_code(code: Optional[str], label_map: dict[str, str]) -> Optional[str]:
+    """Resolve a department code to its display label, falling back to the
+    raw value if the department no longer exists (e.g. was deleted)."""
+    if not code:
+        return None
+    return label_map.get(code, code)
 
 
 def generate_sn(session: Session, request_type: str) -> str:

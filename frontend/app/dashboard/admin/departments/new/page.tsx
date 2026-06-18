@@ -27,7 +27,13 @@ export default function NewDepartmentPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const [form, setForm] = useState({ code: "", name: "", description: "", is_active: true });
+  const [form, setForm] = useState({
+    code: "",
+    name: "",
+    description: "",
+    is_active: true,
+    handles_customer_dispatch: false,
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const codeRef = useRef<HTMLInputElement>(null);
@@ -143,6 +149,24 @@ export default function NewDepartmentPage() {
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
             </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="flex items-start gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={form.handles_customer_dispatch}
+                onChange={(e) => setForm({ ...form, handles_customer_dispatch: e.target.checked })}
+                disabled={saving}
+                className="mt-0.5 size-4 rounded"
+              />
+              <span>
+                <span className="text-sm font-medium leading-none">Handles customer dispatch requests</span>
+                <span className="block text-xs text-muted-foreground mt-1">
+                  Users in this department can view and fulfil customer dispatch requests.
+                </span>
+              </span>
+            </label>
           </div>
 
           {error && (

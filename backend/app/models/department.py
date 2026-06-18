@@ -12,4 +12,7 @@ class Department(SQLModel, table=True):
     name: str = Field(max_length=128)
     description: Optional[str] = Field(default=None, max_length=512)
     is_active: bool = Field(default=True)
+    # Whether this department handles customer_dispatch requests (fulfilment +
+    # visibility). Replaces the old hardcoded "marketing"/"sales" check.
+    handles_customer_dispatch: bool = Field(default=False)
     created_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))

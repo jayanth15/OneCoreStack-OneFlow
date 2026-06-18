@@ -24,6 +24,7 @@ interface DeptForm {
   name: string;
   description: string;
   is_active: boolean;
+  handles_customer_dispatch: boolean;
 }
 
 export default function EditDepartmentPage() {
@@ -36,7 +37,13 @@ export default function EditDepartmentPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const [form, setForm] = useState<DeptForm>({ code: "", name: "", description: "", is_active: true });
+  const [form, setForm] = useState<DeptForm>({
+    code: "",
+    name: "",
+    description: "",
+    is_active: true,
+    handles_customer_dispatch: false,
+  });
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -46,7 +53,13 @@ export default function EditDepartmentPage() {
     if (!id) return;
     apiFetchJson<DeptForm & { id: number; description: string | null }>(`/api/v1/admin/departments/${id}`)
       .then((data) => {
-        setForm({ code: data.code, name: data.name, description: data.description ?? "", is_active: data.is_active });
+        setForm({
+          code: data.code,
+          name: data.name,
+          description: data.description ?? "",
+          is_active: data.is_active,
+          handles_customer_dispatch: data.handles_customer_dispatch ?? false,
+        });
       })
       .catch((e: unknown) => {
         setLoadError(e instanceof Error ? e.message : "Not found");
@@ -171,6 +184,24 @@ export default function EditDepartmentPage() {
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
               </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={form.handles_customer_dispatch}
+                  onChange={(e) => setForm({ ...form, handles_customer_dispatch: e.target.checked })}
+                  disabled={saving}
+                  className="mt-0.5 size-4 rounded"
+                />
+                <span>
+                  <span className="text-sm font-medium leading-none">Handles customer dispatch requests</span>
+                  <span className="block text-xs text-muted-foreground mt-1">
+                    Users in this department can view and fulfil customer dispatch requests.
+                  </span>
+                </span>
+              </label>
             </div>
 
             {saveError && (

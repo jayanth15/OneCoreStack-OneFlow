@@ -68,6 +68,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _migrate_production_plan_v2()
     _migrate_production_plan_v3()
     _migrate_departments_description()
+    _migrate_departments_handles_dispatch()
     _migrate_job_card_worker_id()
     # Migrate schedule customer names → Customer table (runs once, idempotent)
     _seed_customers_from_schedules()
@@ -172,6 +173,47 @@ def _migrate_departments_description() -> None:
         if "description" not in cols:
             conn.execute(text("ALTER TABLE departments ADD COLUMN description TEXT"))
             conn.commit()
+
+
+def _migrate_departments_handles_dispatch() -> None:
+    """Add handles_customer_dispatch flag to departments + backfill + normalize
+    existing request/request_item department values from "CODE — Name" to "CODE".
+
+    Backfill preserves the previous hardcoded "marketing"/"sales" behaviour by
+    marking any department whose code is MKT/SAL or whose name contains
+    marketing/sales as handling customer dispatches.
+    """
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        cols = [row[1] for row in conn.execute(text("PRAGMA table_info(departments)")).fetchall()]
+        if "handles_customer_dispatch" not in cols:
+            conn.execute(text("ALTER TABLE departments ADD COLUMN handles_customer_dispatch BOOLEAN DEFAULT 0"))
+            conn.commit()
+        # Backfill: preserve legacy "marketing"/"sales" semantics.
+        conn.execute(text(
+            "UPDATE departments SET handles_customer_dispatch = 1 "
+            "WHERE upper(code) IN ('MKT', 'SAL', 'MARKETING', 'SALES') "
+            "OR lower(name) LIKE '%marketing%' OR lower(name) LIKE '%sales%'"
+        ))
+        conn.commit()
+
+        # Normalize legacy request/request_item department values that were
+        # stored as the display string "CODE — Name" down to just "CODE", so the
+        # new code-based accept-authorisation matches reliably. Idempotent: only
+        # touches values containing the " — " separator.
+        for table in ("requests", "request_items"):
+            tbl_cols = [row[1] for row in conn.execute(text(f"PRAGMA table_info({table})")).fetchall()]
+            if "department" not in tbl_cols:
+                continue
+            rows = conn.execute(text(f"SELECT id, department FROM {table} WHERE department LIKE '% — %'")).fetchall()
+            for row_id, dept_val in rows:
+                code = dept_val.split(" — ", 1)[0].strip()
+                if code:
+                    conn.execute(text(f"UPDATE {table} SET department = :code WHERE id = :rid"), {"code": code, "rid": row_id})
+            if rows:
+                conn.commit()
 
 
 def _migrate_job_card_worker_id() -> None:
@@ -1302,7 +1344,6 @@ app.include_router(gate_passes_router.router)
 app.include_router(purchase_orders_router.router)
 app.include_router(dashboard_router.router)
 app.include_router(departments_router.router)
-app.include_router(departments_router.public_router)
 app.include_router(departments_router.public_router)
 app.include_router(inventory_router.router)
 app.include_router(production_router.router)

@@ -44,6 +44,7 @@ class RequestItemRead(BaseModel):
     quantity: float
     timeline_days: Optional[int] = None
     department: Optional[str] = None
+    department_label: Optional[str] = None
     item_status: Optional[str] = None
     accepted_by_username: Optional[str] = None
     accepted_at: Optional[datetime] = None
@@ -129,6 +130,7 @@ class RequestRead(BaseModel):
     sn_no: str
     request_type: str
     department: Optional[str] = None
+    department_label: Optional[str] = None
     from_whom: Optional[str] = None
     quantity: float
     notes: Optional[str] = None
@@ -158,6 +160,7 @@ class RequestListRead(BaseModel):
     sn_no: str
     request_type: str
     department: Optional[str] = None
+    department_label: Optional[str] = None
     from_whom: Optional[str] = None
     quantity: float
     status: str
