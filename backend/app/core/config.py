@@ -50,5 +50,8 @@ class Settings(BaseSettings):
     module_quality: bool = False
     module_dispatch: bool = False
 
+    # Unified requests feature flag — controls shim router activation
+    unified_requests_enabled: bool = True
+
 
 settings = Settings()
