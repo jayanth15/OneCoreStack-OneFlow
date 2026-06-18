@@ -16,6 +16,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { apiFetchJson } from "@/lib/api";
+import { requestReceiptsApi, type RequestReceipt } from "@/lib/request-receipts";
 import { getCurrentUser, isAdminOrAbove } from "@/lib/user";
 import {
   ChevronLeft, ChevronRight, PackageCheck, CheckCircle, Clock, Eye, Trash2, Printer,
@@ -33,38 +34,6 @@ interface CompanyInfo {
   company_state: string;
   company_country: string;
   company_pincode: string;
-}
-
-interface Receipt {
-  id: number;
-  sn_no: string;
-  request_id: number;
-  item_name: string | null;
-  item_code: string | null;
-  quantity_requested: number;
-  quantity_received: number;
-  notes: string | null;
-  created_by_user_id: number | null;
-  created_by_username: string | null;
-  status: string;
-  acknowledged_by_username: string | null;
-  acknowledged_at: string | null;
-  acknowledgment_note: string | null;
-  created_at: string;
-  updated_at: string;
-  // enriched from parent request
-  requesting_department: string | null;
-  requested_by_user_id: number | null;
-  requested_by_username: string | null;
-  fulfilled_by_username: string | null;
-}
-
-interface PaginatedReceipts {
-  items: Receipt[];
-  total: number;
-  page: number;
-  page_size: number;
-  pages: number;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -99,14 +68,14 @@ function fmtDateTime(iso: string) {
 export default function ReceiptsPage() {
   const [admin, setAdmin] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
-  const [items, setItems] = useState<Receipt[]>([]);
+  const [items, setItems] = useState<RequestReceipt[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const [selected, setSelected] = useState<Receipt | null>(null);
+  const [selected, setSelected] = useState<RequestReceipt | null>(null);
   const [ackNote, setAckNote] = useState("");
   const [ackSaving, setAckSaving] = useState(false);
   const [ackErr, setAckErr] = useState<string | null>(null);
@@ -129,10 +98,19 @@ export default function ReceiptsPage() {
 
   const load = useCallback((p = page) => {
     setLoading(true);
-    const params = new URLSearchParams({ page: String(p), page_size: String(PAGE_SIZE) });
-    if (statusFilter !== "all") params.set("status", statusFilter);
-    apiFetchJson<PaginatedReceipts>(`/api/v1/receipts?${params}`)
-      .then(d => { setItems(d.items); setTotal(d.total); setPage(d.page); setPages(d.pages); })
+    const params: { status?: string } = {};
+    if (statusFilter !== "all") params.status = statusFilter;
+    requestReceiptsApi.list(params)
+      .then(all => {
+        const total = all.length;
+        const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+        const safePage = Math.min(p, pages);
+        const start = (safePage - 1) * PAGE_SIZE;
+        setItems(all.slice(start, start + PAGE_SIZE));
+        setTotal(total);
+        setPage(safePage);
+        setPages(pages);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [statusFilter, page]); // eslint-disable-line
@@ -149,10 +127,7 @@ export default function ReceiptsPage() {
     if (!selected) return;
     setAckSaving(true); setAckErr(null);
     try {
-      await apiFetchJson(`/api/v1/receipts/${selected.id}/acknowledge`, {
-        method: "POST",
-        body: JSON.stringify({ note: ackNote || null }),
-      });
+      await requestReceiptsApi.acknowledge(selected.id, ackNote || undefined);
       setSelected(null); load(page);
     } catch (e: unknown) {
       setAckErr(e instanceof Error ? e.message : "Failed to acknowledge");
@@ -163,13 +138,13 @@ export default function ReceiptsPage() {
     if (!deleteId) return;
     setDeleting(true);
     try {
-      await apiFetchJson(`/api/v1/receipts/${deleteId}`, { method: "DELETE" });
+      await requestReceiptsApi.delete(deleteId);
       setDeleteId(null); load(page);
     } catch { /* ignore */ }
     finally { setDeleting(false); }
   }
 
-  function handlePrint(r: Receipt) {
+  function handlePrint(r: RequestReceipt) {
     const statusLabel = r.status === "acknowledged" ? "Confirmed" : "Needs Confirmation";
     const co = companyInfo;
     const coHtml = (co && co.company_name) ? `
@@ -230,8 +205,7 @@ export default function ReceiptsPage() {
         </tbody>
       </table>
       <table style="margin-bottom:16px">
-        <tr><td class="meta-label">Department:</td><td class="meta-value" style="font-weight:500">${r.requesting_department ?? "—"}</td></tr>
-        <tr><td class="meta-label">Requested By:</td><td class="meta-value">${r.requested_by_username ?? "—"}</td></tr>
+        <tr><td class="meta-label">Department:</td><td class="meta-value" style="font-weight:500">${r.department ?? "—"}</td></tr>
         <tr><td class="meta-label">Delivered By:</td><td class="meta-value">${r.created_by_username ?? "—"}</td></tr>
         <tr><td class="meta-label">Delivery Notes:</td><td class="meta-value" style="font-style:italic">${r.notes ?? "—"}</td></tr>
         <tr><td class="meta-label">Status:</td><td class="meta-value" style="font-weight:bold">${statusLabel}</td></tr>
@@ -331,17 +305,11 @@ export default function ReceiptsPage() {
                             <td className="px-4 py-3 text-right tabular-nums font-semibold">{r.quantity_received}</td>
                             <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">{r.quantity_requested}</td>
                             <td className="px-4 py-3 text-xs">
-                              {r.requesting_department
-                                ? <span className="font-medium text-foreground">{r.requesting_department}</span>
+                              {r.department
+                                ? <span className="font-medium text-foreground">{r.department}</span>
                                 : <span className="text-muted-foreground">—</span>}
                             </td>
                             <td className="px-4 py-3 text-xs space-y-0.5">
-                              {r.requested_by_username && (
-                                <p>
-                                  <span className="font-medium text-foreground">{r.requested_by_username}</span>
-                                  <span className="ml-1 text-[10px] text-muted-foreground/70">requested</span>
-                                </p>
-                              )}
                               {r.created_by_username && (
                                 <p>
                                   <span className="font-medium text-foreground">{r.created_by_username}</span>
@@ -365,7 +333,7 @@ export default function ReceiptsPage() {
                                 <Button variant="ghost" size="icon" className="size-7" title="Print" onClick={() => handlePrint(r)}>
                                   <Printer className="size-3.5 text-muted-foreground" />
                                 </Button>
-                                {r.status === "pending_ack" && (admin || r.requested_by_user_id === currentUserId) && (
+                                {r.status === "pending_ack" && admin && (
                                   <Button variant="outline" size="sm" className="h-7 text-xs text-teal-600 border-teal-200" onClick={() => { setSelected(r); setAckNote(""); setAckErr(null); setViewOpen(false); }}>Confirm Receipt</Button>
                                 )}
                                 {admin && (
