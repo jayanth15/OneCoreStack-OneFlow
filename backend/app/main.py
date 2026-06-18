@@ -30,6 +30,8 @@ from app.routers import weeders as weeders_router
 from app.routers import purchase_requests as purchase_requests_router
 from app.routers import marketing_requests as marketing_requests_router
 from app.routers import receipts as receipts_router
+from app.routers.requests import router as requests_router
+from app.routers.request_receipts import router as request_receipts_router
 from app.routers import notifications as notifications_router
 from app.routers import grn as grn_router
 from app.routers import history as history_router
@@ -1316,6 +1318,8 @@ app.include_router(weeders_router.router)
 app.include_router(purchase_requests_router.router)
 app.include_router(marketing_requests_router.router)
 app.include_router(receipts_router.router)
+app.include_router(requests_router)
+app.include_router(request_receipts_router)
 app.include_router(notifications_router.router)
 app.include_router(grn_router.router)
 app.include_router(history_router.router)
