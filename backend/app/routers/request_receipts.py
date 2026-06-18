@@ -116,6 +116,8 @@ def acknowledge_receipt(
     r = session.get(RequestReceipt, receipt_id)
     if not r:
         raise HTTPException(status_code=404, detail="Receipt not found")
+    if current_user.role not in ("admin", "super_admin") and r.created_by_user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the receipt creator or an admin can acknowledge")
     if r.status == "acknowledged":
         raise HTTPException(status_code=409, detail="Receipt is already acknowledged")
     r.status = "acknowledged"

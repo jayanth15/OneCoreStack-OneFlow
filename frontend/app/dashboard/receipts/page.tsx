@@ -333,7 +333,7 @@ export default function ReceiptsPage() {
                                 <Button variant="ghost" size="icon" className="size-7" title="Print" onClick={() => handlePrint(r)}>
                                   <Printer className="size-3.5 text-muted-foreground" />
                                 </Button>
-                                {r.status === "pending_ack" && admin && (
+                                {r.status === "pending_ack" && (admin || r.created_by_user_id === currentUserId) && (
                                   <Button variant="outline" size="sm" className="h-7 text-xs text-teal-600 border-teal-200" onClick={() => { setSelected(r); setAckNote(""); setAckErr(null); setViewOpen(false); }}>Confirm Receipt</Button>
                                 )}
                                 {admin && (
