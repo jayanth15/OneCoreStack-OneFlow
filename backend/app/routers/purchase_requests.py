@@ -36,13 +36,24 @@ def list_purchase_requests(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
-    """List internal_transfer + vendor_purchase requests."""
-    items = _list_requests(
-        request_type=None,
-        status=status, department=department, only_active=only_active,
-        limit=limit, offset=offset, session=session, current_user=current_user,
-    )
-    return [r for r in items if r.request_type in (REQUEST_TYPE_INTERNAL_TRANSFER, REQUEST_TYPE_VENDOR_PURCHASE)]
+    """List internal_transfer + vendor_purchase requests.
+
+    Fetches each type separately so the limit/offset apply per-type at the DB
+    level, then merges and re-paginates in Python. This avoids the case where
+    a flood of customer_dispatch requests could push internal_transfer /
+    vendor_purchase rows off the page.
+    """
+    merged: list = []
+    for rt in (REQUEST_TYPE_INTERNAL_TRANSFER, REQUEST_TYPE_VENDOR_PURCHASE):
+        merged.extend(
+            _list_requests(
+                request_type=rt, status=status, department=department,
+                only_active=only_active, limit=limit + offset, offset=0,
+                session=session, current_user=current_user,
+            )
+        )
+    merged.sort(key=lambda r: r.created_at, reverse=True)
+    return merged[offset:offset + limit]
 
 
 @router.post("", response_model=RequestRead, status_code=201)

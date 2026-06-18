@@ -33,12 +33,17 @@ def list_marketing_requests(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
+    """List customer_dispatch requests.
+
+    Fetches the single allowed type. (Same pattern as purchase shim's
+    per-type fetch, kept for symmetry.)"""
     items = _list_requests(
-        request_type=None, status=status, department=department,
-        only_active=only_active, limit=limit, offset=offset,
-        session=session, current_user=current_user,
+        request_type=REQUEST_TYPE_CUSTOMER_DISPATCH, status=status,
+        department=department, only_active=only_active, limit=limit + offset,
+        offset=0, session=session, current_user=current_user,
     )
-    return [r for r in items if r.request_type == REQUEST_TYPE_CUSTOMER_DISPATCH]
+    items.sort(key=lambda r: r.created_at, reverse=True)
+    return items[offset:offset + limit]
 
 
 @router.post("", response_model=RequestRead, status_code=201)
