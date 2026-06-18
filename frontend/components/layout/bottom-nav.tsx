@@ -32,6 +32,8 @@ import { cn } from "@/lib/utils";
 import { getCurrentUser, isAdminOrAbove, ALL_INVENTORY_TYPES } from "@/lib/user";
 import type { CurrentUser } from "@/lib/user";
 import { apiLogout } from "@/lib/auth";
+import { requestsApi } from "@/lib/requests";
+import { requestReceiptsApi } from "@/lib/request-receipts";
 import { UserAvatar } from "@/components/layout/top-bar";
 
 interface NavItem {
@@ -80,13 +82,12 @@ export function BottomNav() {
   useEffect(() => {
     async function fetchCounts() {
       try {
-        const { apiFetchJson } = await import("@/lib/api");
-        const [req, rcpt] = await Promise.all([
-          apiFetchJson<{ count: number }>("/api/v1/purchase-requests/active-count"),
-          apiFetchJson<{ count: number }>("/api/v1/receipts/pending-count"),
+        const [reqs, rcpts] = await Promise.all([
+          requestsApi.list({ status: "pending" }),
+          requestReceiptsApi.list({ status: "pending_ack" }),
         ]);
-        setRequestCount(req.count);
-        setReceiptCount(rcpt.count);
+        setRequestCount(reqs.length);
+        setReceiptCount(rcpts.length);
       } catch { /* ignore */ }
     }
     fetchCounts();

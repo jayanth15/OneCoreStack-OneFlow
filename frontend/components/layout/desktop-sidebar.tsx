@@ -25,6 +25,8 @@ import {
 import { cn } from "@/lib/utils";
 import { getCurrentUser, isAdminOrAbove } from "@/lib/user";
 import { apiFetchJson } from "@/lib/api";
+import { requestsApi } from "@/lib/requests";
+import { requestReceiptsApi } from "@/lib/request-receipts";
 
 interface NavItem {
   label: string;
@@ -80,14 +82,14 @@ export function DesktopSidebar() {
   useEffect(() => {
     async function fetchCounts() {
       try {
-        const [notif, req, rcpt] = await Promise.all([
+        const [notif, reqs, rcpts] = await Promise.all([
           apiFetchJson<{ count: number }>("/api/v1/notifications/unread-count"),
-          apiFetchJson<{ count: number }>("/api/v1/purchase-requests/active-count"),
-          apiFetchJson<{ count: number }>("/api/v1/receipts/pending-count"),
+          requestsApi.list({ status: "pending" }),
+          requestReceiptsApi.list({ status: "pending_ack" }),
         ]);
         setNotifCount(notif.count);
-        setRequestCount(req.count);
-        setReceiptCount(rcpt.count);
+        setRequestCount(reqs.length);
+        setReceiptCount(rcpts.length);
       } catch { /* ignore */ }
     }
     fetchCounts();
