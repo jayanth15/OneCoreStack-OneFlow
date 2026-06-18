@@ -87,6 +87,7 @@ def run_migrations() -> None:
         ("photo_base64",         "TEXT"),
         ("can_create_receipt",   "INTEGER NOT NULL DEFAULT 0"),
         ("grn_access",           "INTEGER NOT NULL DEFAULT 0"),
+        ("department",           "TEXT"),
     ]:
         try:
             _safe_alter(cursor, conn, "users", col_name, col_def)

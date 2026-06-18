@@ -12,6 +12,12 @@ class User(SQLModel, table=True):
     password_hash: str
     role: str = Field(default="worker")  # super_admin | admin | manager | worker
     is_active: bool = Field(default=True)
+    # Primary department (matches the `code` column on Department). Used by
+    # the unified-request router to decide if this user belongs to a
+    # "permitted group" for the fulfiller auth checks. May also be a
+    # non-Department token (e.g. "admin") for users who don't belong to a
+    # real dept. Existing rows in legacy DBs may have NULL.
+    department: Optional[str] = Field(default=None)
     # Comma-separated inventory types this user may access (view).
     # Empty string = all types allowed (admin always sees all regardless).
     # Valid tokens: raw_material, finished_good, semi_finished, spare, consumable, attachment, weeder

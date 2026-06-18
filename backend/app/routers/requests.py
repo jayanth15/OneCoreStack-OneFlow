@@ -55,6 +55,35 @@ def _apply_visibility_filter(stmt, user: User):
     return stmt.where(Request.request_type.in_(allowed))
 
 
+def _user_can_accept(user: User, req: Request, session: Session) -> bool:
+    """Fulfiller authorisation (from spec §Auth Model, lines 318-321).
+
+    `internal_transfer`  → user.department matches req.department OR any
+                           line item's department, or user is admin
+    `vendor_purchase`    → user is admin or super_admin only
+    `customer_dispatch`  → user.department is "marketing" or "sales", or
+                           user is admin/super_admin
+    """
+    if user.role in ("admin", "super_admin"):
+        return True
+
+    if req.request_type == REQUEST_TYPE_VENDOR_PURCHASE:
+        return False  # admin-only, and we already returned above for admins
+
+    if req.request_type == REQUEST_TYPE_CUSTOMER_DISPATCH:
+        return user.department in ("marketing", "sales")
+
+    # internal_transfer — match header or any per-item department
+    target_depts = set()
+    if req.department:
+        target_depts.add(req.department)
+    items = session.exec(select(RequestItem).where(RequestItem.request_id == req.id)).all()
+    for it in items:
+        if it.department:
+            target_depts.add(it.department)
+    return user.department is not None and user.department in target_depts
+
+
 # --- list ---
 
 @router.get("", response_model=List[RequestListRead])
@@ -291,6 +320,8 @@ def accept_fulfilment(
         raise HTTPException(status_code=404, detail="Request not found")
     if req.status != "approved":
         raise HTTPException(status_code=409, detail=f"Cannot accept a request in status '{req.status}'")
+    if not _user_can_accept(current_user, req, session):
+        raise HTTPException(status_code=403, detail="Not allowed to accept this request")
     req.status = "in_progress"
     req.fulfilled_by_user_id = current_user.id
     req.fulfilled_by_username = current_user.username
@@ -315,6 +346,13 @@ def accept_item(
     req = session.get(Request, request_id)
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
+    if req.status not in ("approved", "in_progress", "awaiting_signoff"):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot accept items on a request in status '{req.status}'"
+        )
+    if not _user_can_accept(current_user, req, session):
+        raise HTTPException(status_code=403, detail="Not allowed to accept this request")
     item = session.get(RequestItem, payload.item_id)
     if not item or item.request_id != req.id:
         raise HTTPException(status_code=404, detail="Item not found")
