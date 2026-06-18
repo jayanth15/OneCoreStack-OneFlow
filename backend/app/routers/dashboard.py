@@ -356,7 +356,7 @@ def get_dashboard(
                 func.sum(Dispatch.quantity).label("total"),
             )
             .where(
-                Dispatch.is_active == True,  # noqa: E712
+                Dispatch.status != "cancelled",  # noqa: E712
                 Dispatch.dispatch_date.is_not(None),  # type: ignore[union-attr]
                 Dispatch.dispatch_date >= thirty_days_ago,  # type: ignore[operator]
             )
