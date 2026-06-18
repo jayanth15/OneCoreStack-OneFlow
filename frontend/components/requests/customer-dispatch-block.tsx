@@ -1,9 +1,17 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import type { RequestCustomerDispatch } from "@/lib/requests";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { apiFetchJson } from "@/lib/api";
+
+interface SnItem {
+  id: number;
+  sn_no: string | null;
+  description: string | null;
+}
 
 export interface CustomerDispatchBlockProps {
   value: RequestCustomerDispatch;
@@ -12,6 +20,16 @@ export interface CustomerDispatchBlockProps {
 
 export function CustomerDispatchBlock({ value, onChange }: CustomerDispatchBlockProps) {
   const set = (patch: Partial<RequestCustomerDispatch>) => onChange({ ...value, ...patch });
+  const [snItems, setSnItems] = useState<SnItem[]>([]);
+
+  useEffect(() => {
+    const url = value.inventory_type === "weeder"
+      ? "/api/v1/weeders?page_size=500&include_inactive=false"
+      : "/api/v1/attachments?page_size=500&include_inactive=false";
+    apiFetchJson<{ items: SnItem[] }>(url)
+      .then((r) => setSnItems(r.items))
+      .catch(() => setSnItems([]));
+  }, [value.inventory_type]);
 
   return (
     <div className="space-y-3 border border-slate-200 rounded-md p-3 bg-slate-50">
@@ -51,7 +69,10 @@ export function CustomerDispatchBlock({ value, onChange }: CustomerDispatchBlock
             id="inv-type"
             className="w-full h-9 rounded-md border border-slate-300 bg-white px-2 text-sm"
             value={value.inventory_type}
-            onChange={(e) => set({ inventory_type: e.target.value as "weeder" | "attachment" })}
+            onChange={(e) => {
+              const next = e.target.value as "weeder" | "attachment";
+              onChange({ ...value, inventory_type: next, item_id: null, item_sn_no: null });
+            }}
           >
             <option value="weeder">Weeder</option>
             <option value="attachment">Attachment</option>
@@ -59,7 +80,28 @@ export function CustomerDispatchBlock({ value, onChange }: CustomerDispatchBlock
         </div>
         <div>
           <Label htmlFor="inv-sn">Item SN</Label>
-          <Input id="inv-sn" value={value.item_sn_no ?? ""} onChange={(e) => set({ item_sn_no: e.target.value })} />
+          <select
+            id="inv-sn"
+            className="w-full h-9 rounded-md border border-slate-300 bg-white px-2 text-sm"
+            value={value.item_id ? String(value.item_id) : ""}
+            onChange={(e) => {
+              const raw = e.target.value;
+              const id = raw ? Number(raw) : null;
+              const found = snItems.find((x) => x.id === id);
+              set({
+                item_id: id,
+                item_sn_no: found?.sn_no ?? null,
+              });
+            }}
+          >
+            <option value="">—</option>
+            {snItems.map((item) => (
+              <option key={item.id} value={String(item.id)}>
+                {item.sn_no ?? "—"}
+                {item.description ? ` — ${item.description}` : ""}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="sm:col-span-2">
           <Label htmlFor="inv-desc">Item description</Label>
