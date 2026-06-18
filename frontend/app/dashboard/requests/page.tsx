@@ -29,6 +29,7 @@ export default function RequestsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [detailId, setDetailId] = useState<number | null>(null);
   const [data, setData] = useState<RequestListItem[] | null>(null);
+  const [allRows, setAllRows] = useState<RequestListItem[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [createBusy, setCreateBusy] = useState(false);
 
@@ -52,12 +53,22 @@ export default function RequestsPage() {
       .finally(() => setLoading(false));
   }, [tab, hydrated]);
 
+  useEffect(() => {
+    if (!hydrated) return;
+    requestsApi.list()
+      .then(setAllRows)
+      .catch(() => setAllRows([]));
+  }, [hydrated]);
+
   const refresh = () => {
     setLoading(true);
     requestsApi.list(tab === "all" ? undefined : { request_type: tab as RequestType })
       .then(setData)
       .catch(() => setData([]))
       .finally(() => setLoading(false));
+    requestsApi.list()
+      .then(setAllRows)
+      .catch(() => setAllRows([]));
   };
 
   const onCreate = async (payload: CreateRequestPayload) => {
@@ -66,8 +77,9 @@ export default function RequestsPage() {
       await requestsApi.create(payload);
       setCreateOpen(false);
       refresh();
-    } catch (e) {
+    } catch (e: any) {
       console.error("Create failed:", e);
+      alert(`Create failed: ${e?.message ?? "unknown error"}`);
       throw e;
     } finally {
       setCreateBusy(false);
@@ -78,9 +90,9 @@ export default function RequestsPage() {
     return <div className="p-6 text-sm text-slate-500">Loading…</div>;
   }
 
-  const counts: Record<string, number> = { all: data?.length ?? 0 };
-  for (const r of data ?? []) {
-    counts[r.request_type] = (counts[r.request_type] ?? 0) + 1;
+  const counts: Partial<Record<TypeTabsValue, number>> = { all: allRows?.length ?? 0 };
+  for (const r of allRows ?? []) {
+    counts[r.request_type as TypeTabsValue] = (counts[r.request_type as TypeTabsValue] ?? 0) + 1;
   }
 
   return (

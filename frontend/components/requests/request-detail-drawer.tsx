@@ -29,8 +29,12 @@ export function RequestDetailDrawer({ requestId, open, onOpenChange, currentUser
 
   useEffect(() => {
     if (!open || requestId == null) return;
+    let cancelled = false;
     setLoading(true);
-    requestsApi.get(requestId).then(setData).finally(() => setLoading(false));
+    requestsApi.get(requestId)
+      .then((d) => { if (!cancelled) setData(d); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [open, requestId]);
 
   const reviewerIsAdmin = currentUser?.role === "admin" || currentUser?.role === "super_admin" || isAdmin();
@@ -41,8 +45,9 @@ export function RequestDetailDrawer({ requestId, open, onOpenChange, currentUser
     try {
       const updated = await requestsApi.review(data.id, decision);
       setData(updated);
-    } catch (e) {
+    } catch (e: any) {
       console.error("Review failed:", e);
+      alert(`Review failed: ${e?.message ?? "unknown error"}`);
     }
   };
 
@@ -51,8 +56,20 @@ export function RequestDetailDrawer({ requestId, open, onOpenChange, currentUser
     try {
       const updated = await requestsApi.accept(data.id);
       setData(updated);
-    } catch (e) {
+    } catch (e: any) {
       console.error("Accept failed:", e);
+      alert(`Accept failed: ${e?.message ?? "unknown error"}`);
+    }
+  };
+
+  const cancelRequest = async () => {
+    if (!data) return;
+    try {
+      await requestsApi.delete(data.id);
+      onOpenChange(false);
+    } catch (e: any) {
+      console.error("Cancel failed:", e);
+      alert(`Cancel failed: ${e?.message ?? "unknown error"}`);
     }
   };
 
@@ -126,7 +143,7 @@ export function RequestDetailDrawer({ requestId, open, onOpenChange, currentUser
                 <Button onClick={accept}>Accept fulfilment</Button>
               )}
               {isOwner && data.status === "pending" && (
-                <Button variant="ghost" onClick={async () => { await requestsApi.delete(data.id); onOpenChange(false); }}>
+                <Button variant="ghost" onClick={cancelRequest}>
                   Cancel request
                 </Button>
               )}
