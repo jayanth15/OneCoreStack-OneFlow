@@ -2,8 +2,9 @@
 
 import { cn } from "@/lib/utils";
 import type { RequestType } from "@/lib/requests";
+import { Inbox } from "lucide-react";
 
-export type TypeTabsValue = RequestType | "all";
+export type TypeTabsValue = RequestType | "all" | "inbox";
 
 export interface TypeTabsProps {
   value: TypeTabsValue;
@@ -16,6 +17,7 @@ const TABS: Array<{ value: TypeTabsValue; label: string }> = [
   { value: "internal_transfer", label: "Internal" },
   { value: "vendor_purchase", label: "Vendor" },
   { value: "customer_dispatch", label: "Customer" },
+  { value: "inbox", label: "Inbox" },
 ];
 
 export function TypeTabs({ value, onChange, counts }: TypeTabsProps) {
@@ -37,12 +39,15 @@ export function TypeTabs({ value, onChange, counts }: TypeTabsProps) {
                 : "border-transparent text-slate-500 hover:text-slate-700"
             )}
           >
-            {t.label}
-            {count != null && (
-              <span className="ml-1.5 inline-flex items-center justify-center text-xs min-w-[1.25rem] h-5 px-1.5 rounded-full bg-slate-100 text-slate-700">
-                {count}
-              </span>
-            )}
+            <span className="flex items-center gap-1.5">
+              {t.value === "inbox" && <Inbox className="size-3.5" />}
+              {t.label}
+              {count != null && (
+                <span className="tabular-nums inline-flex items-center justify-center text-xs min-w-[1.25rem] h-5 px-1.5 rounded-full bg-slate-100 text-slate-700">
+                  {count}
+                </span>
+              )}
+            </span>
           </button>
         );
       })}

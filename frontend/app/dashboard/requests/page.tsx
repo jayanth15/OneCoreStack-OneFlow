@@ -32,7 +32,6 @@ export default function RequestsPage() {
   const [allRows, setAllRows] = useState<RequestListItem[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [createBusy, setCreateBusy] = useState(false);
-  const [showInbox, setShowInbox] = useState(false);
   const [highlightId, setHighlightId] = useState<number | null>(null);
   const searchParams = useSearchParams();
 
@@ -70,9 +69,11 @@ export default function RequestsPage() {
   useEffect(() => {
     if (!hydrated) return;
     setLoading(true);
-    const fetch = showInbox ? requestsApi.inbox() : requestsApi.list(tab === "all" ? undefined : { request_type: tab as RequestType });
+    const fetch = tab === "inbox"
+      ? requestsApi.inbox()
+      : requestsApi.list(tab === "all" ? undefined : { request_type: tab as RequestType });
     fetch.then(setData).catch(() => setData([])).finally(() => setLoading(false));
-  }, [tab, hydrated, showInbox]);
+  }, [tab, hydrated]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -83,7 +84,7 @@ export default function RequestsPage() {
 
   const refresh = () => {
     setLoading(true);
-    (showInbox ? requestsApi.inbox() : requestsApi.list(tab === "all" ? undefined : { request_type: tab as RequestType }))
+    (tab === "inbox" ? requestsApi.inbox() : requestsApi.list(tab === "all" ? undefined : { request_type: tab as RequestType }))
       .then(setData).catch(() => setData([])).finally(() => setLoading(false));
     requestsApi.list().then(setAllRows).catch(() => setAllRows([]));
   };
@@ -120,7 +121,10 @@ export default function RequestsPage() {
           <DialogTrigger asChild>
             <Button>New request</Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent
+            className="max-w-[calc(100%-1rem)] sm:max-w-2xl max-h-[90vh] overflow-y-auto"
+            onInteractOutside={(e) => e.preventDefault()}
+          >
             <DialogHeader>
               <DialogTitle>New request</DialogTitle>
             </DialogHeader>
@@ -133,21 +137,7 @@ export default function RequestsPage() {
         </Dialog>
       </div>
 
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => setShowInbox(false)}
-          className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${!showInbox ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
-        >
-          All
-        </button>
-        <button
-          onClick={() => setShowInbox(true)}
-          className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${showInbox ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
-        >
-          Inbox
-        </button>
-        {!showInbox && <TypeTabs value={tab} onChange={setTab} counts={counts} />}
-      </div>
+      <TypeTabs value={tab} onChange={setTab} counts={counts} />
 
       {loading ? (
         <p className="text-sm text-slate-500">Loading…</p>

@@ -77,10 +77,10 @@ const ITEM_TYPE_OPTIONS: { value: RequestableItemType; label: string }[] = [
   { value: "consumable", label: "Consumables" },
 ];
 
-const TYPE_OPTIONS: { value: RequestType; label: string; icon: typeof ArrowLeftRight }[] = [
-  { value: "internal_transfer", label: "Internal transfer", icon: ArrowLeftRight },
-  { value: "vendor_purchase", label: "Vendor purchase", icon: ShoppingCart },
-  { value: "customer_dispatch", label: "Customer dispatch", icon: Send },
+const TYPE_OPTIONS: { value: RequestType; label: string; short: string; icon: typeof ArrowLeftRight }[] = [
+  { value: "internal_transfer", label: "Internal transfer", short: "Internal", icon: ArrowLeftRight },
+  { value: "vendor_purchase", label: "Vendor purchase", short: "Vendor", icon: ShoppingCart },
+  { value: "customer_dispatch", label: "Customer dispatch", short: "Customer", icon: Send },
 ];
 
 const DEFAULT_ITEM: RequestItem = { item_name: "", quantity: 1 };
@@ -159,7 +159,7 @@ export function RequestForm({
 
   return (
     <form onSubmit={submit}>
-      <FieldGroup>
+      <FieldGroup className="gap-4 sm:gap-6">
         {/* Request type */}
         <ToggleGroup
           type="single"
@@ -167,12 +167,13 @@ export function RequestForm({
           onValueChange={(v) => v && setType(v as RequestType)}
           variant="outline"
           spacing={0}
+          size="sm"
           className="w-full"
         >
           {TYPE_OPTIONS.map((opt) => (
-            <ToggleGroupItem key={opt.value} value={opt.value} className="flex-1 gap-2">
+            <ToggleGroupItem key={opt.value} value={opt.value} className="flex-1 flex-col gap-1 normal-case tracking-normal whitespace-normal px-2 text-xs">
               <opt.icon className="size-4" />
-              <span className="text-xs">{opt.label}</span>
+              <span>{opt.short}</span>
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
@@ -245,7 +246,7 @@ export function RequestForm({
 
             <div className="space-y-2">
               {items.map((it, i) => (
-                <div key={i} className="flex items-start gap-2 rounded-lg border p-3">
+                <div key={i} className="flex flex-col sm:flex-row sm:items-start gap-2 rounded-lg border p-3">
                   <div className="flex-1 min-w-0">
                     <Combobox
                       value={it.inventory_item_id ? String(it.inventory_item_id) : ""}
