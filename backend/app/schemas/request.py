@@ -147,6 +147,14 @@ class RequestRead(BaseModel):
     fulfilled_by_username: Optional[str] = None
     fulfillment_accepted_at: Optional[datetime] = None
     fulfillment_note: Optional[str] = None
+    delivered_by_user_id: Optional[int] = None
+    delivered_by_username: Optional[str] = None
+    delivered_at: Optional[datetime] = None
+    delivery_note: Optional[str] = None
+    acknowledged_by_user_id: Optional[int] = None
+    acknowledged_by_username: Optional[str] = None
+    acknowledged_at: Optional[datetime] = None
+    acknowledgment_note: Optional[str] = None
     is_active: bool
     items: List[RequestItemRead] = Field(default_factory=list)
     dispatch: Optional[RequestCustomerDispatchRead] = None
@@ -167,6 +175,10 @@ class RequestListRead(BaseModel):
     requested_by_username: Optional[str] = None
     created_at: datetime
     is_active: bool
+    delivered_by_username: Optional[str] = None
+    delivered_at: Optional[datetime] = None
+    acknowledged_by_username: Optional[str] = None
+    acknowledged_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 
@@ -185,3 +197,11 @@ class RequestItemAcceptAction(BaseModel):
 class RequestStatusUpdate(BaseModel):
     new_status: RequestStatus
     note: Optional[str] = None
+
+
+class RequestDeliverAction(BaseModel):
+    delivery_note: Optional[str] = None
+
+
+class RequestAcknowledgeDeliveryAction(BaseModel):
+    acknowledgment_note: Optional[str] = None
