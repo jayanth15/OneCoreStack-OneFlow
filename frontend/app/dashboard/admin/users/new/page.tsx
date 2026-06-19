@@ -34,7 +34,6 @@ const BLANK = {
   inventory_edit: [] as string[],
   request_department_ids: [] as number[],
   request_inventory: [] as string[],
-  can_create_receipt: false,
   grn_access: false,
   dispatch_access: false,
   gate_pass_access: false,
@@ -509,21 +508,7 @@ export default function NewUserPage() {
                   )}
                 </div>
               </div>
-              {/* Receipt Creation Permission */}
-              <div className="flex items-center gap-3 rounded-md border px-3 py-3">
-                <input
-                  type="checkbox"
-                  id="can_create_receipt"
-                  checked={form.can_create_receipt}
-                  onChange={(e) => setForm({ ...form, can_create_receipt: e.target.checked })}
-                  disabled={saving}
-                  className="size-4 rounded accent-primary"
-                />
-                <label htmlFor="can_create_receipt" className="text-sm cursor-pointer select-none">
-                  <span className="font-medium">Can Create Receipts</span>
-                  <span className="text-muted-foreground ml-1">(allowed to record goods received for purchase requests)</span>
-                </label>
-              </div>            </>
+            </>
           )}
 
           {error && (

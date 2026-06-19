@@ -35,7 +35,6 @@ interface UserData {
   inventory_edit: string[];
   request_department_ids: number[];
   request_inventory: string[];
-  can_create_receipt: boolean;
   grn_access: boolean;
   dispatch_access: boolean;
   gate_pass_access: boolean;
@@ -53,7 +52,6 @@ interface UserForm {
   inventory_edit: string[];
   request_department_ids: number[];
   request_inventory: string[];
-  can_create_receipt: boolean;
   grn_access: boolean;
   dispatch_access: boolean;
   gate_pass_access: boolean;
@@ -81,7 +79,6 @@ export default function EditUserPage() {
     inventory_edit: [],
     request_department_ids: [],
     request_inventory: [],
-    can_create_receipt: false,
     grn_access: false,
     dispatch_access: false,
     gate_pass_access: false,
@@ -112,7 +109,6 @@ export default function EditUserPage() {
           inventory_edit: userData.inventory_edit ?? [],
           request_department_ids: userData.request_department_ids ?? [],
           request_inventory: userData.request_inventory ?? [],
-          can_create_receipt: userData.can_create_receipt ?? false,
           grn_access: userData.grn_access ?? false,
           dispatch_access: userData.dispatch_access ?? false,
           gate_pass_access: userData.gate_pass_access ?? false,
@@ -194,7 +190,6 @@ export default function EditUserPage() {
         inventory_edit: form.inventory_edit,
         request_department_ids: form.request_department_ids,
         request_inventory: form.request_inventory,
-        can_create_receipt: form.can_create_receipt,
         grn_access: form.grn_access,
         dispatch_access: form.dispatch_access,
         gate_pass_access: form.gate_pass_access,
@@ -611,21 +606,6 @@ export default function EditUserPage() {
                   </div>
                 </div>
 
-                {/* Receipt Creation Permission */}
-                <div className="flex items-center gap-3 rounded-md border px-3 py-3">
-                  <input
-                    type="checkbox"
-                    id="can_create_receipt"
-                    checked={form.can_create_receipt}
-                    onChange={(e) => setForm({ ...form, can_create_receipt: e.target.checked })}
-                    disabled={saving}
-                    className="size-4 rounded accent-primary"
-                  />
-                  <label htmlFor="can_create_receipt" className="text-sm cursor-pointer select-none">
-                    <span className="font-medium">Can Create Receipts</span>
-                    <span className="text-muted-foreground ml-1">(allowed to record goods received for purchase requests)</span>
-                  </label>
-                </div>
               </>
             )}
 

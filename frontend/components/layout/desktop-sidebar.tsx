@@ -26,7 +26,6 @@ import { cn } from "@/lib/utils";
 import { getCurrentUser, isAdminOrAbove } from "@/lib/user";
 import { apiFetchJson } from "@/lib/api";
 import { requestsApi } from "@/lib/requests";
-import { requestReceiptsApi } from "@/lib/request-receipts";
 
 interface NavItem {
   label: string;
@@ -82,14 +81,12 @@ export function DesktopSidebar() {
   useEffect(() => {
     async function fetchCounts() {
       try {
-        const [notif, reqs, rcpts] = await Promise.all([
+        const [notif, reqs] = await Promise.all([
           apiFetchJson<{ count: number }>("/api/v1/notifications/unread-count"),
           requestsApi.list({ status: "pending" }),
-          requestReceiptsApi.list({ status: "pending_ack" }),
         ]);
         setNotifCount(notif.count);
         setRequestCount(reqs.length);
-        setReceiptCount(rcpts.length);
       } catch { /* ignore */ }
     }
     fetchCounts();
@@ -145,11 +142,6 @@ export function DesktopSidebar() {
                     {item.href === "/dashboard/requests" && requestCount > 0 && (
                       <span className="bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center">
                         {requestCount > 99 ? "99+" : requestCount}
-                      </span>
-                    )}
-                    {item.href === "/dashboard/receipts" && receiptCount > 0 && (
-                      <span className="bg-amber-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center">
-                        {receiptCount > 99 ? "99+" : receiptCount}
                       </span>
                     )}
                     {item.href === "/dashboard" && notifCount > 0 && (

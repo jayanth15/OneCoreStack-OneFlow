@@ -46,7 +46,6 @@ export default function LoginPage() {
             inventory_edit: me.inventory_edit ?? [],
             request_departments: me.request_departments ?? [],
             request_inventory: me.request_inventory ?? [],
-            can_create_receipt: me.can_create_receipt ?? false,
             grn_access: me.grn_access ?? false,
             photo_base64: me.photo_base64 ?? null,
             department_codes: me.department_codes ?? [],

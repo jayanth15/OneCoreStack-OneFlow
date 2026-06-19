@@ -30,7 +30,6 @@ export interface CurrentUser {
   inventory_edit: string[];     // empty = all types they can view; admin always has full edit
   request_departments: number[]; // empty = all departments
   request_inventory: string[];  // empty = all inventory types
-  can_create_receipt?: boolean;
   grn_access?: boolean;
   dispatch_access?: boolean;
   gate_pass_access?: boolean;
