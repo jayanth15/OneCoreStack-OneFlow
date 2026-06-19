@@ -140,6 +140,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _migrate_inventory_vendor_name()
     # Add design_drawing_pdf column to inventory_item table
     _migrate_inventory_drawing_pdf()
+    # Add delivery/acknowledgment columns to request table
+    _migrate_request_delivery_fields()
     # supplier_jobs and supplier_materials tables created by init_db via SQLModel metadata
     # Auto-seed a default admin user on a brand-new / empty database
     _auto_seed_if_empty()
@@ -1285,6 +1287,32 @@ def _migrate_inventory_drawing_pdf() -> None:
         if "design_drawing_pdf" not in cols:
             conn.execute(text("ALTER TABLE inventory_item ADD COLUMN design_drawing_pdf TEXT"))
             conn.commit()
+
+
+def _migrate_request_delivery_fields() -> None:
+    """Add delivery + acknowledgment columns to request table (idempotent)."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        cols = [row[1] for row in conn.execute(text("PRAGMA table_info(request)")).fetchall()]
+        if "delivered_by_user_id" not in cols:
+            conn.execute(text("ALTER TABLE request ADD COLUMN delivered_by_user_id INTEGER"))
+        if "delivered_by_username" not in cols:
+            conn.execute(text("ALTER TABLE request ADD COLUMN delivered_by_username TEXT"))
+        if "delivered_at" not in cols:
+            conn.execute(text("ALTER TABLE request ADD COLUMN delivered_at TEXT"))
+        if "delivery_note" not in cols:
+            conn.execute(text("ALTER TABLE request ADD COLUMN delivery_note TEXT"))
+        if "acknowledged_by_user_id" not in cols:
+            conn.execute(text("ALTER TABLE request ADD COLUMN acknowledged_by_user_id INTEGER"))
+        if "acknowledged_by_username" not in cols:
+            conn.execute(text("ALTER TABLE request ADD COLUMN acknowledged_by_username TEXT"))
+        if "acknowledged_at" not in cols:
+            conn.execute(text("ALTER TABLE request ADD COLUMN acknowledged_at TEXT"))
+        if "acknowledgment_note" not in cols:
+            conn.execute(text("ALTER TABLE request ADD COLUMN acknowledgment_note TEXT"))
+        conn.commit()
 
 
 def _auto_seed_if_empty() -> None:
