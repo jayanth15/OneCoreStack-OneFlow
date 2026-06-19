@@ -46,6 +46,7 @@ export default function RequestsPage() {
         setDetailId(id);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   // Clear highlight when the detail dialog is dismissed
