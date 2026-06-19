@@ -9,7 +9,7 @@ class Notification(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(index=True)
-    type: str  # request_approved | request_rejected | request_responded | receipt_created | receipt_acknowledged
+    type: str  # request_approved | request_rejected | request_accepted | request_delivered | request_received | request_cancelled
     title: str
     body: Optional[str] = Field(default=None)
     request_id: Optional[int] = Field(default=None)

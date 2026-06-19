@@ -29,9 +29,7 @@ from app.routers import attachments as attachments_router
 from app.routers import weeders as weeders_router
 from app.routers import purchase_requests as purchase_requests_router
 from app.routers import marketing_requests as marketing_requests_router
-from app.routers import receipts as receipts_router
 from app.routers.requests import router as requests_router
-from app.routers.request_receipts import router as request_receipts_router
 from app.routers import notifications as notifications_router
 from app.routers import grn as grn_router
 from app.routers import history as history_router
@@ -142,6 +140,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _migrate_inventory_drawing_pdf()
     # Add delivery/acknowledgment columns to request table
     _migrate_request_delivery_fields()
+    # Migrate in-flight receipt data into request table, then drop legacy tables
+    _migrate_receipts_into_requests()
     # supplier_jobs and supplier_materials tables created by init_db via SQLModel metadata
     # Auto-seed a default admin user on a brand-new / empty database
     _auto_seed_if_empty()
@@ -1315,6 +1315,46 @@ def _migrate_request_delivery_fields() -> None:
         conn.commit()
 
 
+def _migrate_receipts_into_requests() -> None:
+    """Backfill in-flight receipt data into the Request table, then drop the
+    legacy request_receipt and receipt tables (idempotent)."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        tables = [row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='request_receipt'")).fetchall()]
+        if not tables:
+            return  # already gone
+
+        rows = conn.execute(text(
+            "SELECT request_id, status, created_by_user_id, created_by_username, "
+            "created_at, notes, acknowledged_by_user_id, acknowledged_by_username, "
+            "acknowledged_at, acknowledgment_note FROM request_receipt WHERE is_active = 1"
+        )).fetchall()
+
+        for row in rows:
+            request_id, rcpt_status, cb_uid, cb_uname, created_at, notes, a_uid, a_uname, a_at, a_note = row
+            parent = conn.execute(text("SELECT id FROM request WHERE id = :rid"), {"rid": request_id}).fetchone()
+            if not parent:
+                continue
+            new_status = "awaiting_signoff" if rcpt_status == "pending_ack" else "received"
+            conn.execute(text(
+                "UPDATE request SET status = :st, "
+                "delivered_by_user_id = :dbi, delivered_by_username = :dbu, delivered_at = :dat, delivery_note = :dn, "
+                "acknowledged_by_user_id = :abi, acknowledged_by_username = :abu, acknowledged_at = :aat, "
+                "acknowledgment_note = :an WHERE id = :rid"
+            ), {
+                "st": new_status,
+                "dbi": cb_uid, "dbu": cb_uname, "dat": created_at, "dn": notes,
+                "abi": a_uid, "abu": a_uname, "aat": a_at, "an": a_note,
+                "rid": request_id,
+            })
+
+        conn.execute(text("DROP TABLE IF EXISTS request_receipt"))
+        conn.execute(text("DROP TABLE IF EXISTS receipt"))
+        conn.commit()
+
+
 def _auto_seed_if_empty() -> None:
     """If the database has no users at all (fresh deployment), create a default
     super_admin account so the app is immediately usable.
@@ -1386,9 +1426,7 @@ app.include_router(attachments_router.router)
 app.include_router(weeders_router.router)
 app.include_router(purchase_requests_router.router)
 app.include_router(marketing_requests_router.router)
-app.include_router(receipts_router.router)
 app.include_router(requests_router)
-app.include_router(request_receipts_router)
 app.include_router(notifications_router.router)
 app.include_router(grn_router.router)
 app.include_router(history_router.router)

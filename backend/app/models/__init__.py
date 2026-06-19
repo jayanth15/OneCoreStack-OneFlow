@@ -36,10 +36,8 @@ from app.models.purchase_request import PurchaseRequest  # noqa: F401
 from app.models.purchase_request_history import PurchaseRequestHistory  # noqa: F401
 from app.models.marketing_request import MarketingRequest  # noqa: F401
 from app.models.marketing_request_history import MarketingRequestHistory  # noqa: F401
-from app.models.receipt import Receipt  # noqa: F401
 from app.models.request import Request  # noqa: F401
 from app.models.request_customer_dispatch import RequestCustomerDispatch  # noqa: F401
 from app.models.request_history import RequestHistory  # noqa: F401
 from app.models.request_item import RequestItem  # noqa: F401
-from app.models.request_receipt import RequestReceipt  # noqa: F401
 from app.models.notification import Notification  # noqa: F401

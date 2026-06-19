@@ -14,8 +14,7 @@ class RequestHistory(SQLModel, table=True):
     changed_by_user_id: Optional[int] = None
     changed_by_username: Optional[str] = None
     change_type: str  # created | edited | approved | rejected | cancelled | responded
-                      # | deleted | status_change | receipt_created | receipt_acknowledged
-                      # | receipt_deleted
+                      # | deleted | status_change | delivered | delivery_acknowledged
     field_name: Optional[str] = None
     old_value: Optional[str] = None
     new_value: Optional[str] = None

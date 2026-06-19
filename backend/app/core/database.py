@@ -85,7 +85,6 @@ def run_migrations() -> None:
         ("request_departments",  "TEXT DEFAULT '' NOT NULL"),
         ("request_inventory",    "TEXT DEFAULT '' NOT NULL"),
         ("photo_base64",         "TEXT"),
-        ("can_create_receipt",   "INTEGER NOT NULL DEFAULT 0"),
         ("grn_access",           "INTEGER NOT NULL DEFAULT 0"),
         ("department",           "TEXT"),
     ]:

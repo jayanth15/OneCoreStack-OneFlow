@@ -41,7 +41,6 @@ class UserCreate(BaseModel):
     request_department_ids: list[int] = []
     # Inventory types this user can raise requests for — empty = all
     request_inventory: list[str] = []
-    can_create_receipt: bool = False
     grn_access: bool = False
     dispatch_access: bool = False
     gate_pass_access: bool = False
@@ -59,7 +58,6 @@ class UserUpdate(BaseModel):
     inventory_edit: Optional[list[str]] = None
     request_department_ids: Optional[list[int]] = None
     request_inventory: Optional[list[str]] = None
-    can_create_receipt: Optional[bool] = None
     grn_access: Optional[bool] = None
     dispatch_access: Optional[bool] = None
     gate_pass_access: Optional[bool] = None
@@ -77,7 +75,6 @@ class UserResponse(BaseModel):
     inventory_edit: list[str] = []
     request_department_ids: list[int] = []
     request_inventory: list[str] = []
-    can_create_receipt: bool = False
     grn_access: bool = False
     dispatch_access: bool = False
     gate_pass_access: bool = False
@@ -146,7 +143,6 @@ def _build_response(session: Session, user: User) -> UserResponse:
         inventory_edit=_parse_csv(user.inventory_edit),
         request_department_ids=_parse_int_csv(user.request_departments),
         request_inventory=_parse_csv(user.request_inventory),
-        can_create_receipt=user.can_create_receipt,
         grn_access=user.grn_access,
         dispatch_access=user.dispatch_access,
         gate_pass_access=user.gate_pass_access,
@@ -189,7 +185,6 @@ def create_user(
         inventory_edit=",".join(body.inventory_edit),
         request_departments=",".join(str(i) for i in body.request_department_ids),
         request_inventory=",".join(body.request_inventory),
-        can_create_receipt=body.can_create_receipt,
         grn_access=body.grn_access,
         dispatch_access=body.dispatch_access,
         gate_pass_access=body.gate_pass_access,
@@ -257,9 +252,6 @@ def update_user(
 
     if body.request_inventory is not None:
         user.request_inventory = ",".join(body.request_inventory)
-
-    if body.can_create_receipt is not None:
-        user.can_create_receipt = body.can_create_receipt
 
     if body.grn_access is not None:
         user.grn_access = body.grn_access
