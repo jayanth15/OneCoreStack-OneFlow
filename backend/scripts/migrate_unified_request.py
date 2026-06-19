@@ -15,6 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT / "backend"))
 
+from sqlalchemy import text  # noqa: E402
 from sqlmodel import Session, select, SQLModel  # noqa: E402
 
 from app.core.database import engine  # noqa: E402
@@ -28,13 +29,12 @@ from app.models.request import (  # noqa: E402
 from app.models.request_item import RequestItem  # noqa: E402
 from app.models.request_history import RequestHistory  # noqa: E402
 from app.models.request_customer_dispatch import RequestCustomerDispatch  # noqa: E402
-from app.models.request_receipt import RequestReceipt  # noqa: E402
 from app.models.purchase_request import PurchaseRequest  # noqa: E402
 from app.models.purchase_request_item import PurchaseRequestItem  # noqa: E402
 from app.models.purchase_request_history import PurchaseRequestHistory  # noqa: E402
 from app.models.marketing_request import MarketingRequest  # noqa: E402
 from app.models.marketing_request_history import MarketingRequestHistory  # noqa: E402
-from app.models.receipt import Receipt  # noqa: E402
+
 
 
 def _generate_sn(prefix: str, year: int, seq: int) -> str:
@@ -293,7 +293,7 @@ def migrate_marketing_requests(session: Session) -> tuple[int, int, int]:
 def migrate_receipts(
     session: Session, old_pr_id_to_new_req_id: dict[int, int] | None = None
 ) -> tuple[int, int]:
-    """Migrate Receipt → RequestReceipt.
+    """Migrate Receipt → RequestReceipt (raw SQL — models were deleted).
 
     Receipts historically have `request_id` (an FK to the OLD purchase_request.id).
     We translate that to the new Request.id by walking the new Request rows
@@ -302,9 +302,18 @@ def migrate_receipts(
     `old_pr_id_to_new_req_id` override is used by main() to avoid the extra
     lookup when the mapping is already in hand.
     """
-    existing_sns = set(session.exec(select(RequestReceipt.sn_no).where(RequestReceipt.sn_no.like("RCPT-%"))).all())
-    if len(existing_sns) > 0:
-        print(f"  Skipping receipt migration: {len(existing_sns)} RCPT-* rows already exist")
+    table_exists = session.execute(
+        text("SELECT name FROM sqlite_master WHERE type='table' AND name='request_receipt'")
+    ).scalar()
+    if not table_exists:
+        print("  Skipping receipt migration: request_receipt table does not exist (migration already ran or models were dropped)")
+        return 0, 0
+
+    existing = session.execute(
+        text("SELECT sn_no FROM request_receipt WHERE sn_no LIKE 'RCPT-%'")
+    ).scalars().all()
+    if len(existing) > 0:
+        print(f"  Skipping receipt migration: {len(existing)} RCPT-* rows already exist")
         return 0, 0
 
     if old_pr_id_to_new_req_id is None:
@@ -312,33 +321,52 @@ def migrate_receipts(
 
     receipts_created = 0
     skipped = 0
-    for old in session.exec(select(Receipt)).all():
-        new_req_id = old_pr_id_to_new_req_id.get(old.request_id)
+    old_receipts = session.execute(text("SELECT * FROM receipt")).mappings().all()
+    for old in old_receipts:
+        new_req_id = old_pr_id_to_new_req_id.get(old["request_id"])
         if not new_req_id:
             skipped += 1
             continue
 
-        new_receipt = RequestReceipt(
-            sn_no=old.sn_no,  # keep RCPT-… SN unchanged
-            request_id=new_req_id,
-            item_name=old.item_name,
-            item_code=old.item_code,
-            quantity_requested=old.quantity_requested or 0.0,
-            quantity_received=old.quantity_received or 0.0,
-            notes=old.notes,
-            department=old.department,
-            created_by_user_id=old.created_by_user_id,
-            created_by_username=old.created_by_username,
-            status=old.status or "pending_ack",
-            acknowledged_by_user_id=old.acknowledged_by_user_id,
-            acknowledged_by_username=old.acknowledged_by_username,
-            acknowledged_at=old.acknowledged_at,
-            acknowledgment_note=old.acknowledgment_note,
-            is_active=old.is_active,
-            created_at=old.created_at or datetime.now(tz=timezone.utc),
-            updated_at=old.updated_at or datetime.now(tz=timezone.utc),
+        session.execute(
+            text("""
+                INSERT INTO request_receipt (
+                    sn_no, request_id, item_name, item_code,
+                    quantity_requested, quantity_received, notes, department,
+                    created_by_user_id, created_by_username, status,
+                    acknowledged_by_user_id, acknowledged_by_username,
+                    acknowledged_at, acknowledgment_note, is_active,
+                    created_at, updated_at
+                ) VALUES (
+                    :sn_no, :request_id, :item_name, :item_code,
+                    :quantity_requested, :quantity_received, :notes, :department,
+                    :created_by_user_id, :created_by_username, :status,
+                    :acknowledged_by_user_id, :acknowledged_by_username,
+                    :acknowledged_at, :acknowledgment_note, :is_active,
+                    :created_at, :updated_at
+                )
+            """),
+            {
+                "sn_no": old["sn_no"],
+                "request_id": new_req_id,
+                "item_name": old["item_name"],
+                "item_code": old["item_code"],
+                "quantity_requested": old["quantity_requested"] or 0.0,
+                "quantity_received": old["quantity_received"] or 0.0,
+                "notes": old["notes"],
+                "department": old["department"],
+                "created_by_user_id": old["created_by_user_id"],
+                "created_by_username": old["created_by_username"],
+                "status": old["status"] or "pending_ack",
+                "acknowledged_by_user_id": old["acknowledged_by_user_id"],
+                "acknowledged_by_username": old["acknowledged_by_username"],
+                "acknowledged_at": old["acknowledged_at"],
+                "acknowledgment_note": old["acknowledgment_note"],
+                "is_active": old["is_active"],
+                "created_at": old["created_at"],
+                "updated_at": old["updated_at"],
+            },
         )
-        session.add(new_receipt)
         receipts_created += 1
 
     session.commit()
