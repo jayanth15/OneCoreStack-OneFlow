@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { requestsApi, type RequestType, type RequestListItem, type CreateRequestPayload } from "@/lib/requests";
 import { getCurrentUser, type CurrentUser } from "@/lib/user";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,28 @@ export default function RequestsPage() {
   const [allRows, setAllRows] = useState<RequestListItem[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [createBusy, setCreateBusy] = useState(false);
+  const [showInbox, setShowInbox] = useState(false);
+  const [highlightId, setHighlightId] = useState<number | null>(null);
+  const searchParams = useSearchParams();
+
+  // Auto-open detail dialog from ?highlight= query param (notification deep-link)
+  useEffect(() => {
+    const hl = searchParams.get("highlight");
+    if (hl) {
+      const id = Number(hl);
+      if (!isNaN(id)) {
+        setHighlightId(id);
+        setDetailId(id);
+      }
+    }
+  }, [searchParams]);
+
+  // Clear highlight when the detail dialog is dismissed
+  useEffect(() => {
+    if (detailId == null) {
+      setHighlightId(null);
+    }
+  }, [detailId]);
 
   useEffect(() => {
     setUser(getCurrentUser());
@@ -47,11 +69,9 @@ export default function RequestsPage() {
   useEffect(() => {
     if (!hydrated) return;
     setLoading(true);
-    requestsApi.list(tab === "all" ? undefined : { request_type: tab as RequestType })
-      .then(setData)
-      .catch(() => setData([]))
-      .finally(() => setLoading(false));
-  }, [tab, hydrated]);
+    const fetch = showInbox ? requestsApi.inbox() : requestsApi.list(tab === "all" ? undefined : { request_type: tab as RequestType });
+    fetch.then(setData).catch(() => setData([])).finally(() => setLoading(false));
+  }, [tab, hydrated, showInbox]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -62,13 +82,9 @@ export default function RequestsPage() {
 
   const refresh = () => {
     setLoading(true);
-    requestsApi.list(tab === "all" ? undefined : { request_type: tab as RequestType })
-      .then(setData)
-      .catch(() => setData([]))
-      .finally(() => setLoading(false));
-    requestsApi.list()
-      .then(setAllRows)
-      .catch(() => setAllRows([]));
+    (showInbox ? requestsApi.inbox() : requestsApi.list(tab === "all" ? undefined : { request_type: tab as RequestType }))
+      .then(setData).catch(() => setData([])).finally(() => setLoading(false));
+    requestsApi.list().then(setAllRows).catch(() => setAllRows([]));
   };
 
   const onCreate = async (payload: CreateRequestPayload) => {
@@ -116,7 +132,21 @@ export default function RequestsPage() {
         </Dialog>
       </div>
 
-      <TypeTabs value={tab} onChange={setTab} counts={counts} />
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setShowInbox(false)}
+          className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${!showInbox ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
+        >
+          All
+        </button>
+        <button
+          onClick={() => setShowInbox(true)}
+          className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${showInbox ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
+        >
+          Inbox
+        </button>
+        {!showInbox && <TypeTabs value={tab} onChange={setTab} counts={counts} />}
+      </div>
 
       {loading ? (
         <p className="text-sm text-slate-500">Loading…</p>
@@ -125,7 +155,7 @@ export default function RequestsPage() {
       ) : (
         <ul className="space-y-2">
           {data.map((r) => (
-            <li key={r.id}>
+            <li key={r.id} className={r.id === highlightId ? 'ring-2 ring-primary rounded-md' : ''}>
               <button
                 onClick={() => setDetailId(r.id)}
                 className="w-full text-left bg-white border border-slate-200 rounded-md p-3 hover:bg-slate-50 transition-colors"
