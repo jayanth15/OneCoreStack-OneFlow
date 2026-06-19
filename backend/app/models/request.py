@@ -64,3 +64,15 @@ class Request(SQLModel, table=True):
     fulfillment_note: Optional[str] = None
 
     is_active: bool = Field(default=True)
+
+    # Delivery (set when fulfilling dept marks delivered → status awaiting_signoff)
+    delivered_by_user_id: Optional[int] = Field(default=None, foreign_key="users.id")
+    delivered_by_username: Optional[str] = None
+    delivered_at: Optional[datetime] = None
+    delivery_note: Optional[str] = None
+
+    # Acknowledgment (set when requester confirms receipt → status received)
+    acknowledged_by_user_id: Optional[int] = Field(default=None, foreign_key="users.id")
+    acknowledged_by_username: Optional[str] = None
+    acknowledged_at: Optional[datetime] = None
+    acknowledgment_note: Optional[str] = None
