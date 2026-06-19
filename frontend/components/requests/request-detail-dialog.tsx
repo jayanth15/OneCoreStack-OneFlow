@@ -30,9 +30,26 @@ const STATUS_COLORS: Record<RequestStatus, string> = {
   cancelled: "bg-slate-200 text-slate-600",
 };
 
+const HISTORY_LABELS: Record<string, string> = {
+  created: "Created",
+  edited: "Edited",
+  approved: "Approved",
+  rejected: "Rejected",
+  cancelled: "Cancelled",
+  responded: "Responded",
+  delivered: "Delivered",
+  delivery_acknowledged: "Delivery confirmed",
+  status_change: "Status changed",
+  deleted: "Deleted",
+};
+
 export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser }: RequestDetailDialogProps) {
   const [data, setData] = useState<UnifiedRequest | null>(null);
   const [loading, setLoading] = useState(false);
+  const [deliverOpen, setDeliverOpen] = useState(false);
+  const [deliverNote, setDeliverNote] = useState("");
+  const [ackOpen, setAckOpen] = useState(false);
+  const [ackNote, setAckNote] = useState("");
 
   useEffect(() => {
     if (!open || requestId == null) return;
@@ -67,6 +84,32 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
     } catch (e: any) {
       console.error("Accept failed:", e);
       alert(`Accept failed: ${e?.message ?? "unknown error"}`);
+    }
+  };
+
+  const deliver = async () => {
+    if (!data) return;
+    try {
+      const updated = await requestsApi.deliver(data.id, deliverNote);
+      setData(updated);
+      setDeliverOpen(false);
+      setDeliverNote("");
+    } catch (e: any) {
+      console.error("Deliver failed:", e);
+      alert(`Deliver failed: ${e?.message ?? "unknown error"}`);
+    }
+  };
+
+  const acknowledgeDelivery = async () => {
+    if (!data) return;
+    try {
+      const updated = await requestsApi.acknowledgeDelivery(data.id, ackNote);
+      setData(updated);
+      setAckOpen(false);
+      setAckNote("");
+    } catch (e: any) {
+      console.error("Acknowledge failed:", e);
+      alert(`Confirm failed: ${e?.message ?? "unknown error"}`);
     }
   };
 
@@ -176,6 +219,58 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
               </div>
             )}
 
+            {data.delivered_by_username && (
+              <div className="rounded-lg border bg-purple-50/40 p-3 text-sm">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                  Delivered
+                </p>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Delivered by</p>
+                    <p className="font-medium">{data.delivered_by_username}</p>
+                  </div>
+                  {data.delivered_at && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Delivered on</p>
+                      <p className="font-medium">{new Date(data.delivered_at).toLocaleString()}</p>
+                    </div>
+                  )}
+                  {data.delivery_note && (
+                    <div className="col-span-2">
+                      <p className="text-xs text-muted-foreground">Note</p>
+                      <p className="font-medium whitespace-pre-wrap">{data.delivery_note}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {data.acknowledged_by_username && (
+              <div className="rounded-lg border bg-emerald-50/40 p-3 text-sm">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                  Confirmed
+                </p>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Confirmed by</p>
+                    <p className="font-medium">{data.acknowledged_by_username}</p>
+                  </div>
+                  {data.acknowledged_at && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Confirmed on</p>
+                      <p className="font-medium">{new Date(data.acknowledged_at).toLocaleString()}</p>
+                    </div>
+                  )}
+                  {data.acknowledgment_note && (
+                    <div className="col-span-2">
+                      <p className="text-xs text-muted-foreground">Note</p>
+                      <p className="font-medium whitespace-pre-wrap">{data.acknowledgment_note}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div>
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
                 History
@@ -184,7 +279,7 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
                 {data.history.map((h) => (
                   <li key={h.id}>
                     <span className="text-slate-400">{new Date(h.changed_at).toLocaleString()}</span> ·{" "}
-                    <span className="font-medium">{h.changed_by_username ?? "—"}</span> {h.change_type}
+                    <span className="font-medium">{h.changed_by_username ?? "—"}</span> {HISTORY_LABELS[h.change_type] ?? h.change_type}
                     {h.note && <span className="text-slate-500"> — {h.note}</span>}
                   </li>
                 ))}
@@ -203,7 +298,13 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
           {data && data.status === "approved" && (
             <Button onClick={accept}>Accept fulfilment</Button>
           )}
-          {data && isOwner && data.status === "pending" && (
+          {data && data.status === "in_progress" && (
+            <Button onClick={() => setDeliverOpen(true)}>Mark Delivered</Button>
+          )}
+          {data && data.status === "awaiting_signoff" && (
+            <Button onClick={() => setAckOpen(true)}>Confirm Receipt</Button>
+          )}
+          {data && reviewerIsAdmin && data.status !== "received" && data.status !== "not_approved" && data.status !== "cancelled" && (
             <Button variant="ghost" onClick={cancelRequest}>
               Cancel request
             </Button>
@@ -212,6 +313,62 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
             Done
           </Button>
         </DialogFooter>
+      <Dialog open={deliverOpen} onOpenChange={setDeliverOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Mark Delivered</DialogTitle>
+          </DialogHeader>
+          <div className="px-4 pb-2 space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Confirm that all items for <strong>{data?.sn_no}</strong> have been delivered to the requester.
+              The requester will be asked to confirm receipt.
+            </p>
+            <div className="space-y-1.5">
+              <label htmlFor="deliver_note" className="text-sm font-medium">Delivery note (optional)</label>
+              <textarea
+                id="deliver_note"
+                value={deliverNote}
+                onChange={(e) => setDeliverNote(e.target.value)}
+                placeholder="e.g. items handed over at the loading bay"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[80px]"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeliverOpen(false)}>Cancel</Button>
+            <Button onClick={deliver}>Mark Delivered</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={ackOpen} onOpenChange={setAckOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm Receipt</DialogTitle>
+          </DialogHeader>
+          <div className="px-4 pb-2 space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Confirm that you have received all items for <strong>{data?.sn_no}</strong>.
+              This will close the request as <strong>received</strong>.
+            </p>
+            <div className="space-y-1.5">
+              <label htmlFor="ack_note" className="text-sm font-medium">Confirmation note (optional)</label>
+              <textarea
+                id="ack_note"
+                value={ackNote}
+                onChange={(e) => setAckNote(e.target.value)}
+                placeholder="e.g. all items received in good condition"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[80px]"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setAckOpen(false)}>Cancel</Button>
+            <Button onClick={acknowledgeDelivery}>Confirm Receipt</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       </DialogContent>
     </Dialog>
   );
