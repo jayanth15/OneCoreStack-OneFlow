@@ -5,6 +5,8 @@ from typing import Optional
 from sqlmodel import Session, select
 
 from app.models.department import Department
+from app.models.user import User
+from app.routers.notifications import create_notification
 from app.models.request import Request, REQUEST_TYPE_INTERNAL_TRANSFER, REQUEST_TYPE_VENDOR_PURCHASE, REQUEST_TYPE_CUSTOMER_DISPATCH
 from app.models.request_history import RequestHistory
 from app.models.user_department import UserDepartment
@@ -94,3 +96,41 @@ def log_history(
     )
     session.add(h)
     return h
+
+
+def notify_department_users(
+    session: Session,
+    department_code: str,
+    notif_type: str,
+    title: str,
+    body: str,
+    request_id: int,
+) -> None:
+    """Create a notification for every active user belonging to the department
+    whose code matches `department_code`.
+
+    Resolves department.code -> department.id, then user_departments.user_id,
+    then creates one Notification per active user. Silently no-ops if the
+    department code is unknown or has no members.
+    """
+    dept = session.exec(
+        select(Department).where(Department.code == department_code)
+    ).one_or_none()
+    if not dept:
+        return
+    links = session.exec(
+        select(UserDepartment).where(UserDepartment.department_id == dept.id)
+    ).all()
+    if not links:
+        return
+    user_ids = [lnk.user_id for lnk in links]
+    users = session.exec(select(User).where(User.id.in_(user_ids), User.is_active == True)).all()  # noqa: E712
+    for u in users:
+        create_notification(
+            session,
+            user_id=u.id,  # type: ignore[arg-type]
+            notif_type=notif_type,
+            title=title,
+            body=body,
+            request_id=request_id,
+        )
