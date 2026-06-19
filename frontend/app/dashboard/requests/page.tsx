@@ -6,10 +6,11 @@ import { requestsApi, type RequestType, type RequestListItem, type CreateRequest
 import { getCurrentUser, type CurrentUser } from "@/lib/user";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { TypeTabs, type TypeTabsValue } from "@/components/requests/type-tabs";
 import { RequestForm } from "@/components/requests/request-form";
 import { RequestDetailDialog } from "@/components/requests/request-detail-dialog";
+import { Plus, FileText } from "lucide-react";
 
 const STATUS_BADGES: Record<string, string> = {
   pending: "bg-slate-100 text-slate-700",
@@ -119,20 +120,37 @@ export default function RequestsPage() {
         <h1 className="text-2xl font-semibold">Requests</h1>
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
-            <Button>New request</Button>
+            <Button>
+              <Plus className="size-3.5" />
+              New request
+            </Button>
           </DialogTrigger>
           <DialogContent
-            className="max-w-[calc(100%-1rem)] sm:max-w-2xl max-h-[90vh] overflow-y-auto"
+            className="max-w-[calc(100%-1rem)] sm:max-w-2xl p-0 gap-0 max-h-[90vh] overflow-hidden"
             onInteractOutside={(e) => e.preventDefault()}
           >
-            <DialogHeader>
-              <DialogTitle>New request</DialogTitle>
-            </DialogHeader>
-            <RequestForm
-              onSubmit={onCreate}
-              onCancel={() => setCreateOpen(false)}
-              submitLabel={createBusy ? "Creating…" : "Create"}
-            />
+            <div className="bg-gradient-to-b from-primary/[0.04] to-transparent px-6 pt-6 pb-4 border-b">
+              <div className="flex items-center gap-3">
+                <div className="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary">
+                  <FileText className="size-4" />
+                </div>
+                <div>
+                  <DialogTitle className="font-heading text-lg font-semibold tracking-wider uppercase normal-case">
+                    New request
+                  </DialogTitle>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Tell us what you need and where it should go.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="px-6 py-5 overflow-y-auto max-h-[calc(90vh-110px)]">
+              <RequestForm
+                onSubmit={onCreate}
+                onCancel={() => setCreateOpen(false)}
+                submitLabel={createBusy ? "Creating…" : "Create request"}
+              />
+            </div>
           </DialogContent>
         </Dialog>
       </div>

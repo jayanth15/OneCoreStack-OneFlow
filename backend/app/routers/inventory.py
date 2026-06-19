@@ -29,6 +29,25 @@ VALID_TYPES = {"raw_material", "finished_good", "semi_finished", "scrap"}
 ACTIVE_SCHEDULE_STATUSES = {"pending", "confirmed", "in_production"}
 
 
+def _user_inventory_types(user: User) -> Optional[set[str]]:
+    """Return the set of inventory types `user` may view.
+
+    - Admin / super_admin: returns ``None`` (unrestricted; caller must skip
+      the ``item_type IN`` filter).
+    - Manager / worker: if ``inventory_access`` is empty, returns ``None``
+      for backwards-compat (all types allowed). Otherwise returns the parsed
+      set of types from the CSV column, intersected with ``VALID_TYPES`` —
+      which may be empty (meaning "no inventory access at all").
+    """
+    if user.role in ("admin", "super_admin"):
+        return None
+    raw = (user.inventory_access or "").strip()
+    if not raw:
+        return None
+    types = {t.strip() for t in raw.split(",") if t.strip()}
+    return types & VALID_TYPES
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
@@ -246,8 +265,18 @@ def list_items(
     query = select(InventoryItem)
     if not include_inactive:
         query = query.where(InventoryItem.is_active == True)  # noqa: E712
+    allowed_types = _user_inventory_types(current_user)
     if item_type:
+        if allowed_types is not None and item_type not in allowed_types:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"You do not have access to inventory type '{item_type}'",
+            )
         query = query.where(InventoryItem.item_type == item_type)
+    elif allowed_types is not None:
+        # When the caller hasn't asked for a specific type, restrict to the
+        # inventory types the current user is permitted to see.
+        query = query.where(InventoryItem.item_type.in_(allowed_types))  # type: ignore[union-attr]
     if search:
         term = f"%{search}%"
         query = query.where(

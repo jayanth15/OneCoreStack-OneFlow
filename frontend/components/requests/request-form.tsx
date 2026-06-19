@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,12 +19,9 @@ import {
   ComboboxItem,
   ComboboxList,
 } from "@/components/ui/combobox";
-import {
-  Field,
-  FieldGroup,
-  FieldLabel,
-  FieldSeparator,
-} from "@/components/ui/field";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   ToggleGroup,
   ToggleGroupItem,
@@ -34,13 +31,19 @@ import type {
   CreateRequestPayload, RequestType, RequestItem, RequestCustomerDispatch,
 } from "@/lib/requests";
 import { apiFetchJson } from "@/lib/api";
-import { getCurrentUser } from "@/lib/user";
+import { getCurrentUser, canRequestInventory } from "@/lib/user";
 import {
   ArrowLeftRight,
   ShoppingCart,
   Send,
   Plus,
   Trash2,
+  Package,
+  Building2,
+  StickyNote,
+  Tag,
+  ShieldAlert,
+  Minus,
 } from "lucide-react";
 
 interface DeptRef {
@@ -62,20 +65,19 @@ interface PaginatedInventory {
   items: InventoryItem[];
 }
 
-type RequestableItemType =
-  | "raw_material"
-  | "finished_good"
-  | "semi_finished"
-  | "spare"
-  | "consumable";
+const SUPPORTED_REQUESTABLE_TYPES = [
+  "raw_material",
+  "finished_good",
+  "semi_finished",
+] as const;
 
-const ITEM_TYPE_OPTIONS: { value: RequestableItemType; label: string }[] = [
-  { value: "raw_material", label: "Raw materials" },
-  { value: "finished_good", label: "Finished goods" },
-  { value: "semi_finished", label: "Semi-finished" },
-  { value: "spare", label: "Spares" },
-  { value: "consumable", label: "Consumables" },
-];
+type RequestableItemType = (typeof SUPPORTED_REQUESTABLE_TYPES)[number];
+
+const ITEM_TYPE_LABELS: Record<RequestableItemType, string> = {
+  raw_material: "Raw materials",
+  finished_good: "Finished goods",
+  semi_finished: "Semi-finished",
+};
 
 const TYPE_OPTIONS: { value: RequestType; label: string; short: string; icon: typeof ArrowLeftRight }[] = [
   { value: "internal_transfer", label: "Internal transfer", short: "Internal", icon: ArrowLeftRight },
@@ -92,6 +94,20 @@ export interface RequestFormProps {
   onSubmit: (payload: CreateRequestPayload) => Promise<void>;
   onCancel?: () => void;
   submitLabel?: string;
+}
+
+function getPermittedTypes(): RequestableItemType[] {
+  const user = getCurrentUser();
+  if (!user) return [];
+  if (user.role === "admin" || user.role === "super_admin") {
+    return [...SUPPORTED_REQUESTABLE_TYPES];
+  }
+  const granted = user.request_inventory && user.request_inventory.length > 0
+    ? user.request_inventory
+    : (user.inventory_access && user.inventory_access.length > 0
+        ? user.inventory_access
+        : [...SUPPORTED_REQUESTABLE_TYPES]);
+  return SUPPORTED_REQUESTABLE_TYPES.filter((t) => canRequestInventory(t) || granted.includes(t));
 }
 
 export function RequestForm({
@@ -114,7 +130,14 @@ export function RequestForm({
   const [depts, setDepts] = useState<DeptRef[]>([]);
   const [deptsLoadFailed, setDeptsLoadFailed] = useState(false);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [inventoryLoading, setInventoryLoading] = useState(true);
   const [itemType, setItemType] = useState<RequestableItemType>("raw_material");
+
+  const permittedTypes = useMemo<RequestableItemType[]>(() => getPermittedTypes(), []);
+  const noAccess = permittedTypes.length === 0;
+  const effectiveItemType: RequestableItemType = permittedTypes.includes(itemType)
+    ? itemType
+    : permittedTypes[0] ?? "raw_material";
 
   useEffect(() => {
     apiFetchJson<DeptRef[]>("/api/v1/departments")
@@ -132,15 +155,20 @@ export function RequestForm({
   }, []);
 
   useEffect(() => {
+    if (noAccess) return;
+    let cancelled = false;
     apiFetchJson<PaginatedInventory>(
-      `/api/v1/inventory?item_type=${itemType}&page_size=500&include_inactive=false`
+      `/api/v1/inventory?item_type=${effectiveItemType}&page_size=500&include_inactive=false`
     )
-      .then((r) => setInventoryItems(r.items))
-      .catch(() => setInventoryItems([]));
-  }, [itemType]);
+      .then((r) => { if (!cancelled) setInventoryItems(r.items); })
+      .catch(() => { if (!cancelled) setInventoryItems([]); })
+      .finally(() => { if (!cancelled) setInventoryLoading(false); });
+    return () => { cancelled = true; };
+  }, [effectiveItemType, noAccess]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (noAccess) return;
     setBusy(true);
     try {
       const payload: CreateRequestPayload = {
@@ -157,10 +185,48 @@ export function RequestForm({
     }
   };
 
+  const updateItem = (i: number, patch: Partial<RequestItem>) => {
+    setItems((prev) => prev.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  };
+
+  const incrementItem = (i: number, delta: number) => {
+    setItems((prev) => prev.map((x, j) => (j === i ? { ...x, quantity: Math.max(1, (x.quantity || 1) + delta) } : x)));
+  };
+
+  const removeItem = (i: number) => {
+    setItems((prev) => prev.filter((_, j) => j !== i));
+  };
+
+  if (noAccess) {
+    return (
+      <div className="px-2 py-6">
+        <Card className="ring-1 ring-foreground/5">
+          <CardContent className="p-6 flex flex-col items-center text-center gap-3">
+            <div className="grid size-10 place-items-center rounded-full bg-amber-100 text-amber-700">
+              <ShieldAlert className="size-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold">No inventory access</h3>
+              <p className="text-xs text-muted-foreground mt-1 max-w-sm">
+                You don&apos;t have permission to request any inventory types. Please contact your administrator to update your access.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+        {onCancel && (
+          <div className="mt-4 flex justify-end">
+            <Button type="button" variant="outline" size="sm" onClick={onCancel} disabled={busy}>
+              Close
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <form onSubmit={submit}>
-      <FieldGroup className="gap-4 sm:gap-6">
-        {/* Request type */}
+    <form onSubmit={submit} className="flex flex-col">
+      <div className="space-y-4 px-1">
         <ToggleGroup
           type="single"
           value={type}
@@ -171,82 +237,123 @@ export function RequestForm({
           className="w-full"
         >
           {TYPE_OPTIONS.map((opt) => (
-            <ToggleGroupItem key={opt.value} value={opt.value} className="flex-1 flex-col gap-1 normal-case tracking-normal whitespace-normal px-2 text-xs">
+            <ToggleGroupItem
+              key={opt.value}
+              value={opt.value}
+              className="flex-1 flex-col gap-1 normal-case tracking-normal whitespace-normal px-2 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm transition-all"
+            >
               <opt.icon className="size-4" />
               <span>{opt.short}</span>
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
 
-        {/* Routing */}
-        <FieldSeparator>Routing</FieldSeparator>
+        <Card size="sm" className="ring-1 ring-foreground/5">
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-2">
+              <div className="grid size-7 place-items-center rounded-md bg-primary/10 text-primary">
+                <Building2 className="size-3.5" />
+              </div>
+              <CardTitle className="text-xs">Routing</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-1.5">
+              <label htmlFor="dept" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Department
+              </label>
+              {deptsLoadFailed ? (
+                <>
+                  <Input
+                    id="dept"
+                    value={department}
+                    onChange={(e) => setDepartment(e.target.value)}
+                    placeholder="Department name"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Couldn&apos;t load department list — type the department name manually.
+                  </p>
+                </>
+              ) : (
+                <Select value={department || undefined} onValueChange={(v) => setDepartment(v)}>
+                  <SelectTrigger id="dept" className="w-full">
+                    <SelectValue placeholder="Select a department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {depts.map((d) => (
+                      <SelectItem key={d.id} value={d.code}>
+                        {d.code} — {d.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
 
-        <Field>
-          <FieldLabel htmlFor="dept">Department</FieldLabel>
-          {deptsLoadFailed ? (
-            <>
-              <Input
-                id="dept"
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-                placeholder="Department name"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Couldn&apos;t load department list — type the department name manually.
-              </p>
-            </>
-          ) : (
-            <Select value={department || undefined} onValueChange={(v) => setDepartment(v)}>
-              <SelectTrigger id="dept" className="w-full">
-                <SelectValue placeholder="Select a department" />
-              </SelectTrigger>
-              <SelectContent>
-                {depts.map((d) => (
-                  <SelectItem key={d.id} value={d.code}>
-                    {d.code} — {d.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </Field>
+            {type === "vendor_purchase" && (
+              <div className="space-y-1.5">
+                <label htmlFor="from-whom" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Vendor <span className="text-destructive">*</span>
+                </label>
+                <div className="flex items-center gap-2 rounded-md border border-input px-3 focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30 transition">
+                  <Tag className="size-3.5 text-muted-foreground" />
+                  <Input
+                    id="from-whom"
+                    required
+                    value={fromWhom}
+                    onChange={(e) => setFromWhom(e.target.value)}
+                    placeholder="Vendor name"
+                    className="border-0 px-0 focus-visible:ring-0"
+                  />
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-        {type === "vendor_purchase" && (
-          <Field>
-            <FieldLabel htmlFor="from-whom">From whom (vendor) *</FieldLabel>
-            <Input id="from-whom" required value={fromWhom} onChange={(e) => setFromWhom(e.target.value)} />
-          </Field>
-        )}
-
-        {/* Items / Customer dispatch */}
         {type === "customer_dispatch" ? (
-          <>
-            <FieldSeparator>Customer</FieldSeparator>
-            <CustomerDispatchBlock value={dispatch} onChange={setDispatch} />
-          </>
+          <Card size="sm" className="ring-1 ring-foreground/5">
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-2">
+                <div className="grid size-7 place-items-center rounded-md bg-primary/10 text-primary">
+                  <Send className="size-3.5" />
+                </div>
+                <CardTitle className="text-xs">Customer</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <CustomerDispatchBlock value={dispatch} onChange={setDispatch} />
+            </CardContent>
+          </Card>
         ) : (
-          <>
-            <FieldSeparator>Items</FieldSeparator>
-
-            <Field>
-              <FieldLabel htmlFor="item-type-filter">Item type</FieldLabel>
-              <Select value={itemType} onValueChange={(v) => setItemType(v as RequestableItemType)}>
-                <SelectTrigger id="item-type-filter" className="w-full sm:w-64">
-                  <SelectValue placeholder="Select item type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ITEM_TYPE_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-
-            <div className="space-y-2">
+          <Card size="sm" className="ring-1 ring-foreground/5">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="grid size-7 place-items-center rounded-md bg-primary/10 text-primary">
+                    <Package className="size-3.5" />
+                  </div>
+                  <CardTitle className="text-xs">Items</CardTitle>
+                </div>
+                {permittedTypes.length > 0 && (
+                  <Select value={itemType} onValueChange={(v) => setItemType(v as RequestableItemType)}>
+                    <SelectTrigger size="sm" className="h-8 w-auto text-xs gap-1.5">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {permittedTypes.map((t) => (
+                        <SelectItem key={t} value={t}>
+                          {ITEM_TYPE_LABELS[t]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-2">
               {items.map((it, i) => (
-                <div key={i} className="flex flex-col sm:flex-row sm:items-start gap-2 rounded-lg border p-3">
+                <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-2 rounded-lg border bg-muted/20 p-2.5">
                   <div className="flex-1 min-w-0">
                     <Combobox
                       value={it.inventory_item_id ? String(it.inventory_item_id) : ""}
@@ -254,15 +361,13 @@ export function RequestForm({
                         const raw = v as string;
                         const id = raw ? Number(raw) : null;
                         const found = inventoryItems.find((x) => x.id === id);
-                        setItems(items.map((x, j) => j === i
-                          ? { ...x, item_name: found?.name ?? "", inventory_item_id: id }
-                          : x
-                        ));
+                        updateItem(i, { item_name: found?.name ?? "", inventory_item_id: id });
                       }}
                     >
                       <ComboboxInput
-                        placeholder="Search inventory item..."
+                        placeholder={inventoryLoading ? "Loading inventory…" : "Search inventory item..."}
                         className="w-full"
+                        disabled={inventoryLoading}
                       />
                       <ComboboxContent>
                         <ComboboxList>
@@ -277,24 +382,50 @@ export function RequestForm({
                         </ComboboxList>
                       </ComboboxContent>
                     </Combobox>
+                    {inventoryLoading && !it.inventory_item_id && (
+                      <Skeleton className="mt-1.5 h-2.5 w-32" />
+                    )}
                   </div>
-                  <Input
-                    type="number"
-                    min={1}
-                    step={1}
-                    className="w-20 shrink-0"
-                    value={it.quantity}
-                    onChange={(e) => setItems(items.map((x, j) => (j === i ? { ...x, quantity: Number(e.target.value) || 1 } : x)))}
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="shrink-0 mt-0.5"
-                    onClick={() => setItems(items.filter((_, j) => j !== i))}
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon-sm"
+                      onClick={() => incrementItem(i, -1)}
+                      disabled={it.quantity <= 1}
+                      aria-label="Decrease quantity"
+                    >
+                      <Minus className="size-3" />
+                    </Button>
+                    <Input
+                      type="number"
+                      min={1}
+                      step={1}
+                      className="w-16 text-center"
+                      value={it.quantity}
+                      onChange={(e) => updateItem(i, { quantity: Math.max(1, Number(e.target.value) || 1) })}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon-sm"
+                      onClick={() => incrementItem(i, 1)}
+                      aria-label="Increase quantity"
+                    >
+                      <Plus className="size-3" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => removeItem(i)}
+                      disabled={items.length === 1}
+                      className="text-muted-foreground hover:text-destructive"
+                      aria-label="Remove item"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </div>
                 </div>
               ))}
               <Button
@@ -302,34 +433,47 @@ export function RequestForm({
                 variant="outline"
                 size="sm"
                 onClick={() => setItems([...items, { ...DEFAULT_ITEM }])}
+                className="mt-1"
               >
-                <Plus className="size-4 mr-1" />
+                <Plus className="size-3.5" />
                 Add item
               </Button>
-            </div>
-          </>
+            </CardContent>
+          </Card>
         )}
 
-        {/* Notes */}
-        <FieldSeparator>Notes</FieldSeparator>
+        <Card size="sm" className="ring-1 ring-foreground/5">
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-2">
+              <div className="grid size-7 place-items-center rounded-md bg-primary/10 text-primary">
+                <StickyNote className="size-3.5" />
+              </div>
+              <CardTitle className="text-xs">Notes</CardTitle>
+              <Badge variant="ghost" className="text-[10px]">Optional</Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Textarea
+              id="notes"
+              rows={3}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Anything else the fulfiller should know…"
+            />
+          </CardContent>
+        </Card>
+      </div>
 
-        <Field>
-          <FieldLabel htmlFor="notes">Notes</FieldLabel>
-          <Textarea id="notes" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
-        </Field>
-
-        {/* Actions */}
-        <Field orientation="horizontal" className="justify-end gap-2">
-          {onCancel && (
-            <Button type="button" variant="ghost" onClick={onCancel} disabled={busy}>
-              Cancel
-            </Button>
-          )}
-          <Button type="submit" disabled={busy}>
-            {busy ? "Saving…" : submitLabel}
+      <div className="sticky bottom-0 -mx-6 -mb-6 mt-4 border-t bg-popover/95 backdrop-blur supports-backdrop-filter:bg-popover/80 px-6 py-3 flex items-center justify-end gap-2">
+        {onCancel && (
+          <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={busy}>
+            Cancel
           </Button>
-        </Field>
-      </FieldGroup>
+        )}
+        <Button type="submit" size="sm" disabled={busy}>
+          {busy ? "Saving…" : submitLabel}
+        </Button>
+      </div>
     </form>
   );
 }
