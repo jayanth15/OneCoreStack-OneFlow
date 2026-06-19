@@ -51,7 +51,6 @@ const PRIMARY_NAV: NavItem[] = [
 // Always shown to all users in the More drawer
 const GENERAL_MORE_NAV: NavItem[] = [
   { label: "Requests", href: "/dashboard/requests", icon: ClipboardList },
-  { label: "Receipts", href: "/dashboard/receipts", icon: PackageCheck },
 ];
 
 // Only shown to admin / super_admin in the More drawer
@@ -75,13 +74,14 @@ export function BottomNav() {
   const [purchaseAccess, setPurchaseAccess] = useState(false);
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [requestCount, setRequestCount] = useState(0);
-  const [receiptCount, setReceiptCount] = useState(0);
   const { canInstall, canPrompt, isIOS, isAndroidHTTP, needsCert, isManual, install } = usePwaInstall();
 
   useEffect(() => {
     async function fetchCounts() {
       try {
-        const reqs = await requestsApi.list({ status: "pending" });
+        const [reqs] = await Promise.all([
+          requestsApi.inbox(),
+        ]);
         setRequestCount(reqs.length);
       } catch { /* ignore */ }
     }
@@ -214,11 +214,6 @@ export function BottomNav() {
               {item.href === "/dashboard/requests" && requestCount > 0 && (
                 <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center">
                   {requestCount > 99 ? "99+" : requestCount}
-                </span>
-              )}
-              {item.href === "/dashboard/receipts" && receiptCount > 0 && (
-                <span className="ml-auto bg-amber-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center">
-                  {receiptCount > 99 ? "99+" : receiptCount}
                 </span>
               )}
             </Link>

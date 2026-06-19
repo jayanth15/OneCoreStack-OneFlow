@@ -39,7 +39,6 @@ const CORE_NAV: NavItem[] = [
   { label: "Schedule",   href: "/dashboard/schedule",     icon: CalendarDays },
   { label: "Production", href: "/dashboard/production",   icon: Factory },
   { label: "Requests",   href: "/dashboard/requests",     icon: ClipboardList },
-  { label: "Receipts",   href: "/dashboard/receipts",     icon: PackageCheck },
 ];
 
 // Only shown to admin / super_admin (alongside Departments, Users, BOM)
@@ -65,7 +64,6 @@ export function DesktopSidebar() {
   const [purchaseAccess, setPurchaseAccess] = useState(false);
   const [notifCount, setNotifCount] = useState(0);
   const [requestCount, setRequestCount] = useState(0);
-  const [receiptCount, setReceiptCount] = useState(0);
 
   useEffect(() => {
     const user = getCurrentUser();
@@ -83,7 +81,7 @@ export function DesktopSidebar() {
       try {
         const [notif, reqs] = await Promise.all([
           apiFetchJson<{ count: number }>("/api/v1/notifications/unread-count"),
-          requestsApi.list({ status: "pending" }),
+          requestsApi.inbox(),
         ]);
         setNotifCount(notif.count);
         setRequestCount(reqs.length);
