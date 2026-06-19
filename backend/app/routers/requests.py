@@ -27,11 +27,14 @@ from app.schemas.request import (
     RequestCreate, RequestUpdate, RequestRead, RequestListRead,
     RequestReviewAction, RequestItemAcceptAction, RequestStatusUpdate,
     RequestItemRead, RequestCustomerDispatchRead, RequestHistoryRead,
+    RequestDeliverAction, RequestAcknowledgeDeliveryAction,
 )
 from app.routers.requests_helpers import (
     generate_sn, log_history, get_user_departments,
     build_department_label_map, label_for_code,
+    notify_department_users,
 )
+from app.routers.notifications import create_notification
 
 router = APIRouter(prefix="/api/v1/requests", tags=["requests"])
 
@@ -131,9 +134,49 @@ def list_requests(
             from_whom=r.from_whom, quantity=r.quantity, status=r.status,
             requested_by_username=r.requested_by_username, created_at=r.created_at,
             is_active=r.is_active,
+            delivered_by_username=r.delivered_by_username,
+            delivered_at=r.delivered_at,
+            acknowledged_by_username=r.acknowledged_by_username,
+            acknowledged_at=r.acknowledged_at,
         )
         for r in rows
     ]
+
+
+# --- inbox (dept-targeted "needs my action") ---
+
+@router.get("/inbox", response_model=List[RequestListRead])
+def list_inbox(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    user_depts = get_user_departments(session, current_user.id)  # type: ignore[arg-type]
+    stmt = select(Request).where(
+        Request.is_active == True,  # noqa: E712
+        Request.status.in_(["approved", "in_progress", "awaiting_signoff"]),
+        Request.request_type != REQUEST_TYPE_CUSTOMER_DISPATCH,
+    )
+    rows = session.exec(stmt.order_by(Request.created_at.desc())).all()
+    label_map = build_department_label_map(session)
+    out = []
+    for r in rows:
+        if current_user.role in ("admin", "super_admin"):
+            pass
+        else:
+            if not _user_can_accept(current_user, r, session, user_depts):
+                continue
+        out.append(RequestListRead(
+            id=r.id, sn_no=r.sn_no, request_type=r.request_type, department=r.department,
+            department_label=label_for_code(r.department, label_map),
+            from_whom=r.from_whom, quantity=r.quantity, status=r.status,
+            requested_by_username=r.requested_by_username, created_at=r.created_at,
+            is_active=r.is_active,
+            delivered_by_username=r.delivered_by_username,
+            delivered_at=r.delivered_at,
+            acknowledged_by_username=r.acknowledged_by_username,
+            acknowledged_at=r.acknowledged_at,
+        ))
+    return out
 
 
 # --- create ---
@@ -287,12 +330,30 @@ def delete_request(
     req = session.get(Request, request_id)
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
-    if req.requested_by_user_id != current_user.id and current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Only the requester or an admin can delete")
+    if current_user.role not in ("admin", "super_admin"):
+        raise HTTPException(status_code=403, detail="Only admins can cancel requests")
     req.is_active = False
     req.status = "cancelled"
     log_history(session, req.id, changed_by_user_id=current_user.id, changed_by_username=current_user.username,
                 change_type="cancelled", note="Soft-deleted")
+    if req.requested_by_user_id:
+        create_notification(
+            session,
+            user_id=req.requested_by_user_id,
+            notif_type="request_cancelled",
+            title=f"Request {req.sn_no} cancelled",
+            body=f"Request {req.sn_no} was cancelled by {current_user.username}.",
+            request_id=req.id,
+        )
+    if req.department:
+        notify_department_users(
+            session,
+            department_code=req.department,
+            notif_type="request_cancelled",
+            title=f"Request {req.sn_no} cancelled",
+            body=f"Request {req.sn_no} targeting your department was cancelled by {current_user.username}.",
+            request_id=req.id,
+        )
     session.commit()
     return None
 
@@ -324,6 +385,34 @@ def review_request(
     log_history(session, req.id, changed_by_user_id=current_user.id, changed_by_username=current_user.username,
                 change_type="approved" if payload.decision == "approve" else "rejected",
                 field_name="status", old_value=old_status, new_value=req.status, note=payload.note)
+    if req.requested_by_user_id:
+        if payload.decision == "approve":
+            create_notification(
+                session,
+                user_id=req.requested_by_user_id,
+                notif_type="request_approved",
+                title=f"Request {req.sn_no} approved",
+                body=f"Your request {req.sn_no} was approved by {current_user.username}.",
+                request_id=req.id,
+            )
+        else:
+            create_notification(
+                session,
+                user_id=req.requested_by_user_id,
+                notif_type="request_rejected",
+                title=f"Request {req.sn_no} not approved",
+                body=f"Your request {req.sn_no} was not approved by {current_user.username}.{f' Note: {payload.note}' if payload.note else ''}",
+                request_id=req.id,
+            )
+    if payload.decision == "approve" and req.department:
+        notify_department_users(
+            session,
+            department_code=req.department,
+            notif_type="request_approved",
+            title=f"New request {req.sn_no} for your department",
+            body=f"Request {req.sn_no} was approved and is awaiting acceptance by your department.",
+            request_id=req.id,
+        )
     session.commit()
     session.refresh(req)
     return _build_read(req, session)
@@ -352,6 +441,107 @@ def accept_fulfilment(
     req.fulfillment_note = note
     log_history(session, req.id, changed_by_user_id=current_user.id, changed_by_username=current_user.username,
                 change_type="responded", field_name="status", old_value="approved", new_value="in_progress", note=note)
+    if req.requested_by_user_id:
+        create_notification(
+            session,
+            user_id=req.requested_by_user_id,
+            notif_type="request_accepted",
+            title=f"Request {req.sn_no} accepted",
+            body=f"Your request {req.sn_no} was accepted by {current_user.username} and is now in progress.",
+            request_id=req.id,
+        )
+    session.commit()
+    session.refresh(req)
+    return _build_read(req, session)
+
+
+# --- deliver (fulfilling dept marks delivered → awaiting_signoff) ---
+
+@router.post("/{request_id}/deliver", response_model=RequestRead)
+def deliver_request(
+    request_id: int,
+    payload: RequestDeliverAction,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    req = session.get(Request, request_id)
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+    if req.request_type == REQUEST_TYPE_CUSTOMER_DISPATCH:
+        raise HTTPException(status_code=400, detail="deliver is not applicable to customer_dispatch requests")
+    if req.status != "in_progress":
+        raise HTTPException(status_code=409, detail=f"Cannot deliver a request in status '{req.status}'")
+    if not _user_can_accept(current_user, req, session, get_user_departments(session, current_user.id)):  # type: ignore[arg-type]
+        raise HTTPException(status_code=403, detail="Not allowed to deliver this request")
+
+    old_status = req.status
+    req.status = "awaiting_signoff"
+    req.delivered_by_user_id = current_user.id
+    req.delivered_by_username = current_user.username
+    req.delivered_at = datetime.now(tz=timezone.utc)
+    req.delivery_note = payload.delivery_note
+    req.updated_at = datetime.now(tz=timezone.utc)
+
+    log_history(session, req.id, changed_by_user_id=current_user.id, changed_by_username=current_user.username,
+                change_type="delivered", field_name="status", old_value=old_status, new_value="awaiting_signoff",
+                note=payload.delivery_note)
+
+    if req.requested_by_user_id:
+        create_notification(
+            session,
+            user_id=req.requested_by_user_id,
+            notif_type="request_delivered",
+            title=f"Request {req.sn_no} delivered",
+            body=f"Items for {req.sn_no} have been delivered by {current_user.username}. Please confirm receipt.",
+            request_id=req.id,
+        )
+
+    session.commit()
+    session.refresh(req)
+    return _build_read(req, session)
+
+
+# --- acknowledge delivery (requester confirms receipt → received) ---
+
+@router.post("/{request_id}/acknowledge-delivery", response_model=RequestRead)
+def acknowledge_delivery(
+    request_id: int,
+    payload: RequestAcknowledgeDeliveryAction,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    req = session.get(Request, request_id)
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+    if req.request_type == REQUEST_TYPE_CUSTOMER_DISPATCH:
+        raise HTTPException(status_code=400, detail="acknowledge-delivery is not applicable to customer_dispatch requests")
+    if req.status != "awaiting_signoff":
+        raise HTTPException(status_code=409, detail=f"Cannot acknowledge a request in status '{req.status}'")
+    if req.requested_by_user_id != current_user.id and current_user.role not in ("admin", "super_admin"):
+        raise HTTPException(status_code=403, detail="Only the requester or an admin can confirm receipt")
+
+    old_status = req.status
+    req.status = "received"
+    req.acknowledged_by_user_id = current_user.id
+    req.acknowledged_by_username = current_user.username
+    req.acknowledged_at = datetime.now(tz=timezone.utc)
+    req.acknowledgment_note = payload.acknowledgment_note
+    req.updated_at = datetime.now(tz=timezone.utc)
+
+    log_history(session, req.id, changed_by_user_id=current_user.id, changed_by_username=current_user.username,
+                change_type="delivery_acknowledged", field_name="status", old_value=old_status, new_value="received",
+                note=payload.acknowledgment_note)
+
+    if req.department:
+        notify_department_users(
+            session,
+            department_code=req.department,
+            notif_type="request_received",
+            title=f"Request {req.sn_no} confirmed",
+            body=f"Requester {current_user.username} confirmed receipt of {req.sn_no}.",
+            request_id=req.id,
+        )
+
     session.commit()
     session.refresh(req)
     return _build_read(req, session)
@@ -453,6 +643,14 @@ def _build_read(req: Request, session: Session) -> RequestRead:
         reviewed_at=req.reviewed_at, review_note=req.review_note,
         fulfilled_by_user_id=req.fulfilled_by_user_id, fulfilled_by_username=req.fulfilled_by_username,
         fulfillment_accepted_at=req.fulfillment_accepted_at, fulfillment_note=req.fulfillment_note,
+        delivered_by_user_id=req.delivered_by_user_id,
+        delivered_by_username=req.delivered_by_username,
+        delivered_at=req.delivered_at,
+        delivery_note=req.delivery_note,
+        acknowledged_by_user_id=req.acknowledged_by_user_id,
+        acknowledged_by_username=req.acknowledged_by_username,
+        acknowledged_at=req.acknowledged_at,
+        acknowledgment_note=req.acknowledgment_note,
         is_active=req.is_active,
         items=[RequestItemRead(
             id=i.id, inventory_item_id=i.inventory_item_id, item_name=i.item_name, item_code=i.item_code,
