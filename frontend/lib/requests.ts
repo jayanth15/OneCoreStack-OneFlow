@@ -68,6 +68,14 @@ export interface UnifiedRequest {
   fulfilled_by_username?: string | null;
   fulfillment_accepted_at?: string | null;
   fulfillment_note?: string | null;
+  delivered_by_user_id?: number | null;
+  delivered_by_username?: string | null;
+  delivered_at?: string | null;
+  delivery_note?: string | null;
+  acknowledged_by_user_id?: number | null;
+  acknowledged_by_username?: string | null;
+  acknowledged_at?: string | null;
+  acknowledgment_note?: string | null;
   is_active: boolean;
   items: RequestItem[];
   dispatch: RequestCustomerDispatch | null;
@@ -86,6 +94,10 @@ export interface RequestListItem {
   requested_by_username?: string | null;
   created_at: string;
   is_active: boolean;
+  delivered_by_username?: string | null;
+  delivered_at?: string | null;
+  acknowledged_by_username?: string | null;
+  acknowledged_at?: string | null;
 }
 
 export interface CreateRequestPayload {
@@ -134,4 +146,13 @@ export const requestsApi = {
 
   history: (id: number) =>
     apiFetchJson<RequestHistory[]>(`/api/v1/requests/${id}/history`),
+
+  inbox: () =>
+    apiFetchJson<RequestListItem[]>(`/api/v1/requests/inbox`),
+
+  deliver: (id: number, delivery_note?: string) =>
+    apiFetchJson<UnifiedRequest>(`/api/v1/requests/${id}/deliver`, { method: "POST", body: JSON.stringify({ delivery_note }) }),
+
+  acknowledgeDelivery: (id: number, acknowledgment_note?: string) =>
+    apiFetchJson<UnifiedRequest>(`/api/v1/requests/${id}/acknowledge-delivery`, { method: "POST", body: JSON.stringify({ acknowledgment_note }) }),
 };
