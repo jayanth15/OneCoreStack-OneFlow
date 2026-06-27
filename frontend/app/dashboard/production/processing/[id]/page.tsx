@@ -384,71 +384,7 @@ export default function ProductionOrderDetailPage() {
               </div>
             )}
 
-            {/* ── Worker Activity Summary ───────────────────────────────── */}
-            {order.job_cards.length > 0 && (() => {
-              // Aggregate by worker_name; expand worker_names array when present
-              const byWorker: Record<string, { hours: number; produced: number; cards: number; dates: Set<string> }> = {};
-              order.job_cards.forEach((jc) => {
-                if (jc.job_type === "supplier") return;
-                const workers = jc.worker_names?.length ? jc.worker_names : (jc.worker_name ? [jc.worker_name] : ["Unassigned"]);
-                workers.forEach((w) => {
-                  if (!byWorker[w]) byWorker[w] = { hours: 0, produced: 0, cards: 0, dates: new Set() };
-                  byWorker[w].hours    += jc.hours_worked / workers.length;
-                  byWorker[w].produced += jc.actual_qty / workers.length;
-                  byWorker[w].cards    += 1;
-                  if (jc.work_date) byWorker[w].dates.add(jc.work_date);
-                });
-              });
-              const entries = Object.entries(byWorker);
-              if (entries.length === 0) return null;
-              return (
-                <div className="rounded-lg border overflow-hidden">
-                  <div className="bg-muted/40 px-4 py-2.5 flex items-center gap-2">
-                    <User className="size-4 text-muted-foreground" />
-                    <span className="font-medium text-sm">Worker Activity</span>
-                    <span className="text-xs text-muted-foreground">— total across all job cards</span>
-                  </div>
-                  <div className="divide-y">
-                    {entries.map(([name, stats]) => (
-                      <div key={name} className="px-4 py-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs hover:bg-muted/20 transition-colors">
-                        <div className="flex items-center gap-1.5">
-                          <div className="size-7 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">
-                            {name.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="font-medium text-sm">{name}</p>
-                            <p className="text-muted-foreground">{stats.cards} job card{stats.cards !== 1 ? "s" : ""}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <Clock className="size-3.5 text-purple-500 shrink-0" />
-                          <div>
-                            <p className="font-mono font-semibold text-purple-700">{stats.hours.toFixed(1)} h</p>
-                            <p className="text-muted-foreground">Hours worked</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <Package className="size-3.5 text-success shrink-0" />
-                          <div>
-                            <p className="font-mono font-semibold text-success">{stats.produced}</p>
-                            <p className="text-muted-foreground">Units produced</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <CalendarDays className="size-3.5 text-primary shrink-0" />
-                          <div>
-                            <p className="font-mono font-semibold text-primary">{stats.dates.size} day{stats.dates.size !== 1 ? "s" : ""}</p>
-                            <p className="text-muted-foreground truncate max-w-[140px]" title={[...stats.dates].sort().join(", ")}>
-                              {[...stats.dates].sort().slice(-2).join(", ") || "—"}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })()}
+
 
             {/* ── Aggregate Time Summary ──────────────────────────────────────── */}
             {(totalEstimatedMinutes > 0 || totalHours > 0) && (

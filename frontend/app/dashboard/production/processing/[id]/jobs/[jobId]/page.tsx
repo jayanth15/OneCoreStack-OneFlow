@@ -323,6 +323,48 @@ export default function JobCardDetailPage() {
               </div>
             )}
 
+            {/* ── Worker Activity (this card) ──────────────────────── */}
+            {job.worker_names?.length > 0 && job.job_type !== "supplier" && (() => {
+              const workerCount = job.worker_names.length;
+              const hoursPerWorker = workerCount > 0 ? job.hours_worked / workerCount : 0;
+              const qtyPerWorker = workerCount > 0 ? (actualQty || estimatedQty) / workerCount : 0;
+              return (
+                <div className="rounded-lg border overflow-hidden">
+                  <div className="bg-muted/40 px-4 py-2.5 flex items-center gap-2">
+                    <User className="size-4 text-muted-foreground" />
+                    <span className="font-medium text-sm">Worker Activity</span>
+                    <span className="text-xs text-muted-foreground">— this job card</span>
+                  </div>
+                  <div className="divide-y">
+                    {job.worker_names.map((name, i) => (
+                      <div key={i} className="px-4 py-3 grid grid-cols-3 gap-3 text-xs hover:bg-muted/20 transition-colors">
+                        <div className="flex items-center gap-1.5">
+                          <div className="size-7 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">
+                            {name.charAt(0).toUpperCase()}
+                          </div>
+                          <p className="font-medium text-sm">{name}</p>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Clock className="size-3.5 text-purple-500 shrink-0" />
+                          <div>
+                            <p className="font-mono font-semibold text-purple-700">{hoursPerWorker.toFixed(1)} h</p>
+                            <p className="text-muted-foreground">Hours worked</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Package className="size-3.5 text-success shrink-0" />
+                          <div>
+                            <p className="font-mono font-semibold text-success">{qtyPerWorker.toFixed(1)}</p>
+                            <p className="text-muted-foreground">Units produced</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* ── Action Buttons ────────────────────────────────────── */}
             <div className="flex flex-wrap gap-3">
               <Button asChild>
