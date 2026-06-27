@@ -164,71 +164,18 @@ function prToFormRow(pr: PRItem): FormItemRow {
   };
 }
 
-// ── PR combobox ───────────────────────────────────────────────────────────────
-
-function PrCombobox({
-  value,
-  onSelect,
-  disabled,
-}: {
-  value: string;
-  onSelect: (pr: PRItem) => void;
-  disabled?: boolean;
-}) {
-  const [query, setQuery] = useState(value);
-  const [results, setResults] = useState<PRItem[]>([]);
-  const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => { setQuery(value); }, [value]);
-
-  const search = useCallback((q: string) => {
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(async () => {
-      setBusy(true);
-      try {
-        const qs = q.trim() ? `?search=${encodeURIComponent(q)}` : "";
-        setResults(await apiFetchJson<PRItem[]>(`/api/v1/grn/linkable-prs${qs}`));
-      } catch { /* ignore */ } finally { setBusy(false); }
-    }, q.trim() ? 300 : 0);
-  }, []);
-
-  return (
-    <div className="relative">
-      <input
-        type="text"
-        value={query}
-        disabled={disabled}
-        placeholder="Search purchase request…"
-        className="w-full px-3 py-1.5 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-        onChange={(e) => { setQuery(e.target.value); setOpen(true); search(e.target.value); }}
-        onFocus={() => { setOpen(true); if (!query) search(""); }}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
-      />
-      {open && (results.length > 0 || busy) && (
-        <div className="absolute z-50 top-full mt-1 w-full bg-popover border rounded-md shadow-md overflow-hidden">
-          {busy && results.length === 0 ? (
-            <div className="px-3 py-2 text-xs text-muted-foreground flex items-center gap-1.5">
-              <Loader2 className="size-3 animate-spin" /> Searching…
-            </div>
-          ) : (
-            results.map((pr) => (
-              <button key={pr.id} type="button"
-                className="w-full px-3 py-2 text-left text-sm hover:bg-accent transition-colors"
-                onMouseDown={() => { onSelect(pr); setQuery(`${pr.sn_no} · ${pr.item_name ?? ""}`); setOpen(false); }}>
-                <span className="font-mono font-medium text-xs">{pr.sn_no}</span>
-                <span className="text-sm ml-2">{pr.item_name ?? "—"}</span>
-                <span className="text-xs text-muted-foreground ml-1.5">
-                  qty {pr.quantity} · {pr.status}
-                </span>
-              </button>
-            ))
-          )}
-        </div>
-      )}
-    </div>
-  );
+function prItemToFormRow(pr: PRItem): FormItemRow {
+  return {
+    _key: Date.now() + Math.random(),
+    inventory_item_id: pr.inventory_item_id,
+    item_name: pr.item_name ?? "",
+    item_code: pr.item_code ?? "",
+    item_type: pr.item_type ?? "",
+    unit: pr.unit ?? "",
+    quantity_received: "",
+    quantity_pr_requested: String(pr.quantity ?? ""),
+    invTypeFilter: "",
+  };
 }
 
 // ── User combobox ─────────────────────────────────────────────────────────────
@@ -349,6 +296,7 @@ export default function GRNPage() {
   const [formItems, setFormItems] = useState<FormItemRow[]>([newRow()]);
   const [saving, setSaving] = useState(false);
   const [formErr, setFormErr] = useState<string | null>(null);
+  const [prefillErr, setPrefillErr] = useState<string | null>(null);
 
   // View detail dialog
   const [viewGrn, setViewGrn] = useState<GRNRecord | null>(null);
@@ -430,16 +378,25 @@ export default function GRNPage() {
   // Whether items are editable in the current form context
   const canEditFormItems = !editingGrn || editingGrn.status === "draft";
 
-  function handlePrSelect(pr: PRItem) {
+  async function handlePrSelect(pr: PRItem) {
+    const replacingWithQty = formItems.some(
+      (r) => parseFloat(r.quantity_received) > 0,
+    );
+    if (replacingWithQty) {
+      if (!confirm("This will replace the items already added. Continue?")) {
+        return;
+      }
+    }
     setLinkedPrId(pr.id);
     setLinkedPrLabel(`${pr.sn_no} · ${pr.item_name ?? ""}`);
-    // Auto-fill item row from PR
-    if (canEditFormItems && (pr.item_name || pr.inventory_item_id)) {
-      const prRow = prToFormRow(pr);
-      setFormItems((prev) => {
-        const hasEmpty = prev.length === 1 && !prev[0].item_name && !prev[0].inventory_item_id;
-        return hasEmpty ? [prRow] : [...prev, prRow];
-      });
+    setPrefillErr(null);
+    try {
+      const items = await apiFetchJson<PRItem[]>(`/api/v1/grn/linkable-prs/${pr.id}/items`);
+      setFormItems(items.length > 0 ? items.map(prItemToFormRow) : [prItemToFormRow(pr)]);
+    } catch (e: unknown) {
+      setLinkedPrId(null);
+      setLinkedPrLabel("");
+      setPrefillErr(e instanceof Error ? e.message : "Could not load PR items");
     }
   }
 
@@ -695,8 +652,32 @@ ${grn.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${grn.notes}</
       <div>
         <Label className="text-sm">Linked Purchase Request (optional)</Label>
         <div className="mt-1">
-          <PrCombobox value={linkedPrLabel} onSelect={handlePrSelect} disabled={saving} />
+          <SearchCombobox<PRItem>
+            variant="plain"
+            value={linkedPrLabel}
+            disabled={saving}
+            placeholder="Search purchase request…"
+            fetcher={async (q) => {
+              const qs = q.trim() ? `?search=${encodeURIComponent(q)}` : "";
+              return apiFetchJson<PRItem[]>(`/api/v1/grn/linkable-prs${qs}`);
+            }}
+            getItemKey={(p) => p.id}
+            getItemLabel={(p) => `${p.sn_no} · ${p.item_name ?? ""}`}
+            onSelect={handlePrSelect}
+            renderItem={(pr) => (
+              <>
+                <span className="font-mono font-medium text-xs">{pr.sn_no}</span>
+                <span className="text-sm ml-2">{pr.item_name ?? "—"}</span>
+                <span className="text-xs text-muted-foreground ml-1.5">
+                  qty {pr.quantity} · {pr.status}
+                </span>
+              </>
+            )}
+          />
         </div>
+        {prefillErr && (
+          <p className="text-xs text-destructive mt-1">{prefillErr}</p>
+        )}
         {linkedPrId && (
           <button type="button" className="text-xs text-muted-foreground hover:text-destructive mt-1"
             onClick={() => { setLinkedPrId(null); setLinkedPrLabel(""); }} disabled={saving}>
