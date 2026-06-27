@@ -196,7 +196,7 @@ function JobCardsListInner() {
                     .reduce((s, jc) => s + jc.qty_produced, 0);
                   const displayActual = processActual > 0 ? processActual : processEstimated;
                   const processPlanned = order.planned_qty ?? 0;
-                  const processPending = Math.max(0, processPlanned - displayActual);
+                  const processPending = Math.max(0, processPlanned - processActual);
                   const processPct = processPlanned > 0 ? Math.min(100, Math.round((displayActual / processPlanned) * 100)) : 0;
                   return (
                     <div key={process.id} className="rounded-lg border overflow-hidden">
@@ -215,6 +215,11 @@ function JobCardsListInner() {
                               {processPlanned > 0 && (
                                 <span className="text-[11px] text-muted-foreground font-mono">
                                   {displayActual} / {processPlanned} ({processPct}%)
+                                </span>
+                              )}
+                              {processActual > 0 && (
+                                <span className={`text-[10px] font-medium ${processActual >= processEstimated ? "text-success" : "text-amber-600"}`}>
+                                  Actual {processActual >= processEstimated ? "≥" : "<"} Est ({processActual} vs {processEstimated})
                                 </span>
                               )}
                             </div>
@@ -276,6 +281,7 @@ function JobCardsListInner() {
                                 <TableHead>Tool & Die</TableHead>
                                 <TableHead className="text-right">Est Qty</TableHead>
                                 <TableHead className="text-right">Actual</TableHead>
+                                <TableHead className="text-right">Est vs Act</TableHead>
                                 <TableHead className="text-right">Hours</TableHead>
                                 <TableHead className="text-right">Pending</TableHead>
                                 <TableHead>Status</TableHead>
@@ -302,6 +308,13 @@ function JobCardsListInner() {
                                   <TableCell className="text-xs">{jc.tool_die_number ?? "—"}</TableCell>
                                   <TableCell className="text-right text-xs tabular-nums">{jc.qty_produced}</TableCell>
                                   <TableCell className="text-right text-xs tabular-nums font-medium">{jc.actual_qty}</TableCell>
+                                  <TableCell className="text-right text-xs tabular-nums">
+                                    {jc.actual_qty > 0 && jc.qty_produced > 0 ? (
+                                      <span className={jc.actual_qty >= jc.qty_produced ? "text-success" : "text-amber-600"}>
+                                        {jc.actual_qty >= jc.qty_produced ? "≥" : "<"}
+                                      </span>
+                                    ) : <span className="text-muted-foreground">—</span>}
+                                  </TableCell>
                                   <TableCell className="text-right text-xs tabular-nums">{jc.hours_worked}</TableCell>
                                   <TableCell className="text-right text-xs tabular-nums text-warning">{jc.qty_pending}</TableCell>
                                   <TableCell>
