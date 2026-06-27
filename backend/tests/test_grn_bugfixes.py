@@ -1,4 +1,6 @@
-"""Tests for GRN bug fixes (2026-06-25): PR line-item prefill + workers search filter."""
+"""Tests for GRN bug fixes (2026-06-27): PR line-item prefill + workers search filter."""
+import uuid
+
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
@@ -29,7 +31,7 @@ def _create_pr_with_items(
     sn_no: str | None = None,
 ) -> PurchaseRequest:
     pr = PurchaseRequest(
-        sn_no=sn_no or f"PR-{int.from_bytes(__import__('os').urandom(2), 'big'):04d}",
+        sn_no=sn_no or f"PR-{uuid.uuid4().hex[:8].upper()}",
         status=status,
         is_active=is_active,
         item_name="Header Item",
