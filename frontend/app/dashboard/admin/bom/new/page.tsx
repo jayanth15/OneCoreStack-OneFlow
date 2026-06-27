@@ -25,7 +25,7 @@ interface RMRow {
   qty_per_unit: number;
   material_used: string;
   scrap: string;
-  material_unit: string;
+  material_unit_id: string;
   notes: string;
 }
 
@@ -39,7 +39,8 @@ function NewBomForm() {
   const [productName, setProductName] = useState(searchParams.get("product") ?? "");
   const [finishedGoods, setFinishedGoods] = useState<InventoryItem[]>([]);
   const [rawMaterials, setRawMaterials] = useState<InventoryItem[]>([]);
-  const [rows, setRows] = useState<RMRow[]>([{ key: nextKey.current++, raw_material_id: "", qty_per_unit: 1, material_used: "", scrap: "", material_unit: "", notes: "" }]);
+  const [units, setUnits] = useState<{id: number; name: string}[]>([]);
+  const [rows, setRows] = useState<RMRow[]>([{ key: nextKey.current++, raw_material_id: "", qty_per_unit: 1, material_used: "", scrap: "", material_unit_id: "", notes: "" }]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -94,13 +95,15 @@ function NewBomForm() {
       apiFetchJson<PaginatedInventory>("/api/v1/inventory?item_type=raw_material&page_size=500"),
       apiFetchJson<PaginatedInventory>("/api/v1/inventory?item_type=semi_finished&page_size=500"),
     ]).then(([rm, sfg]) => setRawMaterials([...rm.items, ...sfg.items])).catch(() => {});
+
+    apiFetchJson<{id: number; name: string}[]>("/api/v1/units").then(setUnits).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Row helpers ─────────────────────────────────────────────────────────────────────────────
 
   function addRow() {
-    setRows((r) => [...r, { key: nextKey.current++, raw_material_id: "", qty_per_unit: 1, material_used: "", scrap: "", material_unit: "", notes: "" }]);
+    setRows((r) => [...r, { key: nextKey.current++, raw_material_id: "", qty_per_unit: 1, material_used: "", scrap: "", material_unit_id: "", notes: "" }]);
   }
 
   function removeRow(key: number) {
@@ -134,7 +137,7 @@ function NewBomForm() {
               qty_per_unit: r.qty_per_unit,
               material_used: r.material_used !== "" ? parseFloat(String(r.material_used)) : null,
               scrap: r.scrap !== "" ? parseFloat(String(r.scrap)) : null,
-              material_unit: r.material_unit.trim() || null,
+              material_unit_id: r.material_unit_id ? parseInt(r.material_unit_id) : null,
               notes: r.notes.trim() || null,
               is_active: true,
             }),
@@ -287,25 +290,15 @@ function NewBomForm() {
                     {/* Unit */}
                     <div className="hidden sm:block">
                       <select
-                        value={row.material_unit}
-                        onChange={(e) => updateRow(row.key, "material_unit", e.target.value)}
+                        value={row.material_unit_id}
+                        onChange={(e) => updateRow(row.key, "material_unit_id", e.target.value)}
                         disabled={saving}
                         className="w-full h-8 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
                       >
                         <option value="">—</option>
-                        <option value="kg">kg</option>
-                        <option value="g">g</option>
-                        <option value="MT">MT (tonne)</option>
-                        <option value="L">L</option>
-                        <option value="mL">mL</option>
-                        <option value="m">m</option>
-                        <option value="mm">mm</option>
-                        <option value="m²">m²</option>
-                        <option value="m³">m³</option>
-                        <option value="pcs">pcs</option>
-                        <option value="nos">nos</option>
-                        <option value="rolls">rolls</option>
-                        <option value="sheets">sheets</option>
+                        {units.map((u) => (
+                          <option key={u.id} value={String(u.id)}>{u.name}</option>
+                        ))}
                       </select>
                     </div>
 
