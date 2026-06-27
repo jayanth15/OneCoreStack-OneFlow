@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -176,69 +176,6 @@ function prItemToFormRow(pr: PRItem): FormItemRow {
     quantity_pr_requested: String(pr.quantity ?? ""),
     invTypeFilter: "",
   };
-}
-
-// ── User combobox ─────────────────────────────────────────────────────────────
-
-function UserCombobox({
-  value,
-  onSelect,
-  disabled,
-}: {
-  value: string;
-  onSelect: (u: UserItem) => void;
-  disabled?: boolean;
-}) {
-  const [query, setQuery] = useState(value);
-  const [results, setResults] = useState<UserItem[]>([]);
-  const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => { setQuery(value); }, [value]);
-
-  const search = useCallback((q: string) => {
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(async () => {
-      setBusy(true);
-      try {
-        const d = await apiFetchJson<UserItem[]>(`/api/v1/admin/users?include_inactive=false`);
-        setResults((q.trim() ? d.filter((u) => u.username.toLowerCase().includes(q.toLowerCase())) : d).slice(0, 20));
-      } catch { /* ignore */ } finally { setBusy(false); }
-    }, q.trim() ? 200 : 0);
-  }, []);
-
-  return (
-    <div className="relative">
-      <input
-        type="text"
-        value={query}
-        disabled={disabled}
-        placeholder="Search user…"
-        className="w-full px-3 py-1.5 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-        onChange={(e) => { setQuery(e.target.value); setOpen(true); search(e.target.value); }}
-        onFocus={() => { setOpen(true); if (!query) search(""); }}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
-      />
-      {open && (results.length > 0 || busy) && (
-        <div className="absolute z-50 top-full mt-1 w-full bg-popover border rounded-md shadow-md overflow-hidden">
-          {busy && results.length === 0 ? (
-            <div className="px-3 py-2 text-xs text-muted-foreground flex items-center gap-1.5">
-              <Loader2 className="size-3 animate-spin" /> Searching…
-            </div>
-          ) : (
-            results.map((u) => (
-              <button key={u.id} type="button"
-                className="w-full px-3 py-2 text-left text-sm hover:bg-accent transition-colors"
-                onMouseDown={() => { onSelect(u); setQuery(u.username); setOpen(false); }}>
-                {u.username}
-              </button>
-            ))
-          )}
-        </div>
-      )}
-    </div>
-  );
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -704,9 +641,17 @@ ${grn.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${grn.notes}</
       <div>
         <Label className="text-sm">Inspected By (optional)</Label>
         <div className="mt-1">
-          <UserCombobox value={inspectedByUsername}
+          <SearchCombobox<UserItem>
+            variant="plain"
+            value={inspectedByUsername}
+            disabled={saving}
+            placeholder="Search user…"
+            fetcher={async () => apiFetchJson<UserItem[]>(`/api/v1/admin/users?include_inactive=false`)}
+            getItemKey={(u) => u.id}
+            getItemLabel={(u) => u.username}
             onSelect={(u) => { setInspectedByUserId(u.id); setInspectedByUsername(u.username); }}
-            disabled={saving} />
+            renderItem={(u) => <span>{u.username}</span>}
+          />
         </div>
         {inspectedByUserId && (
           <button type="button" className="text-xs text-muted-foreground hover:text-destructive mt-1"
