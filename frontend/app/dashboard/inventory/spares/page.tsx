@@ -63,7 +63,6 @@ interface SpareVariant {
 
 // ── Constants / helpers ───────────────────────────────────────────────────────
 
-const STD_UNITS = ["pcs","kg","g","ltr","ml","mtr","cm","box","roll","set","pair"];
 const STORAGE_TYPES = ["Shelf","Rack","Bin","Drawer","Tray","Cabinet","Box","Pallet","Floor"];
 const BLANK_ITEM = {
   name:"", part_number:"", part_description:"", variant_model:"",
@@ -107,6 +106,7 @@ export default function SparesPage() {
   const [error, setError] = useState<string | null>(null);
   const [admin, setAdmin] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
+  const [units, setUnits] = useState<{id: number; name: string}[]>([]);
   const [search, setSearch] = useState("");
   const [searchDraft, setSearchDraft] = useState("");
 
@@ -163,9 +163,8 @@ export default function SparesPage() {
   const [variantsLoading, setVariantsLoading] = useState(false);
   // pre-fetched variants for search results that matched via variant text
   const [searchVariantsMap, setSearchVariantsMap] = useState<Map<number, SpareVariant[]>>(new Map());
-  const [variantForm, setVariantForm] = useState({serial_number:"",variant_color:"",qty:"0",unit:"pcs",customUnit:"",storage_type:"",storage_location:"",rate:"",reorder_level:"0",timeline_days:"",image_base64: null as string | null});
+  const [variantForm, setVariantForm] = useState({serial_number:"",variant_color:"",qty:"0",unit_id:null as number | null,storage_type:"",storage_location:"",rate:"",reorder_level:"0",timeline_days:"",image_base64: null as string | null});
   const [variantCustomStorage, setVariantCustomStorage] = useState(false);
-  const [variantCustomUnit, setVariantCustomUnit] = useState(false);
   const [variantSaving, setVariantSaving] = useState(false);
   const [variantError, setVariantError] = useState<string | null>(null);
   const [variantImgPreview, setVariantImgPreview] = useState<string | null>(null);
@@ -174,9 +173,8 @@ export default function SparesPage() {
   const [addVariantDialog, setAddVariantDialog] = useState(false);
   const [editVariantDialog, setEditVariantDialog] = useState(false);
   const [editVariantId, setEditVariantId] = useState<number | null>(null);
-  const [editVForm, setEditVForm] = useState({serial_number:"",variant_color:"",qty:"0",unit:"pcs",customUnit:"",storage_type:"",storage_location:"",rate:"",reorder_level:"0",timeline_days:"",image_base64:null as string|null});
+  const [editVForm, setEditVForm] = useState({serial_number:"",variant_color:"",qty:"0",unit_id:null as number | null,storage_type:"",storage_location:"",rate:"",reorder_level:"0",timeline_days:"",image_base64:null as string|null});
   const [editVCustomStorage, setEditVCustomStorage] = useState(false);
-  const [editVCustomUnit, setEditVCustomUnit] = useState(false);
   const [editVSaving, setEditVSaving] = useState(false);
   const [editVError, setEditVError] = useState<string|null>(null);
   const [editVImgPreview, setEditVImgPreview] = useState<string|null>(null);
@@ -214,6 +212,9 @@ export default function SparesPage() {
     if (!canAccessInventory("spare")) {
       router.replace("/dashboard/inventory");
     }
+    apiFetchJson<{id: number; name: string}[]>("/api/v1/units")
+      .then(setUnits)
+      .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -587,8 +588,8 @@ export default function SparesPage() {
   }
 
   function resetVariantForm() {
-    setVariantForm({serial_number:"",variant_color:"",qty:"0",unit:"pcs",customUnit:"",storage_type:"",storage_location:"",rate:"",reorder_level:"0",timeline_days:"",image_base64:null});
-    setVariantCustomStorage(false); setVariantCustomUnit(false);
+    setVariantForm({serial_number:"",variant_color:"",qty:"0",unit_id:null,storage_type:"",storage_location:"",rate:"",reorder_level:"0",timeline_days:"",image_base64:null});
+    setVariantCustomStorage(false);
     setVariantImgPreview(null); setVariantError(null);
   }
   function handleVariantImg(e: React.ChangeEvent<HTMLInputElement>) {
@@ -626,13 +627,12 @@ export default function SparesPage() {
   async function saveVariant() {
     if (!variantsDialogItem) return;
     setVariantSaving(true); setVariantError(null);
-    const unit = variantCustomUnit ? (variantForm.customUnit.trim() || "pcs") : variantForm.unit;
     try {
       const body = {
         serial_number: variantForm.serial_number || null,
         variant_color: variantForm.variant_color || null,
         qty: parseFloat(variantForm.qty) || 0,
-        unit,
+        unit_id: variantForm.unit_id,
         storage_type: variantForm.storage_type || null,
         storage_location: variantForm.storage_location || null,
         rate: variantForm.rate ? parseFloat(variantForm.rate) : null,
@@ -675,8 +675,7 @@ export default function SparesPage() {
       serial_number: v.serial_number ?? "",
       variant_color: v.variant_color ?? "",
       qty: String(v.qty),
-      unit: variantsDialogItem?.unit ?? "pcs",
-      customUnit: "",
+      unit_id: null,
       storage_type: isCustomSt ? "" : (v.storage_type ?? ""),
       storage_location: v.storage_location ?? "",
       rate: v.rate != null ? String(v.rate) : "",
@@ -685,7 +684,6 @@ export default function SparesPage() {
       image_base64: v.image_base64 ?? null,
     });
     setEditVCustomStorage(isCustomSt);
-    setEditVCustomUnit(false);
     setEditVImgPreview(v.image_base64 ? `data:image/jpeg;base64,${v.image_base64}` : null);
     setEditVError(null);
     setEditVariantDialog(true);
@@ -696,7 +694,6 @@ export default function SparesPage() {
     const qty = parseFloat(editVForm.qty);
     if (isNaN(qty) || qty < 0) return;
     setEditVSaving(true); setEditVError(null);
-    const unit = editVCustomUnit ? (editVForm.customUnit.trim() || "pcs") : editVForm.unit;
     const storageType = editVCustomStorage ? (editVForm.storage_type.trim() || null) : (editVForm.storage_type || null);
     try {
       await apiFetchJson(`/api/v1/spares/variants/${editVariantId}`, {
@@ -705,7 +702,7 @@ export default function SparesPage() {
           serial_number: editVForm.serial_number || null,
           variant_color: editVForm.variant_color || null,
           qty,
-          unit,
+          unit_id: editVForm.unit_id,
           storage_type: storageType,
           storage_location: editVForm.storage_location || null,
           rate: editVForm.rate ? parseFloat(editVForm.rate) : null,
@@ -1295,16 +1292,13 @@ export default function SparesPage() {
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Unit of Measure</Label>
-                <select value={variantCustomUnit?"__custom__":(variantForm.unit||"pcs")}
-                  onChange={e=>{if(e.target.value==="__custom__"){setVariantCustomUnit(true);setVariantForm(f=>({...f,unit:""}));}
-                    else{setVariantCustomUnit(false);setVariantForm(f=>({...f,unit:e.target.value,customUnit:""}));}}}
+                <select value={variantForm.unit_id ?? ""}
+                  onChange={e=>setVariantForm(f=>({...f,unit_id:e.target.value?Number(e.target.value):null}))}
                   disabled={variantSaving}
                   className="w-full h-8 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                  {STD_UNITS.map(u=><option key={u} value={u}>{u}</option>)}
-                  <option value="__custom__">Other…</option>
+                  <option value="">— Select —</option>
+                  {units.map(u=><option key={u.id} value={u.id}>{u.name}</option>)}
                 </select>
-                {variantCustomUnit && <Input placeholder="Enter unit" value={variantForm.customUnit}
-                  onChange={e=>setVariantForm(f=>({...f,customUnit:e.target.value}))} disabled={variantSaving} className="mt-1 h-8 text-sm" />}
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Rate (₹)</Label>
@@ -1394,16 +1388,13 @@ export default function SparesPage() {
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Unit of Measure</Label>
-                <select value={editVCustomUnit?"__custom__":(editVForm.unit||"pcs")}
-                  onChange={e=>{if(e.target.value==="__custom__"){setEditVCustomUnit(true);setEditVForm(f=>({...f,unit:""}));}
-                    else{setEditVCustomUnit(false);setEditVForm(f=>({...f,unit:e.target.value,customUnit:""}));}}}
+                <select value={editVForm.unit_id ?? ""}
+                  onChange={e=>setEditVForm(f=>({...f,unit_id:e.target.value?Number(e.target.value):null}))}
                   disabled={editVSaving}
                   className="w-full h-8 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                  {STD_UNITS.map(u=><option key={u} value={u}>{u}</option>)}
-                  <option value="__custom__">Other…</option>
+                  <option value="">— Select —</option>
+                  {units.map(u=><option key={u.id} value={u.id}>{u.name}</option>)}
                 </select>
-                {editVCustomUnit && <Input placeholder="Enter unit" value={editVForm.customUnit}
-                  onChange={e=>setEditVForm(f=>({...f,customUnit:e.target.value}))} disabled={editVSaving} className="mt-1 h-8 text-sm" />}
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Rate (₹)</Label>

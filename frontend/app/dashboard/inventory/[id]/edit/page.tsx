@@ -9,10 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiFetchJson } from "@/lib/api";
 import { isAdminOrAbove } from "@/lib/user";
-import { ArrowLeft, ImagePlus, X } from "lucide-react";
+import { AlertTriangle, ImagePlus, X } from "lucide-react";
 
-const STD_UNITS = ["pcs", "kg", "g", "ltr", "ml", "mtr", "cm", "box", "roll", "set"];
-const WEIGHT_UNITS = ["kg", "g", "mg", "lb"];
 const STORAGE_TYPES = ["Bin", "Tray", "Barrel", "Rack", "Shelf", "Box", "Pallet"];
 const SFG_STORAGE_TYPES = ["Ganny Bag", "Barrel (Big)", "Barrel (Small)", "Floor", "Trolley", "Black Bin", "Small Bin", "Big Bin"];
 
@@ -21,7 +19,7 @@ interface ItemDetail {
   code: string;
   name: string;
   item_type: string;
-  unit: string;
+  unit_id: number | null;
   quantity_on_hand: number;
   reorder_level: number;
   storage_type: string | null;
@@ -32,25 +30,25 @@ interface ItemDetail {
   vendor_name: string | null;
   is_active: boolean;
   weight_value: number | null;
-  weight_unit: string | null;
+  weight_unit_id: number | null;
 }
 
 export default function EditInventoryPage() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
   const [form, setForm] = useState<{
-    code: string; name: string; item_type: string; unit: string; customUnit: string;
+    code: string; name: string; item_type: string; unit_id: number | null;
     quantity_on_hand: number; reorder_level: number;
     storage_type: string; storage_location: string;
     rate: string; timeline_days: string; vendor_name: string; is_active: boolean;
-    weight_value: string; weight_unit: string;
+    weight_value: string; weight_unit_id: number | null;
   }>({
-    code: "", name: "", item_type: "raw_material", unit: "pcs", customUnit: "",
+    code: "", name: "", item_type: "raw_material", unit_id: null,
     quantity_on_hand: 0, reorder_level: 0,
     storage_type: "", storage_location: "", rate: "", timeline_days: "", vendor_name: "", is_active: true,
-    weight_value: "", weight_unit: "kg",
+    weight_value: "", weight_unit_id: null,
   });
-  const [isCustomUnit, setIsCustomUnit] = useState(false);
+  const [units, setUnits] = useState<{id: number; name: string}[]>([]);
   const [isCustomStorage, setIsCustomStorage] = useState(false);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -67,11 +65,12 @@ export default function EditInventoryPage() {
     apiFetchJson<{ id: number; name: string }[]>("/api/v1/vendors/names")
       .then(setVendors)
       .catch(() => {});
+    apiFetchJson<{id: number; name: string}[]>("/api/v1/units")
+      .then(setUnits)
+      .catch(() => {});
     if (!id) return;
     apiFetchJson<ItemDetail>(`/api/v1/inventory/${id}`)
       .then((d) => {
-        const stdUnit = STD_UNITS.includes(d.unit);
-        setIsCustomUnit(!stdUnit);
         const allStorageTypes = d.item_type === "semi_finished" ? SFG_STORAGE_TYPES : STORAGE_TYPES;
         const storageFitsPreset = !d.storage_type || allStorageTypes.includes(d.storage_type);
         setIsCustomStorage(!storageFitsPreset);
@@ -79,8 +78,7 @@ export default function EditInventoryPage() {
           code: d.code,
           name: d.name,
           item_type: d.item_type,
-          unit: stdUnit ? d.unit : "pcs",
-          customUnit: stdUnit ? "" : d.unit,
+          unit_id: d.unit_id,
           quantity_on_hand: d.quantity_on_hand,
           reorder_level: d.reorder_level,
           storage_type: d.storage_type ?? "",
@@ -88,7 +86,7 @@ export default function EditInventoryPage() {
           rate: d.rate != null ? String(d.rate) : "",
           timeline_days: d.timeline_days != null ? String(d.timeline_days) : "",
           weight_value: d.weight_value != null ? String(d.weight_value) : "",
-          weight_unit: d.weight_unit ?? "kg",
+          weight_unit_id: d.weight_unit_id,
           vendor_name: d.vendor_name ?? "",
           is_active: d.is_active,
         });
@@ -103,16 +101,6 @@ export default function EditInventoryPage() {
 
   function set(key: string, val: unknown) {
     setForm((f) => ({ ...f, [key]: val }));
-  }
-
-  function handleUnitChange(val: string) {
-    if (val === "__custom__") {
-      setIsCustomUnit(true);
-      set("unit", "");
-    } else {
-      setIsCustomUnit(false);
-      set("unit", val);
-    }
   }
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -136,10 +124,9 @@ export default function EditInventoryPage() {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    const unitFinal = isCustomUnit ? form.customUnit.trim() : form.unit;
     if (!form.code.trim()) { setSaveError("Code is required"); return; }
     if (!form.name.trim()) { setSaveError("Name is required"); return; }
-    if (!unitFinal) { setSaveError("Unit is required"); return; }
+    if (!form.unit_id) { setSaveError("Unit is required"); return; }
     setSaving(true);
     setSaveError(null);
     try {
@@ -147,7 +134,7 @@ export default function EditInventoryPage() {
         code: form.code.trim().toUpperCase(),
         name: form.name.trim(),
         item_type: form.item_type,
-        unit: unitFinal,
+        unit_id: form.unit_id,
         quantity_on_hand: form.quantity_on_hand,
         reorder_level: form.reorder_level,
         storage_type: form.storage_type || null,
@@ -157,7 +144,7 @@ export default function EditInventoryPage() {
       if (admin && form.rate !== "") body.rate = parseFloat(form.rate);
       if (form.timeline_days !== "") body.timeline_days = parseInt(form.timeline_days);
       body.weight_value = form.weight_value !== "" ? parseFloat(form.weight_value) : null;
-      body.weight_unit = form.weight_unit || null;
+      body.weight_unit_id = form.weight_unit_id || null;
       body.vendor_name = form.vendor_name.trim() || null;
       if (imageChanged) body.image_base64 = imageBase64;
       await apiFetchJson(`/api/v1/inventory/${id}`, { method: "PUT", body: JSON.stringify(body) });
@@ -192,6 +179,16 @@ export default function EditInventoryPage() {
           <div className="space-y-5">
             {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-9 w-full" />)}
           </div>
+        ) : units.length === 0 ? (
+          <div className="rounded-xl border border-warning/20 bg-warning/5 p-6 text-center space-y-2">
+            <AlertTriangle className="size-8 mx-auto text-warning" />
+            <p className="text-sm font-medium">No units configured</p>
+            <p className="text-xs text-muted-foreground">
+              Please add units in{" "}
+              <a href="/dashboard/settings/units" className="text-primary underline">Settings → Units</a>{" "}
+              before editing inventory items.
+            </p>
+          </div>
         ) : (
           <form onSubmit={handleSave} className="space-y-5">
             {/* Code */}
@@ -217,19 +214,16 @@ export default function EditInventoryPage() {
             </div>
             {/* Unit */}
             <div className="space-y-1.5">
-              <Label htmlFor="unit">Unit of Measure <span className="text-destructive">*</span></Label>
-              <select id="unit"
-                value={isCustomUnit ? "__custom__" : form.unit}
-                onChange={(e) => handleUnitChange(e.target.value)}
+              <Label htmlFor="unit_id">Unit of Measure <span className="text-destructive">*</span></Label>
+              <select id="unit_id"
+                value={form.unit_id ?? ""}
+                onChange={(e) => set("unit_id", e.target.value ? Number(e.target.value) : null)}
                 disabled={saving}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
               >
-                {STD_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-                <option value="__custom__">Other…</option>
+                <option value="">— Select —</option>
+                {units.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
               </select>
-              {isCustomUnit && (
-                <Input value={form.customUnit} onChange={(e) => set("customUnit", e.target.value)} disabled={saving} placeholder="Custom unit" />
-              )}
             </div>
             {/* Weight */}
             <div className="grid grid-cols-2 gap-4">
@@ -242,13 +236,14 @@ export default function EditInventoryPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="weight_unit">Weight unit</Label>
-                <select id="weight_unit" value={form.weight_unit}
-                  onChange={(e) => set("weight_unit", e.target.value)}
+                <Label htmlFor="weight_unit_id">Weight unit</Label>
+                <select id="weight_unit_id" value={form.weight_unit_id ?? ""}
+                  onChange={(e) => set("weight_unit_id", e.target.value ? Number(e.target.value) : null)}
                   disabled={saving}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
                 >
-                  {WEIGHT_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                  <option value="">— None —</option>
+                  {units.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
                 </select>
               </div>
             </div>

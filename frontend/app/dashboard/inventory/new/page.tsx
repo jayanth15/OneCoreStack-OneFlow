@@ -8,9 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiFetchJson } from "@/lib/api";
 import { isAdminOrAbove } from "@/lib/user";
-import { ArrowLeft, ImagePlus, X } from "lucide-react";
+import { AlertTriangle, ImagePlus, X } from "lucide-react";
 
-const STD_UNITS = ["pcs", "kg", "g", "ltr", "ml", "mtr", "cm", "box", "roll", "set"];
 const STORAGE_TYPES = ["Bin", "Tray", "Barrel", "Rack", "Shelf", "Box", "Pallet"];
 const SFG_STORAGE_TYPES = ["Ganny Bag", "Barrel (Big)", "Barrel (Small)", "Floor", "Trolley", "Black Bin", "Small Bin", "Big Bin"];
 
@@ -29,14 +28,11 @@ const TYPE_PAGES: Record<ItemType, string> = {
   semi_finished: "/dashboard/inventory/semi-finished",
 };
 
-const WEIGHT_UNITS = ["kg", "g", "mg", "lb"];
-
 const BLANK = {
   code: "",
   name: "",
   item_type: "raw_material" as ItemType,
-  unit: "pcs",
-  customUnit: "",
+  unit_id: null as number | null,
   quantity_on_hand: 0,
   reorder_level: 0,
   storage_type: "",
@@ -46,7 +42,7 @@ const BLANK = {
   vendor_name: "",
   is_active: true,
   weight_value: "",
-  weight_unit: "kg",
+  weight_unit_id: null as number | null,
 };
 
 function NewInventoryInner() {
@@ -61,7 +57,7 @@ function NewInventoryInner() {
     ...BLANK,
     item_type: lockedType ?? BLANK.item_type,
   }));
-  const [isCustomUnit, setIsCustomUnit] = useState(false);
+  const [units, setUnits] = useState<{id: number; name: string}[]>([]);
   const [isCustomStorage, setIsCustomStorage] = useState(false);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -80,20 +76,13 @@ function NewInventoryInner() {
     apiFetchJson<{ id: number; name: string }[]>("/api/v1/vendors/names")
       .then(setVendors)
       .catch(() => {});
+    apiFetchJson<{id: number; name: string}[]>("/api/v1/units")
+      .then(setUnits)
+      .catch(() => {});
   }, []);
 
   function set(key: string, val: unknown) {
     setForm((f) => ({ ...f, [key]: val }));
-  }
-
-  function handleUnitChange(val: string) {
-    if (val === "__custom__") {
-      setIsCustomUnit(true);
-      set("unit", "");
-    } else {
-      setIsCustomUnit(false);
-      set("unit", val);
-    }
   }
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -110,10 +99,9 @@ function NewInventoryInner() {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    const unitFinal = isCustomUnit ? form.customUnit.trim() : form.unit;
     if (!form.code.trim()) { setError("Code is required"); return; }
     if (!form.name.trim()) { setError("Name is required"); return; }
-    if (!unitFinal) { setError("Unit is required"); return; }
+    if (!form.unit_id) { setError("Unit is required"); return; }
     setSaving(true);
     setError(null);
     try {
@@ -123,7 +111,7 @@ function NewInventoryInner() {
           code: form.code.trim().toUpperCase(),
           name: form.name.trim(),
           item_type: form.item_type,
-          unit: unitFinal,
+          unit_id: form.unit_id,
           quantity_on_hand: form.quantity_on_hand,
           reorder_level: form.reorder_level,
           storage_type: form.storage_type || null,
@@ -132,7 +120,7 @@ function NewInventoryInner() {
           timeline_days: form.timeline_days !== "" ? parseInt(form.timeline_days) : null,
           image_base64: imageBase64,
           weight_value: form.weight_value !== "" ? parseFloat(form.weight_value) : null,
-          weight_unit: form.weight_unit || null,
+          weight_unit_id: form.weight_unit_id || null,
           vendor_name: form.vendor_name.trim() || null,
           is_active: form.is_active,
         }),
@@ -160,6 +148,17 @@ function NewInventoryInner() {
         <div className="mb-6">
           <h1 className="text-xl font-semibold">Add Inventory Item</h1>
         </div>
+        {units.length === 0 ? (
+          <div className="rounded-xl border border-warning/20 bg-warning/5 p-6 text-center space-y-2">
+            <AlertTriangle className="size-8 mx-auto text-warning" />
+            <p className="text-sm font-medium">No units configured</p>
+            <p className="text-xs text-muted-foreground">
+              Please add units in{" "}
+              <a href="/dashboard/settings/units" className="text-primary underline">Settings → Units</a>{" "}
+              before creating inventory items.
+            </p>
+          </div>
+        ) : (
         <form onSubmit={handleSave} className="space-y-5">
           {/* Code */}
           <div className="space-y-1.5">
@@ -199,21 +198,16 @@ function NewInventoryInner() {
           )}
           {/* Unit */}
           <div className="space-y-1.5">
-            <Label htmlFor="unit">Unit of Measure <span className="text-destructive">*</span></Label>
-            <select id="unit"
-              value={isCustomUnit ? "__custom__" : form.unit}
-              onChange={(e) => handleUnitChange(e.target.value)}
+            <Label htmlFor="unit_id">Unit of Measure <span className="text-destructive">*</span></Label>
+            <select id="unit_id"
+              value={form.unit_id ?? ""}
+              onChange={(e) => set("unit_id", e.target.value ? Number(e.target.value) : null)}
               disabled={saving}
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
             >
-              {STD_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-              <option value="__custom__">Other…</option>
+              <option value="">— Select —</option>
+              {units.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
             </select>
-            {isCustomUnit && (
-              <Input placeholder="Custom unit" value={form.customUnit}
-                onChange={(e) => set("customUnit", e.target.value)} disabled={saving}
-              />
-            )}
           </div>
           {/* Weight */}
           <div className="grid grid-cols-2 gap-4">
@@ -226,13 +220,14 @@ function NewInventoryInner() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="weight_unit">Weight unit</Label>
-              <select id="weight_unit" value={form.weight_unit}
-                onChange={(e) => set("weight_unit", e.target.value)}
+              <Label htmlFor="weight_unit_id">Weight unit</Label>
+              <select id="weight_unit_id" value={form.weight_unit_id ?? ""}
+                onChange={(e) => set("weight_unit_id", e.target.value ? Number(e.target.value) : null)}
                 disabled={saving}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
               >
-                {WEIGHT_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                <option value="">— None —</option>
+                {units.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
               </select>
             </div>
           </div>
@@ -368,6 +363,7 @@ function NewInventoryInner() {
             </Button>
           </div>
         </form>
+        )}
       </div>
     </>
   );
