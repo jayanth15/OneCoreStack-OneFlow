@@ -61,16 +61,38 @@ function useOutsidePointerDown(
 }
 
 export function SearchCombobox<T>(props: SearchComboboxProps<T>) {
-  const { value, onSelect, fetcher, getItemKey, getItemLabel, placeholder, disabled, emptyText = "No results", debounceMs, className } = props;
+  const {
+    value,
+    onSelect,
+    fetcher,
+    getItemKey,
+    getItemLabel,
+    placeholder,
+    disabled,
+    emptyText = "No results",
+    debounceMs,
+    className,
+  } = props;
   const { query, setQuery, results, busy, open, setOpen } = useDebouncedSearch<T>(fetcher, { debounceMs });
   const rootRef = React.useRef<HTMLDivElement | null>(null);
+  const listboxId = React.useId();
   useOutsidePointerDown(rootRef, () => setOpen(false));
 
-  const handleSelect = (item: T) => {
-    onSelect(item);
-    setQuery(getItemLabel(item));
-    setOpen(false);
-  };
+  // Sync the hook's query from the parent's controlled value when the parent
+  // updates it programmatically (e.g. setLinkedPrLabel after async prefill).
+  React.useEffect(() => {
+    setQuery(value);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  const handleSelect = React.useCallback(
+    (item: T) => {
+      onSelect(item);
+      setQuery(getItemLabel(item));
+      setOpen(false);
+    },
+    [onSelect, getItemLabel, setQuery, setOpen],
+  );
 
   if (props.variant === "list") {
     return (
@@ -123,10 +145,15 @@ export function SearchCombobox<T>(props: SearchComboboxProps<T>) {
     <div ref={rootRef} className={cn("relative", className)}>
       <input
         type="text"
-        value={value}
+        value={query}
         disabled={disabled}
         placeholder={placeholder}
         className="w-full px-3 py-1.5 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+        role="combobox"
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        aria-controls={listboxId}
+        aria-autocomplete="list"
         onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
           setQuery(e.target.value);
           setOpen(true);
@@ -136,8 +163,12 @@ export function SearchCombobox<T>(props: SearchComboboxProps<T>) {
           if (!query) setQuery("");
         }}
       />
-      {open && (results.length > 0 || busy) && (
-        <div className="absolute z-50 top-full mt-1 w-full bg-popover border rounded-md shadow-md overflow-hidden">
+      {open && (
+        <div
+          id={listboxId}
+          role="listbox"
+          className="absolute z-50 top-full mt-1 w-full bg-popover border rounded-md shadow-md overflow-hidden"
+        >
           {busy && results.length === 0 ? (
             <div className="px-3 py-2 text-xs text-muted-foreground flex items-center gap-1.5">
               <Loader2 className="size-3 animate-spin" /> Searching…
@@ -149,11 +180,11 @@ export function SearchCombobox<T>(props: SearchComboboxProps<T>) {
               <button
                 key={String(getItemKey(item))}
                 type="button"
+                role="option"
+                aria-selected={false}
                 className="w-full px-3 py-2 text-left text-sm hover:bg-accent transition-colors"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  handleSelect(item);
-                }}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => handleSelect(item)}
               >
                 {props.renderItem(item)}
               </button>
