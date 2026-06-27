@@ -3,10 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList,
-  BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,7 +14,7 @@ import { ArrowLeft } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-interface ProcessItem { id: number; name: string; sequence: number; }
+interface ProcessItem { id: number; name: string; sequence: number; estimated_time_minutes: number | null; }
 
 interface OrderInfo {
   id: number;
@@ -64,12 +61,14 @@ export default function EditJobCardPage() {
   const [processName, setProcessName] = useState("");
   const [toolDie, setToolDie] = useState("");
   const [machine, setMachine] = useState("");
-  const [workersText, setWorkersText] = useState("");
+  const [selectedWorkers, setSelectedWorkers] = useState<{id: number; username: string}[]>([]);
+  const [workerSearch, setWorkerSearch] = useState("");
+  const [workerResults, setWorkerResults] = useState<{id: number; username: string}[]>([]);
+  const [workerBusy, setWorkerBusy] = useState(false);
   const [dateLocked, setDateLocked] = useState(false);
   const [jobType, setJobType] = useState<"internal" | "supplier">("internal");
   const [supplierId, setSupplierId] = useState<string>("");
   const [hoursWorked, setHoursWorked] = useState("0");
-  const [qtyProduced, setQtyProduced] = useState("0");
   const [workDate, setWorkDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [notes, setNotes] = useState("");
   const [isActive, setIsActive] = useState(true);
@@ -96,15 +95,22 @@ export default function EditJobCardPage() {
         // Pre-fill with current user's username for worker-role users; otherwise restore saved
         const me = getCurrentUser();
         if (me && isWorker()) {
-          setWorkersText(me.username);
+          setSelectedWorkers([{ id: me.id, username: me.username }]);
         } else {
           const saved = jc.worker_names?.length
             ? jc.worker_names
             : jc.worker_name ? [jc.worker_name] : [];
-          setWorkersText(saved.join(", "));
+          // Try to resolve IDs from usernames
+          if (saved.length > 0) {
+            apiFetchJson<{id: number; username: string}[]>(`/api/v1/production/workers`)
+              .then((workers) => {
+                const matched = workers.filter((w) => saved.includes(w.username));
+                setSelectedWorkers(matched);
+              })
+              .catch(() => setSelectedWorkers(saved.map((n: string) => ({ id: 0, username: n }))));
+          }
         }
         setHoursWorked(String(jc.hours_worked));
-        setQtyProduced(String(jc.qty_produced));
         // Lock date for non-admins — always today on edit too
         if (!isAdminOrAbove()) {
           setDateLocked(true);
@@ -119,27 +125,41 @@ export default function EditJobCardPage() {
       .finally(() => setLoading(false));
   }, [id, jobId]);
 
+  // Auto-compute qty_produced from hours_worked and process estimated time
+  const selectedProcess = order?.processes.find((p) => p.name === processName) ?? null;
+  const estimatedTimeMinutes = selectedProcess?.estimated_time_minutes ?? null;
+  const computedQty = estimatedTimeMinutes && parseFloat(hoursWorked) > 0
+    ? ((parseFloat(hoursWorked) * 60) / estimatedTimeMinutes).toFixed(2)
+    : "0";
+
+  // Debounced worker search
+  useEffect(() => {
+    if (!workerSearch.trim()) { setWorkerResults([]); setWorkerBusy(false); return; }
+    const timer = setTimeout(() => {
+      setWorkerBusy(true);
+      apiFetchJson<{id: number; username: string}[]>(`/api/v1/production/workers?search=${encodeURIComponent(workerSearch.trim())}`)
+        .then((r) => setWorkerResults(r))
+        .catch(() => setWorkerResults([]))
+        .finally(() => setWorkerBusy(false));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [workerSearch]);
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    if (!processName.trim()) { setSaveError("Process is required"); return; }
-    if (jobType === "internal" && !workersText.trim()) { setSaveError("Enter at least one worker name"); return; }
+    if (jobType === "internal" && selectedWorkers.length === 0) { setSaveError("Select at least one worker"); return; }
     setSaving(true);
     setSaveError(null);
     try {
-      const workerNames = jobType === "internal"
-        ? workersText
-            .split(/[,;]+|\band\b/)
-            .map(w => w.trim())
-            .filter(w => w.length > 0)
-        : [];
+      const workerNames = selectedWorkers.map((w) => w.username);
       const body = {
         process_name: processName.trim(),
         tool_die_number: toolDie || null,
         machine_name: machine || null,
-        worker_name: jobType === "internal" ? (workerNames[0] ?? null) : null,
+        worker_name: workerNames[0] ?? null,
         worker_names: workerNames,
         hours_worked: parseFloat(hoursWorked) || 0,
-        qty_produced: parseFloat(qtyProduced) || 0,
+        qty_produced: parseFloat(computedQty) || 0,
         work_date: workDate || null,
         notes: notes || null,
         is_active: isActive,
@@ -163,41 +183,23 @@ export default function EditJobCardPage() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4 md:px-6">
-        <Link href={backUrl} className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
-          <ArrowLeft className="size-4" />
-        </Link>
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href="/dashboard/production">Production</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
-            <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href="/dashboard/production/processing">Processing</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
-            <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href={backUrl}>{order?.order_number ?? "Order"}</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
-            <BreadcrumbItem>
-              <BreadcrumbPage>{loading ? "Edit…" : `Edit ${cardNumber}`}</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </header>
+      <PageHeader
+        title="Edit Job Card"
+        description={!loading && cardNumber ? `Editing ${cardNumber}` : undefined}
+        breadcrumbs={[
+          { label: "Production", href: "/dashboard/production" },
+          { label: "Processing", href: "/dashboard/production/processing" },
+          { label: order?.order_number ?? "Order", href: backUrl },
+          { label: loading ? "Edit…" : `Edit ${cardNumber}` },
+        ]}
+        actions={
+          <Link href={backUrl} className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
+            <ArrowLeft className="size-4" />
+          </Link>
+        }
+      />
 
       <div className="p-4 md:p-8 max-w-lg mx-auto">
-        <div className="mb-6">
-          <h1 className="text-xl font-semibold">Edit Job Card</h1>
-          {!loading && cardNumber && (
-            <p className="text-sm text-muted-foreground mt-1">
-              Editing <span className="font-mono font-medium">{cardNumber}</span>
-            </p>
-          )}
-        </div>
-
         {loadError ? (
           <p className="text-sm text-destructive">{loadError}</p>
         ) : loading ? (
@@ -275,39 +277,75 @@ export default function EditJobCardPage() {
               </div>
             </div>
 
-            {/* Workers (free-text input, only for internal jobs) */}
+            {/* Workers — multi-select with search (only for internal jobs) */}
             {jobType === "internal" && (
               <div className="space-y-1.5">
-                <Label htmlFor="workers">
-                  Worker(s) <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="workers"
-                  value={workersText}
-                  onChange={(e) => setWorkersText(e.target.value)}
-                  disabled={saving}
-                  placeholder="e.g. Ravi Kumar, Suresh"
-                />
+                <Label>Worker(s) <span className="text-destructive">*</span></Label>
+                <div className="relative">
+                  <Input
+                    value={workerSearch}
+                    onChange={(e) => setWorkerSearch(e.target.value)}
+                    disabled={saving}
+                    placeholder="Search worker name…"
+                  />
+                  {workerSearch.trim() && (
+                    <div className="absolute top-full mt-1 left-0 right-0 z-50 rounded-md border bg-popover shadow-md max-h-48 overflow-y-auto">
+                      {workerBusy ? (
+                        <p className="px-3 py-2 text-sm text-muted-foreground">Searching…</p>
+                      ) : workerResults.length === 0 ? (
+                        <p className="px-3 py-2 text-sm text-muted-foreground">No workers found</p>
+                      ) : (
+                        workerResults
+                          .filter((w) => !selectedWorkers.some((s) => s.id === w.id))
+                          .map((w) => (
+                            <button
+                              key={w.id}
+                              type="button"
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors"
+                              onMouseDown={(e) => { e.preventDefault(); setSelectedWorkers((prev) => [...prev, w]); setWorkerSearch(""); setWorkerResults([]); }}
+                            >
+                              {w.username}
+                            </button>
+                          ))
+                      )}
+                    </div>
+                  )}
+                </div>
+                {selectedWorkers.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {selectedWorkers.map((w) => (
+                      <span key={w.id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
+                        {w.username}
+                        <button type="button" className="size-3.5 flex items-center justify-center rounded-full hover:bg-primary/20"
+                          onClick={() => setSelectedWorkers((prev) => prev.filter((s) => s.id !== w.id))}>
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground">
-                  Type employee names. Separate multiple with commas, semicolons, or &quot;and&quot;.
+                  Search and select worker names from the list.
                 </p>
               </div>
             )}
 
-            {/* Qty + Hours */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="qty_produced">Qty Produced</Label>
-                <Input id="qty_produced" type="number" step="any" value={qtyProduced}
-                  onChange={(e) => setQtyProduced(e.target.value)} disabled={saving} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="hours">Hours Worked</Label>
-                <Input id="hours" type="number" step="0.1" value={hoursWorked}
-                  onChange={(e) => setHoursWorked(e.target.value)} disabled={saving} />
-              </div>
+            {/* Hours Worked — qty produced is auto-computed */}
+            <div className="space-y-1.5">
+              <Label htmlFor="hours">Hours Worked <span className="text-destructive">*</span></Label>
+              <Input id="hours" type="number" step="0.1" value={hoursWorked}
+                onChange={(e) => setHoursWorked(e.target.value)} disabled={saving} />
+              {estimatedTimeMinutes && parseFloat(hoursWorked) > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {computedQty} units produced ({hoursWorked}h × 60 ÷ {estimatedTimeMinutes} min/unit)
+                </p>
+              )}
+              {estimatedTimeMinutes == null && (
+                <p className="text-xs text-amber-600">
+                  No estimated time set for this process. Qty produced will be 0.
+                </p>
+              )}
             </div>
-
             {order?.planned_qty != null && (
               <p className="text-xs text-muted-foreground">
                 Qty Pending is auto-computed: {order.planned_qty} (planned) − qty produced

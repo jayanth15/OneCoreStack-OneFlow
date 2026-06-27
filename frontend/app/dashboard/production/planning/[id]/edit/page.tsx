@@ -3,10 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList,
-  BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -251,6 +248,8 @@ export default function EditPlanPage() {
     if (!id) return;
     const name = proc._editName?.trim();
     if (!name) return;
+    const rawTime_c = proc._editTimeVal !== undefined ? proc._editTimeVal : String(proc.estimated_time_minutes ?? "");
+    if (!rawTime_c || parseFloat(rawTime_c) <= 0) { setProcError("Estimated time is required"); return; }
     // Compute estimated_time_minutes from display value + unit
     const rawTime = proc._editTimeVal !== undefined ? proc._editTimeVal : String(proc.estimated_time_minutes ?? "");
     const timeUnit = proc._editTimeUnit ?? "minutes";
@@ -316,37 +315,22 @@ export default function EditPlanPage() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4 md:px-6">
-        <Link href="/dashboard/production/planning" className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
-          <ArrowLeft className="size-4" />
-        </Link>
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href="/dashboard/production">Production</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
-            <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href="/dashboard/production/planning">Planning</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
-            <BreadcrumbItem>
-              <BreadcrumbPage>{loading ? "Edit…" : `Edit ${planNumber}`}</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </header>
+      <PageHeader
+        title="Edit Production Plan"
+        description={!loading && planNumber ? `Editing ${planNumber} — ${form.title}` : undefined}
+        breadcrumbs={[
+          { label: "Production", href: "/dashboard/production" },
+          { label: "Planning", href: "/dashboard/production/planning" },
+          { label: loading ? "Edit…" : `Edit ${planNumber}` },
+        ]}
+        actions={
+          <Link href="/dashboard/production/planning" className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
+            <ArrowLeft className="size-4" />
+          </Link>
+        }
+      />
 
       <div className="p-4 md:p-8 max-w-3xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-xl font-semibold">Edit Production Plan</h1>
-          {!loading && planNumber && (
-            <p className="text-sm text-muted-foreground mt-1">
-              Editing <span className="font-mono font-medium">{planNumber}</span> — {form.title}
-            </p>
-          )}
-        </div>
-
         {loadError ? (
           <p className="text-sm text-destructive">{loadError}</p>
         ) : loading ? (
@@ -607,18 +591,18 @@ export default function EditPlanPage() {
                               <p className="font-mono text-xs text-muted-foreground">{m.code} <span className="capitalize">· {m.item_type.replace("_", " ")}</span></p>
                             </div>
                             {m.to_purchase > 0 ? (
-                              <span className="inline-flex items-center gap-1 text-amber-700 text-xs font-semibold shrink-0">
+                              <span className="inline-flex items-center gap-1 text-warning text-xs font-semibold shrink-0">
                                 <AlertTriangle className="size-3" />{m.to_purchase.toLocaleString()} {m.unit}
                               </span>
                             ) : (
-                              <span className="text-emerald-700 text-xs shrink-0">Sufficient</span>
+                              <span className="text-success text-xs shrink-0">Sufficient</span>
                             )}
                           </div>
                           <div className="grid grid-cols-3 gap-x-3 text-xs">
                             <div><span className="text-muted-foreground">Per Unit:</span> {m.qty_per_unit} {m.unit}</div>
                             <div><span className="text-muted-foreground">Required:</span> <span className="font-medium">{m.required_qty.toLocaleString()}</span></div>
                             <div><span className="text-muted-foreground">In Stock:</span>{" "}
-                              <span className={m.available_qty >= m.required_qty ? "text-emerald-700 font-medium" : "text-amber-600 font-medium"}>{m.available_qty.toLocaleString()}</span>
+                              <span className={m.available_qty >= m.required_qty ? "text-success font-medium" : "text-warning font-medium"}>{m.available_qty.toLocaleString()}</span>
                             </div>
                           </div>
                         </div>
@@ -649,18 +633,18 @@ export default function EditPlanPage() {
                               <td className="px-3 py-2 text-right text-xs text-muted-foreground">{m.qty_per_unit} {m.unit}</td>
                               <td className="px-3 py-2 text-right font-medium">{m.required_qty.toLocaleString()} {m.unit}</td>
                               <td className="px-3 py-2 text-right">
-                                <span className={m.available_qty >= m.required_qty ? "text-emerald-700 font-medium" : "text-amber-600 font-medium"}>
+                                <span className={m.available_qty >= m.required_qty ? "text-success font-medium" : "text-warning font-medium"}>
                                   {m.available_qty.toLocaleString()}
                                 </span>
                               </td>
                               <td className="px-3 py-2 text-right">
                                 {m.to_purchase > 0 ? (
-                                  <span className="inline-flex items-center gap-1 text-amber-700 font-semibold">
+                                  <span className="inline-flex items-center gap-1 text-warning font-semibold">
                                     <AlertTriangle className="size-3" />
                                     {m.to_purchase.toLocaleString()} {m.unit}
                                   </span>
                                 ) : (
-                                  <span className="text-emerald-700 text-xs">Sufficient</span>
+                                  <span className="text-success text-xs">Sufficient</span>
                                 )}
                               </td>
                             </tr>
@@ -669,7 +653,7 @@ export default function EditPlanPage() {
                       </table>
                     </div>
                     {materials.some((m) => m.to_purchase > 0) && (
-                      <div className="border-t bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                      <div className="border-t bg-warning/15 px-3 py-2 text-xs text-amber-800">
                         Some materials need to be purchased before production can begin.
                       </div>
                     )}

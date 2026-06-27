@@ -3,10 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList,
-  BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -66,7 +63,7 @@ const STATUS_BADGE: Record<string, "default" | "secondary" | "outline" | "destru
   open: "secondary", in_progress: "secondary", completed: "outline", cancelled: "destructive",
 };
 const STATUS_COLOR: Record<string, string> = {
-  open: "", in_progress: "!bg-amber-100 !text-amber-800", completed: "", cancelled: "",
+  open: "", in_progress: "!bg-warning/15 !text-amber-800", completed: "", cancelled: "",
 };
 const STATUS_LABELS: Record<string, string> = {
   open: "Open", in_progress: "In Progress", completed: "Completed", cancelled: "Cancelled",
@@ -85,10 +82,10 @@ function SummaryCards({ items }: { items: ProductionOrder[] }) {
   const done = items.filter((o) => o.status === "completed").length;
   const canc = items.filter((o) => o.status === "cancelled").length;
   const cards = [
-    { label: "Open", value: open, icon: Factory, color: "text-blue-600 bg-blue-50" },
-    { label: "In Progress", value: prog, icon: Clock, color: "text-amber-600 bg-amber-50" },
-    { label: "Completed", value: done, icon: CheckCircle2, color: "text-emerald-600 bg-emerald-50" },
-    { label: "Cancelled", value: canc, icon: XCircle, color: "text-red-500 bg-red-50" },
+    { label: "Open", value: open, icon: Factory, color: "text-primary bg-primary/10" },
+    { label: "In Progress", value: prog, icon: Clock, color: "text-warning bg-warning/15" },
+    { label: "Completed", value: done, icon: CheckCircle2, color: "text-success bg-success/10" },
+    { label: "Cancelled", value: canc, icon: XCircle, color: "text-destructive bg-destructive/10" },
   ];
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -175,38 +172,30 @@ function ProcessingPageInner() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4 md:px-6">
-        <Link href="/dashboard/production"
-          className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
-          <ArrowLeft className="size-4" />
-        </Link>
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href="/dashboard/production">Production</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
-            <BreadcrumbItem><BreadcrumbPage>Processing</BreadcrumbPage></BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </header>
+      <PageHeader
+        title="Production Processing"
+        description="Start production orders and manage job cards for each process step."
+        breadcrumbs={[
+          { label: "Production", href: "/dashboard/production" },
+          { label: "Processing" },
+        ]}
+        actions={
+          <>
+            <Link href="/dashboard/production"
+              className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
+              <ArrowLeft className="size-4" />
+            </Link>
+            {admin && (
+              <Button size="sm" onClick={() => router.push("/dashboard/production/processing/new")}>
+                <PlusIcon className="size-4 mr-1" />
+                Start Production
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <div className="p-4 md:p-6 space-y-4">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-semibold">Production Processing</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Start production orders and manage job cards for each process step.
-            </p>
-          </div>
-          {admin && (
-            <Button size="sm" onClick={() => router.push("/dashboard/production/processing/new")}>
-              <PlusIcon className="size-4 mr-1" />
-              Start Production
-            </Button>
-          )}
-        </div>
-
         {!loading && orders.length > 0 && <SummaryCards items={orders} />}
 
         {/* Filter tabs + Search */}
@@ -274,10 +263,10 @@ function ProcessingPageInner() {
                     {STATUS_LABELS[o.status] ?? o.status}
                   </Badge>
                   {o.planned_qty != null && o.planned_qty > 0 && o.effective_qty >= o.planned_qty && (
-                    <Badge className="text-xs bg-green-100 text-green-800 border-green-200">Complete</Badge>
+                    <Badge className="text-xs bg-success/10 text-green-800 border-success/20">Complete</Badge>
                   )}
                   {o.planned_qty != null && o.planned_qty > 0 && o.effective_qty > o.planned_qty && (
-                    <Badge className="text-xs bg-amber-100 text-amber-800 border-amber-200">Surplus</Badge>
+                    <Badge className="text-xs bg-warning/15 text-amber-800 border-warning/20">Surplus</Badge>
                   )}
                 </div>
               </div>
@@ -285,7 +274,7 @@ function ProcessingPageInner() {
                 {o.customer_name && <div className="truncate"><span className="text-muted-foreground">Customer:</span> {o.customer_name}</div>}
                 {o.product_description && <div className="truncate"><span className="text-muted-foreground">Product:</span> {o.product_description}</div>}
                 {o.planned_qty != null && <div><span className="text-muted-foreground">Planned:</span> <span className="font-mono">{o.planned_qty}</span></div>}
-                <div><span className="text-muted-foreground">FG Done:</span> <span className="font-mono text-green-600 font-medium">{o.effective_qty}</span></div>
+                <div><span className="text-muted-foreground">FG Done:</span> <span className="font-mono text-success font-medium">{o.effective_qty}</span></div>
                 <div><span className="text-muted-foreground">Jobs:</span> <span className="font-medium">{o.job_cards.length}</span></div>
                 {o.start_date && <div><span className="text-muted-foreground">Dates:</span> {o.start_date}{o.end_date ? ` → ${o.end_date}` : ""}</div>}
               </div>
@@ -355,7 +344,7 @@ function ProcessingPageInner() {
                     <td className="px-4 py-3 text-xs text-muted-foreground">{o.customer_name ?? "—"}</td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">{o.product_description ?? "—"}</td>
                     <td className="px-4 py-3 text-xs text-right font-mono">{o.planned_qty ?? "—"}</td>
-                    <td className="px-4 py-3 text-xs text-right font-mono text-green-600 font-medium">{o.effective_qty}</td>
+                    <td className="px-4 py-3 text-xs text-right font-mono text-success font-medium">{o.effective_qty}</td>
                     <td className="px-4 py-3 hidden lg:table-cell text-xs text-muted-foreground">
                       {o.start_date ?? "—"}{o.end_date ? ` → ${o.end_date}` : ""}
                     </td>
@@ -366,10 +355,10 @@ function ProcessingPageInner() {
                           {STATUS_LABELS[o.status] ?? o.status}
                         </Badge>
                         {o.planned_qty != null && o.planned_qty > 0 && o.effective_qty >= o.planned_qty && (
-                          <Badge className="text-xs bg-green-100 text-green-800 border-green-200">Complete</Badge>
+                          <Badge className="text-xs bg-success/10 text-green-800 border-success/20">Complete</Badge>
                         )}
                         {o.planned_qty != null && o.planned_qty > 0 && o.effective_qty > o.planned_qty && (
-                          <Badge className="text-xs bg-amber-100 text-amber-800 border-amber-200">Surplus</Badge>
+                          <Badge className="text-xs bg-warning/15 text-amber-800 border-warning/20">Surplus</Badge>
                         )}
                       </div>
                     </td>
