@@ -15,6 +15,11 @@ from app.models.bom_item import BomItem
 from app.models.inventory import InventoryItem
 from app.models.user import User
 
+
+class BomCloneBody(BaseModel):
+    source_product_name: str
+    target_product_name: str
+
 router = APIRouter(
     prefix="/api/v1/bom",
     tags=["bom"],
@@ -130,6 +135,49 @@ def list_products(
         select(BomItem.product_name).where(BomItem.is_active == True)  # noqa: E712
     ).all())
     return sorted(set(entries))
+
+
+@router.post("/clone", response_model=list[BomItemResponse], status_code=status.HTTP_201_CREATED)
+def clone_bom(
+    body: BomCloneBody,
+    session: Annotated[Session, Depends(get_session)],
+    _: Annotated[User, Depends(require_admin)],
+) -> list[dict]:
+    source_lines = list(session.exec(
+        select(BomItem).where(
+            BomItem.product_name == body.source_product_name.strip(),
+            BomItem.is_active == True,  # noqa: E712
+        )
+    ).all())
+    if not source_lines:
+        raise HTTPException(status_code=404, detail="Source product BOM not found")
+
+    existing = session.exec(
+        select(BomItem).where(BomItem.product_name == body.target_product_name.strip())
+    ).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="Target product already has BOM entries")
+
+    created = []
+    for src in source_lines:
+        bom = BomItem(
+            product_name=body.target_product_name.strip(),
+            raw_material_id=src.raw_material_id,
+            qty_per_unit=src.qty_per_unit,
+            notes=src.notes,
+            is_active=True,
+        )
+        session.add(bom)
+        session.flush()
+        rm = session.get(InventoryItem, bom.raw_material_id)
+        created.append({
+            **bom.__dict__,
+            "raw_material_code": rm.code if rm else None,
+            "raw_material_name": rm.name if rm else None,
+            "raw_material_unit": rm.unit if rm else None,
+        })
+    session.commit()
+    return created
 
 
 @router.post("", response_model=BomItemResponse, status_code=status.HTTP_201_CREATED)

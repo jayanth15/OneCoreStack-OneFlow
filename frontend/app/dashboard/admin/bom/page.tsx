@@ -2,10 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList,
-  BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -99,31 +96,22 @@ export default function BomPage() {
 
   return (
     <>
-      <header className="sticky top-0 z-10 bg-background flex h-16 shrink-0 items-center border-b px-6">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href="/dashboard/admin/users">Admin</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
-            <BreadcrumbItem><BreadcrumbPage>Bill of Materials</BreadcrumbPage></BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </header>
-
-      <div className="p-4 md:p-6 space-y-4">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-xl font-semibold">Bill of Materials (BOM)</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Define which raw materials are needed per unit of each product.
-            </p>
-          </div>
+      <PageHeader
+        title="Bill of Materials (BOM)"
+        description="Define which raw materials are needed per unit of each product."
+        breadcrumbs={[
+          { label: "Admin", href: "/dashboard/admin/users" },
+          { label: "Bill of Materials" },
+        ]}
+        actions={
           <Button size="sm" onClick={() => router.push("/dashboard/admin/bom/new")}>
             <PlusIcon className="size-4 mr-1" />
             Add BOM Line
           </Button>
-        </div>
+        }
+      />
+
+      <div className="p-4 md:p-6 space-y-4">
 
         {/* Filters */}
         <div className="flex items-center gap-3 flex-wrap">
@@ -202,12 +190,14 @@ export default function BomPage() {
                           <span className="font-medium">{line.material_used} {usedUnit ?? "—"}</span>
                         </div>
                       )}
-                      {line.scrap != null && (
-                        <div className="text-xs">
-                          <span className="text-muted-foreground">Scrap / Unit:</span>{" "}
+                      <div className="text-xs">
+                        <span className="text-muted-foreground">Scrap / Unit:</span>{" "}
+                        {line.scrap != null ? (
                           <span className="font-medium">{line.scrap} {usedUnit ?? "—"}</span>
-                        </div>
-                      )}
+                        ) : (
+                          <span className="text-muted-foreground italic">Computed from weights</span>
+                        )}
+                      </div>
                       <div className="text-xs">
                         <span className="text-muted-foreground">Unit (Used / Scrap):</span>{" "}
                         <span className="font-medium">{line.material_unit ?? <span className="text-muted-foreground">inherits RM unit</span>}</span>
@@ -246,7 +236,7 @@ export default function BomPage() {
                           {line.material_used != null ? `${line.material_used} ${usedUnit ?? ""}` : "—"}
                         </td>
                         <td className="px-4 py-2.5 text-right tabular-nums">
-                          {line.scrap != null ? `${line.scrap} ${usedUnit ?? ""}` : "—"}
+                          {line.scrap != null ? `${line.scrap} ${usedUnit ?? ""}` : <span className="text-muted-foreground italic">Computed from weights</span>}
                         </td>
                         <td className="px-4 py-2.5 text-xs">
                           {line.material_unit ?? <span className="text-muted-foreground">inherits RM unit</span>}

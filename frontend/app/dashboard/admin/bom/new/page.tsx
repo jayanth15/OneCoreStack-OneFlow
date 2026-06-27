@@ -2,17 +2,17 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList,
-  BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter,
+  DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 import { apiFetchJson } from "@/lib/api";
 import { getCurrentUser } from "@/lib/user";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { Copy, Plus, Trash2 } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────────────────────────
 
@@ -42,6 +42,44 @@ function NewBomForm() {
   const [rows, setRows] = useState<RMRow[]>([{ key: nextKey.current++, raw_material_id: "", qty_per_unit: 1, material_used: "", scrap: "", material_unit: "", notes: "" }]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // ── Clone dialog ───────────────────────────────────────────────────────────────
+  const [cloneOpen, setCloneOpen] = useState(false);
+  const [existingProducts, setExistingProducts] = useState<string[]>([]);
+  const [sourceProduct, setSourceProduct] = useState("");
+  const [cloning, setCloning] = useState(false);
+
+  async function openCloneDialog() {
+    setSourceProduct("");
+    setCloneOpen(true);
+    try {
+      const prods = await apiFetchJson<string[]>("/api/v1/bom/products");
+      setExistingProducts(prods);
+    } catch {
+      setExistingProducts([]);
+    }
+  }
+
+  async function handleClone() {
+    if (!sourceProduct.trim()) return;
+    setCloning(true);
+    setError(null);
+    try {
+      await apiFetchJson("/api/v1/bom/clone", {
+        method: "POST",
+        body: JSON.stringify({
+          source_product_name: sourceProduct.trim(),
+          target_product_name: productName.trim(),
+        }),
+      });
+      setCloneOpen(false);
+      router.push("/dashboard/admin/bom");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Clone failed");
+    } finally {
+      setCloning(false);
+    }
+  }
 
   useEffect(() => {
     const u = getCurrentUser();
@@ -113,27 +151,22 @@ function NewBomForm() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4 md:px-6">
-        <Link href="/dashboard/admin/bom" className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
-          <ArrowLeft className="size-4" />
-        </Link>
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href="/dashboard/admin/bom">BOM</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
-            <BreadcrumbItem><BreadcrumbPage>Add BOM</BreadcrumbPage></BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </header>
+      <PageHeader
+        title="Add Bill of Materials"
+        description="Select a finished good and define all the raw materials needed to produce one unit."
+        breadcrumbs={[
+          { label: "BOM", href: "/dashboard/admin/bom" },
+          { label: "Add BOM" },
+        ]}
+      />
 
       <div className="p-4 md:p-8 max-w-2xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-xl font-semibold">Add Bill of Materials</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Select a finished good and define all the raw materials needed to produce one unit.
-          </p>
+
+        <div className="mb-4">
+          <Button type="button" variant="outline" size="sm" onClick={openCloneDialog}>
+            <Copy className="size-4 mr-1.5" />
+            Copy from existing BOM
+          </Button>
         </div>
 
         <form onSubmit={handleSave} className="space-y-6">
@@ -321,6 +354,40 @@ function NewBomForm() {
           </div>
         </form>
       </div>
+
+      <Dialog open={cloneOpen} onOpenChange={setCloneOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Copy from existing BOM</DialogTitle>
+            <DialogDescription>
+              Select a product whose BOM lines will be copied to &quot;{productName || "the selected product"}&quot;.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Label htmlFor="source_product">Source product</Label>
+            <select
+              id="source_product"
+              value={sourceProduct}
+              onChange={(e) => setSourceProduct(e.target.value)}
+              disabled={cloning}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+            >
+              <option value="">— Select source —</option>
+              {existingProducts.map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCloneOpen(false)} disabled={cloning}>
+              Cancel
+            </Button>
+            <Button onClick={handleClone} disabled={!sourceProduct.trim() || cloning}>
+              {cloning ? "Copying…" : "Copy BOM"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

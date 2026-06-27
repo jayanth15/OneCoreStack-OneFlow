@@ -2,18 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-import Link from "next/link";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList,
-  BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiFetchJson } from "@/lib/api";
 import { getCurrentUser } from "@/lib/user";
-import { ArrowLeft } from "lucide-react";
 
 interface InventoryItem { id: number; code: string; name: string; unit: string; item_type?: string; }
 interface PaginatedInventory { items: InventoryItem[]; }
@@ -97,24 +92,14 @@ export default function EditBomPage() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4 md:px-6">
-        <Link href="/dashboard/admin/bom" className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
-          <ArrowLeft className="size-4" />
-        </Link>
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href="/dashboard/admin/bom">BOM</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
-            <BreadcrumbItem><BreadcrumbPage>Edit BOM Line</BreadcrumbPage></BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </header>
+      <PageHeader
+        title="Edit BOM Line"
+        breadcrumbs={[
+          { label: "BOM", href: "/dashboard/admin/bom" },
+          { label: "Edit BOM Line" },
+        ]}
+      />
       <div className="p-4 md:p-8 max-w-lg mx-auto">
-        <div className="mb-6">
-          <h1 className="text-xl font-semibold">Edit BOM Line</h1>
-        </div>
         {loadError ? (
           <p className="text-sm text-destructive">{loadError}</p>
         ) : loading ? (

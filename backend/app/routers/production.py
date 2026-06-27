@@ -40,6 +40,12 @@ _SCHEDULE_RANK = {"pending": 0, "confirmed": 1, "in_production": 2, "completed":
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+WEIGHT_TO_GRAM = {"kg": 1000.0, "g": 1.0, "mg": 0.001, "lb": 453.592}
+
+def _weight_to_grams(value: float | None, unit: str | None) -> float:
+    if value is None or not unit:
+        return 0.0
+    return value * WEIGHT_TO_GRAM.get(unit, 1.0)
 
 def _next_plan_number(session: Session) -> str:
     count = session.exec(select(func.count()).select_from(ProductionPlan)).one()
@@ -769,9 +775,10 @@ class MaterialRequirement(BaseModel):
     unit: str
     item_type: str                  # raw_material | semi_finished
     qty_per_unit: float             # from BOM
-    required_qty: float             # qty_per_unit × planned_qty
+    required_qty: float             # qty_per_unit × planned_qty × (1 + scrap_rate)
     available_qty: float             # current quantity_on_hand
     to_purchase: float              # max(0, required - available)
+    scrap_rate: float = 0.0         # computed from weights (0 if manual override exists)
 
 
 @router.get("/bom-preview", response_model=list[MaterialRequirement])
@@ -794,12 +801,36 @@ def bom_preview(
         .order_by(BomItem.id)  # type: ignore[union-attr]
     ).all())
 
+    # --- Compute scrap rate from weights ---
+    fg = session.exec(
+        select(InventoryItem).where(
+            InventoryItem.item_type == "finished_good",
+            InventoryItem.name == product_name,
+            InventoryItem.is_active == True,  # noqa: E712
+        )
+    ).first()
+    total_input_g = 0.0
+    for b in bom_entries:
+        rm = session.get(InventoryItem, b.raw_material_id)
+        if not rm:
+            continue
+        total_input_g += _weight_to_grams(rm.weight_value, rm.weight_unit) * b.qty_per_unit
+    fg_weight_g = _weight_to_grams(fg.weight_value, fg.weight_unit) if fg else 0.0
+    scrap_rate = 0.0
+    if total_input_g > 0 and fg_weight_g > 0 and total_input_g > fg_weight_g:
+        scrap_rate = round((total_input_g - fg_weight_g) / total_input_g, 4)
+
     result: list[MaterialRequirement] = []
     for b in bom_entries:
         item = session.get(InventoryItem, b.raw_material_id)
         if not item or not item.is_active:
             continue
-        required = round(b.qty_per_unit * planned_qty, 4)
+        # Use manual scrap per line if set, otherwise computed scrap_rate
+        if b.scrap is not None:
+            effective_scrap = b.scrap
+        else:
+            effective_scrap = scrap_rate
+        required = round(b.qty_per_unit * planned_qty * (1 + effective_scrap), 4)
         available = item.quantity_on_hand
         result.append(MaterialRequirement(
             item_id=item.id,  # type: ignore[arg-type]
@@ -811,6 +842,7 @@ def bom_preview(
             required_qty=required,
             available_qty=available,
             to_purchase=max(0.0, round(required - available, 4)),
+            scrap_rate=scrap_rate if b.scrap is None else 0.0,
         ))
     return result
 
