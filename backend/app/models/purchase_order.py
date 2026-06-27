@@ -40,6 +40,6 @@ class PurchaseOrderItem(SQLModel, table=True):
     purchase_order_id: int = Field(foreign_key="purchase_order.id", index=True)
     item_name: str = ""
     quantity: float = Field(default=0.0)
-    unit: Optional[str] = None
+    unit_id: Optional[int] = Field(default=None, foreign_key="unit.id")
     rate: Optional[float] = None                            # per unit price
     notes: Optional[str] = None

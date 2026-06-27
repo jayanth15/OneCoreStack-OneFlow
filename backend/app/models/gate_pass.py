@@ -20,7 +20,7 @@ class GatePass(SQLModel, table=True):
     # Material
     material: str = ""
     quantity: float = Field(default=0.0)
-    unit: Optional[str] = None
+    unit_id: Optional[int] = Field(default=None, foreign_key="unit.id")
 
     purpose: Optional[str] = None
     vehicle_number: Optional[str] = None

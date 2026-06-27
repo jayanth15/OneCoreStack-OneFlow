@@ -31,7 +31,7 @@ class Dispatch(SQLModel, table=True):
     # Product / goods
     product_name: str = ""
     quantity: float = Field(default=0.0)
-    unit: Optional[str] = None                              # e.g. "pcs", "kg"
+    unit_id: Optional[int] = Field(default=None, foreign_key="unit.id")
 
     # Logistics
     dispatch_date: Optional[str] = None                     # ISO "YYYY-MM-DD"

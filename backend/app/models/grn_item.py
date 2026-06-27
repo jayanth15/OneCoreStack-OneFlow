@@ -18,7 +18,7 @@ class GRNItem(SQLModel, table=True):
     item_name: Optional[str] = Field(default=None)
     item_code: Optional[str] = Field(default=None)
     item_type: Optional[str] = Field(default=None)
-    unit: Optional[str] = Field(default=None)
+    unit_id: Optional[int] = Field(default=None, foreign_key="unit.id")
     quantity_received: float = Field(default=0.0)
     # How many were requested in the linked purchase request (for comparison)
     quantity_pr_requested: Optional[float] = Field(default=None)
