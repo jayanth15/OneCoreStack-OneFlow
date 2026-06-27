@@ -198,6 +198,8 @@ class InventoryItemResponse(BaseModel):
     required_qty: Optional[float] = None
     rate: Optional[float] = None
     vendor_name: Optional[str] = None
+    weight_value: Optional[float] = None
+    weight_unit: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

@@ -21,5 +21,7 @@ class InventoryItem(SQLModel, table=True):
     image_base64: Optional[str] = None          # base64-encoded image — omitted from list responses
     vendor_name: Optional[str] = None           # primary vendor (for finished goods / semi-finished)
     design_drawing_pdf: Optional[str] = None    # base64-encoded design drawing PDF
+    weight_value: Optional[float] = Field(default=None)               # weight of one unit
+    weight_unit: Optional[str] = Field(default=None)                  # "kg", "g", "mg", "lb"
     is_active: bool = Field(default=True)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))
