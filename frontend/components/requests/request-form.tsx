@@ -96,14 +96,14 @@ function getPermittedTypes(): RequestableItemType[] {
     return [...SUPPORTED_REQUESTABLE_TYPES];
   }
   return SUPPORTED_REQUESTABLE_TYPES.filter((t) => {
-    // Allowed by inventory_access (if set)
+    // Allowed by inventory_access (if set / non-empty)
     const hasInventoryAccess = !user.inventory_access || user.inventory_access.length === 0
       || user.inventory_access.includes(t);
-    // Allowed by request_inventory (if set)
+    // Allowed by request_inventory (if set / non-empty)
     const hasRequestAccess = !user.request_inventory || user.request_inventory.length === 0
       || user.request_inventory.includes(t);
-    // User needs at least one of the two permissions
-    return hasInventoryAccess && hasRequestAccess;
+    // A type is permitted if the user has EITHER access
+    return hasInventoryAccess || hasRequestAccess;
   });
 }
 
@@ -213,7 +213,7 @@ export function RequestForm({
             <div>
               <h3 className="text-sm font-semibold">No inventory access</h3>
               <p className="text-xs text-muted-foreground mt-1 max-w-sm">
-                You don&apos;t have permission to request any inventory types. Please contact your administrator to update your access.
+                You don&apos;t have permission to request any inventory types. This form supports raw materials, finished goods, and semi-finished goods — your account may need additional permissions for these types. Please contact your administrator.
               </p>
             </div>
           </CardContent>
