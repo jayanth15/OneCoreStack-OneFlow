@@ -481,22 +481,23 @@ export default function ProductionOrderDetailPage() {
               Cancel
             </Button>
             <Button disabled={editProcessSaving} onClick={async () => {
-              if (!editProcess) return;
+              if (!editProcess || !order) return;
               const val = parseFloat(editProcessValue);
               if (isNaN(val) || val < 0) return;
               setEditProcessSaving(true);
+              setError(null);
               try {
-                await apiFetchJson(`/api/v1/production/orders/${order!.id}/processes/${encodeURIComponent(editProcess.name)}/actual-qty`, {
+                await apiFetchJson(`/api/v1/production/orders/${order.id}/processes/${encodeURIComponent(editProcess.name)}/actual-qty`, {
                   method: "PUT",
                   headers: {"Content-Type": "application/json"},
                   body: JSON.stringify({ total_actual_qty: val }),
                 });
-                setEditProcess(null);
                 loadOrder();
-              } catch {
-                setError("Failed to update actual qty");
+              } catch (e: unknown) {
+                setError(e instanceof Error ? e.message : "Failed to update actual qty");
               } finally {
                 setEditProcessSaving(false);
+                setEditProcess(null);
               }
             }}>
               {editProcessSaving ? "Saving…" : "Save"}

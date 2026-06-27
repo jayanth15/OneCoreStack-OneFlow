@@ -1512,10 +1512,14 @@ def update_process_actual_qty(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
+    # Decode URL-encoded process name
+    from urllib.parse import unquote
+    decoded_name = unquote(process_name)
+
     cards = list(session.exec(
         select(JobCard).where(
             JobCard.production_order_id == order_id,
-            JobCard.process_name == process_name,
+            JobCard.process_name == decoded_name,
             JobCard.is_active == True,
         )
     ).all())
@@ -1525,7 +1529,7 @@ def update_process_actual_qty(
         raise HTTPException(status_code=400, detail="total_actual_qty must be >= 0")
 
     if not cards:
-        raise HTTPException(status_code=404, detail="No active job cards for this process")
+        raise HTTPException(status_code=404, detail=f"No active job cards for process '{decoded_name}' in order {order_id}")
 
     # Distribute proportionally by qty_produced, or evenly
     total_estimated = sum(c.qty_produced for c in cards)
