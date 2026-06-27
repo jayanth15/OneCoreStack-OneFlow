@@ -147,6 +147,8 @@ class InventoryItemCreate(BaseModel):
     timeline_days: Optional[int] = None
     image_base64: Optional[str] = None
     vendor_name: Optional[str] = None
+    weight_value: Optional[float] = None
+    weight_unit: Optional[str] = None
     is_active: bool = True
 
     @field_validator("item_type")
@@ -170,6 +172,8 @@ class InventoryItemUpdate(BaseModel):
     timeline_days: Optional[int] = None
     image_base64: Optional[str] = None
     vendor_name: Optional[str] = None
+    weight_value: Optional[float] = None
+    weight_unit: Optional[str] = None
     is_active: Optional[bool] = None
 
     @field_validator("item_type")
@@ -330,6 +334,8 @@ def list_items(
             "updated_at": item.updated_at,
             "rate": item.rate if admin else None,
             "vendor_name": item.vendor_name,
+            "weight_value": item.weight_value,
+            "weight_unit": item.weight_unit,
             **extra,
         }
         result.append(d)
@@ -362,6 +368,8 @@ def create_item(
         timeline_days=body.timeline_days,
         image_base64=body.image_base64,
         vendor_name=body.vendor_name or None,
+        weight_value=body.weight_value,
+        weight_unit=body.weight_unit,
         is_active=body.is_active,
         updated_at=datetime.now(tz=timezone.utc),
     )
@@ -444,6 +452,10 @@ def update_item(
         item.timeline_days = body.timeline_days
     if body.vendor_name is not None:
         item.vendor_name = body.vendor_name or None
+    if body.weight_value is not None:
+        item.weight_value = body.weight_value
+    if body.weight_unit is not None:
+        item.weight_unit = body.weight_unit
 
     item.updated_at = datetime.now(tz=timezone.utc)
 
