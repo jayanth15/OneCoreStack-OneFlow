@@ -63,6 +63,28 @@ def list_pos(
     return {"items": result, "total": total, "page": page, "page_size": page_size}
 
 
+@router.get("/linkable")
+def list_linkable_pos(
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    search: str = "",
+) -> list[dict[str, Any]]:
+    _require_access(current_user)
+    q = select(PurchaseOrder).where(PurchaseOrder.status.in_(["approved", "draft"]))
+    pos = list(session.exec(q.order_by(PurchaseOrder.po_number)).all())
+    if search:
+        s = search.lower()
+        pos = [p for p in pos
+               if s in (p.po_number or "").lower()
+               or s in (p.supplier_name or "").lower()
+               or s in (p.vendor_name or "").lower()]
+    return [
+        {"id": p.id, "po_number": p.po_number, "supplier_name": p.supplier_name,
+         "vendor_name": p.vendor_name, "party_type": p.party_type}
+        for p in pos
+    ]
+
+
 @router.post("", status_code=status.HTTP_201_CREATED)
 def create_po(
     body: dict[str, Any],

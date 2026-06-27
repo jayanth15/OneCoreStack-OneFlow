@@ -107,6 +107,30 @@ interface UserItem {
   username: string;
 }
 
+interface LinkablePo {
+  id: number;
+  po_number: string;
+  supplier_name: string | null;
+  vendor_name: string | null;
+  party_type: string;
+}
+
+interface PoDetailItem {
+  id: number;
+  item_name: string;
+  quantity: number;
+  unit: string | null;
+}
+
+interface PoDetail {
+  id: number;
+  po_number: string;
+  party_type: string;
+  supplier_name: string | null;
+  vendor_name: string | null;
+  items: PoDetailItem[];
+}
+
 // ── Form row type ─────────────────────────────────────────────────────────────
 
 interface FormItemRow {
@@ -160,6 +184,20 @@ function prItemToFormRow(pr: PRItem): FormItemRow {
     unit: pr.unit ?? "",
     quantity_received: "",
     quantity_pr_requested: String(pr.quantity ?? ""),
+    invTypeFilter: "",
+  };
+}
+
+function poItemToFormRow(item: PoDetailItem): FormItemRow {
+  return {
+    _key: Date.now() + Math.random(),
+    inventory_item_id: null,
+    item_name: item.item_name ?? "",
+    item_code: "",
+    item_type: "raw_material",
+    unit: item.unit ?? "",
+    quantity_received: "",
+    quantity_pr_requested: "",
     invTypeFilter: "",
   };
 }
@@ -220,6 +258,9 @@ export default function GRNPage() {
   const [saving, setSaving] = useState(false);
   const [formErr, setFormErr] = useState<string | null>(null);
   const [prefillErr, setPrefillErr] = useState<string | null>(null);
+  const [linkedPoId, setLinkedPoId] = useState<number | null>(null);
+  const [linkedPoLabel, setLinkedPoLabel] = useState("");
+  const [poPrefillErr, setPoPrefillErr] = useState<string | null>(null);
 
   // View detail dialog
   const [viewGrn, setViewGrn] = useState<GRNRecord | null>(null);
@@ -260,6 +301,8 @@ export default function GRNPage() {
     setGrnNotes("");
     setLinkedPrId(null);
     setLinkedPrLabel("");
+    setLinkedPoId(null);
+    setLinkedPoLabel("");
     setPoNumber("");
     setDcNumber("");
     setInspectedByUserId(null);
@@ -320,6 +363,31 @@ export default function GRNPage() {
       setLinkedPrId(null);
       setLinkedPrLabel("");
       setPrefillErr(e instanceof Error ? e.message : "Could not load PR items");
+    }
+  }
+
+  async function handlePoSelect(po: LinkablePo) {
+    const replacingWithQty = formItems.some(
+      (r) => parseFloat(r.quantity_received) > 0,
+    );
+    if (replacingWithQty) {
+      if (!confirm("This will replace the items already added. Continue?")) {
+        return;
+      }
+    }
+    setLinkedPoId(po.id);
+    setLinkedPoLabel(`${po.po_number} · ${po.supplier_name || po.vendor_name || ""}`);
+    setPoPrefillErr(null);
+    try {
+      const detail = await apiFetchJson<PoDetail>(`/api/v1/purchase-orders/${po.id}`);
+      setPoNumber(detail.po_number || "");
+      if (detail.items && detail.items.length > 0) {
+        setFormItems(detail.items.map(poItemToFormRow));
+      }
+    } catch (e: unknown) {
+      setLinkedPoId(null);
+      setLinkedPoLabel("");
+      setPoPrefillErr(e instanceof Error ? e.message : "Could not load PO details");
     }
   }
 
@@ -605,6 +673,44 @@ ${grn.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${grn.notes}</
           <button type="button" className="text-xs text-muted-foreground hover:text-destructive mt-1"
             onClick={() => { setLinkedPrId(null); setLinkedPrLabel(""); }} disabled={saving}>
             Clear linked PR
+          </button>
+        )}
+      </div>
+
+      {/* Linked PO */}
+      <div>
+        <Label className="text-sm">Linked Purchase Order (optional)</Label>
+        <div className="mt-1">
+          <SearchCombobox<LinkablePo>
+            variant="plain"
+            value={linkedPoLabel}
+            disabled={saving}
+            placeholder="Search purchase order…"
+            fetcher={async (q) => {
+              const qs = q.trim() ? `?search=${encodeURIComponent(q)}` : "";
+              return apiFetchJson<LinkablePo[]>(`/api/v1/purchase-orders/linkable${qs}`);
+            }}
+            getItemKey={(p) => p.id}
+            getItemLabel={(p) => `${p.po_number} · ${p.supplier_name || p.vendor_name || ""}`}
+            onSelect={handlePoSelect}
+            renderItem={(po) => (
+              <>
+                <span className="font-mono font-medium text-xs">{po.po_number}</span>
+                <span className="text-sm ml-2">{po.supplier_name || po.vendor_name || "—"}</span>
+                <span className="text-xs text-muted-foreground ml-1.5">
+                  {po.party_type}
+                </span>
+              </>
+            )}
+          />
+        </div>
+        {poPrefillErr && (
+          <p className="text-xs text-destructive mt-1">{poPrefillErr}</p>
+        )}
+        {linkedPoId && (
+          <button type="button" className="text-xs text-muted-foreground hover:text-destructive mt-1"
+            onClick={() => { setLinkedPoId(null); setLinkedPoLabel(""); }} disabled={saving}>
+            Clear linked PO
           </button>
         )}
       </div>
