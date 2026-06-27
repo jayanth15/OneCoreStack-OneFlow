@@ -737,17 +737,18 @@ export default function SparesPage() {
     if (!win) return;
 
     // Fetch all data from API for the print — don't rely on UI state
-    const allCats = await apiFetchJson<any[]>("/api/v1/spares/categories?page_size=200").catch(() => []);
+    const allCats = await apiFetchJson<any>("/api/v1/spares/categories?page_size=200").catch(() => ({ items: [] }));
     const rows: string[] = [];
 
-    for (const cat of allCats) {
+    for (const cat of (allCats.items || [])) {
       const subs = await apiFetchJson<any[]>(`/api/v1/spares/categories/${cat.id}/sub-categories?page_size=200`).catch(() => []);
-      for (const sub of subs) {
+      for (const sub of (Array.isArray(subs) ? subs : [])) {
         const items = await apiFetchJson<any>(`/api/v1/spares/sub-categories/${sub.id}/items?page_size=200&include_inactive=false`).catch(() => ({ items: [] }));
         for (const item of (items.items || [])) {
           const variants = await apiFetchJson<any[]>(`/api/v1/spares/items/${item.id}/variants`).catch(() => []);
-          if (variants.length > 0) {
-            variants.forEach((v: any) => {
+          const variantList = Array.isArray(variants) ? variants : [];
+          if (variantList.length > 0) {
+            variantList.forEach((v: any) => {
               rows.push(`<tr>
                 <td>${cat.name}</td>
                 <td>${sub.name}</td>
