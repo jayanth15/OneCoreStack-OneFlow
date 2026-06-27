@@ -680,6 +680,8 @@ def get_item_detail(
         "rate": item.rate if admin else None,
         "image_base64": item.image_base64,
         "vendor_name": item.vendor_name,
+        "weight_value": item.weight_value,
+        "weight_unit": item.weight_unit,
         "has_design_drawing": item.design_drawing_pdf is not None,
     }
 
