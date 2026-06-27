@@ -10,6 +10,7 @@ from sqlmodel import Session, func, select
 from app.core.database import get_session
 from app.dependencies.auth import get_current_user, is_admin_or_above
 from app.models.attachment_item import AttachmentItem
+from app.models.unit import Unit
 from app.models.consumable import Consumable
 from app.models.dispatch import Dispatch
 from app.models.vendor import Vendor
@@ -121,7 +122,8 @@ class LowStockItem(BaseModel):
     item_type: str
     quantity_on_hand: float
     reorder_level: float
-    unit: str
+    unit_id: Optional[int] = None
+    unit_name: Optional[str] = None
 
 
 class DashboardResponse(BaseModel):
@@ -384,10 +386,13 @@ def get_dashboard(
             .limit(10)
         ).all()
     )
+    unit_ids = {i.unit_id for i in low_stock_rows if i.unit_id}
+    unit_map = {u.id: u.name for u in session.exec(select(Unit).where(Unit.id.in_(unit_ids))).all()} if unit_ids else {}
     low_stock_items = [
         LowStockItem(
             id=i.id, code=i.code, name=i.name, item_type=i.item_type,  # type: ignore[arg-type]
-            quantity_on_hand=i.quantity_on_hand, reorder_level=i.reorder_level, unit=i.unit,
+            quantity_on_hand=i.quantity_on_hand, reorder_level=i.reorder_level,
+            unit_id=i.unit_id, unit_name=unit_map.get(i.unit_id),
         )
         for i in low_stock_rows
     ]
@@ -420,7 +425,8 @@ class SpareLowStockItem(BaseModel):
     sub_category_name: Optional[str]
     recorded_qty: float
     reorder_level: float
-    unit: str
+    unit_id: Optional[int] = None
+    unit_name: Optional[str] = None
 
 
 class ConsumableLowStockItem(BaseModel):
@@ -476,6 +482,17 @@ def get_low_stock_summary(
         )
     ).all()
 
+    # Collect unique unit IDs from all spare items
+    all_si_ids = set()
+    for v in variant_rows:
+        all_si_ids.add(v.spare_item_id)
+    all_unit_ids = set()
+    for si_id in all_si_ids:
+        si = session.get(SpareItem, si_id)
+        if si and si.unit_id:
+            all_unit_ids.add(si.unit_id)
+    unit_map = {u.id: u.name for u in session.exec(select(Unit).where(Unit.id.in_(all_unit_ids))).all()} if all_unit_ids else {}
+
     cat_cache: dict = {}
     sub_cache: dict = {}
     item_cache: dict = {}
@@ -513,7 +530,7 @@ def get_low_stock_summary(
             sub_category_name=sub.name if sub else None,
             recorded_qty=v.qty,
             reorder_level=v.reorder_level,
-            unit=si.unit,
+            unit_id=si.unit_id, unit_name=unit_map.get(si.unit_id),
         ))
     spares_out.sort(key=lambda x: (x.item_name, x.variant_name))
 
