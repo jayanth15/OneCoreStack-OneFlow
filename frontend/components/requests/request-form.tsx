@@ -62,10 +62,6 @@ const SUPPORTED_REQUESTABLE_TYPES = [
   "raw_material",
   "finished_good",
   "semi_finished",
-  "spare",
-  "consumable",
-  "attachment",
-  "weeder",
 ] as const;
 
 type RequestableItemType = (typeof SUPPORTED_REQUESTABLE_TYPES)[number];
@@ -74,10 +70,6 @@ const ITEM_TYPE_LABELS: Record<RequestableItemType, string> = {
   raw_material: "Raw materials",
   finished_good: "Finished goods",
   semi_finished: "Semi-finished",
-  spare: "Spares",
-  consumable: "Consumables",
-  attachment: "Attachments",
-  weeder: "Weeders",
 };
 
 const TYPE_OPTIONS: { value: RequestType; label: string; short: string; icon: typeof ArrowLeftRight }[] = [
@@ -161,6 +153,7 @@ export function RequestForm({
 
   useEffect(() => {
     if (noAccess) return;
+    setInventoryLoading(true);
     let cancelled = false;
     apiFetchJson<PaginatedInventory>(
       `/api/v1/inventory?item_type=${effectiveItemType}&page_size=500&include_inactive=false`
@@ -373,12 +366,10 @@ export function RequestForm({
                       placeholder={inventoryLoading ? "Loading inventory…" : "Search inventory item..."}
                       disabled={inventoryLoading}
                       fetcher={async (q) => {
-                        if (q.trim()) {
-                          return apiFetchJson<{ items: InventoryItem[] }>(
-                            `/api/v1/inventory?item_type=${effectiveItemType}&page_size=500&include_inactive=false&search=${encodeURIComponent(q)}`,
-                          ).then((r) => r.items);
-                        }
-                        return inventoryItems;
+                        const searchParam = q.trim() ? `&search=${encodeURIComponent(q.trim())}` : '';
+                        return apiFetchJson<{ items: InventoryItem[] }>(
+                          `/api/v1/inventory?item_type=${effectiveItemType}&page_size=500&include_inactive=false${searchParam}`,
+                        ).then((r) => r.items);
                       }}
                       itemIdOf={(inv) => inv.id}
                       getItemKey={(inv) => inv.id}
