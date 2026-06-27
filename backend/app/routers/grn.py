@@ -251,6 +251,17 @@ def linkable_prs(
     return result
 
 
+@router.get("/linkable-prs/{pr_id}/items", response_model=list[LinkablePROut])
+def get_linkable_pr_items_endpoint(
+    pr_id: int,
+    session: SessionDep,
+    _: CurrentUser,
+) -> list[LinkablePROut]:
+    """Return line items for a linkable PR. 404 if PR is missing, soft-deleted, or not linkable."""
+    from app.core.linkable_prs import get_linkable_pr_items as _get
+    return _get(session, pr_id)
+
+
 @router.get("", response_model=PaginatedGRN)
 def list_grns(
     session: SessionDep,
