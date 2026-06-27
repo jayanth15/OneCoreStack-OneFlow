@@ -1552,8 +1552,8 @@ def update_process_actual_qty(
         session.add(c)
 
     # Recompute statuses
-    _recalc_fg_for_order(order_id, session)
-    _propagate_statuses(order_id, session)
+    _recalc_fg_for_order(order, session)
+    _propagate_statuses(order.id, session)
     session.commit()
 
     return {"updated": len(cards)}
