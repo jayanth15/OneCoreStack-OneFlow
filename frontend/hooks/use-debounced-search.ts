@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 export type UseDebouncedSearchResult<T> = {
   query: string;
   setQuery: (q: string) => void;
-  results: T[];
+  results: readonly T[];
   busy: boolean;
   open: boolean;
   setOpen: (b: boolean) => void;
@@ -18,24 +18,28 @@ export function useDebouncedSearch<T>(
 ): UseDebouncedSearchResult<T> {
   const { debounceMs = 300 } = opts;
   const [query, setQueryState] = useState("");
-  const [results, setResults] = useState<T[]>([]);
+  const [results, setResults] = useState<readonly T[]>([]);
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fetcherRef = useRef(fetcher);
   fetcherRef.current = fetcher;
+  const reqIdRef = useRef(0);
 
   const runFetch = useCallback((q: string) => {
+    const id = ++reqIdRef.current;
     setBusy(true);
     fetcherRef
       .current(q)
       .then((r) => {
-        setResults(r);
+        if (id === reqIdRef.current) setResults(r);
       })
       .catch(() => {
-        setResults([]);
+        if (id === reqIdRef.current) setResults([]);
       })
-      .finally(() => setBusy(false));
+      .finally(() => {
+        if (id === reqIdRef.current) setBusy(false);
+      });
   }, []);
 
   const setQuery = useCallback(
@@ -49,6 +53,7 @@ export function useDebouncedSearch<T>(
   );
 
   const reset = useCallback(() => {
+    reqIdRef.current++;
     setQueryState("");
     setResults([]);
     setOpen(false);
@@ -57,6 +62,7 @@ export function useDebouncedSearch<T>(
   useEffect(() => {
     return () => {
       if (timer.current) clearTimeout(timer.current);
+      reqIdRef.current++;
     };
   }, []);
 
