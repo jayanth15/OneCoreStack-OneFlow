@@ -361,8 +361,8 @@ export function RequestForm({
                 <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-2 rounded-lg border bg-muted/20 p-2.5">
                   <div className="flex-1 min-w-0">
                     <SearchCombobox<InventoryItem>
-                      variant="list"
-                      value={it.inventory_item_id ? String(it.inventory_item_id) : ""}
+                      variant="plain"
+                      value={it.item_name || ""}
                       placeholder={inventoryLoading ? "Loading inventory…" : "Search inventory item..."}
                       disabled={inventoryLoading}
                       fetcher={async (q) => {
@@ -371,7 +371,6 @@ export function RequestForm({
                           `/api/v1/inventory?item_type=${effectiveItemType}&page_size=500&include_inactive=false${searchParam}`,
                         ).then((r) => r.items);
                       }}
-                      itemIdOf={(inv) => inv.id}
                       getItemKey={(inv) => inv.id}
                       getItemLabel={(inv) => `${inv.code} · ${inv.name}`}
                       onSelect={(inv) => updateItem(i, { item_name: inv.name, inventory_item_id: inv.id })}
