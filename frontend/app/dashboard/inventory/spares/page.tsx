@@ -2,10 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -22,7 +19,7 @@ import { apiFetchJson } from "@/lib/api";
 import { isAdminOrAbove, canAccessInventory, canEditInventory } from "@/lib/user";
 import {
   PlusIcon, Pencil, Trash2, AlertTriangle, Wrench, ChevronRight, ChevronDown,
-  Search, PackagePlus, PackageMinus, ImageIcon, Layers, Eye, History, ChevronsDown,
+  Search, Printer, PackagePlus, PackageMinus, ImageIcon, Layers, Eye, History, ChevronsDown,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -97,7 +94,7 @@ function highlight(text: string | null | undefined, q: string): React.ReactNode 
   if (!q || !text) return text ?? "";
   const idx = text.toLowerCase().indexOf(q.toLowerCase());
   if (idx === -1) return text;
-  return <>{text.slice(0, idx)}<mark className="bg-yellow-200 dark:bg-yellow-800/60 rounded-sm px-0.5 not-italic">{text.slice(idx, idx + q.length)}</mark>{text.slice(idx + q.length)}</>;
+  return <>{text.slice(0, idx)}<mark className="bg-yellow-200 rounded-sm px-0.5 not-italic">{text.slice(idx, idx + q.length)}</mark>{text.slice(idx + q.length)}</>;
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -738,26 +735,84 @@ export default function SparesPage() {
     r.readAsDataURL(file);
   }
 
+  function printCycleCount() {
+    const win = window.open("", "_blank");
+    if (!win) return;
+
+    const rows: string[] = [];
+    categories.forEach(cat => {
+      const subs = subsMap.get(cat.id) || [];
+      subs.forEach(sub => {
+        const itemList = itemsMap.get(sub.id) || [];
+        itemList.forEach(item => {
+          const variants = searchVariantsMap.get(item.id) || [];
+          if (variants.length > 0) {
+            variants.forEach(v => {
+              rows.push(`<tr>
+                <td>${cat.name}</td>
+                <td>${sub.name}</td>
+                <td>${item.name}</td>
+                <td>${v.variant_color || v.serial_number || '\u2014'}</td>
+                <td style="text-align:center">${v.qty}</td>
+                <td style="text-align:center"><span class="counted">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td>
+              </tr>`);
+            });
+          } else {
+            rows.push(`<tr>
+              <td>${cat.name}</td>
+              <td>${sub.name}</td>
+              <td>${item.name}</td>
+              <td>\u2014</td>
+              <td style="text-align:center">${item.recorded_qty}</td>
+              <td style="text-align:center"><span class="counted">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td>
+            </tr>`);
+          }
+        });
+      });
+    });
+
+    win.document.write(`<html><head><title>Spares Cycle Count</title>
+      <style>
+        body{font-family:Arial,sans-serif;padding:20px;}
+        table{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px;}
+        th,td{border:1px solid #999;padding:6px;text-align:left;}
+        th{background:#e5e5e5;}
+        .counted{border-bottom:2px solid #333;min-width:80px;display:inline-block;}
+      </style></head><body>
+      <h2 style="text-align:center;">Spares Cycle Count</h2>
+      <p style="text-align:center;">Date: ${new Date().toLocaleDateString()}</p>
+      <table>
+        <thead><tr>
+          <th>Category</th><th>Sub-Category</th><th>Item</th><th>Variant</th>
+          <th>Current Qty</th><th>Counted Qty</th>
+        </tr></thead>
+        <tbody>${rows.join('')}</tbody>
+      </table>
+      <p style="text-align:center;margin-top:30px;font-style:italic;font-size:11px;">
+        Counted by: _________________ &nbsp;&nbsp;&nbsp; Date: _______________
+      </p>
+      </body></html>`);
+    win.document.close();
+    win.print();
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
     <>
-      <header className="sticky top-0 z-10 bg-background flex h-16 shrink-0 items-center border-b px-6 gap-4 md:pr-64">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <Link href="/dashboard/inventory" className="text-muted-foreground hover:text-foreground text-sm">Inventory</Link>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem><BreadcrumbPage>Spares</BreadcrumbPage></BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-        {admin && (
-          <Button size="sm" className="ml-auto" onClick={() => router.push("/dashboard/inventory/spares/new")}>
+      <PageHeader
+        title="Spares"
+        description="Category → Sub-category → Items"
+        breadcrumbs={[
+          { label: "Inventory", href: "/dashboard/inventory" },
+          { label: "Spares" },
+        ]}
+        actions={admin ? (
+          <Button size="sm" onClick={() => router.push("/dashboard/inventory/spares/new")}>
             <PlusIcon className="size-4 mr-1" />New Category
           </Button>
-        )}
-      </header>
+        ) : undefined}
+      />
 
       <div className="p-4 md:p-6 space-y-4">
         <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -775,6 +830,9 @@ export default function SparesPage() {
             <Button type="submit" size="sm" variant="secondary">Search</Button>
             {search && <Button type="button" size="sm" variant="ghost" onClick={()=>{setSearch("");setSearchDraft("");}}>Clear</Button>}
           </form>
+          <Button size="sm" variant="outline" onClick={printCycleCount}>
+            <Printer className="size-4 mr-1.5" />Print Cycle Count
+          </Button>
         </div>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
@@ -805,7 +863,7 @@ export default function SparesPage() {
                   {/* ── Category row ── */}
                   <div className="flex items-center gap-3 px-4 py-3 hover:bg-muted/40 cursor-pointer select-none transition-colors bg-background"
                     onClick={()=>toggleCat(cat.id)}>
-                    <div className="flex size-8 items-center justify-center rounded-md bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 shrink-0">
+                    <div className="flex size-8 items-center justify-center rounded-md bg-warning/15 text-warning shrink-0">
                       <Wrench className="size-4" />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -820,7 +878,7 @@ export default function SparesPage() {
                         <span className="font-medium text-foreground">{fmtRate(cat.total_value)}</span>
                       )}
                       {cat.low_stock_count > 0 && (
-                        <Badge variant="outline" className="text-amber-600 border-amber-300">
+                        <Badge variant="outline" className="text-warning border-amber-300">
                           <AlertTriangle className="size-3 mr-1" />{cat.low_stock_count} low
                         </Badge>
                       )}
@@ -857,14 +915,14 @@ export default function SparesPage() {
                                 {/* ── Sub-category row ── */}
                                 <div className="flex items-center gap-3 pl-8 pr-4 py-2.5 hover:bg-muted/30 cursor-pointer select-none transition-colors"
                                   onClick={()=>toggleSub(sub.id)}>
-                                  <div className="flex size-7 items-center justify-center rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 shrink-0">
+                                  <div className="flex size-7 items-center justify-center rounded bg-primary/10 text-primary shrink-0">
                                     <Layers className="size-3.5" />
                                   </div>
                                   <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
                                     <span className="font-medium text-sm">{search ? highlight(sub.name, search) : sub.name}</span>
                                     {sub.description && <span className="text-xs text-muted-foreground hidden sm:inline truncate max-w-[180px]">{sub.description}</span>}
                                     {search && variantMatchedSubs.has(sub.id) && (
-                                      <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 font-medium shrink-0">
+                                      <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-tone-violet/10 text-tone-violet font-medium shrink-0">
                                         <Layers className="size-2.5" />via variant
                                       </span>
                                     )}
@@ -875,7 +933,7 @@ export default function SparesPage() {
                                       <span className="font-medium text-foreground">{fmtRate(sub.total_value)}</span>
                                     )}
                                     {sub.low_stock_count > 0 && (
-                                      <Badge variant="outline" className="text-amber-600 border-amber-300">
+                                      <Badge variant="outline" className="text-warning border-amber-300">
                                         <AlertTriangle className="size-3 mr-1" />{sub.low_stock_count} low
                                       </Badge>
                                     )}
@@ -922,7 +980,7 @@ export default function SparesPage() {
                                                     <span className="font-medium text-sm">{highlight(item.name, search)}</span>
                                                     {item.part_number && <span className="text-xs font-mono text-muted-foreground">{highlight(item.part_number, search)}</span>}
                                                     {item.variant_matched && (
-                                                      <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 font-medium">
+                                                      <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-tone-violet/10 text-tone-violet font-medium">
                                                         <Layers className="size-2.5" />via variant
                                                       </span>
                                                     )}
@@ -930,7 +988,7 @@ export default function SparesPage() {
                                                   {item.part_description && <p className="text-xs text-muted-foreground truncate mt-0.5">{item.part_description}</p>}
                                                 </div>
                                                 <div className="flex items-center gap-2.5 shrink-0 text-xs" onClick={e => e.stopPropagation()}>
-                                                  <span className={`tabular-nums ${low ? "text-amber-600 font-medium" : "text-muted-foreground"}`}>
+                                                  <span className={`tabular-nums ${low ? "text-warning font-medium" : "text-muted-foreground"}`}>
                                                     {low && <AlertTriangle className="size-3 inline mr-0.5 mb-0.5" />}
                                                     {fmtQty(item.recorded_qty)} {item.unit}
                                                   </span>
@@ -938,8 +996,8 @@ export default function SparesPage() {
                                                     <span className="font-medium text-foreground hidden md:inline">{fmtRate(item.total_value)}</span>
                                                   )}
                                                   <span className="flex gap-0.5">
-                                                    <Button variant="ghost" size="icon" className="size-6" title="View details" onClick={()=>setViewSpareItem(item)}><Eye className="size-3 text-blue-600" /></Button>
-                                                    {admin && <Button variant="ghost" size="icon" className="size-6" title="Stock history" onClick={()=>openHistory(item)}><History className="size-3 text-slate-500" /></Button>}
+                                                    <Button variant="ghost" size="icon" className="size-6" title="View details" onClick={()=>setViewSpareItem(item)}><Eye className="size-3 text-primary" /></Button>
+                                                    {admin && <Button variant="ghost" size="icon" className="size-6" title="Stock history" onClick={()=>openHistory(item)}><History className="size-3 text-muted-foreground" /></Button>}
                                                     {admin && <>
                                                       <Button variant="ghost" size="icon" className="size-6" onClick={()=>openEditItem(item)}><Pencil className="size-3" /></Button>
                                                       <Button variant="ghost" size="icon" className="size-6 text-destructive hover:text-destructive"
@@ -958,7 +1016,7 @@ export default function SparesPage() {
                                                   {/* panel header */}
                                                   <div className="flex items-center justify-between gap-2 flex-wrap">
                                                     <div className="flex items-center gap-2">
-                                                      <Layers className="size-3.5 text-violet-500 shrink-0" />
+                                                      <Layers className="size-3.5 text-tone-violet shrink-0" />
                                                       <span className="text-xs font-medium text-muted-foreground">
                                                         Variants
                                                         {!displayVariantsLoading && displayVariants.length > 0 && (
@@ -970,12 +1028,12 @@ export default function SparesPage() {
                                                     <div className="flex gap-1.5 shrink-0">
                                                       {variantsDialogItem?.id === item.id && canEdit && !variantsLoading && variantsRows.length > 0 && (
                                                         <Button size="sm" variant="outline" className="h-6 text-xs gap-1" onClick={()=>openAdjust(item,"add")}>
-                                                          <PackagePlus className="size-3 text-emerald-600" />Add Stock
+                                                          <PackagePlus className="size-3 text-success" />Add Stock
                                                         </Button>
                                                       )}
                                                       {variantsDialogItem?.id === item.id && canEdit && !variantsLoading && variantsRows.length > 0 && (
                                                         <Button size="sm" variant="outline" className="h-6 text-xs gap-1" onClick={()=>openAdjust(item,"subtract")}>
-                                                          <PackageMinus className="size-3 text-amber-600" />Remove Stock
+                                                          <PackageMinus className="size-3 text-warning" />Remove Stock
                                                         </Button>
                                                       )}
                                                       {variantsDialogItem?.id === item.id && canEdit && (
@@ -1011,7 +1069,7 @@ export default function SparesPage() {
                                                                 {v.serial_number && <p className="text-xs font-mono text-muted-foreground">{highlight(v.serial_number, search)}</p>}
                                                               </div>
                                                               <span className="flex gap-0.5 shrink-0 -mt-0.5">
-                                                                <Button variant="ghost" size="icon" className="size-6" title="View variant details" onClick={()=>{ setViewVariant(v); setViewVariantParent(item); }}><Eye className="size-3 text-blue-600" /></Button>
+                                                                <Button variant="ghost" size="icon" className="size-6" title="View variant details" onClick={()=>{ setViewVariant(v); setViewVariantParent(item); }}><Eye className="size-3 text-primary" /></Button>
                                                                 {admin && <>
                                                                   <Button variant="ghost" size="icon" className="size-6" title="Edit variant" onClick={()=>startEditVariant(v)}><Pencil className="size-3" /></Button>
                                                                   <Button variant="ghost" size="icon" className="size-6 text-destructive hover:text-destructive" onClick={()=>deleteVariant(v.id)}><Trash2 className="size-3" /></Button>
@@ -1023,7 +1081,7 @@ export default function SparesPage() {
                                                                 const varLow = v.reorder_level > 0 && v.qty <= v.reorder_level;
                                                                 return (<>
                                                                   <span className="text-muted-foreground">Qty</span>
-                                                                  <span className={`font-medium tabular-nums ${varLow ? "text-amber-600" : ""}`}>
+                                                                  <span className={`font-medium tabular-nums ${varLow ? "text-warning" : ""}`}>
                                                                     {varLow && <AlertTriangle className="size-3 inline mr-0.5 mb-0.5" />}
                                                                     {fmtQty(v.qty)} {item.unit}
                                                                   </span>
@@ -1050,11 +1108,11 @@ export default function SparesPage() {
                                                               <div className="flex gap-1 mt-1.5 pt-1.5 border-t">
                                                                 <Button variant="ghost" size="sm" className="flex-1 h-6 text-xs gap-1"
                                                                   onClick={()=>{ setAdjustVariant(v); setAdjustVType("add"); setAdjustVQty(""); setAdjustVNote(""); setAdjustVError(null); }}>
-                                                                  <PackagePlus className="size-3 text-emerald-600" />Add
+                                                                  <PackagePlus className="size-3 text-success" />Add
                                                                 </Button>
                                                                 <Button variant="ghost" size="sm" className="flex-1 h-6 text-xs gap-1"
                                                                   onClick={()=>{ setAdjustVariant(v); setAdjustVType("subtract"); setAdjustVQty(""); setAdjustVNote(""); setAdjustVError(null); }}>
-                                                                  <PackageMinus className="size-3 text-amber-600" />Remove
+                                                                  <PackageMinus className="size-3 text-warning" />Remove
                                                                 </Button>
                                                               </div>
                                                             )}
@@ -1449,20 +1507,20 @@ export default function SparesPage() {
                       <td className="px-3 py-2">{r.changed_by_username ?? "—"}</td>
                       <td className="px-3 py-2 text-center">
                         <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                          r.change_type==="add"||r.change_type==="add_variant"?"bg-emerald-100 text-emerald-700":
-                          r.change_type==="subtract"||r.change_type==="remove_variant"?"bg-amber-100 text-amber-700":"bg-blue-100 text-blue-700"}`}>
+                          r.change_type==="add"||r.change_type==="add_variant"?"bg-success/10 text-success":
+                          r.change_type==="subtract"||r.change_type==="remove_variant"?"bg-warning/15 text-warning":"bg-primary/10 text-primary"}`}>
                           {r.change_type==="add_variant"?"add variant":r.change_type==="remove_variant"?"remove variant":r.change_type}
                         </span>
                       </td>
                       <td className="px-3 py-2 text-muted-foreground text-xs">
                         {r.variant_label ? (
-                          <span className="inline-flex items-center gap-1 font-mono text-violet-700 dark:text-violet-400">
+                          <span className="inline-flex items-center gap-1 font-mono text-tone-violet">
                             <Layers className="size-3 shrink-0" />{r.variant_label}
                           </span>
                         ) : "—"}
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums">{fmtQty(r.qty_before)}</td>
-                      <td className={`px-3 py-2 text-right tabular-nums font-medium ${r.qty_delta>0?"text-emerald-600":r.qty_delta<0?"text-red-600":""}`}>
+                      <td className={`px-3 py-2 text-right tabular-nums font-medium ${r.qty_delta>0?"text-success":r.qty_delta<0?"text-destructive":""}`}>
                         {r.qty_delta > 0 ? "+" : ""}{fmtQty(r.qty_delta)}
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums font-medium">{fmtQty(r.qty_after)}</td>
@@ -1532,7 +1590,7 @@ export default function SparesPage() {
               const avail = selVar ? selVar.qty : adjustItem.recorded_qty;
               if (!isNaN(entered) && entered > avail) {
                 return (
-                  <div className="flex items-start gap-1.5 rounded-md bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+                  <div className="flex items-start gap-1.5 rounded-md bg-warning/15 border border-warning/20 px-3 py-2 text-sm text-warning">
                     <AlertTriangle className="size-4 shrink-0 mt-0.5" />
                     <span>Only <strong>{avail%1===0?avail.toFixed(0):avail.toFixed(2)} {adjustItem.unit}</strong> available — stock will be reduced to 0.</span>
                   </div>
@@ -1578,7 +1636,7 @@ export default function SparesPage() {
               const entered = parseFloat(adjustVQty);
               if (!isNaN(entered) && entered > adjustVariant.qty) {
                 return (
-                  <div className="flex items-start gap-1.5 rounded-md bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+                  <div className="flex items-start gap-1.5 rounded-md bg-warning/15 border border-warning/20 px-3 py-2 text-sm text-warning">
                     <AlertTriangle className="size-4 shrink-0 mt-0.5" />
                     <span>Only <strong>{adjustVariant.qty%1===0?adjustVariant.qty.toFixed(0):adjustVariant.qty.toFixed(2)} {variantsDialogItem?.unit}</strong> available — stock will be reduced to 0.</span>
                   </div>
@@ -1620,10 +1678,10 @@ export default function SparesPage() {
                 {/* Status badges */}
                 <div className="flex flex-wrap gap-1.5">
                   {!viewVariant.is_active && (
-                    <span className="text-xs font-medium px-2 py-0.5 rounded border bg-red-50 text-red-700 border-red-200">Inactive</span>
+                    <span className="text-xs font-medium px-2 py-0.5 rounded border bg-destructive/10 text-destructive border-destructive/20">Inactive</span>
                   )}
                   {varLow && (
-                    <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded border bg-amber-50 text-amber-800 border-amber-200">
+                    <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded border bg-warning/15 text-amber-800 border-warning/20">
                       <AlertTriangle className="size-3" /> Low Stock
                     </span>
                   )}
@@ -1658,7 +1716,7 @@ export default function SparesPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-xs text-muted-foreground">Quantity</p>
-                      <p className={`text-lg font-semibold tabular-nums ${varLow ? "text-amber-600" : ""}`}>
+                      <p className={`text-lg font-semibold tabular-nums ${varLow ? "text-warning" : ""}`}>
                         {fmtQty(viewVariant.qty)} {viewVariantParent.unit}
                       </p>
                     </div>
@@ -1684,7 +1742,7 @@ export default function SparesPage() {
                       </div>
                       <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
                         <div
-                          className={`h-full rounded-full transition-all ${varLow ? "bg-amber-500" : "bg-emerald-500"}`}
+                          className={`h-full rounded-full transition-all ${varLow ? "bg-warning" : "bg-success"}`}
                           style={{ width: `${Math.min(100, (viewVariant.qty / (viewVariant.reorder_level * 2)) * 100)}%` }}
                         />
                       </div>
@@ -1715,10 +1773,10 @@ export default function SparesPage() {
               {/* Status badges */}
               <div className="flex flex-wrap gap-1.5">
                 {!viewSpareItem.is_active && (
-                  <span className="text-xs font-medium px-2 py-0.5 rounded border bg-red-50 text-red-700 border-red-200">Inactive</span>
+                  <span className="text-xs font-medium px-2 py-0.5 rounded border bg-destructive/10 text-destructive border-destructive/20">Inactive</span>
                 )}
                 {isLow(viewSpareItem) && (
-                  <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded border bg-amber-50 text-amber-800 border-amber-200">
+                  <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded border bg-warning/15 text-amber-800 border-warning/20">
                     <AlertTriangle className="size-3" /> Low Stock
                   </span>
                 )}
@@ -1748,7 +1806,7 @@ export default function SparesPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-xs text-muted-foreground">Recorded Qty</p>
-                    <p className={`text-lg font-semibold tabular-nums ${isLow(viewSpareItem) ? "text-amber-600" : ""}`}>
+                    <p className={`text-lg font-semibold tabular-nums ${isLow(viewSpareItem) ? "text-warning" : ""}`}>
                       {fmtQty(viewSpareItem.recorded_qty)} {viewSpareItem.unit}
                     </p>
                   </div>
@@ -1784,7 +1842,7 @@ export default function SparesPage() {
                     </div>
                     <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
                       <div
-                        className={`h-full rounded-full transition-all ${isLow(viewSpareItem) ? "bg-amber-500" : "bg-emerald-500"}`}
+                        className={`h-full rounded-full transition-all ${isLow(viewSpareItem) ? "bg-warning" : "bg-success"}`}
                         style={{ width: `${Math.min(100, (viewSpareItem.recorded_qty / (viewSpareItem.reorder_level * 2)) * 100)}%` }}
                       />
                     </div>
