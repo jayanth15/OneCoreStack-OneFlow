@@ -2,9 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,9 +11,9 @@ import { apiFetchJson } from "@/lib/api";
 import { isAdminOrAbove } from "@/lib/user";
 import {
   Package, ShoppingCart, Megaphone, ClipboardList, Calendar,
-  FlaskConical, Wrench, Scissors, Paperclip, History, ChevronDown,
+  FlaskConical, Wrench, Scissors, Paperclip, ChevronDown,
   RotateCcw, Box, PackageCheck, Layers, Recycle, PackageSearch, Truck,
-  LayoutGrid, Rows3, ArrowRight, User,
+  LayoutGrid, Rows3, ArrowRight, User, Printer,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -97,11 +95,11 @@ function fmtDate(iso: string) {
 
 function ChangeTypeBadge({ type }: { type: string }) {
   const color =
-    type === "created"   ? "bg-green-100 text-green-700 border-green-200" :
-    type === "deleted"   ? "bg-red-100 text-red-700 border-red-200" :
-    type === "updated"   ? "bg-blue-100 text-blue-700 border-blue-200" :
-    type === "approved"  ? "bg-teal-100 text-teal-700 border-teal-200" :
-    type === "rejected"  ? "bg-orange-100 text-orange-700 border-orange-200" :
+    type === "created"   ? "bg-success/10 text-success border-success/20" :
+    type === "deleted"   ? "bg-destructive/10 text-destructive border-destructive/20" :
+    type === "updated"   ? "bg-primary/10 text-primary border-primary/20" :
+    type === "approved"  ? "bg-tone-emerald/10 text-tone-emerald border-teal-200" :
+    type === "rejected"  ? "bg-tone-amber/15 text-tone-amber border-orange-200" :
     type === "received"  ? "bg-purple-100 text-purple-700 border-purple-200" :
                            "bg-gray-100 text-gray-600 border-gray-200";
   return (
@@ -115,7 +113,7 @@ function DeltaBadge({ delta }: { delta: number | null }) {
   if (delta == null) return <span className="text-muted-foreground">—</span>;
   const pos = delta > 0;
   return (
-    <span className={`font-semibold tabular-nums ${pos ? "text-green-600" : "text-red-600"}`}>
+    <span className={`font-semibold tabular-nums ${pos ? "text-success" : "text-destructive"}`}>
       {pos ? "+" : ""}{delta}
     </span>
   );
@@ -330,6 +328,7 @@ export default function HistoryPage() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate]     = useState("");
   const [changedBy, setChangedBy] = useState("");
+  const [entityName, setEntityName] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const buildQuery = useCallback((page: number) => {
@@ -337,8 +336,9 @@ export default function HistoryPage() {
     if (startDate) params.set("start_date", startDate);
     if (endDate)   params.set("end_date",   endDate);
     if (changedBy) params.set("changed_by", changedBy);
+    if (entityName) params.set("entity_name", entityName);
     return params.toString();
-  }, [startDate, endDate, changedBy]);
+  }, [startDate, endDate, changedBy, entityName]);
 
   const loadTab = useCallback(async (tab: TabKey, page: number, append: boolean) => {
     setTabState(prev => ({
@@ -402,28 +402,63 @@ export default function HistoryPage() {
     setStartDate("");
     setEndDate("");
     setChangedBy("");
+    setEntityName("");
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(applyFilters, 0);
+  }
+
+  function printHistory() {
+    const win = window.open("", "_blank");
+    if (!win) return;
+    const label = TABS.find(t => t.key === activeTab)?.label ?? activeTab;
+    const thead = headers.map(h => `<th>${h}</th>`).join("");
+
+    function cellValues(item: HistoryItem): string[] {
+      const inventory = ["raw-materials", "finished-goods", "semi-finished", "scraps"];
+      const requests = ["purchase-requests", "marketing-requests", "job-cards"];
+      const status = ["schedules", "dispatches", "gate-passes"];
+      const qty = ["consumables", "weeders", "attachments"];
+      if (inventory.includes(activeTab)) {
+        return [item.entity_name ?? "—", item.changed_by_username ?? "—", item.change_type, String(item.qty_before ?? "—"), String(item.qty_after ?? "—"), String(item.qty_delta ?? "—"), item.note ?? "—", fmtDate(item.changed_at)];
+      }
+      if (requests.includes(activeTab)) {
+        return [item.entity_name ?? "—", item.changed_by_username ?? "—", item.change_type, item.field_name ?? "—", item.old_value ?? "—", item.new_value ?? "—", item.note ?? "—", fmtDate(item.changed_at)];
+      }
+      if (status.includes(activeTab)) {
+        return [item.entity_name ?? "—", item.changed_by_username ?? "—", item.change_type, item.old_value ?? "—", item.new_value ?? "—", item.note ?? "—", fmtDate(item.changed_at)];
+      }
+      if (activeTab === "spares") {
+        return [item.entity_name ?? "—", item.changed_by_username ?? "—", item.variant_label ?? "—", item.change_type, String(item.qty_before ?? "—"), String(item.qty_after ?? "—"), String(item.qty_delta ?? "—"), item.note ?? "—", fmtDate(item.changed_at)];
+      }
+      if (qty.includes(activeTab)) {
+        return [item.entity_name ?? "—", item.changed_by_username ?? "—", item.change_type, String(item.qty_before ?? "—"), String(item.qty_after ?? "—"), String(item.qty_delta ?? "—"), item.note ?? "—", fmtDate(item.changed_at)];
+      }
+      return [];
+    }
+
+    const tbody = st.items.map(item => `<tr>${cellValues(item).map(v => `<td>${v}</td>`).join("")}</tr>`).join("");
+    win.document.write(`<html><head><title>History - ${label}</title>
+<style>table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px;text-align:left}th{background:#f5f5f5}body{padding:20px;font-family:Arial,sans-serif}h2{margin-top:0}</style>
+</head><body>
+<h2>History - ${label}</h2>
+<table><thead>${thead}</thead><tbody>${tbody}</tbody></table>
+</body></html>`);
+    win.document.close();
+    win.print();
   }
 
   const st = tabState[activeTab];
   const headers = HEADERS[activeTab];
 
   return (
-    <div className="flex flex-1 flex-col gap-5 p-4 md:p-6 max-w-[1400px] mx-auto w-full">
+    <>
+      <PageHeader
+        title="History"
+        description="Audit log of all changes across the system. Admin only."
+        breadcrumbs={[{ label: "History" }]}
+      />
 
-      {/* Breadcrumb */}
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem><BreadcrumbPage className="flex items-center gap-1.5"><History className="size-4" />History</BreadcrumbPage></BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
-
-      {/* Page header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">History</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Audit log of all changes across the system. Admin only.</p>
-      </div>
+      <div className="flex flex-1 flex-col gap-5 p-4 md:p-6 max-w-[1400px] mx-auto w-full">
 
       {/* Filters */}
       <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-3">
@@ -439,7 +474,11 @@ export default function HistoryPage() {
           <Label className="text-xs">Changed by</Label>
           <Input placeholder="Username…" value={changedBy} onChange={e => handleFilterChange(setChangedBy)(e.target.value)} className="h-8 text-sm" />
         </div>
-        {(startDate || endDate || changedBy) && (
+        <div className="space-y-1 min-w-[14rem]">
+          <Label className="text-xs">Item / Entity name</Label>
+          <Input placeholder="Search…" value={entityName} onChange={e => handleFilterChange(setEntityName)(e.target.value)} className="h-8 text-sm" />
+        </div>
+        {(startDate || endDate || changedBy || entityName) && (
           <Button size="sm" variant="ghost" className="gap-1.5 self-end h-8" onClick={resetFilters}>
             <RotateCcw className="size-3.5" />Reset
           </Button>
@@ -483,6 +522,13 @@ export default function HistoryPage() {
             }`}
           >
             <Rows3 className="size-3.5" />Table
+          </button>
+          <button
+            onClick={printHistory}
+            title="Print"
+            className="px-2 py-1 rounded text-xs font-medium flex items-center gap-1 transition-colors text-muted-foreground hover:text-foreground"
+          >
+            <Printer className="size-3.5" />
           </button>
         </div>
       </div>
@@ -582,5 +628,6 @@ export default function HistoryPage() {
       )}
 
     </div>
+    </>
   );
 }
