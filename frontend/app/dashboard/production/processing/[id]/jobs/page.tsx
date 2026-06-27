@@ -7,10 +7,11 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { apiFetchJson } from "@/lib/api";
 import {
   ArrowLeft, PlusIcon, Pencil,
-  Factory, Clock, User, Wrench, Hash, Package,
+  Clock, User, Package,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -118,6 +119,25 @@ function JobCardsListInner() {
         .map((p) => p.name)
     : [];
 
+  // Worker Activity — aggregate across all job cards
+  const workerActivity = order?.job_cards.length
+    ? (() => {
+        const byWorker: Record<string, { hours: number; produced: number; cards: number; dates: Set<string> }> = {};
+        order.job_cards.forEach((jc) => {
+          if (jc.job_type === "supplier") return;
+          const workers = jc.worker_names?.length ? jc.worker_names : (jc.worker_name ? [jc.worker_name] : ["Unassigned"]);
+          workers.forEach((w) => {
+            if (!byWorker[w]) byWorker[w] = { hours: 0, produced: 0, cards: 0, dates: new Set() };
+            byWorker[w].hours    += jc.hours_worked / workers.length;
+            byWorker[w].produced += jc.actual_qty / workers.length;
+            byWorker[w].cards    += 1;
+            if (jc.work_date) byWorker[w].dates.add(jc.work_date);
+          });
+        });
+        return Object.entries(byWorker);
+      })()
+    : [];
+
   return (
     <>
       <PageHeader
@@ -166,18 +186,18 @@ function JobCardsListInner() {
                 <p className="text-xs mt-1">Add process steps to the plan first, then create job cards.</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-6">
                 {jobsByProcess.map(({ process, cards }) => {
-                  const processProduced = cards
+                  const processActual = cards
                     .filter(jc => jc.is_active)
-                    .reduce((s, jc) => s + jc.qty_produced, 0);
+                    .reduce((s, jc) => s + jc.actual_qty, 0);
                   const processPlanned = order.planned_qty ?? 0;
-                  const processPending = Math.max(0, processPlanned - processProduced);
-                  const processPct = processPlanned > 0 ? Math.min(100, Math.round((processProduced / processPlanned) * 100)) : 0;
+                  const processPending = Math.max(0, processPlanned - processActual);
+                  const processPct = processPlanned > 0 ? Math.min(100, Math.round((processActual / processPlanned) * 100)) : 0;
                   return (
                     <div key={process.id} className="rounded-lg border overflow-hidden">
                       {/* Process header */}
-                      <div className="bg-muted/40 px-4 py-2.5 flex items-center justify-between gap-3">
+                      <div className="bg-muted/40 px-4 py-3 flex items-center justify-between gap-3">
                         <div className="flex items-start gap-2 flex-1 min-w-0">
                           <span className="inline-flex items-center justify-center size-6 rounded-full bg-primary/10 text-primary text-xs font-bold shrink-0 mt-0.5">
                             {process.sequence}
@@ -190,12 +210,12 @@ function JobCardsListInner() {
                               )}
                               {processPlanned > 0 && (
                                 <span className="text-[11px] text-muted-foreground font-mono">
-                                  {processProduced} / {processPlanned} ({processPct}%)
+                                  {processActual} / {processPlanned} ({processPct}%)
                                 </span>
                               )}
                             </div>
                             {processPlanned > 0 && (
-                              <div className="mt-1.5 h-1.5 w-full rounded-full bg-background/60 overflow-hidden">
+                              <div className="mt-1.5 h-1.5 w-full max-w-[200px] rounded-full bg-background/60 overflow-hidden">
                                 <div
                                   className={`h-full rounded-full transition-all ${
                                     processPct >= 100
@@ -236,75 +256,67 @@ function JobCardsListInner() {
                         </Button>
                       </div>
 
-                      {/* Job cards for this process */}
+                      {/* Job cards table */}
                       {cards.length === 0 ? (
-                        <div className="px-4 py-4 text-center text-xs text-muted-foreground">
+                        <div className="px-4 py-6 text-center text-xs text-muted-foreground">
                           No job card yet for this process.
                         </div>
                       ) : (
-                        <div className="divide-y">
-                          {cards.map((jc) => (
-                            <Link key={jc.id}
-                              href={`/dashboard/production/processing/${order.id}/jobs/${jc.id}`}
-                              className="px-4 py-3 flex items-center gap-4 hover:bg-muted/20 transition-colors group">
-                              <div className="flex-1 grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
-                                <div>
-                                  <span className="text-muted-foreground block">Card #</span>
-                                  <span className="font-mono font-medium group-hover:text-primary transition-colors">{jc.card_number}</span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <User className="size-3 text-muted-foreground shrink-0" />
-                                  <div>
-                                    <span className="text-muted-foreground block">{jc.job_type === "supplier" ? "Supplier" : "Worker"}</span>
-                                    <span className="font-medium">
-                                      {jc.job_type === "supplier"
-                                        ? (jc.supplier_name ?? "—")
-                                        : (jc.worker_names?.length
-                                            ? jc.worker_names.join(", ")
-                                            : (jc.worker_name ?? "—"))}
-                                    </span>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <Wrench className="size-3 text-muted-foreground shrink-0" />
-                                  <div>
-                                    <span className="text-muted-foreground block">Machine</span>
-                                    <span className="font-medium">{jc.machine_name ?? "—"}</span>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <Hash className="size-3 text-muted-foreground shrink-0" />
-                                  <div>
-                                    <span className="text-muted-foreground block">Tool & Die</span>
-                                    <span className="font-medium">{jc.tool_die_number ?? "—"}</span>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                  <div>
-                                    <span className="text-muted-foreground block">Est Qty</span>
-                                    <span className="font-mono font-medium text-success">{jc.qty_produced}</span>
-                                  </div>
-                                  <div>
-                                    <span className="text-muted-foreground block">Pending</span>
-                                    <span className="font-mono font-medium text-warning">{jc.qty_pending}</span>
-                                  </div>
-                                  <div>
-                                    <span className="text-muted-foreground block">Actual</span>
-                                    <span className="font-mono font-medium">{jc.actual_qty}</span>
-                                  </div>
-                                  <div>
-                                    <span className="text-muted-foreground block">Hours</span>
-                                    <span className="font-mono font-medium">{jc.hours_worked}</span>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <Badge variant={STATUS_BADGE[jc.status] ?? "outline"}
-                                className={`text-xs shrink-0 ${STATUS_COLOR[jc.status] ?? ""}`}>
-                                {STATUS_LABELS[jc.status] ?? jc.status}
-                              </Badge>
-                            </Link>
-                          ))}
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Card #</TableHead>
+                                <TableHead>Worker / Supplier</TableHead>
+                                <TableHead>Machine</TableHead>
+                                <TableHead>Tool & Die</TableHead>
+                                <TableHead className="text-right">Est Qty</TableHead>
+                                <TableHead className="text-right">Actual</TableHead>
+                                <TableHead className="text-right">Hours</TableHead>
+                                <TableHead className="text-right">Pending</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {cards.map((jc) => (
+                                <TableRow key={jc.id}>
+                                  <TableCell className="font-mono font-medium text-xs">{jc.card_number}</TableCell>
+                                  <TableCell>
+                                    <div className="flex items-center gap-1">
+                                      <User className="size-3 text-muted-foreground shrink-0" />
+                                      <span className="text-xs">
+                                        {jc.job_type === "supplier"
+                                          ? (jc.supplier_name ?? "—")
+                                          : (jc.worker_names?.length
+                                              ? jc.worker_names.join(", ")
+                                              : (jc.worker_name ?? "—"))}
+                                      </span>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-xs">{jc.machine_name ?? "—"}</TableCell>
+                                  <TableCell className="text-xs">{jc.tool_die_number ?? "—"}</TableCell>
+                                  <TableCell className="text-right text-xs tabular-nums">{jc.qty_produced}</TableCell>
+                                  <TableCell className="text-right text-xs tabular-nums font-medium">{jc.actual_qty}</TableCell>
+                                  <TableCell className="text-right text-xs tabular-nums">{jc.hours_worked}</TableCell>
+                                  <TableCell className="text-right text-xs tabular-nums text-warning">{jc.qty_pending}</TableCell>
+                                  <TableCell>
+                                    <Badge variant={STATUS_BADGE[jc.status] ?? "outline"}
+                                      className={`text-[10px] ${STATUS_COLOR[jc.status] ?? ""}`}>
+                                      {STATUS_LABELS[jc.status] ?? jc.status}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <Button variant="ghost" size="icon" className="size-7"
+                                      onClick={() => router.push(`/dashboard/production/processing/${order.id}/jobs/${jc.id}/edit`)}
+                                      title="Edit">
+                                      <Pencil className="size-3" />
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
                         </div>
                       )}
                     </div>
@@ -317,36 +329,102 @@ function JobCardsListInner() {
                     <div className="bg-muted/40 px-4 py-2.5">
                       <span className="font-medium text-sm text-muted-foreground">Other Job Cards</span>
                     </div>
-                    <div className="divide-y">
-                      {orphanedCards.map((jc) => (
-                        <Link key={jc.id}
-                          href={`/dashboard/production/processing/${order.id}/jobs/${jc.id}`}
-                          className="px-4 py-3 flex items-center justify-between text-xs hover:bg-muted/20 transition-colors group">
-                          <div>
-                            <span className="font-mono font-medium group-hover:text-primary transition-colors">{jc.card_number}</span>{" "}
-                            <span className="text-muted-foreground">— {jc.process_name}</span>{" "}
-                            <span className="text-muted-foreground">by {jc.job_type === "supplier" ? (jc.supplier_name ?? "—") : (jc.worker_names?.length ? jc.worker_names.join(", ") : (jc.worker_name ?? "—"))}</span>
-                          </div>
-                          <Badge variant={STATUS_BADGE[jc.status] ?? "outline"}
-                            className={`text-xs ${STATUS_COLOR[jc.status] ?? ""}`}>
-                            {STATUS_LABELS[jc.status] ?? jc.status}
-                          </Badge>
-                        </Link>
-                      ))}
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Card #</TableHead>
+                            <TableHead>Process</TableHead>
+                            <TableHead>Worker</TableHead>
+                            <TableHead className="text-right">Est Qty</TableHead>
+                            <TableHead className="text-right">Actual</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {orphanedCards.map((jc) => (
+                            <TableRow key={jc.id}>
+                              <TableCell className="font-mono font-medium text-xs">{jc.card_number}</TableCell>
+                              <TableCell className="text-xs">{jc.process_name}</TableCell>
+                              <TableCell className="text-xs">
+                                {jc.job_type === "supplier" ? (jc.supplier_name ?? "—") : (jc.worker_names?.length ? jc.worker_names.join(", ") : (jc.worker_name ?? "—"))}
+                              </TableCell>
+                              <TableCell className="text-right text-xs tabular-nums">{jc.qty_produced}</TableCell>
+                              <TableCell className="text-right text-xs tabular-nums font-medium">{jc.actual_qty}</TableCell>
+                              <TableCell>
+                                <Badge variant={STATUS_BADGE[jc.status] ?? "outline"}
+                                  className={`text-[10px] ${STATUS_COLOR[jc.status] ?? ""}`}>
+                                  {STATUS_LABELS[jc.status] ?? jc.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button variant="ghost" size="icon" className="size-7"
+                                  onClick={() => router.push(`/dashboard/production/processing/${order.id}/jobs/${jc.id}/edit`)}
+                                  title="Edit">
+                                  <Pencil className="size-3" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
                     </div>
+                  </div>
+                )}
+
+                {/* Processes without cards */}
+                {processesWithoutCards.length > 0 && (
+                  <div className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+                    <p>
+                      {processesWithoutCards.length} process{processesWithoutCards.length > 1 ? "es" : ""} still
+                      need job cards:{" "}
+                      <span className="font-medium text-foreground">{processesWithoutCards.join(", ")}</span>
+                    </p>
                   </div>
                 )}
               </div>
             )}
 
-            {/* Processes without cards */}
-            {processesWithoutCards.length > 0 && (
-              <div className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
-                <p>
-                  {processesWithoutCards.length} process{processesWithoutCards.length > 1 ? "es" : ""} still
-                  need job cards:{" "}
-                  <span className="font-medium text-foreground">{processesWithoutCards.join(", ")}</span>
-                </p>
+            {/* ── Worker Activity ────────────────────────────────────────────── */}
+            {workerActivity.length > 0 && (
+              <div className="rounded-lg border overflow-hidden">
+                <div className="bg-muted/40 px-4 py-2.5 flex items-center gap-2">
+                  <User className="size-4 text-muted-foreground" />
+                  <span className="font-medium text-sm">Worker Activity</span>
+                  <span className="text-xs text-muted-foreground">— across all job cards</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Worker</TableHead>
+                        <TableHead className="text-right">Hours</TableHead>
+                        <TableHead className="text-right">Produced</TableHead>
+                        <TableHead className="text-right">Cards</TableHead>
+                        <TableHead>Days</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {workerActivity.map(([name, stats]) => (
+                        <TableRow key={name}>
+                          <TableCell>
+                            <div className="flex items-center gap-1.5">
+                              <div className="size-6 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0 text-xs">
+                                {name.charAt(0).toUpperCase()}
+                              </div>
+                              <span className="font-medium text-sm">{name}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right text-xs tabular-nums font-mono text-purple-700">{stats.hours.toFixed(1)}h</TableCell>
+                          <TableCell className="text-right text-xs tabular-nums font-mono text-success">{stats.produced.toFixed(1)}</TableCell>
+                          <TableCell className="text-right text-xs tabular-nums">{stats.cards}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">{stats.dates.size} day{stats.dates.size !== 1 ? "s" : ""}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
             )}
           </>
