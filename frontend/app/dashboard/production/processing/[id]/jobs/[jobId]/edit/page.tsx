@@ -37,6 +37,7 @@ interface JobCardData {
   hours_worked: number;
   qty_produced: number;
   qty_pending: number;
+  actual_qty: number;
   work_date: string | null;
   notes: string | null;
   status: string;

@@ -36,6 +36,7 @@ interface JobCard {
   hours_worked: number;
   qty_produced: number;
   qty_pending: number;
+  actual_qty: number;
   work_date: string | null;
   notes: string | null;
   status: string;
@@ -280,12 +281,16 @@ function JobCardsListInner() {
                                 </div>
                                 <div className="flex items-center gap-3">
                                   <div>
-                                    <span className="text-muted-foreground block">Produced</span>
+                                    <span className="text-muted-foreground block">Est Qty</span>
                                     <span className="font-mono font-medium text-success">{jc.qty_produced}</span>
                                   </div>
                                   <div>
                                     <span className="text-muted-foreground block">Pending</span>
                                     <span className="font-mono font-medium text-warning">{jc.qty_pending}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-muted-foreground block">Actual</span>
+                                    <span className="font-mono font-medium">{jc.actual_qty}</span>
                                   </div>
                                   <div>
                                     <span className="text-muted-foreground block">Hours</span>
