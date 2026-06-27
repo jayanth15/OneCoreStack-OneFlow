@@ -50,7 +50,7 @@ interface InventoryItem {
   id: number;
   code: string;
   name: string;
-  unit: string;
+  unit_name: string;
   item_type: string;
 }
 
@@ -62,6 +62,10 @@ const SUPPORTED_REQUESTABLE_TYPES = [
   "raw_material",
   "finished_good",
   "semi_finished",
+  "spare",
+  "consumable",
+  "attachment",
+  "weeder",
 ] as const;
 
 type RequestableItemType = (typeof SUPPORTED_REQUESTABLE_TYPES)[number];
@@ -70,6 +74,10 @@ const ITEM_TYPE_LABELS: Record<RequestableItemType, string> = {
   raw_material: "Raw materials",
   finished_good: "Finished goods",
   semi_finished: "Semi-finished",
+  spare: "Spares",
+  consumable: "Consumables",
+  attachment: "Attachments",
+  weeder: "Weeders",
 };
 
 const TYPE_OPTIONS: { value: RequestType; label: string; short: string; icon: typeof ArrowLeftRight }[] = [
@@ -96,12 +104,14 @@ function getPermittedTypes(): RequestableItemType[] {
     return [...SUPPORTED_REQUESTABLE_TYPES];
   }
   return SUPPORTED_REQUESTABLE_TYPES.filter((t) => {
-    // Must be allowed by request_inventory (if set)
-    if (user.request_inventory && user.request_inventory.length > 0
-        && !user.request_inventory.includes(t)) {
-      return false;
-    }
-    return true;
+    // Allowed by inventory_access (if set)
+    const hasInventoryAccess = !user.inventory_access || user.inventory_access.length === 0
+      || user.inventory_access.includes(t);
+    // Allowed by request_inventory (if set)
+    const hasRequestAccess = !user.request_inventory || user.request_inventory.length === 0
+      || user.request_inventory.includes(t);
+    // User needs at least one of the two permissions
+    return hasInventoryAccess && hasRequestAccess;
   });
 }
 
@@ -378,7 +388,7 @@ export function RequestForm({
                         <>
                           <span className="font-mono text-xs text-muted-foreground">{inv.code}</span>
                           <span className="ml-2">{inv.name}</span>
-                          <span className="ml-auto text-xs text-muted-foreground">{inv.unit}</span>
+                          <span className="ml-auto text-xs text-muted-foreground">{inv.unit_name}</span>
                         </>
                       )}
                     />
