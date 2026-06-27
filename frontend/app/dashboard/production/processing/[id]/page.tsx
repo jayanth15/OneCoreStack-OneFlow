@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiFetchJson } from "@/lib/api";
+import { isAdminOrAbove } from "@/lib/user";
 import {
   ArrowLeft, PlusIcon,
   Factory, Clock, User, Package, CheckCircle,
@@ -347,9 +348,12 @@ export default function ProductionOrderDetailPage() {
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Process Breakdown</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                   {byProcess.map((proc) => {
-                    const procTotal = proc.produced + proc.pending;
-                    const pct = procTotal > 0 ? Math.round((proc.produced / procTotal) * 100) : 0;
-                    const surplus = plannedQty > 0 ? Math.max(0, proc.produced - plannedQty) : 0;
+                    const displayActual = proc.actual > 0 ? proc.actual : proc.produced;
+                    const pending = Math.max(0, (order?.planned_qty ?? 0) - displayActual);
+                    const pct = (order?.planned_qty ?? 0) > 0
+                      ? Math.min(100, Math.round((displayActual / (order?.planned_qty ?? 1)) * 100))
+                      : 0;
+                    const surplus = (order?.planned_qty ?? 0) > 0 ? Math.max(0, displayActual - (order?.planned_qty ?? 0)) : 0;
                     return (
                       <div key={proc.name} className="rounded-lg border p-3">
                         <div className="flex items-center justify-between mb-2">
@@ -360,20 +364,38 @@ export default function ProductionOrderDetailPage() {
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center justify-between text-xs mb-1.5">
-                          <span className="text-success font-semibold">
-                            {proc.produced}{" "}
+                        <div className="flex items-center justify-between text-xs mb-1.5 gap-2">
+                          <span className="flex items-center gap-1">
+                            <span className="text-success font-semibold">{displayActual}</span>
                             <span className="font-normal text-muted-foreground">done</span>
                           </span>
-                          <span className="text-warning">
-                            {proc.pending}{" "}
-                            <span className="text-muted-foreground">pending</span>
-                          </span>
+                          {isAdminOrAbove() && (
+                            <button
+                              type="button"
+                              className="text-[10px] text-primary hover:underline shrink-0"
+                              onClick={async () => {
+                                const input = prompt(`Set actual quantity for "${proc.name}" (currently: ${displayActual}):`, String(displayActual));
+                                if (input === null) return;
+                                const val = parseFloat(input);
+                                if (isNaN(val) || val < 0) return;
+                                try {
+                                  await apiFetchJson(`/api/v1/production/orders/${order!.id}/processes/${encodeURIComponent(proc.name)}/actual-qty`, {
+                                    method: "PUT",
+                                    headers: {"Content-Type": "application/json"},
+                                    body: JSON.stringify({ total_actual_qty: val }),
+                                  });
+                                  loadOrder();
+                                } catch { setError("Failed to update actual qty"); }
+                              }}
+                            >
+                              Edit
+                            </button>
+                          )}
                         </div>
                         <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                           <div
                             className={`h-full rounded-full transition-all ${surplus > 0 ? "bg-purple-500" : "bg-success"}`}
-                            style={{ width: `${pct}%` }}
+                            style={{ width: `${Math.min(100, pct)}%` }}
                           />
                         </div>
                         <p className="text-[10px] text-muted-foreground mt-1 text-right">{pct}% complete</p>

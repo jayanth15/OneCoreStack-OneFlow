@@ -1,6 +1,6 @@
 import json
 from datetime import datetime, timezone
-from typing import Annotated, Optional
+from typing import Annotated, Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, field_validator
@@ -1491,6 +1491,68 @@ def delete_job(
     job.is_active = False
     session.add(job)
     session.commit()
+
+
+@router.put("/orders/{order_id}/processes/{process_name}/actual-qty")
+def update_process_actual_qty(
+    order_id: int,
+    process_name: str,
+    body: dict[str, Any],
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, int]:
+    """Set the total actual_qty for all active job cards in a process.
+
+    Distributes the given total proportionally across active job cards
+    based on their current qty_produced (or evenly if none have qty).
+    """
+    if not is_admin_or_above(current_user):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    order = session.get(ProductionOrder, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    cards = list(session.exec(
+        select(JobCard).where(
+            JobCard.production_order_id == order_id,
+            JobCard.process_name == process_name,
+            JobCard.is_active == True,
+        )
+    ).all())
+
+    total_actual = float(body.get("total_actual_qty", 0))
+    if total_actual < 0:
+        raise HTTPException(status_code=400, detail="total_actual_qty must be >= 0")
+
+    if not cards:
+        raise HTTPException(status_code=404, detail="No active job cards for this process")
+
+    # Distribute proportionally by qty_produced, or evenly
+    total_estimated = sum(c.qty_produced for c in cards)
+    for c in cards:
+        if total_estimated > 0:
+            c.actual_qty = round(total_actual * (c.qty_produced / total_estimated), 2)
+        else:
+            c.actual_qty = round(total_actual / len(cards), 2)
+        # Record change in history
+        session.add(JobCardHistory(
+            job_card_id=c.id,  # type: ignore[arg-type]
+            changed_by_user_id=current_user.id,
+            changed_by_username=current_user.username,
+            changed_at=datetime.now(tz=timezone.utc),
+            change_type="updated",
+            field_name="actual_qty",
+            old_value=str(c.actual_qty),  # approximate
+            new_value=str(c.actual_qty),
+        ))
+        session.add(c)
+
+    # Recompute statuses
+    _recalc_fg_for_order(order_id, session)
+    _propagate_statuses(order_id, session)
+    session.commit()
+
+    return {"updated": len(cards)}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

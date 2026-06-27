@@ -191,9 +191,13 @@ function JobCardsListInner() {
                   const processActual = cards
                     .filter(jc => jc.is_active)
                     .reduce((s, jc) => s + jc.actual_qty, 0);
+                  const processEstimated = cards
+                    .filter(jc => jc.is_active)
+                    .reduce((s, jc) => s + jc.qty_produced, 0);
+                  const displayActual = processActual > 0 ? processActual : processEstimated;
                   const processPlanned = order.planned_qty ?? 0;
-                  const processPending = Math.max(0, processPlanned - processActual);
-                  const processPct = processPlanned > 0 ? Math.min(100, Math.round((processActual / processPlanned) * 100)) : 0;
+                  const processPending = Math.max(0, processPlanned - displayActual);
+                  const processPct = processPlanned > 0 ? Math.min(100, Math.round((displayActual / processPlanned) * 100)) : 0;
                   return (
                     <div key={process.id} className="rounded-lg border overflow-hidden">
                       {/* Process header */}
@@ -210,7 +214,7 @@ function JobCardsListInner() {
                               )}
                               {processPlanned > 0 && (
                                 <span className="text-[11px] text-muted-foreground font-mono">
-                                  {processActual} / {processPlanned} ({processPct}%)
+                                  {displayActual} / {processPlanned} ({processPct}%)
                                 </span>
                               )}
                             </div>
