@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import {
   Breadcrumb, BreadcrumbItem, BreadcrumbList,
@@ -11,10 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Combobox, ComboboxContent, ComboboxEmpty,
-  ComboboxInput, ComboboxItem, ComboboxList,
-} from "@/components/ui/combobox";
+import { SearchCombobox } from "@/components/ui/search-combobox";
 import { apiFetchJson } from "@/lib/api";
 import {
   ArrowLeft, Clock, User, Users, Package, TrendingUp,
@@ -421,13 +418,7 @@ function SummaryTable({ data }: { data: WorkerTimeSummary[] }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function TimeReportPage() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [workerOptions, setWorkerOptions] = useState<WorkerOption[]>([]);
-  const [fetchingWorkers, setFetchingWorkers] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const [selectedWorkerId, setSelectedWorkerId] = useState<number | "all" | null>(null);
-  const [selectedWorkerName, setSelectedWorkerName] = useState<string>("");
 
   const [data, setData] = useState<WorkerTimeSummary[]>([]);
   const [loading, setLoading] = useState(false);
@@ -435,21 +426,6 @@ export default function TimeReportPage() {
 
   const [dateFrom, setDateFrom] = useState(currentMonthStart);
   const [dateTo, setDateTo] = useState(todayStr);
-
-  const fetchWorkers = useCallback((q: string) => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(async () => {
-      setFetchingWorkers(true);
-      try {
-        const res = await apiFetchJson<WorkerOption[]>(`/api/v1/production/workers?search=${encodeURIComponent(q)}`);
-        setWorkerOptions(res);
-      } catch { /* ignore */ } finally {
-        setFetchingWorkers(false);
-      }
-    }, 250);
-  }, []);
-
-  useEffect(() => { fetchWorkers(""); }, [fetchWorkers]);
 
   function buildUrl(wId: number | "all" | null, from?: string, to?: string) {
     const params = new URLSearchParams();
@@ -474,20 +450,16 @@ export default function TimeReportPage() {
   function handleWorkerSelect(value: string) {
     if (!value) {
       setSelectedWorkerId(null);
-      setSelectedWorkerName("");
       setData([]);
       return;
     }
     if (value === "all") {
       setSelectedWorkerId("all");
-      setSelectedWorkerName("All Workers");
       fetchReport("all");
       return;
     }
     const id = Number(value);
-    const opt = workerOptions.find((w) => w.id === id);
     setSelectedWorkerId(id);
-    setSelectedWorkerName(opt?.username ?? "");
     fetchReport(id);
   }
 
@@ -497,7 +469,7 @@ export default function TimeReportPage() {
   }
 
   const singleWorker = typeof selectedWorkerId === "number"
-    ? data.find((w) => w.username === selectedWorkerName) ?? data[0] ?? null
+    ? data.find((w) => w.user_id === selectedWorkerId) ?? data[0] ?? null
     : null;
 
   return (
@@ -533,40 +505,33 @@ export default function TimeReportPage() {
             <Label className="flex items-center gap-1.5 text-sm font-medium">
               <User className="size-3.5" />Worker
             </Label>
-            <Combobox
-              value={selectedWorkerId !== null ? String(selectedWorkerId) : ""}
-              onValueChange={(v: unknown) => handleWorkerSelect(v as string)}
-              filter={(_item: unknown) => true}
-            >
-              <ComboboxInput
-                placeholder="Search worker or select All Workers…"
-                value={searchQuery}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                  setSearchQuery(e.target.value);
-                  fetchWorkers(e.target.value);
-                }}
-                showTrigger
-                showClear={!!selectedWorkerId}
-                className="w-full"
-              />
-              <ComboboxContent>
-                <ComboboxList>
-                  {fetchingWorkers && (
-                    <div className="py-2 px-3 text-xs text-muted-foreground">Searching…</div>
-                  )}
-                  <ComboboxEmpty>No workers found</ComboboxEmpty>
-                  <ComboboxItem value="all">
-                    <span className="font-medium">All Workers</span>
-                    <span className="ml-auto text-xs text-muted-foreground">comparison view</span>
-                  </ComboboxItem>
-                  {workerOptions.map((w) => (
-                    <ComboboxItem key={w.id} value={String(w.id)}>
-                      {w.username}
-                    </ComboboxItem>
-                  ))}
-                </ComboboxList>
-              </ComboboxContent>
-            </Combobox>
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <SearchCombobox<WorkerOption>
+                  variant="list"
+                  value={selectedWorkerId !== null ? String(selectedWorkerId) : ""}
+                  placeholder="Search worker…"
+                  fetcher={async (q) =>
+                    apiFetchJson<WorkerOption[]>(
+                      `/api/v1/production/workers${q.trim() ? `?search=${encodeURIComponent(q)}` : ""}`,
+                    )
+                  }
+                  itemIdOf={(w) => w.id}
+                  getItemKey={(w) => w.id}
+                  getItemLabel={(w) => w.username}
+                  onSelect={(w) => handleWorkerSelect(String(w.id))}
+                  renderItem={(w) => <span>{w.username}</span>}
+                />
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleWorkerSelect("all")}
+                disabled={selectedWorkerId === "all"}
+              >
+                All Workers
+              </Button>
+            </div>
           </div>
 
           <form onSubmit={handleFilter} className="flex flex-wrap items-end gap-3">
