@@ -1,6 +1,5 @@
 """Dashboard analytics endpoint — aggregates key metrics across all modules."""
 
-from datetime import datetime, timedelta, timezone
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends
@@ -12,14 +11,12 @@ from app.dependencies.auth import get_current_user, is_admin_or_above
 from app.models.attachment_item import AttachmentItem
 from app.models.unit import Unit
 from app.models.consumable import Consumable
-from app.models.dispatch import Dispatch
 from app.models.vendor import Vendor
 from app.models.inventory import InventoryItem
 from app.models.inventory_history import InventoryHistory
 from app.models.job_card import JobCard
 from app.models.production_order import ProductionOrder
 from app.models.production_plan import ProductionPlan
-from app.models.schedule import Schedule
 from app.models.spare_item_variant import SpareItemVariant
 from app.models.user import User
 from app.models.weeder_item import WeederItem
@@ -42,22 +39,9 @@ class OverviewCounts(BaseModel):
     total_job_cards: int
 
 
-class ScheduleStatusBreakdown(BaseModel):
-    pending: int
-    confirmed: int
-    in_production: int
-    delivered: int
-
-
 class PlanStatusBreakdown(BaseModel):
     draft: int
     approved: int
-    in_progress: int
-    completed: int
-
-
-class OrderStatusBreakdown(BaseModel):
-    open: int
     in_progress: int
     completed: int
 
@@ -97,24 +81,6 @@ class RecentProductionActivity(BaseModel):
     work_date: Optional[str]
 
 
-class TopProduct(BaseModel):
-    product_name: str
-    total_planned_qty: float
-    plan_count: int
-
-
-class ProductionOutputPoint(BaseModel):
-    """One data point for a daily production output chart."""
-    date: str  # YYYY-MM-DD
-    qty_produced: float
-
-
-class DispatchOutputPoint(BaseModel):
-    """One data point for a daily dispatch (sales) chart."""
-    date: str  # YYYY-MM-DD
-    qty_dispatched: float
-
-
 class LowStockItem(BaseModel):
     id: int
     code: str
@@ -128,16 +94,11 @@ class LowStockItem(BaseModel):
 
 class DashboardResponse(BaseModel):
     overview: OverviewCounts
-    schedule_status: ScheduleStatusBreakdown
     plan_status: PlanStatusBreakdown
-    order_status: OrderStatusBreakdown
     job_card_status: JobCardStatusBreakdown
     inventory_by_type: list[InventoryByType]
     recent_inventory: list[RecentInventoryActivity]
     recent_production: list[RecentProductionActivity]
-    top_products: list[TopProduct]
-    daily_production_output: list[ProductionOutputPoint]
-    daily_dispatch_output: list[DispatchOutputPoint]
     low_stock_items: list[LowStockItem]
 
 
@@ -232,9 +193,7 @@ def get_dashboard(
     )
 
     # ── Status breakdowns ──────────────────────────────────────────────────
-    sched_st = _count_status(session, Schedule, ["pending", "confirmed", "in_production", "delivered"])
     plan_st = _count_status(session, ProductionPlan, ["draft", "approved", "in_progress", "completed"])
-    order_st = _count_status(session, ProductionOrder, ["open", "in_progress", "completed"])
     jc_st = _count_status(session, JobCard, ["open", "in_progress", "completed"])
 
     # ── Inventory by type (with value) ─────────────────────────────────────
@@ -308,69 +267,6 @@ def get_dashboard(
         for jc, order in recent_jc_rows
     ]
 
-    # ── Top products by planned qty ────────────────────────────────────────
-    top_prod_rows = list(
-        session.exec(
-            select(
-                Schedule.description,
-                func.sum(ProductionPlan.planned_qty).label("total_qty"),
-                func.count().label("plan_count"),
-            )
-            .join(Schedule, ProductionPlan.schedule_id == Schedule.id)
-            .where(ProductionPlan.is_active == True)  # noqa: E712
-            .group_by(Schedule.description)
-            .order_by(func.sum(ProductionPlan.planned_qty).desc())
-            .limit(5)
-        ).all()
-    )
-    top_products = [
-        TopProduct(product_name=r[0], total_planned_qty=float(r[1]), plan_count=r[2])
-        for r in top_prod_rows
-    ]
-
-    # ── Daily production output (last 30 days from job cards) ──────────────
-    thirty_days_ago = (datetime.now(tz=timezone.utc) - timedelta(days=30)).strftime("%Y-%m-%d")
-    daily_rows = list(
-        session.exec(
-            select(
-                JobCard.work_date,
-                func.sum(JobCard.qty_produced).label("total"),
-            )
-            .where(
-                JobCard.is_active == True,  # noqa: E712
-                JobCard.work_date.is_not(None),  # type: ignore[union-attr]
-                JobCard.work_date >= thirty_days_ago,  # type: ignore[operator]
-            )
-            .group_by(JobCard.work_date)
-            .order_by(JobCard.work_date)  # type: ignore[arg-type]
-        ).all()
-    )
-    daily_production_output = [
-        ProductionOutputPoint(date=r[0], qty_produced=float(r[1]))  # type: ignore[arg-type]
-        for r in daily_rows
-    ]
-
-    # ── Daily dispatch output (last 30 days) — represents "sales" ────────
-    dispatch_rows = list(
-        session.exec(
-            select(
-                Dispatch.dispatch_date,
-                func.sum(Dispatch.quantity).label("total"),
-            )
-            .where(
-                Dispatch.status != "cancelled",  # noqa: E712
-                Dispatch.dispatch_date.is_not(None),  # type: ignore[union-attr]
-                Dispatch.dispatch_date >= thirty_days_ago,  # type: ignore[operator]
-            )
-            .group_by(Dispatch.dispatch_date)
-            .order_by(Dispatch.dispatch_date)  # type: ignore[arg-type]
-        ).all()
-    )
-    daily_dispatch_output = [
-        DispatchOutputPoint(date=r[0], qty_dispatched=float(r[1]))  # type: ignore[arg-type]
-        for r in dispatch_rows
-    ]
-
     # ── Low stock items ────────────────────────────────────────────────────
     low_stock_rows = list(
         session.exec(
@@ -399,16 +295,11 @@ def get_dashboard(
 
     return DashboardResponse(
         overview=overview,
-        schedule_status=ScheduleStatusBreakdown(**sched_st),
         plan_status=PlanStatusBreakdown(**plan_st),
-        order_status=OrderStatusBreakdown(**order_st),
         job_card_status=JobCardStatusBreakdown(**jc_st),
         inventory_by_type=inventory_by_type,
         recent_inventory=recent_inventory,
         recent_production=recent_production,
-        top_products=top_products,
-        daily_production_output=daily_production_output,
-        daily_dispatch_output=daily_dispatch_output,
         low_stock_items=low_stock_items,
     )
 
