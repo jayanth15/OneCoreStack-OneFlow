@@ -24,7 +24,7 @@ import type {
   CreateRequestPayload, RequestType, RequestItem, RequestCustomerDispatch,
 } from "@/lib/requests";
 import { apiFetchJson } from "@/lib/api";
-import { getCurrentUser, canRequestInventory } from "@/lib/user";
+import { getCurrentUser } from "@/lib/user";
 import {
   ArrowLeftRight,
   ShoppingCart,
@@ -96,11 +96,6 @@ function getPermittedTypes(): RequestableItemType[] {
     return [...SUPPORTED_REQUESTABLE_TYPES];
   }
   return SUPPORTED_REQUESTABLE_TYPES.filter((t) => {
-    // Must be allowed by inventory_access (if set)
-    if (user.inventory_access && user.inventory_access.length > 0
-        && !user.inventory_access.includes(t)) {
-      return false;
-    }
     // Must be allowed by request_inventory (if set)
     if (user.request_inventory && user.request_inventory.length > 0
         && !user.request_inventory.includes(t)) {
