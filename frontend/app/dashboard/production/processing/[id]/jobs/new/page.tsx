@@ -50,6 +50,7 @@ function NewJobCardInner() {
   const [jobType, setJobType] = useState<"internal" | "supplier">(prefillJobType);
   const [supplierId, setSupplierId] = useState<string>(prefillSupplierId);
   const [hoursWorked, setHoursWorked] = useState("0");
+  const [actualQty, setActualQty] = useState("0");
   const [workDate, setWorkDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [dateLocked, setDateLocked] = useState(false);
   const [notes, setNotes] = useState("");
@@ -119,6 +120,7 @@ function NewJobCardInner() {
         worker_name: workerNames[0] ?? null,
         worker_names: workerNames,
         hours_worked: parseFloat(hoursWorked) || 0,
+        actual_qty: parseFloat(actualQty) || 0,
         qty_produced: parseFloat(computedQty) || 0,
         work_date: workDate || null,
         notes: notes || null,
@@ -299,12 +301,26 @@ function NewJobCardInner() {
                 onChange={(e) => setHoursWorked(e.target.value)} disabled={saving} />
               {estimatedTimeMinutes && parseFloat(hoursWorked) > 0 && (
                 <p className="text-xs text-muted-foreground">
-                  {computedQty} units produced ({hoursWorked}h × 60 ÷ {estimatedTimeMinutes} min/unit)
+                  {computedQty} units estimated ({hoursWorked}h × 60 ÷ {estimatedTimeMinutes} min/unit)
                 </p>
               )}
               {estimatedTimeMinutes == null && (
                 <p className="text-xs text-amber-600">
                   No estimated time set for this process. Qty produced will be 0.
+                </p>
+              )}
+            </div>
+
+            {/* Actual Qty */}
+            <div className="space-y-1.5">
+              <Label htmlFor="actual_qty">Actual Produced <span className="text-destructive">*</span></Label>
+              <Input id="actual_qty" type="number" step="any" value={actualQty}
+                onChange={(e) => setActualQty(e.target.value)} disabled={saving} />
+              {parseFloat(computedQty) > 0 && parseFloat(actualQty) > 0 && (
+                <p className={`text-xs ${parseFloat(actualQty) >= parseFloat(computedQty) ? "text-success" : "text-amber-600"}`}>
+                  {parseFloat(actualQty) >= parseFloat(computedQty)
+                    ? "Met or exceeded estimated qty"
+                    : `${((parseFloat(computedQty) - parseFloat(actualQty)) / parseFloat(computedQty) * 100).toFixed(0)}% less than estimated`}
                 </p>
               )}
             </div>
