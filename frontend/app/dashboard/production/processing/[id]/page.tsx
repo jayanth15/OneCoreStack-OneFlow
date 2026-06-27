@@ -7,6 +7,8 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { apiFetchJson } from "@/lib/api";
 import { isAdminOrAbove } from "@/lib/user";
 import {
@@ -103,6 +105,9 @@ export default function ProductionOrderDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [statusSaving, setStatusSaving] = useState(false);
   const [bomLines, setBomLines] = useState<BomLine[]>([]);
+  const [editProcess, setEditProcess] = useState<{ name: string; current: number } | null>(null);
+  const [editProcessValue, setEditProcessValue] = useState("");
+  const [editProcessSaving, setEditProcessSaving] = useState(false);
 
   const loadOrder = useCallback(() => {
     if (!id) return;
@@ -373,19 +378,9 @@ export default function ProductionOrderDetailPage() {
                             <button
                               type="button"
                               className="text-[10px] text-primary hover:underline shrink-0"
-                              onClick={async () => {
-                                const input = prompt(`Set actual quantity for "${proc.name}" (currently: ${displayActual}):`, String(displayActual));
-                                if (input === null) return;
-                                const val = parseFloat(input);
-                                if (isNaN(val) || val < 0) return;
-                                try {
-                                  await apiFetchJson(`/api/v1/production/orders/${order!.id}/processes/${encodeURIComponent(proc.name)}/actual-qty`, {
-                                    method: "PUT",
-                                    headers: {"Content-Type": "application/json"},
-                                    body: JSON.stringify({ total_actual_qty: val }),
-                                  });
-                                  loadOrder();
-                                } catch { setError("Failed to update actual qty"); }
+                              onClick={() => {
+                                setEditProcess({ name: proc.name, current: displayActual });
+                                setEditProcessValue(String(displayActual));
                               }}
                             >
                               Edit
@@ -457,6 +452,58 @@ export default function ProductionOrderDetailPage() {
           </>
         )}
       </div>
+
+      {/* ── Edit Process Actual Qty Dialog ─────────────────────────────────── */}
+      <Dialog open={editProcess !== null} onOpenChange={(o) => !o && setEditProcess(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Set Actual Quantity</DialogTitle>
+          </DialogHeader>
+          {editProcess && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Process: <span className="font-medium text-foreground">{editProcess.name}</span>
+              </p>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Total Actual Quantity Produced</label>
+                <Input
+                  type="number" step="any" min="0"
+                  value={editProcessValue}
+                  onChange={(e) => setEditProcessValue(e.target.value)}
+                  disabled={editProcessSaving}
+                  autoFocus
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditProcess(null)} disabled={editProcessSaving}>
+              Cancel
+            </Button>
+            <Button disabled={editProcessSaving} onClick={async () => {
+              if (!editProcess) return;
+              const val = parseFloat(editProcessValue);
+              if (isNaN(val) || val < 0) return;
+              setEditProcessSaving(true);
+              try {
+                await apiFetchJson(`/api/v1/production/orders/${order!.id}/processes/${encodeURIComponent(editProcess.name)}/actual-qty`, {
+                  method: "PUT",
+                  headers: {"Content-Type": "application/json"},
+                  body: JSON.stringify({ total_actual_qty: val }),
+                });
+                setEditProcess(null);
+                loadOrder();
+              } catch {
+                setError("Failed to update actual qty");
+              } finally {
+                setEditProcessSaving(false);
+              }
+            }}>
+              {editProcessSaving ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
