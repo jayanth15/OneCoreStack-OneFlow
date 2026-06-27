@@ -12,7 +12,7 @@ import { SearchCombobox } from "@/components/ui/search-combobox";
 import { apiFetchJson } from "@/lib/api";
 import {
   ArrowLeft, Clock, User, Users, Package, TrendingUp,
-  Factory, Wrench, CalendarDays, ChevronDown, ChevronUp, BarChart3,
+  Factory, Wrench, CalendarDays, ChevronDown, ChevronUp, BarChart3, Printer,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -465,6 +465,73 @@ export default function TimeReportPage() {
     fetchReport(selectedWorkerId, dateFrom || undefined, dateTo || undefined);
   }
 
+  function printWorkerReport() {
+    if (!singleWorker) return;
+    const w = singleWorker;
+    const dateRange = (dateFrom || dateTo)
+      ? `${fmtDate(dateFrom || dateTo)} – ${fmtDate(dateTo || dateFrom)}`
+      : "All time";
+    const totalDays = w.work_dates.length;
+
+    const dateRows = w.by_date
+      .map((d) => `<tr><td>${fmtDate(d.date)}</td><td style="text-align:right">${d.hours.toFixed(1)}</td><td style="text-align:right">${d.qty_produced % 1 === 0 ? d.qty_produced : d.qty_produced.toFixed(1)}</td><td style="text-align:right">${d.card_count}</td></tr>`)
+      .join("");
+
+    const processRows = w.by_process
+      .map((p) => `<tr><td>${p.process_name}</td><td style="text-align:right">${p.hours.toFixed(1)}</td><td style="text-align:right">${p.qty_produced % 1 === 0 ? p.qty_produced : p.qty_produced.toFixed(1)}</td><td style="text-align:right">${p.card_count}</td></tr>`)
+      .join("");
+
+    const orderRows = w.by_order
+      .map((o) => `<tr><td>${o.order_number}</td><td style="text-align:right">${o.hours.toFixed(1)}</td><td style="text-align:right">${o.qty_produced % 1 === 0 ? o.qty_produced : o.qty_produced.toFixed(1)}</td><td style="text-align:right">${o.card_count}</td></tr>`)
+      .join("");
+
+    const machineRows = w.by_machine
+      .map((m) => `<tr><td>${m.machine_name}</td><td style="text-align:right">${m.hours.toFixed(1)}</td><td style="text-align:right">${m.qty_produced % 1 === 0 ? m.qty_produced : m.qty_produced.toFixed(1)}</td><td style="text-align:right">${m.card_count}</td></tr>`)
+      .join("");
+
+    const section = (title: string, rows: string, headers: string) => rows
+      ? `<h2 style="font-size:14px;margin:16px 0 6px;border-bottom:1px solid #ddd;padding-bottom:4px">${title}</h2>
+         <table style="width:100%;border-collapse:collapse;font-size:12px">
+           <thead><tr style="background:#f3f4f6">${headers}</tr></thead>
+           <tbody>${rows}</tbody>
+         </table>`
+      : "";
+
+    const html = `<!DOCTYPE html><html><head><title>Time Report – ${w.username}</title>
+<style>
+  body{font-family:system-ui,sans-serif;margin:32px;color:#111;font-size:13px}
+  table td,table th{padding:4px 8px;border:1px solid #e5e7eb}
+  th{font-weight:600;background:#f3f4f6;text-align:left}
+  .cards{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
+  .card{flex:1;min-width:140px;border:1px solid #e5e7eb;border-radius:6px;padding:10px}
+  .card-label{font-size:11px;color:#6b7280}
+  .card-value{font-size:18px;font-weight:700}
+  .card-sub{font-size:11px;color:#6b7280;margin-top:2px}
+  @media print{body{margin:16px}}
+</style></head><body>
+<h1 style="font-size:20px;margin:0">${w.username}</h1>
+<p style="color:#6b7280;margin:2px 0 8px;font-size:13px">${dateRange}</p>
+<div class="cards">
+  <div class="card"><div class="card-label">Total Hours</div><div class="card-value">${w.total_hours.toFixed(1)} h</div><div class="card-sub">${w.job_card_count} job card${w.job_card_count !== 1 ? "s" : ""}</div></div>
+  <div class="card"><div class="card-label">Qty Produced</div><div class="card-value">${w.total_qty_produced % 1 === 0 ? w.total_qty_produced : w.total_qty_produced.toFixed(1)}</div><div class="card-sub">across ${w.process_names.length} process${w.process_names.length !== 1 ? "es" : ""}</div></div>
+  <div class="card"><div class="card-label">Avg Qty / Hour</div><div class="card-value">${w.avg_qty_per_hour > 0 ? w.avg_qty_per_hour.toFixed(1) : "—"}</div><div class="card-sub">productivity rate</div></div>
+  <div class="card"><div class="card-label">Working Days</div><div class="card-value">${totalDays}</div><div class="card-sub">${totalDays > 0 ? fmtDate(w.work_dates[0]) + " – " + fmtDate(w.work_dates[totalDays - 1]) : "—"}</div></div>
+</div>
+${section("By Process", processRows, "<th>Process</th><th style='text-align:right'>Hours</th><th style='text-align:right'>Qty</th><th style='text-align:right'>Cards</th>")}
+${section("Daily Activity", dateRows, "<th>Date</th><th style='text-align:right'>Hours</th><th style='text-align:right'>Qty</th><th style='text-align:right'>Cards</th>")}
+${section("By Production Order", orderRows, "<th>Order</th><th style='text-align:right'>Hours</th><th style='text-align:right'>Qty</th><th style='text-align:right'>Cards</th>")}
+${section("By Machine", machineRows, "<th>Machine</th><th style='text-align:right'>Hours</th><th style='text-align:right'>Qty</th><th style='text-align:right'>Cards</th>")}
+</body></html>`;
+
+    const win = window.open("", "_blank", "width=900,height=700");
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+      win.focus();
+      win.print();
+    }
+  }
+
   const singleWorker = typeof selectedWorkerId === "number"
     ? data.find((w) => w.user_id === selectedWorkerId) ?? data[0] ?? null
     : null;
@@ -580,6 +647,11 @@ export default function TimeReportPage() {
                   {dateFrom && dateTo ? `${fmtDate(dateFrom)} – ${fmtDate(dateTo)}` : "All time"}
                   {" · "}{singleWorker.job_card_count} job card{singleWorker.job_card_count !== 1 ? "s" : ""}
                 </p>
+              </div>
+              <div className="ml-auto">
+                <Button variant="outline" size="sm" onClick={printWorkerReport}>
+                  <Printer className="size-3.5 mr-1.5" />Print Report
+                </Button>
               </div>
             </div>
             <WorkerReportDetail w={singleWorker} />
