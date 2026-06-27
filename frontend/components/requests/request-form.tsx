@@ -377,7 +377,7 @@ export function RequestForm({
                       }}
                       itemIdOf={(inv) => inv.id}
                       getItemKey={(inv) => inv.id}
-                      getItemLabel={(inv) => inv.name}
+                      getItemLabel={(inv) => `${inv.code} · ${inv.name}`}
                       onSelect={(inv) => updateItem(i, { item_name: inv.name, inventory_item_id: inv.id })}
                       renderItem={(inv) => (
                         <>
