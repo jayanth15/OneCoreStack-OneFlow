@@ -23,8 +23,11 @@ export function useDebouncedSearch<T>(
   const [open, setOpen] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fetcherRef = useRef(fetcher);
-  fetcherRef.current = fetcher;
   const reqIdRef = useRef(0);
+
+  useEffect(() => {
+    fetcherRef.current = fetcher;
+  }, [fetcher]);
 
   const runFetch = useCallback((q: string) => {
     const id = ++reqIdRef.current;

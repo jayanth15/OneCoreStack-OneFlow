@@ -150,20 +150,6 @@ function grnItemToFormRow(item: GRNItem): FormItemRow {
   };
 }
 
-function prToFormRow(pr: PRItem): FormItemRow {
-  return {
-    _key: ++_rowKey,
-    inventory_item_id: pr.inventory_item_id,
-    item_name: pr.item_name ?? "",
-    item_code: pr.item_code ?? "",
-    item_type: pr.item_type ?? "raw_material",
-    unit: pr.unit ?? "",
-    quantity_received: String(pr.quantity),
-    quantity_pr_requested: String(pr.quantity),
-    invTypeFilter: "",
-  };
-}
-
 function prItemToFormRow(pr: PRItem): FormItemRow {
   return {
     _key: Date.now() + Math.random(),
