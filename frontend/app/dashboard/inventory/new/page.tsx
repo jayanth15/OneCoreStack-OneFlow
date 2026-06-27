@@ -2,11 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList,
-  BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +29,8 @@ const TYPE_PAGES: Record<ItemType, string> = {
   semi_finished: "/dashboard/inventory/semi-finished",
 };
 
+const WEIGHT_UNITS = ["kg", "g", "mg", "lb"];
+
 const BLANK = {
   code: "",
   name: "",
@@ -47,6 +45,8 @@ const BLANK = {
   timeline_days: "",
   vendor_name: "",
   is_active: true,
+  weight_value: "",
+  weight_unit: "kg",
 };
 
 function NewInventoryInner() {
@@ -131,6 +131,8 @@ function NewInventoryInner() {
           rate: admin && form.rate !== "" ? parseFloat(form.rate) : null,
           timeline_days: form.timeline_days !== "" ? parseInt(form.timeline_days) : null,
           image_base64: imageBase64,
+          weight_value: form.weight_value !== "" ? parseFloat(form.weight_value) : null,
+          weight_unit: form.weight_unit || null,
           vendor_name: form.vendor_name.trim() || null,
           is_active: form.is_active,
         }),
@@ -145,32 +147,14 @@ function NewInventoryInner() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4 md:px-6">
-        <Link
-          href={lockedType ? TYPE_PAGES[lockedType] : "/dashboard/inventory"}
-          className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
-          <ArrowLeft className="size-4" />
-        </Link>
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href="/dashboard/inventory">Inventory</BreadcrumbLink>
-            </BreadcrumbItem>
-            {lockedType && (
-              <>
-                <BreadcrumbSeparator className="hidden md:block" />
-                <BreadcrumbItem className="hidden md:block">
-                  <BreadcrumbLink href={TYPE_PAGES[lockedType]}>
-                    {TYPE_LABELS[lockedType]}
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-              </>
-            )}
-            <BreadcrumbSeparator className="hidden md:block" />
-            <BreadcrumbItem><BreadcrumbPage>New Item</BreadcrumbPage></BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </header>
+      <PageHeader
+        title="Add Inventory Item"
+        breadcrumbs={[
+          { label: "Inventory", href: "/dashboard/inventory" },
+          ...(lockedType ? [{ label: TYPE_LABELS[lockedType], href: TYPE_PAGES[lockedType] }] : []),
+          { label: "New Item" },
+        ]}
+      />
 
       <div className="p-4 md:p-8 max-w-lg mx-auto">
         <div className="mb-6">
@@ -230,6 +214,27 @@ function NewInventoryInner() {
                 onChange={(e) => set("customUnit", e.target.value)} disabled={saving}
               />
             )}
+          </div>
+          {/* Weight */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="weight_value">Weight per unit</Label>
+              <Input id="weight_value" type="number" inputMode="decimal" min="0" step="0.001"
+                value={form.weight_value}
+                onChange={(e) => set("weight_value", e.target.value)}
+                disabled={saving}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="weight_unit">Weight unit</Label>
+              <select id="weight_unit" value={form.weight_unit}
+                onChange={(e) => set("weight_unit", e.target.value)}
+                disabled={saving}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+              >
+                {WEIGHT_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+              </select>
+            </div>
           </div>
           {/* Qty + Reorder */}
           <div className="grid grid-cols-2 gap-4">

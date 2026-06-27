@@ -2,11 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-import Link from "next/link";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList,
-  BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +12,7 @@ import { isAdminOrAbove } from "@/lib/user";
 import { ArrowLeft, ImagePlus, X } from "lucide-react";
 
 const STD_UNITS = ["pcs", "kg", "g", "ltr", "ml", "mtr", "cm", "box", "roll", "set"];
+const WEIGHT_UNITS = ["kg", "g", "mg", "lb"];
 const STORAGE_TYPES = ["Bin", "Tray", "Barrel", "Rack", "Shelf", "Box", "Pallet"];
 const SFG_STORAGE_TYPES = ["Ganny Bag", "Barrel (Big)", "Barrel (Small)", "Floor", "Trolley", "Black Bin", "Small Bin", "Big Bin"];
 
@@ -34,6 +31,8 @@ interface ItemDetail {
   image_base64: string | null;
   vendor_name: string | null;
   is_active: boolean;
+  weight_value: number | null;
+  weight_unit: string | null;
 }
 
 export default function EditInventoryPage() {
@@ -44,10 +43,12 @@ export default function EditInventoryPage() {
     quantity_on_hand: number; reorder_level: number;
     storage_type: string; storage_location: string;
     rate: string; timeline_days: string; vendor_name: string; is_active: boolean;
+    weight_value: string; weight_unit: string;
   }>({
     code: "", name: "", item_type: "raw_material", unit: "pcs", customUnit: "",
     quantity_on_hand: 0, reorder_level: 0,
     storage_type: "", storage_location: "", rate: "", timeline_days: "", vendor_name: "", is_active: true,
+    weight_value: "", weight_unit: "kg",
   });
   const [isCustomUnit, setIsCustomUnit] = useState(false);
   const [isCustomStorage, setIsCustomStorage] = useState(false);
@@ -86,6 +87,8 @@ export default function EditInventoryPage() {
           storage_location: d.storage_location ?? "",
           rate: d.rate != null ? String(d.rate) : "",
           timeline_days: d.timeline_days != null ? String(d.timeline_days) : "",
+          weight_value: d.weight_value != null ? String(d.weight_value) : "",
+          weight_unit: d.weight_unit ?? "kg",
           vendor_name: d.vendor_name ?? "",
           is_active: d.is_active,
         });
@@ -153,6 +156,8 @@ export default function EditInventoryPage() {
       };
       if (admin && form.rate !== "") body.rate = parseFloat(form.rate);
       if (form.timeline_days !== "") body.timeline_days = parseInt(form.timeline_days);
+      body.weight_value = form.weight_value !== "" ? parseFloat(form.weight_value) : null;
+      body.weight_unit = form.weight_unit || null;
       body.vendor_name = form.vendor_name.trim() || null;
       if (imageChanged) body.image_base64 = imageBase64;
       await apiFetchJson(`/api/v1/inventory/${id}`, { method: "PUT", body: JSON.stringify(body) });
@@ -166,20 +171,14 @@ export default function EditInventoryPage() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4 md:px-6">
-        <Link href="/dashboard/inventory" className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
-          <ArrowLeft className="size-4" />
-        </Link>
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href="/dashboard/inventory">Inventory</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
-            <BreadcrumbItem><BreadcrumbPage>{loading ? "Edit…" : `Edit ${form.code}`}</BreadcrumbPage></BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </header>
+      <PageHeader
+        title="Edit Inventory Item"
+        description={!loading ? form.code : undefined}
+        breadcrumbs={[
+          { label: "Inventory", href: "/dashboard/inventory" },
+          { label: loading ? "Edit…" : `Edit ${form.code}` },
+        ]}
+      />
 
       <div className="p-4 md:p-8 max-w-lg mx-auto">
         <div className="mb-6">
@@ -231,6 +230,27 @@ export default function EditInventoryPage() {
               {isCustomUnit && (
                 <Input value={form.customUnit} onChange={(e) => set("customUnit", e.target.value)} disabled={saving} placeholder="Custom unit" />
               )}
+            </div>
+            {/* Weight */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="weight_value">Weight per unit</Label>
+                <Input id="weight_value" type="number" inputMode="decimal" min="0" step="0.001"
+                  value={form.weight_value}
+                  onChange={(e) => set("weight_value", e.target.value)}
+                  disabled={saving}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="weight_unit">Weight unit</Label>
+                <select id="weight_unit" value={form.weight_unit}
+                  onChange={(e) => set("weight_unit", e.target.value)}
+                  disabled={saving}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+                >
+                  {WEIGHT_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                </select>
+              </div>
             </div>
             {/* Qty + Reorder */}
             <div className="grid grid-cols-2 gap-4">

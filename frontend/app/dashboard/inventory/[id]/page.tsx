@@ -3,10 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList,
-  BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -16,7 +13,7 @@ import { isAdminOrAbove } from "@/lib/user";
 import {
   ArrowLeft, Pencil, Package, PackageCheck, PackageX,
   Factory, Users, Layers, TrendingDown, TrendingUp,
-  MapPin, BarChart3, Wrench, Building2, FileText, Upload, ExternalLink,
+  MapPin, BarChart3, Wrench, Building2, FileText, Upload, ExternalLink, Scale,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -77,6 +74,8 @@ interface ItemDetail {
   is_active: boolean;
   updated_at: string;
   rate: number | null;
+  weight_value: number | null;
+  weight_unit: string | null;
   image_base64: string | null;
   vendor_name?: string | null;
   has_design_drawing?: boolean;
@@ -100,17 +99,17 @@ const TYPE_LABEL: Record<string, string> = {
 };
 
 const TYPE_COLOR: Record<string, string> = {
-  raw_material:  "bg-orange-100 text-orange-800 border-orange-200",
-  finished_good: "bg-emerald-100 text-emerald-800 border-emerald-200",
-  semi_finished: "bg-sky-100 text-sky-800 border-sky-200",
+  raw_material:  "bg-tone-amber/15 text-orange-800 border-orange-200",
+  finished_good: "bg-success/10 text-emerald-800 border-success/20",
+  semi_finished: "bg-primary/10 text-sky-800 border-sky-200",
 };
 
 const STATUS_BADGE: Record<string, string> = {
-  pending:       "bg-slate-100 text-slate-700",
-  confirmed:     "bg-blue-100 text-blue-700",
-  in_production: "bg-amber-100 text-amber-800",
-  delivered:     "bg-emerald-100 text-emerald-800",
-  cancelled:     "bg-red-100 text-red-700",
+  pending:       "bg-muted text-slate-700",
+  confirmed:     "bg-primary/10 text-primary",
+  in_production: "bg-warning/15 text-amber-800",
+  delivered:     "bg-success/10 text-emerald-800",
+  cancelled:     "bg-destructive/10 text-destructive",
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -212,27 +211,18 @@ export default function InventoryDetailPage() {
   return (
     <>
       {/* ── Header ── */}
-      <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4 md:px-6">
-        <Link href="/dashboard/inventory" className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
-          <ArrowLeft className="size-4" />
-        </Link>
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href="/dashboard/inventory">Inventory</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
-            <BreadcrumbItem>
-              <BreadcrumbPage>{loading ? "Loading…" : (item?.name ?? "Item")}</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-        {!loading && item && (
-          <Button size="sm" variant="outline" className="ml-auto gap-2" onClick={() => router.push(`/dashboard/inventory/${id}/edit`)}>
+      <PageHeader
+        title={loading ? "Loading…" : (item?.name ?? "Item")}
+        breadcrumbs={[
+          { label: "Inventory", href: "/dashboard/inventory" },
+          { label: loading ? "Loading…" : (item?.name ?? "Item") },
+        ]}
+        actions={!loading && item ? (
+          <Button size="sm" variant="outline" className="gap-2" onClick={() => router.push(`/dashboard/inventory/${id}/edit`)}>
             <Pencil className="size-3.5" /> Edit
           </Button>
-        )}
-      </header>
+        ) : undefined}
+      />
 
       <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-6">
         {loading && (
@@ -271,12 +261,12 @@ export default function InventoryDetailPage() {
                     {TYPE_LABEL[item.item_type]}
                   </span>
                   {!item.is_active && (
-                    <span className="text-xs font-medium px-2 py-0.5 rounded border bg-red-50 text-red-700 border-red-200">
+                    <span className="text-xs font-medium px-2 py-0.5 rounded border bg-destructive/10 text-destructive border-destructive/20">
                       Inactive
                     </span>
                   )}
                   {isLow && (
-                    <span className="text-xs font-medium px-2 py-0.5 rounded border bg-amber-50 text-amber-800 border-amber-200 flex items-center gap-1">
+                    <span className="text-xs font-medium px-2 py-0.5 rounded border bg-warning/15 text-amber-800 border-warning/20 flex items-center gap-1">
                       <TrendingDown className="size-3" /> Low Stock
                     </span>
                   )}
@@ -294,13 +284,19 @@ export default function InventoryDetailPage() {
                     </span>
                   )}
                   <span>Unit: <strong className="text-foreground">{item.unit}</strong></span>
+                  {item.weight_value != null && (
+                    <span className="flex items-center gap-1">
+                      <Scale className="size-3.5" />
+                      Weight: <strong className="text-foreground">{item.weight_value} {item.weight_unit}</strong>
+                    </span>
+                  )}
                   {(item.item_type === "finished_good" || item.item_type === "semi_finished") && item.vendor_name && (
                     <span className="flex items-center gap-1">
                       <Building2 className="size-3.5" />
                       Vendor:{" "}
                       <Link
                         href={`/dashboard/vendors/${encodeURIComponent(item.vendor_name)}`}
-                        className="font-semibold text-blue-600 hover:underline"
+                        className="font-semibold text-primary hover:underline"
                       >
                         {item.vendor_name}
                       </Link>
@@ -337,7 +333,7 @@ export default function InventoryDetailPage() {
                   </div>
                   <div className="h-2.5 w-full rounded-full bg-muted overflow-hidden">
                     <div
-                      className={`h-full rounded-full transition-all ${isLow ? "bg-destructive" : "bg-emerald-500"}`}
+                      className={`h-full rounded-full transition-all ${isLow ? "bg-destructive" : "bg-success"}`}
                       style={{ width: `${Math.min(100, (item.quantity_on_hand / (item.reorder_level * 2)) * 100)}%` }}
                     />
                   </div>
@@ -370,7 +366,7 @@ export default function InventoryDetailPage() {
                         <div key={b.bom_id} className="rounded-lg border p-3 space-y-2">
                           <div className="font-medium text-sm">
                             {b.fg_item_id ? (
-                              <Link href={`/dashboard/inventory/${b.fg_item_id}`} className="hover:underline text-blue-600">{b.product_name}</Link>
+                              <Link href={`/dashboard/inventory/${b.fg_item_id}`} className="hover:underline text-primary">{b.product_name}</Link>
                             ) : b.product_name}
                           </div>
                           {b.fg_available_qty != null && (
@@ -387,7 +383,7 @@ export default function InventoryDetailPage() {
                             <div><span className="text-muted-foreground">Shortfall:</span>{" "}
                               {b.rm_shortfall > 0
                                 ? <span className="text-destructive font-medium">{fmt(b.rm_shortfall)} {b.unit}</span>
-                                : <span className="text-emerald-600">OK</span>}
+                                : <span className="text-success">OK</span>}
                             </div>
                           </div>
                           <div className="text-xs pt-1 border-t">
@@ -417,7 +413,7 @@ export default function InventoryDetailPage() {
                               <td className="py-3 pr-4">
                                 <div className="font-medium">
                                   {b.fg_item_id ? (
-                                    <Link href={`/dashboard/inventory/${b.fg_item_id}`} className="hover:underline text-blue-600">
+                                    <Link href={`/dashboard/inventory/${b.fg_item_id}`} className="hover:underline text-primary">
                                       {b.product_name}
                                     </Link>
                                   ) : b.product_name}
@@ -448,7 +444,7 @@ export default function InventoryDetailPage() {
                                     {fmt(b.rm_shortfall)} {b.unit}
                                   </span>
                                 ) : (
-                                  <span className="text-emerald-600">OK</span>
+                                  <span className="text-success">OK</span>
                                 )}
                               </td>
                               <td className="text-right py-3 tabular-nums font-medium">
@@ -483,9 +479,9 @@ export default function InventoryDetailPage() {
                       <p className="text-xs text-muted-foreground">{item.unit} on hand</p>
                     </div>
                     {/* Shortfall / Surplus */}
-                    <div className={`rounded-xl border p-4 space-y-1 ${(item.fg_shortfall ?? 0) > 0 ? "border-destructive/40 bg-destructive/5" : "border-emerald-200 bg-emerald-50"}`}>
+                    <div className={`rounded-xl border p-4 space-y-1 ${(item.fg_shortfall ?? 0) > 0 ? "border-destructive/40 bg-destructive/5" : "border-success/20 bg-success/10"}`}>
                       <p className="text-xs text-muted-foreground">{(item.fg_shortfall ?? 0) > 0 ? "FG Shortfall" : "FG Surplus"}</p>
-                      <p className={`text-2xl font-bold flex items-center gap-1 ${(item.fg_shortfall ?? 0) > 0 ? "text-destructive" : "text-emerald-600"}`}>
+                      <p className={`text-2xl font-bold flex items-center gap-1 ${(item.fg_shortfall ?? 0) > 0 ? "text-destructive" : "text-success"}`}>
                         {(item.fg_shortfall ?? 0) > 0
                           ? <><PackageX className="size-5" />{fmt(item.fg_shortfall ?? 0)}</>
                           : <><PackageCheck className="size-5" />{fmt(item.quantity_on_hand - (item.total_ordered ?? 0))}</>}
@@ -495,7 +491,7 @@ export default function InventoryDetailPage() {
                     {/* Production capacity */}
                     <div className="rounded-xl border bg-card p-4 space-y-1">
                       <p className="text-xs text-muted-foreground">Can Produce</p>
-                      <p className="text-2xl font-bold text-blue-700">
+                      <p className="text-2xl font-bold text-primary">
                         {item.production_capacity != null ? fmt(item.production_capacity) : "—"}
                       </p>
                       <p className="text-xs text-muted-foreground">
@@ -520,7 +516,7 @@ export default function InventoryDetailPage() {
                           <div key={s.id} className="rounded-lg border p-3 space-y-2">
                             <div className="flex items-center justify-between gap-2">
                               <div className="min-w-0">
-                                <Link href={`/dashboard/schedule/${s.id}/edit`} className="font-mono text-xs hover:underline text-blue-600">{s.schedule_number}</Link>
+                                <Link href={`/dashboard/schedule/${s.id}/edit`} className="font-mono text-xs hover:underline text-primary">{s.schedule_number}</Link>
                                 <p className="font-medium text-sm truncate">{s.customer_name}</p>
                               </div>
                               <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${STATUS_BADGE[s.status] ?? "bg-muted"}`}>
@@ -531,7 +527,7 @@ export default function InventoryDetailPage() {
                               <div><span className="text-muted-foreground">Ordered:</span> <span className="font-medium">{fmt(s.scheduled_qty)} {item.unit}</span></div>
                               <div>
                                 <span className="text-muted-foreground">Backlog:</span>{" "}
-                                {s.backlog_qty > 0 ? <span className="text-amber-600 font-medium">{fmt(s.backlog_qty)}</span> : "—"}
+                                {s.backlog_qty > 0 ? <span className="text-warning font-medium">{fmt(s.backlog_qty)}</span> : "—"}
                               </div>
                               <div><span className="text-muted-foreground">Delivery:</span> {new Date(s.scheduled_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</div>
                             </div>
@@ -541,7 +537,7 @@ export default function InventoryDetailPage() {
                           <div className="flex items-center justify-between text-xs px-1 pt-1 border-t">
                             <span className="text-muted-foreground font-medium">Active Total</span>
                             <span className="font-semibold">{fmt(item.total_ordered ?? 0)} {item.unit}
-                              {(item.total_backlog ?? 0) > 0 && <span className="ml-2 text-amber-600">(backlog: {fmt(item.total_backlog ?? 0)})</span>}
+                              {(item.total_backlog ?? 0) > 0 && <span className="ml-2 text-warning">(backlog: {fmt(item.total_backlog ?? 0)})</span>}
                             </span>
                           </div>
                         )}
@@ -564,7 +560,7 @@ export default function InventoryDetailPage() {
                           {item.schedules.map((s) => (
                             <tr key={s.id} className="border-b last:border-0 hover:bg-muted/30">
                               <td className="py-2.5 pr-4">
-                                <Link href={`/dashboard/schedule/${s.id}/edit`} className="font-mono text-xs hover:underline text-blue-600">
+                                <Link href={`/dashboard/schedule/${s.id}/edit`} className="font-mono text-xs hover:underline text-primary">
                                   {s.schedule_number}
                                 </Link>
                               </td>
@@ -572,7 +568,7 @@ export default function InventoryDetailPage() {
                               <td className="py-2.5 pr-4 text-right tabular-nums">{fmt(s.scheduled_qty)} {item.unit}</td>
                               <td className="py-2.5 pr-4 text-right tabular-nums">
                                 {s.backlog_qty > 0
-                                  ? <span className="text-amber-600">{fmt(s.backlog_qty)}</span>
+                                  ? <span className="text-warning">{fmt(s.backlog_qty)}</span>
                                   : <span className="text-muted-foreground">—</span>}
                               </td>
                               <td className="py-2.5 pr-4 text-sm">{new Date(s.scheduled_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</td>
@@ -589,7 +585,7 @@ export default function InventoryDetailPage() {
                             <tr className="border-t bg-muted/30">
                               <td colSpan={2} className="py-2 pr-4 text-xs font-medium text-muted-foreground">Active Total</td>
                               <td className="py-2 pr-4 text-right tabular-nums font-semibold">{fmt(item.total_ordered ?? 0)} {item.unit}</td>
-                              <td className="py-2 pr-4 text-right tabular-nums font-semibold text-amber-600">
+                              <td className="py-2 pr-4 text-right tabular-nums font-semibold text-warning">
                                 {(item.total_backlog ?? 0) > 0 ? fmt(item.total_backlog ?? 0) : "—"}
                               </td>
                               <td colSpan={2} />
@@ -649,7 +645,7 @@ export default function InventoryDetailPage() {
                     <p className="text-sm text-muted-foreground">No design drawing uploaded yet.</p>
                   ) : (
                     <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-                      <FileText className="size-4 text-blue-500" />
+                      <FileText className="size-4 text-primary" />
                       PDF drawing attached. Click “View Drawing” to open.
                     </p>
                   )}
@@ -687,7 +683,7 @@ export default function InventoryDetailPage() {
                         {item.bom_requirements.map((r) => (
                           <div key={r.bom_id} className="rounded-lg border p-3 space-y-2">
                             <div>
-                              <Link href={`/dashboard/inventory/${r.raw_material_id}`} className="font-medium text-sm hover:underline text-blue-600">
+                              <Link href={`/dashboard/inventory/${r.raw_material_id}`} className="font-medium text-sm hover:underline text-primary">
                                 {r.raw_material_name}
                               </Link>
                               <p className="text-xs text-muted-foreground font-mono">{r.raw_material_code}</p>
@@ -696,7 +692,7 @@ export default function InventoryDetailPage() {
                               <div><span className="text-muted-foreground">Qty/Unit:</span> <span className="font-medium">{fmt(r.qty_per_unit)} {r.unit}</span></div>
                               <div>
                                 <span className="text-muted-foreground">In Stock:</span>{" "}
-                                <span className={r.available_qty <= r.reorder_level ? "text-amber-600 font-medium" : "font-medium"}>{fmt(r.available_qty)} {r.unit}</span>
+                                <span className={r.available_qty <= r.reorder_level ? "text-warning font-medium" : "font-medium"}>{fmt(r.available_qty)} {r.unit}</span>
                               </div>
                               <div><span className="text-muted-foreground">Need:</span>{" "}
                                 {(item.total_ordered ?? 0) > 0 ? <span className="font-medium">{fmt(r.required_for_demand)} {r.unit}</span> : "—"}
@@ -704,7 +700,7 @@ export default function InventoryDetailPage() {
                               <div><span className="text-muted-foreground">Shortfall:</span>{" "}
                                 {r.shortfall > 0
                                   ? <span className="text-destructive font-medium">{fmt(r.shortfall)} {r.unit}</span>
-                                  : <span className="text-emerald-600">OK</span>}
+                                  : <span className="text-success">OK</span>}
                               </div>
                             </div>
                             <div className="text-xs pt-1 border-t">
@@ -732,13 +728,13 @@ export default function InventoryDetailPage() {
                             {item.bom_requirements.map((r) => (
                               <tr key={r.bom_id} className="border-b last:border-0 hover:bg-muted/30">
                                 <td className="py-3 pr-4">
-                                  <Link href={`/dashboard/inventory/${r.raw_material_id}`} className="font-medium hover:underline text-blue-600">
+                                  <Link href={`/dashboard/inventory/${r.raw_material_id}`} className="font-medium hover:underline text-primary">
                                     {r.raw_material_name}
                                   </Link>
                                   <div className="text-xs text-muted-foreground font-mono">{r.raw_material_code}</div>
                                 </td>
                                 <td className="text-right py-3 pr-4 tabular-nums">{fmt(r.qty_per_unit)} {r.unit}</td>
-                                <td className={`text-right py-3 pr-4 tabular-nums ${r.available_qty <= r.reorder_level ? "text-amber-600 font-medium" : ""}`}>
+                                <td className={`text-right py-3 pr-4 tabular-nums ${r.available_qty <= r.reorder_level ? "text-warning font-medium" : ""}`}>
                                   {fmt(r.available_qty)} {r.unit}
                                 </td>
                                 <td className="text-right py-3 pr-4 tabular-nums">
@@ -750,7 +746,7 @@ export default function InventoryDetailPage() {
                                       <TrendingDown className="size-3" />{fmt(r.shortfall)} {r.unit}
                                     </span>
                                   ) : (
-                                    <span className="text-emerald-600">OK</span>
+                                    <span className="text-success">OK</span>
                                   )}
                                 </td>
                                 <td className="text-right py-3 tabular-nums font-medium">
@@ -761,10 +757,10 @@ export default function InventoryDetailPage() {
                           </tbody>
                         </table>
                         {/* Production capacity callout */}
-                        <div className={`mt-4 flex items-center gap-3 rounded-lg p-3 border ${(item.production_capacity ?? 0) >= (item.total_ordered ?? 0) ? "bg-emerald-50 border-emerald-200" : "bg-amber-50 border-amber-200"}`}>
+                        <div className={`mt-4 flex items-center gap-3 rounded-lg p-3 border ${(item.production_capacity ?? 0) >= (item.total_ordered ?? 0) ? "bg-success/10 border-success/20" : "bg-warning/15 border-warning/20"}`}>
                           {(item.production_capacity ?? 0) >= (item.total_ordered ?? 0)
-                            ? <TrendingUp className="size-4 text-emerald-600 shrink-0" />
-                            : <TrendingDown className="size-4 text-amber-600 shrink-0" />}
+                            ? <TrendingUp className="size-4 text-success shrink-0" />
+                            : <TrendingDown className="size-4 text-warning shrink-0" />}
                           <p className="text-sm">
                             With current raw material stock, you can produce{" "}
                             <strong>{item.production_capacity != null ? fmt(item.production_capacity) : "0"} {item.unit}</strong>
@@ -772,7 +768,7 @@ export default function InventoryDetailPage() {
                               <> against an active demand of <strong>{fmt(item.total_ordered ?? 0)} {item.unit}</strong></>
                             )}.
                             {(item.production_capacity ?? 0) < (item.total_ordered ?? 0) && (
-                              <span className="text-amber-700"> Shortfall of <strong>{fmt((item.total_ordered ?? 0) - (item.production_capacity ?? 0))} {item.unit}</strong> — purchase raw materials.</span>
+                              <span className="text-warning"> Shortfall of <strong>{fmt((item.total_ordered ?? 0) - (item.production_capacity ?? 0))} {item.unit}</strong> — purchase raw materials.</span>
                             )}
                           </p>
                         </div>
