@@ -393,7 +393,14 @@ export default function ProductionOrderDetailPage() {
                             style={{ width: `${Math.min(100, pct)}%` }}
                           />
                         </div>
-                        <p className="text-[10px] text-muted-foreground mt-1 text-right">{pct}% complete</p>
+                        <div className="flex items-center justify-between mt-1">
+                          <p className="text-[10px] text-muted-foreground">{pct}% complete</p>
+                          {proc.actual > 0 && proc.produced > 0 && (
+                            <span className={`text-[10px] font-medium ${proc.actual >= proc.produced ? "text-success" : "text-amber-600"}`}>
+                              Actual {proc.actual >= proc.produced ? "≥" : "<"} Est ({proc.actual} vs {proc.produced})
+                            </span>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
