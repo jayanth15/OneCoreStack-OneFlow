@@ -11,14 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Combobox,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxInput,
-  ComboboxItem,
-  ComboboxList,
-} from "@/components/ui/combobox";
+import { SearchCombobox } from "@/components/ui/search-combobox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -102,12 +95,19 @@ function getPermittedTypes(): RequestableItemType[] {
   if (user.role === "admin" || user.role === "super_admin") {
     return [...SUPPORTED_REQUESTABLE_TYPES];
   }
-  const granted = user.request_inventory && user.request_inventory.length > 0
-    ? user.request_inventory
-    : (user.inventory_access && user.inventory_access.length > 0
-        ? user.inventory_access
-        : [...SUPPORTED_REQUESTABLE_TYPES]);
-  return SUPPORTED_REQUESTABLE_TYPES.filter((t) => canRequestInventory(t) || granted.includes(t));
+  return SUPPORTED_REQUESTABLE_TYPES.filter((t) => {
+    // Must be allowed by inventory_access (if set)
+    if (user.inventory_access && user.inventory_access.length > 0
+        && !user.inventory_access.includes(t)) {
+      return false;
+    }
+    // Must be allowed by request_inventory (if set)
+    if (user.request_inventory && user.request_inventory.length > 0
+        && !user.request_inventory.includes(t)) {
+      return false;
+    }
+    return true;
+  });
 }
 
 export function RequestForm({
@@ -169,6 +169,13 @@ export function RequestForm({
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (noAccess) return;
+
+    const filledItems = type === "customer_dispatch" ? [] : items.filter((i) => i.item_name);
+    if (type !== "customer_dispatch" && filledItems.length === 0) {
+      // Silently prevent submit — user hasn't entered any items yet.
+      return;
+    }
+
     setBusy(true);
     try {
       const payload: CreateRequestPayload = {
@@ -176,7 +183,7 @@ export function RequestForm({
         department: department || undefined,
         from_whom: type === "vendor_purchase" ? fromWhom : undefined,
         notes: notes || undefined,
-        items: type === "customer_dispatch" ? [] : items.filter((i) => i.item_name),
+        items: filledItems,
         dispatch: type === "customer_dispatch" ? dispatch : undefined,
       };
       await onSubmit(payload);
@@ -202,7 +209,7 @@ export function RequestForm({
       <div className="px-2 py-6">
         <Card className="ring-1 ring-foreground/5">
           <CardContent className="p-6 flex flex-col items-center text-center gap-3">
-            <div className="grid size-10 place-items-center rounded-full bg-amber-100 text-amber-700">
+            <div className="grid size-10 place-items-center rounded-full bg-warning/15 text-warning">
               <ShieldAlert className="size-5" />
             </div>
             <div>
@@ -355,33 +362,31 @@ export function RequestForm({
               {items.map((it, i) => (
                 <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-2 rounded-lg border bg-muted/20 p-2.5">
                   <div className="flex-1 min-w-0">
-                    <Combobox
+                    <SearchCombobox<InventoryItem>
+                      variant="list"
                       value={it.inventory_item_id ? String(it.inventory_item_id) : ""}
-                      onValueChange={(v: unknown) => {
-                        const raw = v as string;
-                        const id = raw ? Number(raw) : null;
-                        const found = inventoryItems.find((x) => x.id === id);
-                        updateItem(i, { item_name: found?.name ?? "", inventory_item_id: id });
+                      placeholder={inventoryLoading ? "Loading inventory…" : "Search inventory item..."}
+                      disabled={inventoryLoading}
+                      fetcher={async (q) => {
+                        if (q.trim()) {
+                          return apiFetchJson<{ items: InventoryItem[] }>(
+                            `/api/v1/inventory?item_type=${effectiveItemType}&page_size=500&include_inactive=false&search=${encodeURIComponent(q)}`,
+                          ).then((r) => r.items);
+                        }
+                        return inventoryItems;
                       }}
-                    >
-                      <ComboboxInput
-                        placeholder={inventoryLoading ? "Loading inventory…" : "Search inventory item..."}
-                        className="w-full"
-                        disabled={inventoryLoading}
-                      />
-                      <ComboboxContent>
-                        <ComboboxList>
-                          <ComboboxEmpty>No items found</ComboboxEmpty>
-                          {inventoryItems.map((inv) => (
-                            <ComboboxItem key={inv.id} value={String(inv.id)}>
-                              <span className="font-mono text-xs text-muted-foreground">{inv.code}</span>
-                              <span className="ml-2">{inv.name}</span>
-                              <span className="ml-auto text-xs text-muted-foreground">{inv.unit}</span>
-                            </ComboboxItem>
-                          ))}
-                        </ComboboxList>
-                      </ComboboxContent>
-                    </Combobox>
+                      itemIdOf={(inv) => inv.id}
+                      getItemKey={(inv) => inv.id}
+                      getItemLabel={(inv) => inv.name}
+                      onSelect={(inv) => updateItem(i, { item_name: inv.name, inventory_item_id: inv.id })}
+                      renderItem={(inv) => (
+                        <>
+                          <span className="font-mono text-xs text-muted-foreground">{inv.code}</span>
+                          <span className="ml-2">{inv.name}</span>
+                          <span className="ml-auto text-xs text-muted-foreground">{inv.unit}</span>
+                        </>
+                      )}
+                    />
                     {inventoryLoading && !it.inventory_item_id && (
                       <Skeleton className="mt-1.5 h-2.5 w-32" />
                     )}
