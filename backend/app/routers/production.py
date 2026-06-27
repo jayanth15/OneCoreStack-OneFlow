@@ -1345,6 +1345,7 @@ def create_job(
 
 
 @router.get("/jobs/{job_id}", response_model=JobCardResponse)
+@router.get("/jobs/{job_id}", response_model=JobCardResponse)
 def get_job(
     job_id: int,
     session: Annotated[Session, Depends(get_session)],
