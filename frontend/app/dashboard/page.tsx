@@ -9,7 +9,6 @@ import {
   Activity, FlaskConical, Paperclip, Scissors,
 } from "lucide-react";
 import { StatCard } from "@/components/dashboard/stat-card";
-import { StatusBar } from "@/components/dashboard/status-bar";
 import { PageHeader } from "@/components/layout/page-header";
 import { CHART_COLORS } from "@/lib/theme";
 
@@ -507,13 +506,6 @@ export default function DashboardPage() {
             </div>
           </div>
         )}
-        {/* ── Status Bars ────────────────────────────────────────────────── */}
-        <div className="grid md:grid-cols-2 gap-4">
-          <StatusBar data={data.plan_status} title="Plan Status" />
-          <StatusBar data={data.job_card_status} title="Job Card Status" />
-        </div>
-
-
       </div>
     </>
   );

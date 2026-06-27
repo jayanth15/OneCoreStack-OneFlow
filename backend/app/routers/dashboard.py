@@ -40,19 +40,6 @@ class OverviewCounts(BaseModel):
     total_job_cards: int
 
 
-class PlanStatusBreakdown(BaseModel):
-    draft: int
-    approved: int
-    in_progress: int
-    completed: int
-
-
-class JobCardStatusBreakdown(BaseModel):
-    open: int
-    in_progress: int
-    completed: int
-
-
 class InventoryByType(BaseModel):
     item_type: str
     count: int
@@ -95,26 +82,10 @@ class LowStockItem(BaseModel):
 
 class DashboardResponse(BaseModel):
     overview: OverviewCounts
-    plan_status: PlanStatusBreakdown
-    job_card_status: JobCardStatusBreakdown
     inventory_by_type: list[InventoryByType]
     recent_inventory: list[RecentInventoryActivity]
     recent_production: list[RecentProductionActivity]
     low_stock_items: list[LowStockItem]
-
-
-# ── Helper: count by status ───────────────────────────────────────────────────
-
-def _count_status(session: Session, model, statuses: list[str]) -> dict[str, int]:
-    """Count active records for each status value."""
-    result = {}
-    for st in statuses:
-        q = select(func.count()).where(
-            model.status == st,
-            model.is_active == True,  # noqa: E712
-        )
-        result[st] = session.exec(q).one()
-    return result
 
 
 # ── Endpoint ──────────────────────────────────────────────────────────────────
@@ -192,10 +163,6 @@ def get_dashboard(
         total_orders=total_orders,
         total_job_cards=total_jc,
     )
-
-    # ── Status breakdowns ──────────────────────────────────────────────────
-    plan_st = _count_status(session, ProductionPlan, ["draft", "approved", "in_progress", "completed"])
-    jc_st = _count_status(session, JobCard, ["open", "in_progress", "completed"])
 
     # ── Inventory by type (with value) ─────────────────────────────────────
     inv_by_type_rows = session.exec(
@@ -296,8 +263,6 @@ def get_dashboard(
 
     return DashboardResponse(
         overview=overview,
-        plan_status=PlanStatusBreakdown(**plan_st),
-        job_card_status=JobCardStatusBreakdown(**jc_st),
         inventory_by_type=inventory_by_type,
         recent_inventory=recent_inventory,
         recent_production=recent_production,
