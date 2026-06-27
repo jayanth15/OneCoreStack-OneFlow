@@ -100,6 +100,8 @@ def create_gate_pass(
         created_at=datetime.now(timezone.utc).isoformat(),
         purchase_request_id=body.get("purchase_request_id"),
         purchase_request_number=(body.get("purchase_request_number") or "").strip() or None,
+        purchase_order_id=body.get("purchase_order_id"),
+        purchase_order_number=(body.get("purchase_order_number") or "").strip() or None,
     )
     session.add(gp)
     session.flush()
@@ -158,7 +160,8 @@ def update_gate_pass(
 
     for field in ("pass_type", "vendor_id", "vendor_name", "supplier_id", "supplier_name",
                   "material", "quantity", "unit", "purpose", "vehicle_number", "date", "notes", "status",
-                  "purchase_request_id", "purchase_request_number"):
+                  "purchase_request_id", "purchase_request_number",
+                  "purchase_order_id", "purchase_order_number"):
         if field in body:
             val = body[field]
             if isinstance(val, str):
@@ -251,6 +254,8 @@ def _to_dict(g: GatePass, items: list[GatePassItem] | None = None) -> dict[str, 
         "created_at": g.created_at,
         "purchase_request_id": g.purchase_request_id,
         "purchase_request_number": g.purchase_request_number,
+        "purchase_order_id": g.purchase_order_id,
+        "purchase_order_number": g.purchase_order_number,
         "items": [
             {
                 "id": i.id,

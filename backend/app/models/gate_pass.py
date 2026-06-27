@@ -34,3 +34,7 @@ class GatePass(SQLModel, table=True):
     # Linked purchase request (optional)
     purchase_request_id: Optional[int] = Field(default=None)
     purchase_request_number: Optional[str] = None           # denormalized
+
+    # Linked purchase order (optional)
+    purchase_order_id: Optional[int] = Field(default=None)
+    purchase_order_number: Optional[str] = None             # denormalized

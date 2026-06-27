@@ -181,5 +181,17 @@ def run_inline_migrations():
         except Exception as exc:
             logger.warning("Migration bom_item.%s failed: %s", col_name, exc)
 
+    try:
+        _safe_alter(cursor, conn, "gate_pass", "purchase_order_id", "INTEGER")
+        _safe_alter(cursor, conn, "gate_pass", "purchase_order_number", "TEXT")
+    except Exception as exc:
+        logger.warning("Migration gate_pass PO columns failed: %s", exc)
+
+    try:
+        _safe_alter(cursor, conn, "dispatch", "request_id", "INTEGER")
+        _safe_alter(cursor, conn, "dispatch", "request_sn_no", "TEXT")
+    except Exception as exc:
+        logger.warning("Migration dispatch request columns failed: %s", exc)
+
     conn.close()
     logger.info("run_inline_migrations: complete")

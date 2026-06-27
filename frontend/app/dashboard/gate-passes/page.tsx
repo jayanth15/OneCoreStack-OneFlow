@@ -2,9 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,6 +47,8 @@ interface GatePass {
   items: GatePassAPIItem[];
   purchase_request_id: number | null;
   purchase_request_number: string | null;
+  purchase_order_id: number | null;
+  purchase_order_number: string | null;
 }
 
 interface GPItemForm {
@@ -73,6 +73,8 @@ interface GPFormState {
   status: string;
   purchase_request_id: number | null;
   purchase_request_number: string;
+  purchase_order_id: number | null;
+  purchase_order_number: string;
 }
 
 interface NameOption { id: number; name: string; }
@@ -80,13 +82,13 @@ interface NameOption { id: number; name: string; }
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const STATUS_COLORS: Record<string, string> = {
-  open:   "bg-emerald-100 text-emerald-700",
-  closed: "bg-slate-100 text-slate-500",
+  open:   "bg-success/10 text-success",
+  closed: "bg-muted text-muted-foreground",
 };
 
 const PASS_TYPE_COLORS: Record<string, string> = {
-  out: "bg-amber-100 text-amber-700",
-  in:  "bg-blue-100 text-blue-700",
+  out: "bg-warning/15 text-warning",
+  in:  "bg-primary/10 text-primary",
 };
 
 const GP_INV_TYPES = [
@@ -114,6 +116,8 @@ function BLANK_FORM(): GPFormState {
     purpose: "", vehicle_number: "", date: "", notes: "", status: "open",
     purchase_request_id: null,
     purchase_request_number: "",
+    purchase_order_id: null,
+    purchase_order_number: "",
   };
 }
 
@@ -151,6 +155,8 @@ export default function GatePassesPage() {
 
   const [purchaseRequests, setPurchaseRequests] = useState<{ id: number; sn_no: string; item_name: string | null }[]>([]);
 
+  const [purchaseOrders, setPurchaseOrders] = useState<{ id: number; po_number: string; supplier_name: string | null; vendor_name: string | null; party_type: string }[]>([]);
+
   const searchRef = useRef<HTMLInputElement>(null);
 
   function load() {
@@ -174,6 +180,9 @@ export default function GatePassesPage() {
     apiFetchJson<{ items: { id: number; sn_no: string; item_name: string | null }[] }>(
       "/api/v1/purchase-requests?status_filter=approved&page_size=100"
     ).then(r => setPurchaseRequests(r.items)).catch(() => {});
+    apiFetchJson<{ id: number; po_number: string; supplier_name: string | null; vendor_name: string | null; party_type: string }[]>(
+      "/api/v1/purchase-orders/linkable"
+    ).then(setPurchaseOrders).catch(() => {});
   }, []);
 
   function buildPayload(form: GPFormState) {
@@ -197,6 +206,8 @@ export default function GatePassesPage() {
       status: form.status,
       purchase_request_id: form.purchase_request_id,
       purchase_request_number: form.purchase_request_number || null,
+      purchase_order_id: form.purchase_order_id,
+      purchase_order_number: form.purchase_order_number || null,
       items: validItems.map(it => ({
         item_name: it.item_name.trim(),
         inv_type: it.inv_type || null,
@@ -250,6 +261,8 @@ export default function GatePassesPage() {
       status: gp.status,
       purchase_request_id: gp.purchase_request_id,
       purchase_request_number: gp.purchase_request_number ?? "",
+      purchase_order_id: gp.purchase_order_id,
+      purchase_order_number: gp.purchase_order_number ?? "",
     });
     setEditError(null);
     setViewTarget(null);
@@ -374,32 +387,31 @@ ${gp.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${gp.notes}</p>
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4 md:pr-64">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem><BreadcrumbPage>Gate Passes</BreadcrumbPage></BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-        <div className="ml-auto flex items-center gap-2 flex-wrap">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
-            <Input ref={searchRef} className="pl-8 h-8 w-40 text-sm" placeholder="Search…"
-              value={search} onChange={(e) => setSearch(e.target.value)} />
-          </div>
-          <select value={passTypeFilter} onChange={(e) => setPassTypeFilter(e.target.value)}
-            className="h-8 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-            <option value="">All types</option>
-            <option value="out">Outward</option>
-            <option value="in">Inward</option>
-          </select>
-          <Button size="sm" onClick={() => { setCreateForm(BLANK_FORM()); setCreateError(null); setShowCreate(true); }}>
-            <Plus className="size-4 mr-1.5" />New Gate Pass
-          </Button>
-          <Button size="sm" variant="outline" onClick={printAllGatePasses} title="Print all gate passes">
-            <Printer className="size-4" />
-          </Button>
-        </div>
-      </header>
+      <PageHeader
+        title="Gate Passes"
+        breadcrumbs={[{ label: "Gate Passes" }]}
+        actions={
+          <>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+              <Input ref={searchRef} className="pl-8 h-8 w-40 text-sm" placeholder="Search…"
+                value={search} onChange={(e) => setSearch(e.target.value)} />
+            </div>
+            <select value={passTypeFilter} onChange={(e) => setPassTypeFilter(e.target.value)}
+              className="h-8 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+              <option value="">All types</option>
+              <option value="out">Outward</option>
+              <option value="in">Inward</option>
+            </select>
+            <Button size="sm" onClick={() => { setCreateForm(BLANK_FORM()); setCreateError(null); setShowCreate(true); }}>
+              <Plus className="size-4 mr-1.5" />New Gate Pass
+            </Button>
+            <Button size="sm" variant="outline" onClick={printAllGatePasses} title="Print all gate passes">
+              <Printer className="size-4" />
+            </Button>
+          </>
+        }
+      />
 
       {/* ── Create Dialog ── */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
@@ -407,7 +419,8 @@ ${gp.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${gp.notes}</p>
           <DialogHeader><DialogTitle>New Gate Pass</DialogTitle></DialogHeader>
           <GPForm form={createForm} vendors={vendors} suppliers={suppliers}
             saving={createSaving} error={createError} onChange={setCreateForm}
-            onSubmit={handleCreate} isCreate purchaseRequests={purchaseRequests} />
+            onSubmit={handleCreate} isCreate purchaseRequests={purchaseRequests}
+            purchaseOrders={purchaseOrders} />
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowCreate(false)} disabled={createSaving}>Cancel</Button>
             <Button disabled={createSaving} onClick={handleCreate}>
@@ -422,7 +435,7 @@ ${gp.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${gp.notes}</p>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <ClipboardList className="size-4 text-emerald-600" />
+              <ClipboardList className="size-4 text-success" />
               {viewTarget?.gate_pass_number}
             </DialogTitle>
           </DialogHeader>
@@ -431,13 +444,13 @@ ${gp.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${gp.notes}</p>
               <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
                 <div>
                   <p className="text-xs text-muted-foreground">Status</p>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[viewTarget.status] ?? "bg-slate-100 text-slate-600"}`}>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[viewTarget.status] ?? "bg-muted text-muted-foreground"}`}>
                     {viewTarget.status}
                   </span>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Type</p>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${PASS_TYPE_COLORS[viewTarget.pass_type] ?? "bg-slate-100 text-slate-600"}`}>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${PASS_TYPE_COLORS[viewTarget.pass_type] ?? "bg-muted text-muted-foreground"}`}>
                     {viewTarget.pass_type === "out" ? "Outward" : "Inward"}
                   </span>
                 </div>
@@ -470,7 +483,15 @@ ${gp.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${gp.notes}</p>
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
                       <Link2 className="size-3" />Linked Purchase Request
                     </p>
-                    <p className="font-medium text-blue-600">{viewTarget.purchase_request_number}</p>
+                    <p className="font-medium text-primary">{viewTarget.purchase_request_number}</p>
+                  </div>
+                )}
+                {viewTarget.purchase_order_number && (
+                  <div>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Link2 className="size-3" />Linked Purchase Order
+                    </p>
+                    <p className="font-medium text-primary">{viewTarget.purchase_order_number}</p>
                   </div>
                 )}
                 {viewTarget.notes && (
@@ -514,7 +535,7 @@ ${gp.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${gp.notes}</p>
           )}
           <DialogFooter className="gap-2">
             {adminUser && viewTarget?.status !== "closed" && (
-              <Button variant="outline" className="text-orange-600 border-orange-200 hover:bg-orange-50"
+              <Button variant="outline" className="text-tone-amber border-orange-200 hover:bg-orange-50"
                 disabled={closingId === viewTarget?.id}
                 onClick={() => viewTarget && closeGatePass(viewTarget.id)}>
                 <X className="size-3.5 mr-1.5" />
@@ -538,7 +559,8 @@ ${gp.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${gp.notes}</p>
           <DialogHeader><DialogTitle>Edit Gate Pass</DialogTitle></DialogHeader>
           <GPForm form={editForm} vendors={vendors} suppliers={suppliers}
             saving={editSaving} error={editError} onChange={setEditForm}
-            onSubmit={handleEdit} isCreate={false} purchaseRequests={purchaseRequests} />
+            onSubmit={handleEdit} isCreate={false} purchaseRequests={purchaseRequests}
+            purchaseOrders={purchaseOrders} />
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setEditTarget(null)} disabled={editSaving}>Cancel</Button>
             <Button disabled={editSaving} onClick={handleEdit}>
@@ -583,16 +605,16 @@ ${gp.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${gp.notes}</p>
                   : gp.material;
               return (
                 <div key={gp.id} className="rounded-xl border bg-card p-4 flex items-start gap-4">
-                  <div className="flex size-9 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 shrink-0">
+                  <div className="flex size-9 items-center justify-center rounded-lg bg-success/10 text-success shrink-0">
                     <ClipboardList className="size-4" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-mono font-semibold text-sm">{gp.gate_pass_number}</span>
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${PASS_TYPE_COLORS[gp.pass_type] ?? "bg-slate-100 text-slate-600"}`}>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${PASS_TYPE_COLORS[gp.pass_type] ?? "bg-muted text-muted-foreground"}`}>
                         {gp.pass_type === "out" ? "Outward" : "Inward"}
                       </span>
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[gp.status] ?? "bg-slate-100 text-slate-600"}`}>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[gp.status] ?? "bg-muted text-muted-foreground"}`}>
                         {gp.status}
                       </span>
                     </div>
@@ -624,7 +646,7 @@ ${gp.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${gp.notes}</p>
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="size-8 text-orange-600 hover:text-orange-600 hover:bg-orange-50"
+                        className="size-8 text-tone-amber hover:text-tone-amber hover:bg-orange-50"
                         title="Close Gate Pass"
                         disabled={closingId === gp.id}
                         onClick={() => closeGatePass(gp.id)}
@@ -663,7 +685,8 @@ ${gp.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${gp.notes}</p>
 // ── Form ──────────────────────────────────────────────────────────────────────
 
 function GPForm({
-  form, vendors, suppliers, saving, error, onChange, onSubmit, isCreate, purchaseRequests,
+  form, vendors, suppliers, saving, error, onChange, onSubmit, isCreate,
+  purchaseRequests, purchaseOrders,
 }: {
   form: GPFormState;
   vendors: NameOption[];
@@ -674,6 +697,7 @@ function GPForm({
   onSubmit: (e: React.FormEvent) => void;
   isCreate: boolean;
   purchaseRequests: { id: number; sn_no: string; item_name: string | null }[];
+  purchaseOrders: { id: number; po_number: string; supplier_name: string | null; vendor_name: string | null; party_type: string }[];
 }) {
   function updateItem(key: string, patch: Partial<GPItemForm>) {
     onChange({ ...form, items: form.items.map(i => i._key === key ? { ...i, ...patch } : i) });
@@ -877,6 +901,54 @@ function GPForm({
           {purchaseRequests.map(pr => (
             <option key={pr.id} value={pr.id}>
               {pr.sn_no}{pr.item_name ? ` — ${pr.item_name}` : ""}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="gp-po">Linked Purchase Order <span className="text-xs text-muted-foreground">(optional)</span></Label>
+        <select id="gp-po" value={form.purchase_order_id ?? ""}
+          onChange={async (e) => {
+            const poId = parseInt(e.target.value);
+            if (!poId) {
+              onChange({ ...form, purchase_order_id: null, purchase_order_number: "" });
+              return;
+            }
+            try {
+              const po = await apiFetchJson<{
+                id: number; po_number: string; party_type: string;
+                supplier_name: string | null; vendor_name: string | null;
+                po_date: string | null; expected_delivery: string | null;
+                items: { item_name: string; quantity: number; unit: string | null }[];
+              }>(`/api/v1/purchase-orders/${poId}`);
+              const items: GPItemForm[] = po.items.length > 0
+                ? po.items.map(it => ({
+                    _key: Math.random().toString(36).slice(2),
+                    inv_type: "", inv_item_id: null,
+                    item_name: it.item_name,
+                    quantity: String(it.quantity),
+                    unit: it.unit ?? "",
+                  }))
+                : [blankGPItem()];
+              const partyType = po.party_type === "supplier" ? "supplier" as const : "vendor" as const;
+              onChange({
+                ...form,
+                party_type: partyType,
+                vendor_name: po.vendor_name ?? "",
+                supplier_name: po.supplier_name ?? "",
+                items,
+                date: po.po_date || po.expected_delivery || form.date,
+                purchase_order_id: po.id,
+                purchase_order_number: po.po_number,
+              });
+            } catch { /* ignore */ }
+          }}
+          disabled={saving}
+          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
+          <option value="">— None —</option>
+          {purchaseOrders.map(po => (
+            <option key={po.id} value={po.id}>
+              {po.po_number}{po.supplier_name ? ` — ${po.supplier_name}` : po.vendor_name ? ` — ${po.vendor_name}` : ""}
             </option>
           ))}
         </select>

@@ -95,6 +95,8 @@ def create_dispatch(
         supplier_name=(body.get("supplier_name") or "").strip() or None,
         schedule_id=body.get("schedule_id"),
         schedule_number=(body.get("schedule_number") or "").strip() or None,
+        request_id=body.get("request_id"),
+        request_sn_no=(body.get("request_sn_no") or "").strip() or None,
         product_name=first_item_name or (body.get("product_name") or "").strip(),
         quantity=first_qty or float(body.get("quantity") or 0),
         unit=first_unit or (body.get("unit") or "").strip() or None,
@@ -161,6 +163,7 @@ def update_dispatch(
 
     for field in ("party_type", "vendor_id", "vendor_name", "supplier_id", "supplier_name",
                   "schedule_id", "schedule_number",
+                  "request_id", "request_sn_no",
                   "product_name", "quantity", "unit", "dispatch_date",
                   "vehicle_number", "driver_name", "notes", "status"):
         if field in body:
@@ -305,6 +308,8 @@ def _to_dict(d: Dispatch, items: list[DispatchItem] | None = None) -> dict[str, 
         "supplier_name": getattr(d, "supplier_name", None),
         "schedule_id": d.schedule_id,
         "schedule_number": d.schedule_number,
+        "request_id": d.request_id,
+        "request_sn_no": d.request_sn_no,
         "product_name": d.product_name,
         "quantity": d.quantity,
         "unit": d.unit,

@@ -24,6 +24,10 @@ class Dispatch(SQLModel, table=True):
     schedule_id: Optional[int] = Field(default=None)
     schedule_number: Optional[str] = None                   # denormalized
 
+    # Linked customer dispatch request (optional)
+    request_id: Optional[int] = Field(default=None)
+    request_sn_no: Optional[str] = None                     # denormalized
+
     # Product / goods
     product_name: str = ""
     quantity: float = Field(default=0.0)
