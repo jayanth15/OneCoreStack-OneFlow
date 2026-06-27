@@ -220,7 +220,7 @@ function NewBomForm() {
               {rows.map((row, idx) => {
                 const rm = rawMaterials.find((r) => String(r.id) === row.raw_material_id);
                 return (
-                  <div key={row.key} className="grid grid-cols-[1fr_32px] sm:grid-cols-[2fr_90px_70px_70px_80px_110px_32px] gap-2 items-center px-3 py-2.5">
+                  <div key={row.key} className="grid grid-cols-1 sm:grid-cols-[2fr_90px_70px_70px_80px_110px_32px] gap-2 items-center px-3 py-2.5">
                     {/* Material select */}
                     <div className="space-y-1 sm:space-y-0">
                       <p className="text-xs text-muted-foreground sm:hidden">Material</p>

@@ -3,9 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -31,7 +29,7 @@ interface InventoryItem {
   code: string;
   name: string;
   item_type: string;
-  unit: string;
+  unit_name: string | null;
   quantity_on_hand: number;
   reorder_level: number;
   storage_type: string | null;
@@ -329,21 +327,14 @@ export default function InventoryTypePage({ itemType, label, description, basePa
   return (
     <>
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-background flex h-16 shrink-0 items-center border-b px-6">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <Link href="/dashboard/inventory" className="text-muted-foreground hover:text-foreground text-sm">
-                Inventory
-              </Link>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>{label}</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </header>
+      <PageHeader
+        title={label}
+        description={description}
+        breadcrumbs={[
+          { label: "Inventory", href: "/dashboard/inventory" },
+          { label },
+        ]}
+      />
 
       <div className="p-4 md:p-6 space-y-4">
         {/* Heading */}
@@ -364,13 +355,13 @@ export default function InventoryTypePage({ itemType, label, description, basePa
         {(lowCount > 0 || shortfall > 0) && (
           <div className="flex flex-wrap gap-2">
             {lowCount > 0 && (
-              <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-1.5">
+              <div className="flex items-center gap-1.5 text-xs text-warning bg-warning/15 border border-warning/20 rounded-md px-3 py-1.5">
                 <AlertTriangle className="size-3.5 shrink-0" />
                 {lowCount} item{lowCount !== 1 ? "s" : ""} below reorder level
               </div>
             )}
             {shortfall > 0 && (
-              <div className="flex items-center gap-1.5 text-xs text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-1.5">
+              <div className="flex items-center gap-1.5 text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-md px-3 py-1.5">
                 <TrendingDown className="size-3.5 shrink-0" />
                 {shortfall} raw material{shortfall !== 1 ? "s" : ""} have shortfall vs schedule
               </div>
@@ -469,16 +460,16 @@ export default function InventoryTypePage({ itemType, label, description, basePa
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
                     <div className="flex items-center gap-1">
                       <span className="text-muted-foreground">Available:</span>
-                      <span className={`font-medium ${low ? "text-amber-600" : short ? "text-red-600" : ""}`}>
+                      <span className={`font-medium ${low ? "text-warning" : short ? "text-destructive" : ""}`}>
                         {(low || short) && <AlertTriangle className="size-3 inline mr-0.5" />}
-                        {fmtQty(item.quantity_on_hand)} {item.unit}
+                        {fmtQty(item.quantity_on_hand)} {item.unit_name}
                       </span>
                     </div>
                     {showRMCols && item.required_qty != null && item.required_qty > 0 && (
                       <div>
                         <span className="text-muted-foreground">Required:</span>{" "}
-                        <span className={item.required_qty > item.quantity_on_hand ? "text-red-600 font-medium" : ""}>
-                          {fmtQty(item.required_qty)} {item.unit}
+                        <span className={item.required_qty > item.quantity_on_hand ? "text-destructive font-medium" : ""}>
+                          {fmtQty(item.required_qty)} {item.unit_name}
                         </span>
                       </div>
                     )}
@@ -504,15 +495,15 @@ export default function InventoryTypePage({ itemType, label, description, basePa
                   <div className="flex justify-end gap-0.5 pt-1 border-t">
                     <Button variant="ghost" size="icon" className="size-7" title="View Details"
                       onClick={() => router.push(`/dashboard/inventory/${item.id}`)}>
-                      <Eye className="size-3.5 text-blue-600" />
+                      <Eye className="size-3.5 text-primary" />
                     </Button>
                     <Button variant="ghost" size="icon" className="size-7" title="Add Stock"
                       onClick={() => { setAdjustType("add"); openAdjust(item); }}>
-                      <PackagePlus className="size-3.5 text-emerald-600" />
+                      <PackagePlus className="size-3.5 text-success" />
                     </Button>
                     <Button variant="ghost" size="icon" className="size-7" title="Remove Stock"
                       onClick={() => { setAdjustType("subtract"); openAdjust(item); }}>
-                      <PackageMinus className="size-3.5 text-amber-600" />
+                      <PackageMinus className="size-3.5 text-warning" />
                     </Button>
                     <Button variant="ghost" size="icon" className="size-7" title="Edit"
                       onClick={() => router.push(`/dashboard/inventory/${item.id}/edit`)}>
@@ -521,7 +512,7 @@ export default function InventoryTypePage({ itemType, label, description, basePa
                     {admin && (
                       <Button variant="ghost" size="icon" className="size-7" title="History"
                         onClick={() => openHistory(item)}>
-                        <History className="size-3.5 text-blue-600" />
+                        <History className="size-3.5 text-primary" />
                       </Button>
                     )}
                     <Button variant="ghost" size="icon"
@@ -587,18 +578,18 @@ export default function InventoryTypePage({ itemType, label, description, basePa
                           {!item.is_active && <span className="text-xs text-muted-foreground">(inactive)</span>}
                         </td>
                         <td className={["px-4 py-3 text-right tabular-nums font-medium",
-                          low ? "text-amber-600" : short ? "text-red-600" : ""].join(" ")}>
+                          low ? "text-warning" : short ? "text-destructive" : ""].join(" ")}>
                           <div className="flex items-center justify-end gap-1">
                             {(low || short) && <AlertTriangle className="size-3 shrink-0" />}
-                            {fmtQty(item.quantity_on_hand)} {item.unit}
+                            {fmtQty(item.quantity_on_hand)} {item.unit_name}
                           </div>
                         </td>
                         {showRMCols && (
                           <td className="px-4 py-3 text-right tabular-nums text-xs">
                             {item.required_qty != null && item.required_qty > 0 ? (
                               <span className={item.required_qty > item.quantity_on_hand
-                                ? "text-red-600 font-medium" : "text-muted-foreground"}>
-                                {fmtQty(item.required_qty)} {item.unit}
+                                ? "text-destructive font-medium" : "text-muted-foreground"}>
+                                {fmtQty(item.required_qty)} {item.unit_name}
                               </span>
                             ) : <span className="text-muted-foreground">—</span>}
                           </td>
@@ -633,15 +624,15 @@ export default function InventoryTypePage({ itemType, label, description, basePa
                           <div className="inline-flex gap-0.5">
                             <Button variant="ghost" size="icon" className="size-7" title="View Details"
                               onClick={() => router.push(`/dashboard/inventory/${item.id}`)}>
-                              <Eye className="size-3.5 text-blue-600" />
+                              <Eye className="size-3.5 text-primary" />
                             </Button>
                             <Button variant="ghost" size="icon" className="size-7" title="Add Stock"
                               onClick={() => { setAdjustType("add"); openAdjust(item); }}>
-                              <PackagePlus className="size-3.5 text-emerald-600" />
+                              <PackagePlus className="size-3.5 text-success" />
                             </Button>
                             <Button variant="ghost" size="icon" className="size-7" title="Remove Stock"
                               onClick={() => { setAdjustType("subtract"); openAdjust(item); }}>
-                              <PackageMinus className="size-3.5 text-amber-600" />
+                              <PackageMinus className="size-3.5 text-warning" />
                             </Button>
                             <Button variant="ghost" size="icon" className="size-7" title="Edit"
                               onClick={() => router.push(`/dashboard/inventory/${item.id}/edit`)}>
@@ -650,7 +641,7 @@ export default function InventoryTypePage({ itemType, label, description, basePa
                             {admin && (
                               <Button variant="ghost" size="icon" className="size-7" title="History"
                                 onClick={() => openHistory(item)}>
-                                <History className="size-3.5 text-blue-600" />
+                                <History className="size-3.5 text-primary" />
                               </Button>
                             )}
                             <Button variant="ghost" size="icon"
@@ -721,7 +712,7 @@ export default function InventoryTypePage({ itemType, label, description, basePa
           <DialogHeader className="mb-4">
             <DialogTitle>Adjust Stock — {adjustItem?.name}</DialogTitle>
             <p className="text-sm text-muted-foreground">
-              {adjustItem?.code} · Current: <strong>{fmtQty(adjustItem?.quantity_on_hand)} {adjustItem?.unit}</strong>
+              {adjustItem?.code} · Current: <strong>{fmtQty(adjustItem?.quantity_on_hand)} {adjustItem?.unit_name}</strong>
             </p>
           </DialogHeader>
           <div className="space-y-4">

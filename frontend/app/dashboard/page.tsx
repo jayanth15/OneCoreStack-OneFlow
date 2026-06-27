@@ -8,11 +8,10 @@ import {
   AlertTriangle, TrendingUp, ArrowUpRight, ArrowDownRight, Minus,
   Activity, FlaskConical, Paperclip, Scissors,
 } from "lucide-react";
-import {
-  BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-} from "recharts";
-import type { PieLabelRenderProps } from "recharts";
+import { StatCard } from "@/components/dashboard/stat-card";
+import { StatusBar } from "@/components/dashboard/status-bar";
+import { PageHeader } from "@/components/layout/page-header";
+import { CHART_COLORS } from "@/lib/theme";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -60,22 +59,6 @@ interface RecentProduction {
   work_date: string | null;
 }
 
-interface TopProduct {
-  product_name: string;
-  total_planned_qty: number;
-  plan_count: number;
-}
-
-interface DailyOutput {
-  date: string;
-  qty_produced: number;
-}
-
-interface DailyDispatch {
-  date: string;
-  qty_dispatched: number;
-}
-
 interface LowStockItem {
   id: number;
   code: string;
@@ -112,41 +95,24 @@ interface SparesCatSummary {
 
 interface DashboardData {
   overview: OverviewCounts;
-  schedule_status: StatusBreakdown;
   plan_status: StatusBreakdown;
-  order_status: StatusBreakdown;
   job_card_status: StatusBreakdown;
   inventory_by_type: InventoryByType[];
   recent_inventory: RecentInventory[];
   recent_production: RecentProduction[];
-  top_products: TopProduct[];
-  daily_production_output: DailyOutput[];
-  daily_dispatch_output: DailyDispatch[];
   low_stock_items: LowStockItem[];
 }
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 
-const STATUS_COLORS: Record<string, string> = {
-  pending: "#f59e0b",
-  confirmed: "#3b82f6",
-  in_production: "#8b5cf6",
-  delivered: "#10b981",
-  draft: "#94a3b8",
-  approved: "#3b82f6",
-  in_progress: "#f59e0b",
-  completed: "#10b981",
-  open: "#94a3b8",
-};
-
-const PIE_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
+const PIE_COLORS = CHART_COLORS;
 
 const CHANGE_ICON: Record<string, React.ReactNode> = {
-  add: <ArrowUpRight className="size-3.5 text-emerald-500" />,
-  subtract: <ArrowDownRight className="size-3.5 text-red-500" />,
-  create: <TrendingUp className="size-3.5 text-blue-500" />,
-  set: <Minus className="size-3.5 text-amber-500" />,
-  edit: <Minus className="size-3.5 text-slate-400" />,
+  add: <ArrowUpRight className="size-3.5 text-success" />,
+  subtract: <ArrowDownRight className="size-3.5 text-destructive" />,
+  create: <TrendingUp className="size-3.5 text-primary" />,
+  set: <Minus className="size-3.5 text-warning" />,
+  edit: <Minus className="size-3.5 text-muted-foreground" />,
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -159,18 +125,6 @@ const STATUS_LABEL: Record<string, string> = {
   delivered: "Delivered",
   draft: "Draft",
   approved: "Approved",
-};
-
-const STATUS_DOT: Record<string, string> = {
-  open: "bg-slate-400",
-  in_progress: "bg-amber-500",
-  completed: "bg-emerald-500",
-  pending: "bg-amber-500",
-  confirmed: "bg-blue-500",
-  in_production: "bg-violet-500",
-  delivered: "bg-emerald-500",
-  draft: "bg-slate-400",
-  approved: "bg-blue-500",
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -201,65 +155,6 @@ function timeAgo(iso: string) {
   const days = Math.floor(hrs / 24);
   if (days < 7) return `${days}d ago`;
   return d.toLocaleDateString();
-}
-
-// ── Stat card ─────────────────────────────────────────────────────────────────
-
-function StatCard({ label, value, icon, accent }: {
-  label: string; value: number | string;
-  icon: React.ReactNode; accent?: string;
-}) {
-  return (
-    <div className="rounded-xl border bg-card p-4 flex items-center gap-4 shadow-sm">
-      <div className={`flex size-10 items-center justify-center rounded-lg ${accent ?? "bg-primary/10 text-primary"}`}>
-        {icon}
-      </div>
-      <div>
-        <p className="text-2xl font-bold leading-none tracking-tight">{value}</p>
-        <p className="text-xs text-muted-foreground mt-1">{label}</p>
-      </div>
-    </div>
-  );
-}
-
-// ── Status bar ────────────────────────────────────────────────────────────────
-
-function StatusBar({ data, title }: { data: StatusBreakdown; title: string }) {
-  const total = Object.values(data).reduce((s, v) => s + v, 0);
-  if (total === 0) return (
-    <div className="space-y-2">
-      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{title}</p>
-      <p className="text-xs text-muted-foreground">—</p>
-    </div>
-  );
-  return (
-    <div className="space-y-2">
-      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{title}</p>
-      <div className="flex h-3 rounded-full overflow-hidden bg-muted">
-        {Object.entries(data).map(([status, count]) =>
-          count > 0 ? (
-            <div
-              key={status}
-              className="h-full transition-all"
-              style={{
-                width: `${(count / total) * 100}%`,
-                backgroundColor: STATUS_COLORS[status] ?? "#94a3b8",
-              }}
-              title={`${STATUS_LABEL[status] ?? status}: ${count}`}
-            />
-          ) : null
-        )}
-      </div>
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
-        {Object.entries(data).map(([status, count]) => (
-          <span key={status} className="flex items-center gap-1.5">
-            <span className={`size-2 rounded-full ${STATUS_DOT[status] ?? "bg-slate-400"}`} />
-            {STATUS_LABEL[status] ?? status} <span className="font-medium">{count}</span>
-          </span>
-        ))}
-      </div>
-    </div>
-  );
 }
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
@@ -340,9 +235,7 @@ export default function DashboardPage() {
   if (error) {
     return (
       <>
-        <header className="sticky top-0 z-10 bg-background flex h-16 shrink-0 items-center border-b px-6">
-          <h1 className="text-base font-semibold">Dashboard</h1>
-        </header>
+        <PageHeader title="Dashboard" />
         <div className="p-6"><p className="text-sm text-destructive">{error}</p></div>
       </>
     );
@@ -351,9 +244,7 @@ export default function DashboardPage() {
   if (!data) {
     return (
       <>
-        <header className="sticky top-0 z-10 bg-background flex h-16 shrink-0 items-center border-b px-6">
-          <h1 className="text-base font-semibold">Dashboard</h1>
-        </header>
+        <PageHeader title="Dashboard" />
         <DashSkeleton />
       </>
     );
@@ -361,44 +252,31 @@ export default function DashboardPage() {
 
   const { overview: o } = data;
 
-  // Prepare chart data
-  const scheduleChartData = Object.entries(data.schedule_status)
-    .filter(([, v]) => v > 0)
-    .map(([name, value]) => ({ name: STATUS_LABEL[name] ?? name, value }));
-
-  const inventoryPieData = data.inventory_by_type.map((t) => ({
-    name: formatType(t.item_type),
-    value: t.count,
-  }));
-
-  const topProductsChart = data.top_products.map((p) => ({
-    name: p.product_name.length > 20 ? p.product_name.slice(0, 18) + "…" : p.product_name,
-    qty: p.total_planned_qty,
-  }));
-
   return (
     <>
-      <header className="sticky top-0 z-10 bg-background flex h-16 shrink-0 items-center border-b px-6 md:pr-64">
-        <h1 className="text-base font-semibold">Dashboard</h1>
-        <span className="ml-auto text-xs text-muted-foreground">
-          Last refreshed: {new Date().toLocaleTimeString()}
-        </span>
-      </header>
+      <PageHeader
+        title="Dashboard"
+        actions={
+          <span className="text-xs text-muted-foreground">
+            Last refreshed: {new Date().toLocaleTimeString()}
+          </span>
+        }
+      />
 
       <div className="flex flex-col gap-6 p-4 md:p-6 overflow-auto">
 
         {/* ── KPI Cards Row 1 ─────────────────────────────────────────── */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
           <StatCard label="Vendors" value={o.total_vendors}
-            icon={<Users className="size-5" />} accent="bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400" />
+            icon={<Users className="size-5" />} tone="violet" />
           <StatCard label="Schedules" value={o.total_schedules}
-            icon={<Calendar className="size-5" />} accent="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" />
+            icon={<Calendar className="size-5" />} tone="blue" />
           <StatCard label="Production Plans" value={o.total_plans}
-            icon={<ClipboardList className="size-5" />} accent="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" />
+            icon={<ClipboardList className="size-5" />} tone="amber" />
           <StatCard label="Production Orders" value={o.total_orders}
-            icon={<Factory className="size-5" />} accent="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" />
+            icon={<Factory className="size-5" />} tone="emerald" />
           <StatCard label="Job Cards" value={o.total_job_cards}
-            icon={<Wrench className="size-5" />} accent="bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400" />
+            icon={<Wrench className="size-5" />} tone="blue" />
         </div>
 
         {/* ── KPI Cards Row 2 ─────────────────────────────────────────── */}
@@ -406,17 +284,17 @@ export default function DashboardPage() {
           <StatCard label="Inventory Items" value={o.total_inventory_items}
             icon={<Package className="size-5" />} />
           <StatCard label="Raw Materials" value={o.raw_materials}
-            icon={<Package className="size-5" />} accent="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400" />
+            icon={<Package className="size-5" />} tone="amber" />
           <StatCard label="Semi Finished" value={o.semi_finished}
-            icon={<Package className="size-5" />} accent="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400" />
+            icon={<Package className="size-5" />} tone="violet" />
           <StatCard label="Finished Goods" value={o.finished_goods}
-            icon={<Package className="size-5" />} accent="bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400" />
+            icon={<Package className="size-5" />} tone="emerald" />
           {o.low_stock_alerts > 0 ? (
             <StatCard label="Low Stock Alerts" value={o.low_stock_alerts}
-              icon={<AlertTriangle className="size-5" />} accent="bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400" />
+              icon={<AlertTriangle className="size-5" />} tone="destructive" />
           ) : (
             <StatCard label="Low Stock Alerts" value="None"
-              icon={<AlertTriangle className="size-5" />} accent="bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400" />
+              icon={<AlertTriangle className="size-5" />} tone="success" />
           )}
         </div>
 
@@ -425,7 +303,7 @@ export default function DashboardPage() {
           {/* Spares card */}
           <div className="rounded-xl border bg-card p-4 shadow-sm">
             <div className="flex items-center gap-2 mb-3">
-              <div className="flex size-8 items-center justify-center rounded-lg bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
+              <div className="flex size-8 items-center justify-center rounded-lg bg-tone-violet/10 text-tone-violet">
                 <Wrench className="size-4" />
               </div>
               <p className="text-sm font-semibold">Spares</p>
@@ -448,7 +326,7 @@ export default function DashboardPage() {
                 <div>
                   {isAdminOrAbove() && sparesStats.total_value > 0 ? (
                     <>
-                      <p className="text-xl font-bold text-emerald-600 cursor-help" title={fmtCurrencyFull(sparesStats.total_value)}>{fmtCurrencyShort(sparesStats.total_value)}</p>
+                      <p className="text-xl font-bold text-success cursor-help" title={fmtCurrencyFull(sparesStats.total_value)}>{fmtCurrencyShort(sparesStats.total_value)}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">Value</p>
                     </>
                   ) : (
@@ -465,7 +343,7 @@ export default function DashboardPage() {
           {/* Consumables card */}
           <div className="rounded-xl border bg-card p-4 shadow-sm">
             <div className="flex items-center gap-2 mb-3">
-              <div className="flex size-8 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+              <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <FlaskConical className="size-4" />
               </div>
               <p className="text-sm font-semibold">Consumables</p>
@@ -486,7 +364,7 @@ export default function DashboardPage() {
                   <p className="text-xs text-muted-foreground mt-0.5">Items</p>
                 </div>
                 <div>
-                  <p className={`text-xl font-bold ${consumablesLowStock > 0 ? "text-amber-600" : ""}`}>
+                  <p className={`text-xl font-bold ${consumablesLowStock > 0 ? "text-warning" : ""}`}>
                     {consumablesLowStock > 0 ? consumablesLowStock : "—"}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">Low Stock</p>
@@ -494,7 +372,7 @@ export default function DashboardPage() {
                 <div>
                   {isAdminOrAbove() && consumablesValue !== null && consumablesValue > 0 ? (
                     <>
-                      <p className="text-xl font-bold text-emerald-600 cursor-help" title={fmtCurrencyFull(consumablesValue!)}>{fmtCurrencyShort(consumablesValue!)}</p>
+                      <p className="text-xl font-bold text-success cursor-help" title={fmtCurrencyFull(consumablesValue!)}>{fmtCurrencyShort(consumablesValue!)}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">Value</p>
                     </>
                   ) : (
@@ -511,7 +389,7 @@ export default function DashboardPage() {
           {/* Attachments card */}
           <div className="rounded-xl border bg-card p-4 shadow-sm">
             <div className="flex items-center gap-2 mb-3">
-              <div className="flex size-8 items-center justify-center rounded-lg bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+              <div className="flex size-8 items-center justify-center rounded-lg bg-tone-amber/15 text-tone-amber">
                 <Paperclip className="size-4" />
               </div>
               <p className="text-sm font-semibold">Attachments</p>
@@ -532,7 +410,7 @@ export default function DashboardPage() {
                   <p className="text-xs text-muted-foreground mt-0.5">Items</p>
                 </div>
                 <div>
-                  <p className={`text-xl font-bold ${attachmentsLowStock > 0 ? "text-amber-600" : ""}`}>
+                  <p className={`text-xl font-bold ${attachmentsLowStock > 0 ? "text-warning" : ""}`}>
                     {attachmentsLowStock > 0 ? attachmentsLowStock : "—"}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">Low Stock</p>
@@ -540,7 +418,7 @@ export default function DashboardPage() {
                 <div>
                   {isAdminOrAbove() && attachmentsValue !== null && attachmentsValue > 0 ? (
                     <>
-                      <p className="text-xl font-bold text-emerald-600 cursor-help" title={fmtCurrencyFull(attachmentsValue!)}>{fmtCurrencyShort(attachmentsValue!)}</p>
+                      <p className="text-xl font-bold text-success cursor-help" title={fmtCurrencyFull(attachmentsValue!)}>{fmtCurrencyShort(attachmentsValue!)}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">Value</p>
                     </>
                   ) : (
@@ -557,7 +435,7 @@ export default function DashboardPage() {
           {/* Weeders card */}
           <div className="rounded-xl border bg-card p-4 shadow-sm">
             <div className="flex items-center gap-2 mb-3">
-              <div className="flex size-8 items-center justify-center rounded-lg bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400">
+              <div className="flex size-8 items-center justify-center rounded-lg bg-tone-emerald/10 text-tone-emerald">
                 <Scissors className="size-4" />
               </div>
               <p className="text-sm font-semibold">Weeders</p>
@@ -578,7 +456,7 @@ export default function DashboardPage() {
                   <p className="text-xs text-muted-foreground mt-0.5">Items</p>
                 </div>
                 <div>
-                  <p className={`text-xl font-bold ${weedersLowStock > 0 ? "text-amber-600" : ""}`}>
+                  <p className={`text-xl font-bold ${weedersLowStock > 0 ? "text-warning" : ""}`}>
                     {weedersLowStock > 0 ? weedersLowStock : "—"}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">Low Stock</p>
@@ -586,7 +464,7 @@ export default function DashboardPage() {
                 <div>
                   {isAdminOrAbove() && weedersValue !== null && weedersValue > 0 ? (
                     <>
-                      <p className="text-xl font-bold text-emerald-600 cursor-help" title={fmtCurrencyFull(weedersValue!)}>{fmtCurrencyShort(weedersValue!)}</p>
+                      <p className="text-xl font-bold text-success cursor-help" title={fmtCurrencyFull(weedersValue!)}>{fmtCurrencyShort(weedersValue!)}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">Value</p>
                     </>
                   ) : (
@@ -612,7 +490,7 @@ export default function DashboardPage() {
                     {t.total_qty.toLocaleString()} units
                   </p>
                   {t.total_value != null && t.total_value > 0 && (
-                    <p className="text-sm font-medium text-emerald-600 mt-0.5 cursor-help" title={fmtCurrencyFull(t.total_value)}>
+                    <p className="text-sm font-medium text-success mt-0.5 cursor-help" title={fmtCurrencyFull(t.total_value)}>
                       {fmtCurrencyShort(t.total_value)}
                     </p>
                   )}
@@ -623,127 +501,11 @@ export default function DashboardPage() {
         )}
         {/* ── Status Bars ────────────────────────────────────────────────── */}
         <div className="grid md:grid-cols-2 gap-4">
-          <div className="rounded-xl border bg-card p-4 shadow-sm space-y-4">
-            <StatusBar data={data.schedule_status} title="Schedule Status" />
-            <StatusBar data={data.plan_status} title="Plan Status" />
-          </div>
-          <div className="rounded-xl border bg-card p-4 shadow-sm space-y-4">
-            <StatusBar data={data.order_status} title="Order Status" />
-            <StatusBar data={data.job_card_status} title="Job Card Status" />
-          </div>
+          <StatusBar data={data.plan_status} title="Plan Status" />
+          <StatusBar data={data.job_card_status} title="Job Card Status" />
         </div>
 
-        {/* ── Charts Row ─────────────────────────────────────────────────── */}
-        <div className="grid md:grid-cols-2 gap-4">
 
-          {/* Schedule status pie */}
-          <div className="rounded-xl border bg-card p-4 shadow-sm">
-            <p className="text-sm font-semibold mb-3">Schedule Distribution</p>
-            {scheduleChartData.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-10">No schedules yet</p>
-            ) : (
-              <ResponsiveContainer width="100%" height={220}>
-                <PieChart>
-                  <Pie data={scheduleChartData} dataKey="value" nameKey="name"
-                    cx="50%" cy="50%" outerRadius={80} innerRadius={40} paddingAngle={2}
-                    label={(props: PieLabelRenderProps) => `${props.name ?? ""} ${((props.percent ?? 0) * 100).toFixed(0)}%`}>
-                    {scheduleChartData.map((_, i) => (
-                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-
-          {/* Inventory by type pie */}
-          <div className="rounded-xl border bg-card p-4 shadow-sm">
-            <p className="text-sm font-semibold mb-3">Inventory Composition</p>
-            {inventoryPieData.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-10">No inventory items</p>
-            ) : (
-              <ResponsiveContainer width="100%" height={220}>
-                <PieChart>
-                  <Pie data={inventoryPieData} dataKey="value" nameKey="name"
-                    cx="50%" cy="50%" outerRadius={80} innerRadius={40} paddingAngle={2}
-                    label={(props: PieLabelRenderProps) => `${props.name ?? ""} ${((props.percent ?? 0) * 100).toFixed(0)}%`}>
-                    {inventoryPieData.map((_, i) => (
-                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
-
-        {/* ── Production Output Chart ────────────────────────────────────── */}
-        <div className="rounded-xl border bg-card p-4 shadow-sm">
-          <p className="text-sm font-semibold mb-3">Daily Production Output (last 30 days)</p>
-          {data.daily_production_output.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-10">No production output recorded yet</p>
-          ) : (
-            <ResponsiveContainer width="100%" height={250}>
-              <AreaChart data={data.daily_production_output}>
-                <defs>
-                  <linearGradient id="colorQty" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(d: string) => d.slice(5)} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip />
-                <Area type="monotone" dataKey="qty_produced" stroke="#3b82f6" fill="url(#colorQty)"
-                  strokeWidth={2} name="Qty Produced" />
-              </AreaChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-
-        {/* ── Sales / Dispatch Graph (last 30 days) ────────────────────── */}
-        <div className="rounded-xl border bg-card p-4 shadow-sm">
-          <p className="text-sm font-semibold mb-3">Sales / Dispatch (last 30 days)</p>
-          {data.daily_dispatch_output.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-10">No dispatches recorded yet</p>
-          ) : (
-            <ResponsiveContainer width="100%" height={250}>
-              <AreaChart data={data.daily_dispatch_output}>
-                <defs>
-                  <linearGradient id="colorDispatch" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(d: string) => d.slice(5)} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip />
-                <Area type="monotone" dataKey="qty_dispatched" stroke="#10b981" fill="url(#colorDispatch)"
-                  strokeWidth={2} name="Qty Dispatched" />
-              </AreaChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-
-        {/* ── Top Products Bar Chart ─────────────────────────────────────── */}
-        {topProductsChart.length > 0 && (
-          <div className="rounded-xl border bg-card p-4 shadow-sm">
-            <p className="text-sm font-semibold mb-3">Top Products by Planned Quantity</p>
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={topProductsChart} layout="vertical" margin={{ left: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                <XAxis type="number" tick={{ fontSize: 11 }} />
-                <YAxis dataKey="name" type="category" width={130} tick={{ fontSize: 11 }} />
-                <Tooltip />
-                <Bar dataKey="qty" fill="#8b5cf6" radius={[0, 4, 4, 0]} name="Planned Qty" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        )}
       </div>
     </>
   );
