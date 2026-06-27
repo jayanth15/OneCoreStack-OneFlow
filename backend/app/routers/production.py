@@ -67,7 +67,7 @@ def _next_card_number(session: Session) -> str:
 
 _JOB_CARD_TRACKED_FIELDS = [
     "process_name", "tool_die_number", "machine_name", "worker_name",
-    "hours_worked", "qty_produced", "qty_pending", "work_date", "notes",
+    "hours_worked", "qty_produced", "actual_qty", "qty_pending", "work_date", "notes",
     "status", "is_active",
 ]
 
@@ -145,7 +145,7 @@ def _propagate_statuses(order_id: int, session: Session) -> None:
 
     Rules:
     - Order: ANY active card in_progress → order in_progress.
-             ALL active cards completed → order completed.
+             ALL active cards completed + FG qty met → order completed.
     - Plan:  ANY active order in_progress → plan in_progress.
              ALL active orders completed → plan completed.
     - Schedule: plan goes in_progress → schedule in_production.
@@ -161,20 +161,34 @@ def _propagate_statuses(order_id: int, session: Session) -> None:
         .where(JobCard.production_order_id == order_id, JobCard.is_active == True)  # noqa: E712
     ).all())
 
+    plan = session.get(ProductionPlan, order.production_plan_id)
+
     if cards:
         all_completed = all(c.status == "completed" for c in cards)
-        any_in_progress = any(c.status == "in_progress" for c in cards)
-        any_completed = any(c.status == "completed" for c in cards)
 
-        if all_completed and order.status != "completed":
+        # Compute effective FG qty (MIN across processes using actual_qty)
+        effective_qty = 0.0
+        if plan:
+            processes = list(session.exec(
+                select(ProductionProcess)
+                .where(ProductionProcess.plan_id == plan.id)
+            ).all())
+            per_process: dict[str, float] = {}
+            for p in processes:
+                per_process[p.name] = 0.0
+            for c in cards:
+                if c.process_name in per_process:
+                    per_process[c.process_name] += c.actual_qty
+            effective_qty = min(per_process.values()) if per_process else sum(c.actual_qty for c in cards)
+
+        fg_complete = effective_qty >= (plan.planned_qty if plan else 0)
+
+        if all_completed and fg_complete and order.status != "completed":
             order.status = "completed"
             session.add(order)
-        elif (any_in_progress or any_completed) and order.status == "open":
+        elif not all_completed and order.status == "open":
             order.status = "in_progress"
             session.add(order)
-
-    # ── Plan status from its orders ──
-    plan = session.get(ProductionPlan, order.production_plan_id)
     if not plan:
         return
 
@@ -326,15 +340,15 @@ def _recalc_fg_for_order(order: ProductionOrder, session: Session) -> None:
 
         if not processes:
             # No processes defined: legacy MIN across all cards
-            new_effective = min(c.qty_produced for c in cards)
+            new_effective = min(c.actual_qty for c in cards)
         else:
-            # Sum qty_produced per process; processes with no cards get 0
+            # Sum actual_qty per process; processes with no cards get 0
             per_process: dict[str, float] = {}
             for p in processes:
                 per_process[p.name] = 0.0
             for c in cards:
                 if c.process_name in per_process:
-                    per_process[c.process_name] += c.qty_produced
+                    per_process[c.process_name] += c.actual_qty
             # effective = minimum across all defined processes
             new_effective = min(per_process.values())
 
@@ -910,6 +924,7 @@ class JobCardResponse(BaseModel):
     worker_names: list[str] = []
     hours_worked: float
     qty_produced: float
+    actual_qty: float = 0.0
     qty_pending: float
     work_date: Optional[str]
     notes: Optional[str]
@@ -1171,6 +1186,7 @@ class JobCardCreate(BaseModel):
     worker_names: list[str] = []   # multi-worker support
     hours_worked: float = 0.0
     qty_produced: float = 0.0
+    actual_qty: float = 0.0
     work_date: Optional[str] = None
     notes: Optional[str] = None
     is_active: bool = True
@@ -1187,6 +1203,7 @@ class JobCardUpdate(BaseModel):
     worker_names: Optional[list[str]] = None   # multi-worker support
     hours_worked: Optional[float] = None
     qty_produced: Optional[float] = None
+    actual_qty: Optional[float] = None
     work_date: Optional[str] = None
     notes: Optional[str] = None
     is_active: Optional[bool] = None
@@ -1297,7 +1314,7 @@ def create_job(
             JobCard.is_active == True,  # noqa: E712
         )
     ).all())
-    total_for_process = sum(c.qty_produced for c in same_process_cards)
+    total_for_process = sum(c.actual_qty for c in same_process_cards)
     job.qty_pending = max(0.0, round(planned_qty - total_for_process, 4))
     if total_for_process <= 0:
         job.status = "open"
@@ -1413,7 +1430,7 @@ def update_job(
                     JobCard.is_active == True,  # noqa: E712
                 )
             ).all())
-            total_for_process = sum(c.qty_produced for c in same_process_cards)
+            total_for_process = sum(c.actual_qty for c in same_process_cards)
             job.qty_pending = max(0.0, round(plan.planned_qty - total_for_process, 4))
             if total_for_process <= 0:
                 job.status = "open"

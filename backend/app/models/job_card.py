@@ -23,6 +23,7 @@ class JobCard(SQLModel, table=True):
     worker_names: Optional[str] = None         # JSON array of worker usernames e.g. '["alice","bob"]'
     hours_worked: float = Field(default=0.0)   # total hours worked
     qty_produced: float = Field(default=0.0)   # quantity produced in this job card
+    actual_qty: float = Field(default=0.0)     # user-entered actual count
     qty_pending: float = Field(default=0.0)    # remaining quantity
 
     work_date: Optional[str] = None             # ISO date "YYYY-MM-DD" – the date hours were logged
