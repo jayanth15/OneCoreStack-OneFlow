@@ -732,19 +732,22 @@ export default function SparesPage() {
     r.readAsDataURL(file);
   }
 
-  function printCycleCount() {
+  async function printCycleCount() {
     const win = window.open("", "_blank");
     if (!win) return;
 
+    // Fetch all data from API for the print — don't rely on UI state
+    const allCats = await apiFetchJson<any[]>("/api/v1/spares/categories?page_size=200").catch(() => []);
     const rows: string[] = [];
-    categories.forEach(cat => {
-      const subs = subsMap.get(cat.id) || [];
-      subs.forEach(sub => {
-        const itemList = itemsMap.get(sub.id) || [];
-        itemList.forEach(item => {
-          const variants = searchVariantsMap.get(item.id) || [];
+
+    for (const cat of allCats) {
+      const subs = await apiFetchJson<any[]>(`/api/v1/spares/categories/${cat.id}/sub-categories?page_size=200`).catch(() => []);
+      for (const sub of subs) {
+        const items = await apiFetchJson<any>(`/api/v1/spares/sub-categories/${sub.id}/items?page_size=200&include_inactive=false`).catch(() => ({ items: [] }));
+        for (const item of (items.items || [])) {
+          const variants = await apiFetchJson<any[]>(`/api/v1/spares/items/${item.id}/variants`).catch(() => []);
           if (variants.length > 0) {
-            variants.forEach(v => {
+            variants.forEach((v: any) => {
               rows.push(`<tr>
                 <td>${cat.name}</td>
                 <td>${sub.name}</td>
@@ -764,9 +767,9 @@ export default function SparesPage() {
               <td style="text-align:center"><span class="counted">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td>
             </tr>`);
           }
-        });
-      });
-    });
+        }
+      }
+    }
 
     win.document.write(`<html><head><title>Spares Cycle Count</title>
       <style>
