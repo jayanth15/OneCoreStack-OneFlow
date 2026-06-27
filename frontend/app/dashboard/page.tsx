@@ -314,7 +314,7 @@ export default function DashboardPage() {
             ) : sparesStats.items === 0 ? (
               <p className="text-xs text-muted-foreground text-center py-3">No inventory items</p>
             ) : (
-              <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(0,1fr))] gap-3 text-center">
                 <div>
                   <p className="text-xl font-bold">{sparesStats.categories}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">Categories</p>
@@ -323,19 +323,21 @@ export default function DashboardPage() {
                   <p className="text-xl font-bold">{sparesStats.items}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">Items</p>
                 </div>
-                <div>
-                  {isAdminOrAbove() && sparesStats.total_value > 0 ? (
-                    <>
-                      <p className="text-xl font-bold text-success cursor-help" title={fmtCurrencyFull(sparesStats.total_value)}>{fmtCurrencyShort(sparesStats.total_value)}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">Value</p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-xl font-bold">—</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">Value</p>
-                    </>
-                  )}
-                </div>
+                {isAdminOrAbove() && (
+                  <div>
+                    {sparesStats.total_value > 0 ? (
+                      <>
+                        <p className="text-xl font-bold text-success cursor-help" title={fmtCurrencyFull(sparesStats.total_value)}>{fmtCurrencyShort(sparesStats.total_value)}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Value</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-xl font-bold">—</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Value</p>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -358,7 +360,7 @@ export default function DashboardPage() {
                 <span className="size-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:300ms]"/>
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(0,1fr))] gap-3 text-center">
                 <div>
                   <p className="text-xl font-bold">{consumablesTotal}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">Items</p>
@@ -369,19 +371,21 @@ export default function DashboardPage() {
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">Low Stock</p>
                 </div>
-                <div>
-                  {isAdminOrAbove() && consumablesValue !== null && consumablesValue > 0 ? (
-                    <>
-                      <p className="text-xl font-bold text-success cursor-help" title={fmtCurrencyFull(consumablesValue!)}>{fmtCurrencyShort(consumablesValue!)}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">Value</p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-xl font-bold">—</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">Value</p>
-                    </>
-                  )}
-                </div>
+                {isAdminOrAbove() && (
+                  <div>
+                    {consumablesValue !== null && consumablesValue > 0 ? (
+                      <>
+                        <p className="text-xl font-bold text-success cursor-help" title={fmtCurrencyFull(consumablesValue!)}>{fmtCurrencyShort(consumablesValue!)}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Value</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-xl font-bold">—</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Value</p>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -404,7 +408,7 @@ export default function DashboardPage() {
                 <span className="size-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:300ms]"/>
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(0,1fr))] gap-3 text-center">
                 <div>
                   <p className="text-xl font-bold">{attachmentsTotal}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">Items</p>
@@ -415,19 +419,21 @@ export default function DashboardPage() {
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">Low Stock</p>
                 </div>
-                <div>
-                  {isAdminOrAbove() && attachmentsValue !== null && attachmentsValue > 0 ? (
-                    <>
-                      <p className="text-xl font-bold text-success cursor-help" title={fmtCurrencyFull(attachmentsValue!)}>{fmtCurrencyShort(attachmentsValue!)}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">Value</p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-xl font-bold">—</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">Value</p>
-                    </>
-                  )}
-                </div>
+                {isAdminOrAbove() && (
+                  <div>
+                    {attachmentsValue !== null && attachmentsValue > 0 ? (
+                      <>
+                        <p className="text-xl font-bold text-success cursor-help" title={fmtCurrencyFull(attachmentsValue!)}>{fmtCurrencyShort(attachmentsValue!)}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Value</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-xl font-bold">—</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Value</p>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -450,7 +456,7 @@ export default function DashboardPage() {
                 <span className="size-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:300ms]"/>
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(0,1fr))] gap-3 text-center">
                 <div>
                   <p className="text-xl font-bold">{weedersTotal}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">Items</p>
@@ -461,19 +467,21 @@ export default function DashboardPage() {
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">Low Stock</p>
                 </div>
-                <div>
-                  {isAdminOrAbove() && weedersValue !== null && weedersValue > 0 ? (
-                    <>
-                      <p className="text-xl font-bold text-success cursor-help" title={fmtCurrencyFull(weedersValue!)}>{fmtCurrencyShort(weedersValue!)}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">Value</p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-xl font-bold">—</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">Value</p>
-                    </>
-                  )}
-                </div>
+                {isAdminOrAbove() && (
+                  <div>
+                    {weedersValue !== null && weedersValue > 0 ? (
+                      <>
+                        <p className="text-xl font-bold text-success cursor-help" title={fmtCurrencyFull(weedersValue!)}>{fmtCurrencyShort(weedersValue!)}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Value</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-xl font-bold">—</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Value</p>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
