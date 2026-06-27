@@ -16,6 +16,7 @@ from sqlmodel import Session, select
 
 from app.core.database import get_session
 from app.dependencies.auth import get_current_user, require_admin
+from app.models.unit import Unit
 from app.models.vendor import Vendor
 from app.models.inventory import InventoryItem
 from app.models.schedule import Schedule
@@ -65,6 +66,7 @@ def _product_summary(schedules: list[Schedule], session: Session) -> list[dict[s
             s.scheduled_date for s in scheds if s.status in ACTIVE_STATUSES
         )
 
+        fg_unit = session.get(Unit, fg.unit_id) if fg and fg.unit_id else None
         result.append({
             "product_name": product_name,
             "total_schedules": len(scheds),
@@ -76,7 +78,8 @@ def _product_summary(schedules: list[Schedule], session: Session) -> list[dict[s
             "status_counts": statuses,
             "fg_item_id": fg.id if fg else None,
             "fg_available_qty": fg.quantity_on_hand if fg else None,
-            "fg_unit": fg.unit if fg else None,
+            "fg_unit_id": fg.unit_id if fg else None,
+            "fg_unit_name": fg_unit.name if fg_unit else None,
             "fg_code": fg.code if fg else None,
         })
     return result
@@ -246,6 +249,15 @@ def get_vendor_detail(
     ).all()) if schedule_product_names else []
 
     seen_fg_ids: set[int] = set()
+    fg_unit_cache: dict[int, str | None] = {}
+    def _fg_unit_name(fg_id: int | None) -> str | None:
+        if fg_id is None:
+            return None
+        if fg_id not in fg_unit_cache:
+            u = session.get(Unit, fg_id)
+            fg_unit_cache[fg_id] = u.name if u else None
+        return fg_unit_cache[fg_id]
+
     fg_items_list = []
     for fg in fg_items_direct + fg_items_by_schedule:
         if fg.id in seen_fg_ids:
@@ -256,7 +268,8 @@ def get_vendor_detail(
             "code": fg.code,
             "name": fg.name,
             "item_type": fg.item_type,
-            "unit": fg.unit,
+            "unit_id": fg.unit_id,
+            "unit_name": _fg_unit_name(fg.unit_id),
             "quantity_on_hand": fg.quantity_on_hand,
             "is_active": fg.is_active,
             "has_design_drawing": fg.design_drawing_pdf is not None,
