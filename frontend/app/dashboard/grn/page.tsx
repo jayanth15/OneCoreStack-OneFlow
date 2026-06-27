@@ -77,6 +77,18 @@ interface GRNRecord {
   items: GRNItem[];
 }
 
+interface CompanyInfo {
+  company_name: string;
+  company_address: string;
+  company_city: string;
+  company_state: string;
+  company_country: string;
+  company_pincode: string;
+  company_phone: string;
+  company_email: string;
+  company_gstin: string;
+}
+
 interface PaginatedGRN {
   items: GRNRecord[];
   total: number;
@@ -235,6 +247,7 @@ const INV_TYPE_OPTIONS = [
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function GRNPage() {
+  const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [data, setData] = useState<PaginatedGRN | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -280,6 +293,7 @@ export default function GRNPage() {
   useEffect(() => {
     const user = getCurrentUser();
     if (user) setCanManage(user.grn_access === true);
+    apiFetchJson<CompanyInfo>("/api/v1/settings/company").then(setCompanyInfo).catch(() => {});
   }, []);
 
   const fetchData = useCallback(() => {
@@ -497,6 +511,15 @@ export default function GRNPage() {
     const totalReceived = grn.items.reduce((s, it) => s + it.quantity_received, 0);
     const totalFilled = grn.items.reduce((s, it) => s + it.quantity_filled, 0);
     const totalReturned = grn.items.reduce((s, it) => s + it.quantity_returned, 0);
+    const co = companyInfo;
+    const coHtml = (co && co.company_name) ? `
+      <div style="text-align:center;margin-bottom:20px;padding-bottom:10px;border-bottom:2px solid #333;">
+        <h1 style="margin:0;font-size:20px;font-weight:bold;">${co.company_name}</h1>
+        <p style="margin:4px 0;">${[co.company_address, co.company_city, co.company_state].filter(Boolean).join(', ')}${co.company_pincode ? ' - ' + co.company_pincode : ''}</p>
+        <p style="margin:2px 0;font-size:12px;">
+          ${[co.company_phone ? `Phone: ${co.company_phone}` : '', co.company_email ? `Email: ${co.company_email}` : '', co.company_gstin ? `GST: ${co.company_gstin}` : ''].filter(Boolean).join(' | ')}
+        </p>
+      </div>` : '';
     win.document.write(`<!DOCTYPE html><html><head><title>GRN — ${grn.grn_number}</title>
 <style>
   body { font-family: Arial, sans-serif; font-size: 13px; margin: 24px; color: #111; }
@@ -510,6 +533,7 @@ export default function GRNPage() {
   .text-right { text-align: right; }
   @media print { body { margin: 0; } }
 </style></head><body>
+${coHtml}
 <h2>Goods Received Note — ${grn.grn_number}</h2>
 <p style="color:#666;font-size:11px">Generated on ${new Date().toLocaleString("en-IN")}</p>
 <div class="row">

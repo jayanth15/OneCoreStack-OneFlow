@@ -71,6 +71,18 @@ interface DispatchFormState {
   request_sn_no: string;
 }
 
+interface CompanyInfo {
+  company_name: string;
+  company_address: string;
+  company_city: string;
+  company_state: string;
+  company_country: string;
+  company_pincode: string;
+  company_phone: string;
+  company_email: string;
+  company_gstin: string;
+}
+
 interface NameOption { id: number; name: string; }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -119,6 +131,7 @@ export default function DispatchPage() {
     if (!isAdminOrAbove() && !user.dispatch_access) router.replace("/dashboard");
   }, [router]);
 
+  const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [items, setItems] = useState<Dispatch[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -156,6 +169,7 @@ export default function DispatchPage() {
   useEffect(() => { load(); }, [search, statusFilter]);
 
   useEffect(() => {
+    apiFetchJson<CompanyInfo>("/api/v1/settings/company").then(setCompanyInfo).catch(() => {});
     apiFetchJson<NameOption[]>("/api/v1/vendors/names").then(setVendors).catch(() => {});
     apiFetchJson<{ id: number; sn_no: string; dispatch: { customer_name: string | null; inventory_type: string; item_sn_no: string | null; quantity: number } | null }[]>(
       "/api/v1/requests?request_type=customer_dispatch&status=approved"
@@ -282,6 +296,15 @@ export default function DispatchPage() {
     const partyLabel = d.party_type === "vendor" ? "Vendor" : "Supplier";
     const win = window.open("", "_blank", "width=800,height=600");
     if (!win) return;
+    const co = companyInfo;
+    const coHtml = (co && co.company_name) ? `
+      <div style="text-align:center;margin-bottom:20px;padding-bottom:10px;border-bottom:2px solid #333;">
+        <h1 style="margin:0;font-size:20px;font-weight:bold;">${co.company_name}</h1>
+        <p style="margin:4px 0;">${[co.company_address, co.company_city, co.company_state].filter(Boolean).join(', ')}${co.company_pincode ? ' - ' + co.company_pincode : ''}</p>
+        <p style="margin:2px 0;font-size:12px;">
+          ${[co.company_phone ? `Phone: ${co.company_phone}` : '', co.company_email ? `Email: ${co.company_email}` : '', co.company_gstin ? `GST: ${co.company_gstin}` : ''].filter(Boolean).join(' | ')}
+        </p>
+      </div>` : '';
     win.document.write(`<!DOCTYPE html><html><head><title>Dispatch &mdash; ${d.dispatch_number}</title>
 <style>
   body { font-family: Arial, sans-serif; font-size: 13px; margin: 24px; color: #111; }
@@ -294,6 +317,7 @@ export default function DispatchPage() {
   .lbl { color: #666; font-size: 11px; }
   @media print { body { margin: 0; } }
 </style></head><body>
+${coHtml}
 <h2>Dispatch &mdash; ${d.dispatch_number}</h2>
 <p class="meta">Generated on ${new Date().toLocaleString("en-IN")}</p>
 <div class="row">
