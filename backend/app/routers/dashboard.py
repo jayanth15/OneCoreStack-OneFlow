@@ -9,6 +9,7 @@ from sqlmodel import Session, func, select
 from app.core.database import get_session
 from app.dependencies.auth import get_current_user, is_admin_or_above
 from app.models.attachment_item import AttachmentItem
+from app.models.schedule import Schedule
 from app.models.unit import Unit
 from app.models.consumable import Consumable
 from app.models.vendor import Vendor
