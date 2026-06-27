@@ -69,6 +69,7 @@ export default function EditJobCardPage() {
   const [jobType, setJobType] = useState<"internal" | "supplier">("internal");
   const [supplierId, setSupplierId] = useState<string>("");
   const [hoursWorked, setHoursWorked] = useState("0");
+  const [actualQty, setActualQty] = useState("0");
   const [workDate, setWorkDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [notes, setNotes] = useState("");
   const [isActive, setIsActive] = useState(true);
@@ -111,6 +112,7 @@ export default function EditJobCardPage() {
           }
         }
         setHoursWorked(String(jc.hours_worked));
+        setActualQty(String(jc.actual_qty ?? 0));
         // Lock date for non-admins — always today on edit too
         if (!isAdminOrAbove()) {
           setDateLocked(true);
@@ -160,6 +162,7 @@ export default function EditJobCardPage() {
         worker_names: workerNames,
         hours_worked: parseFloat(hoursWorked) || 0,
         qty_produced: parseFloat(computedQty) || 0,
+        actual_qty: parseFloat(actualQty) || 0,
         work_date: workDate || null,
         notes: notes || null,
         is_active: isActive,
@@ -351,6 +354,20 @@ export default function EditJobCardPage() {
                 Qty Pending is auto-computed: {order.planned_qty} (planned) − qty produced
               </p>
             )}
+
+            {/* Actual Qty */}
+            <div className="space-y-1.5">
+              <Label htmlFor="actual_qty">Actual Produced <span className="text-destructive">*</span></Label>
+              <Input id="actual_qty" type="number" step="any" value={actualQty}
+                onChange={(e) => setActualQty(e.target.value)} disabled={saving} />
+              {parseFloat(computedQty) > 0 && parseFloat(actualQty) > 0 && (
+                <p className={`text-xs ${parseFloat(actualQty) >= parseFloat(computedQty) ? "text-success" : "text-amber-600"}`}>
+                  {parseFloat(actualQty) >= parseFloat(computedQty)
+                    ? "Met or exceeded estimated qty"
+                    : `${((parseFloat(computedQty) - parseFloat(actualQty)) / parseFloat(computedQty) * 100).toFixed(0)}% less than estimated`}
+                </p>
+              )}
+            </div>
 
             {/* Work Date */}
             <div className="space-y-1.5">
