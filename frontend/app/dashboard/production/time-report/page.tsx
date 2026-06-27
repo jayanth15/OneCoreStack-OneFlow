@@ -2,10 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList,
-  BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -159,36 +156,36 @@ function WorkerReportDetail({ w }: { w: WorkerTimeSummary }) {
           label="Total Hours"
           value={`${w.total_hours.toFixed(1)} h`}
           sub={`${w.job_card_count} job card${w.job_card_count !== 1 ? "s" : ""}`}
-          color="bg-purple-50 dark:bg-purple-950/20"
+          color="bg-purple-50"
         />
         <StatCard
-          icon={<Package className="size-4 text-emerald-600" />}
+          icon={<Package className="size-4 text-success" />}
           label="Qty Produced"
           value={w.total_qty_produced % 1 === 0 ? String(w.total_qty_produced) : w.total_qty_produced.toFixed(1)}
           sub={`across ${w.process_names.length} process${w.process_names.length !== 1 ? "es" : ""}`}
-          color="bg-emerald-50 dark:bg-emerald-950/20"
+          color="bg-success/10"
         />
         <StatCard
-          icon={<TrendingUp className="size-4 text-blue-600" />}
+          icon={<TrendingUp className="size-4 text-primary" />}
           label="Avg Qty / Hour"
           value={w.avg_qty_per_hour > 0 ? w.avg_qty_per_hour.toFixed(1) : "—"}
           sub="productivity rate"
-          color="bg-blue-50 dark:bg-blue-950/20"
+          color="bg-primary/10"
         />
         <StatCard
-          icon={<CalendarDays className="size-4 text-amber-600" />}
+          icon={<CalendarDays className="size-4 text-warning" />}
           label="Working Days"
           value={String(w.work_dates.length)}
           sub={w.work_dates.length > 0
             ? `${fmtDate(w.work_dates[0])} – ${fmtDate(w.work_dates[w.work_dates.length - 1])}`
             : "—"}
-          color="bg-amber-50 dark:bg-amber-950/20"
+          color="bg-warning/15"
         />
       </div>
 
       {/* Shared-cards note */}
       {w.shared_card_count > 0 && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/20 px-4 py-2.5 text-xs text-blue-700 dark:text-blue-300 flex items-center gap-2">
+        <div className="rounded-lg border border-primary/20 bg-primary/10/50 px-4 py-2.5 text-xs text-primary flex items-center gap-2">
           <Users className="size-3.5 shrink-0" />
           <span>
             {w.shared_card_count} job card{w.shared_card_count !== 1 ? "s" : ""} were shared with other workers.
@@ -206,14 +203,14 @@ function WorkerReportDetail({ w }: { w: WorkerTimeSummary }) {
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium">{p.process_name}</span>
                   {p.shared_cards > 0 && (
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-950/30">
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 text-primary border-primary/20 bg-primary/10">
                       <Users className="size-2.5 mr-0.5" />{p.shared_cards} shared
                     </Badge>
                   )}
                 </div>
                 <div className="flex items-center gap-4 text-xs text-right shrink-0">
                   <span className="text-purple-600 font-mono font-semibold">{p.hours.toFixed(1)} h</span>
-                  <span className="text-emerald-600 font-mono font-semibold">
+                  <span className="text-success font-mono font-semibold">
                     {p.qty_produced % 1 === 0 ? p.qty_produced : p.qty_produced.toFixed(1)} pcs
                   </span>
                   <span className="text-muted-foreground w-14">{p.card_count} card{p.card_count !== 1 ? "s" : ""}</span>
@@ -235,20 +232,20 @@ function WorkerReportDetail({ w }: { w: WorkerTimeSummary }) {
                 <div className="flex-1 flex items-center gap-2">
                   <div className="flex-1 h-5 rounded bg-muted overflow-hidden relative">
                     <div
-                      className="h-full bg-purple-200 dark:bg-purple-900/40 rounded flex items-center pl-1.5"
+                      className="h-full bg-purple-200 rounded flex items-center pl-1.5"
                       style={{ width: `${Math.max(5, Math.round((d.hours / maxDateHours) * 100))}%` }}
                     >
-                      <span className="text-[10px] font-mono text-purple-700 dark:text-purple-300 whitespace-nowrap">
+                      <span className="text-[10px] font-mono text-purple-700 whitespace-nowrap">
                         {d.hours.toFixed(1)} h
                       </span>
                     </div>
                   </div>
-                  <span className="w-16 text-right text-emerald-600 font-mono shrink-0">
+                  <span className="w-16 text-right text-success font-mono shrink-0">
                     {d.qty_produced % 1 === 0 ? d.qty_produced : d.qty_produced.toFixed(1)} pcs
                   </span>
                   <span className="w-14 text-right text-muted-foreground shrink-0">
                     {d.card_count} card{d.card_count !== 1 ? "s" : ""}
-                    {d.shared_cards > 0 && <span className="ml-1 text-blue-500" title={`${d.shared_cards} shared`}>·{d.shared_cards}↗</span>}
+                    {d.shared_cards > 0 && <span className="ml-1 text-primary" title={`${d.shared_cards} shared`}>·{d.shared_cards}↗</span>}
                   </span>
                 </div>
               </div>
@@ -266,14 +263,14 @@ function WorkerReportDetail({ w }: { w: WorkerTimeSummary }) {
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-mono font-medium">{o.order_number}</span>
                   {o.shared_cards > 0 && (
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-950/30">
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 text-primary border-primary/20 bg-primary/10">
                       <Users className="size-2.5 mr-0.5" />{o.shared_cards} shared
                     </Badge>
                   )}
                 </div>
                 <div className="flex items-center gap-4 text-xs text-right shrink-0">
                   <span className="text-purple-600 font-mono font-semibold">{o.hours.toFixed(1)} h</span>
-                  <span className="text-emerald-600 font-mono font-semibold">
+                  <span className="text-success font-mono font-semibold">
                     {o.qty_produced % 1 === 0 ? o.qty_produced : o.qty_produced.toFixed(1)} pcs
                   </span>
                   <span className="text-muted-foreground w-14">{o.card_count} card{o.card_count !== 1 ? "s" : ""}</span>
@@ -294,14 +291,14 @@ function WorkerReportDetail({ w }: { w: WorkerTimeSummary }) {
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium">{m.machine_name}</span>
                   {m.shared_cards > 0 && (
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-950/30">
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 text-primary border-primary/20 bg-primary/10">
                       <Users className="size-2.5 mr-0.5" />{m.shared_cards} shared
                     </Badge>
                   )}
                 </div>
                 <div className="flex items-center gap-4 text-xs text-right shrink-0">
                   <span className="text-purple-600 font-mono font-semibold">{m.hours.toFixed(1)} h</span>
-                  <span className="text-emerald-600 font-mono font-semibold">
+                  <span className="text-success font-mono font-semibold">
                     {m.qty_produced % 1 === 0 ? m.qty_produced : m.qty_produced.toFixed(1)} pcs
                   </span>
                   <span className="text-muted-foreground w-14">{m.card_count} card{m.card_count !== 1 ? "s" : ""}</span>
@@ -345,21 +342,21 @@ function SummaryTable({ data }: { data: WorkerTimeSummary[] }) {
           label="Total Hours (All)"
           value={`${totalHours.toFixed(1)} h`}
           sub={`${data.length} worker${data.length !== 1 ? "s" : ""}`}
-          color="bg-purple-50 dark:bg-purple-950/20"
+          color="bg-purple-50"
         />
         <StatCard
-          icon={<Package className="size-4 text-emerald-600" />}
+          icon={<Package className="size-4 text-success" />}
           label="Total Qty (All)"
           value={totalQty % 1 === 0 ? String(totalQty) : totalQty.toFixed(1)}
           sub="contributions (may overlap on shared cards)"
-          color="bg-emerald-50 dark:bg-emerald-950/20"
+          color="bg-success/10"
         />
         <StatCard
-          icon={<TrendingUp className="size-4 text-blue-600" />}
+          icon={<TrendingUp className="size-4 text-primary" />}
           label="Overall Avg Qty/Hr"
           value={totalHours > 0 ? (totalQty / totalHours).toFixed(1) : "—"}
           sub="across all workers"
-          color="bg-blue-50 dark:bg-blue-950/20"
+          color="bg-primary/10"
         />
       </div>
 
@@ -389,13 +386,13 @@ function SummaryTable({ data }: { data: WorkerTimeSummary[] }) {
                     <p className="text-muted-foreground">hours</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-mono font-semibold text-emerald-600">
+                    <p className="font-mono font-semibold text-success">
                       {w.total_qty_produced % 1 === 0 ? w.total_qty_produced : w.total_qty_produced.toFixed(1)}
                     </p>
                     <p className="text-muted-foreground">pcs</p>
                   </div>
                   <div className="text-right hidden sm:block">
-                    <p className="font-mono font-semibold text-blue-600">{w.avg_qty_per_hour.toFixed(1)}</p>
+                    <p className="font-mono font-semibold text-primary">{w.avg_qty_per_hour.toFixed(1)}</p>
                     <p className="text-muted-foreground">pcs/hr</p>
                   </div>
                 </div>
@@ -474,31 +471,21 @@ export default function TimeReportPage() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4 md:px-6">
-        <Link href="/dashboard/production" className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
-          <ArrowLeft className="size-4" />
-        </Link>
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href="/dashboard/production">Production</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
-            <BreadcrumbItem>
-              <BreadcrumbPage>Worker Time Report</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </header>
+      <PageHeader
+        title="Worker Time Report"
+        description="Hours, productivity and process breakdown per worker. Filter by date range."
+        breadcrumbs={[
+          { label: "Production", href: "/dashboard/production" },
+          { label: "Worker Time Report" },
+        ]}
+        actions={
+          <Link href="/dashboard/production" className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
+            <ArrowLeft className="size-4" />
+          </Link>
+        }
+      />
 
       <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-xl font-semibold">Worker Time Report</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Hours, productivity and process breakdown per worker. Filter by date range.
-          </p>
-        </div>
-
         {/* Filters */}
         <div className="rounded-lg border p-4 space-y-4">
           <div className="space-y-1.5">
@@ -511,6 +498,7 @@ export default function TimeReportPage() {
                   variant="list"
                   value={selectedWorkerId !== null ? String(selectedWorkerId) : ""}
                   placeholder="Search worker…"
+                  emptyText="No workers found"
                   fetcher={async (q) =>
                     apiFetchJson<WorkerOption[]>(
                       `/api/v1/production/workers${q.trim() ? `?search=${encodeURIComponent(q)}` : ""}`,

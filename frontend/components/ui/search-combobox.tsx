@@ -80,10 +80,13 @@ export function SearchCombobox<T>(props: SearchComboboxProps<T>) {
 
   // Sync the hook's query from the parent's controlled value when the parent
   // updates it programmatically (e.g. setLinkedPrLabel after async prefill).
+  // For the plain variant, `value` is the displayed label, so this keeps the
+  // input in sync. For the list variant, `value` is the selected id — we
+  // display `query` directly, so don't overwrite it with the id.
   React.useEffect(() => {
-    setQuery(value);
+    if (props.variant !== "list") setQuery(value);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
+  }, [value, props.variant]);
 
   const handleSelect = React.useCallback(
     (item: T) => {
