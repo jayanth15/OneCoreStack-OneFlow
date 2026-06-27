@@ -3,10 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList,
-  BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,7 +14,7 @@ import { ArrowLeft } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-interface ProcessItem { id: number; name: string; sequence: number; }
+interface ProcessItem { id: number; name: string; sequence: number; estimated_time_minutes: number | null; }
 interface OrderInfo {
   id: number;
   order_number: string;
@@ -130,37 +127,23 @@ function NewJobCardInner() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4 md:px-6">
-        <Link href={backUrl} className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
-          <ArrowLeft className="size-4" />
-        </Link>
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href="/dashboard/production">Production</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
-            <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href="/dashboard/production/processing">Processing</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
-            <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href={backUrl}>{order?.order_number ?? "Order"}</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
-            <BreadcrumbItem><BreadcrumbPage>New Job Card</BreadcrumbPage></BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </header>
+      <PageHeader
+        title="New Job Card"
+        description="Track workers' production for a specific process step."
+        breadcrumbs={[
+          { label: "Production", href: "/dashboard/production" },
+          { label: "Processing", href: "/dashboard/production/processing" },
+          { label: order?.order_number ?? "Order", href: backUrl },
+          { label: "New Job Card" },
+        ]}
+        actions={
+          <Link href={backUrl} className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
+            <ArrowLeft className="size-4" />
+          </Link>
+        }
+      />
 
       <div className="p-4 md:p-8 max-w-lg mx-auto">
-        <div className="mb-6">
-          <h1 className="text-xl font-semibold">New Job Card</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Track workers&apos; production for a specific process step.
-          </p>
-        </div>
-
         {loading ? (
           <div className="space-y-4">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-9 w-full" />)}</div>
         ) : (
@@ -217,6 +200,14 @@ function NewJobCardInner() {
                   onChange={(e) => setProcessName(e.target.value)} disabled={saving}
                   placeholder="e.g. Blanking" />
               )}
+              {(() => {
+                const selected = order?.processes.find((p) => p.name === processName);
+                return selected?.estimated_time_minutes != null ? (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Estimated time: {selected.estimated_time_minutes} minutes
+                  </p>
+                ) : null;
+              })()}
             </div>
 
             {/* Tool & Die + Machine */}

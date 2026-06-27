@@ -3,10 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList,
-  BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -104,7 +101,7 @@ const STATUS_BADGE: Record<string, "default" | "secondary" | "outline" | "destru
   open: "secondary", in_progress: "secondary", completed: "outline", cancelled: "destructive",
 };
 const STATUS_COLOR: Record<string, string> = {
-  open: "", in_progress: "!bg-amber-100 !text-amber-800", completed: "", cancelled: "",
+  open: "", in_progress: "!bg-warning/15 !text-amber-800", completed: "", cancelled: "",
 };
 const STATUS_LABELS: Record<string, string> = {
   open: "Open", in_progress: "In Progress", completed: "Completed", cancelled: "Cancelled",
@@ -252,27 +249,20 @@ export default function ProductionOrderDetailPage() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4 md:px-6">
-        <Link href="/dashboard/production/processing"
-          className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
-          <ArrowLeft className="size-4" />
-        </Link>
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href="/dashboard/production">Production</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
-            <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href="/dashboard/production/processing">Processing</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
-            <BreadcrumbItem>
-              <BreadcrumbPage>{loading ? "Loading…" : order?.order_number ?? "Not found"}</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </header>
+      <PageHeader
+        title={loading ? "Loading…" : order?.order_number ?? "Not found"}
+        breadcrumbs={[
+          { label: "Production", href: "/dashboard/production" },
+          { label: "Processing", href: "/dashboard/production/processing" },
+          { label: loading ? "Loading…" : order?.order_number ?? "Not found" },
+        ]}
+        actions={
+          <Link href="/dashboard/production/processing"
+            className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
+            <ArrowLeft className="size-4" />
+          </Link>
+        }
+      />
 
       <div className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto">
         {error && <p className="text-sm text-destructive">{error}</p>}
@@ -297,10 +287,10 @@ export default function ProductionOrderDetailPage() {
                       {STATUS_LABELS[order.status] ?? order.status}
                     </Badge>
                     {isFgComplete && (
-                      <Badge className="bg-green-100 text-green-800 border-green-200">Production Complete</Badge>
+                      <Badge className="bg-success/10 text-green-800 border-success/20">Production Complete</Badge>
                     )}
                     {isFgSurplus && (
-                      <Badge className="bg-amber-100 text-amber-800 border-amber-200">Surplus</Badge>
+                      <Badge className="bg-warning/15 text-amber-800 border-warning/20">Surplus</Badge>
                     )}
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">
@@ -350,7 +340,7 @@ export default function ProductionOrderDetailPage() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {/* FG Completed */}
               <div className="rounded-lg border p-3 flex items-center gap-3">
-                <div className="p-2 rounded-md text-green-600 bg-green-50"><CheckCircle className="size-4" /></div>
+                <div className="p-2 rounded-md text-success bg-success/10"><CheckCircle className="size-4" /></div>
                 <div>
                   <p className="text-lg font-semibold leading-none">{effectiveQty}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">FG Completed</p>
@@ -358,7 +348,7 @@ export default function ProductionOrderDetailPage() {
               </div>
               {/* Job Cards */}
               <div className="rounded-lg border p-3 flex items-center gap-3">
-                <div className="p-2 rounded-md text-blue-600 bg-blue-50"><Factory className="size-4" /></div>
+                <div className="p-2 rounded-md text-primary bg-primary/10"><Factory className="size-4" /></div>
                 <div>
                   <p className="text-lg font-semibold leading-none">{order.job_cards.length}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">Job Cards</p>
@@ -366,7 +356,7 @@ export default function ProductionOrderDetailPage() {
               </div>
               {/* FG Pending */}
               <div className="rounded-lg border p-3 flex items-center gap-3">
-                <div className="p-2 rounded-md text-amber-600 bg-amber-50"><Clock className="size-4" /></div>
+                <div className="p-2 rounded-md text-warning bg-warning/15"><Clock className="size-4" /></div>
                 <div>
                   <p className="text-lg font-semibold leading-none">{fgPending ?? "—"}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">FG Pending</p>
@@ -410,10 +400,10 @@ export default function ProductionOrderDetailPage() {
                   {bomLines.map((l) => (
                     <div key={l.id} className="grid grid-cols-1 sm:grid-cols-[2fr_1fr_1fr_80px] gap-2 sm:gap-3 px-4 py-2.5 hover:bg-muted/20">
                       <span className="font-medium">{l.raw_material_name ?? "—"}</span>
-                      <span className={l.material_used != null ? "text-blue-700 font-mono font-semibold" : "text-muted-foreground"}>
+                      <span className={l.material_used != null ? "text-primary font-mono font-semibold" : "text-muted-foreground"}>
                         {l.material_used != null ? (l.material_used * effectiveQty).toFixed(3) : "—"}
                       </span>
-                      <span className={l.scrap != null ? "text-amber-600 font-mono font-semibold" : "text-muted-foreground"}>
+                      <span className={l.scrap != null ? "text-warning font-mono font-semibold" : "text-muted-foreground"}>
                         {l.scrap != null ? (l.scrap * effectiveQty).toFixed(3) : "—"}
                       </span>
                       <span className="text-muted-foreground">{l.material_unit ?? l.raw_material_unit ?? "—"}</span>
@@ -424,8 +414,8 @@ export default function ProductionOrderDetailPage() {
             )}
 
             {/* FG explanation note */}
-            <div className="rounded-lg border border-dashed bg-green-50/50 p-3 text-xs text-muted-foreground">
-              <span className="font-medium text-green-700">FG Completed = MIN(produced) across all processes.</span>{" "}
+            <div className="rounded-lg border border-dashed bg-success/10/50 p-3 text-xs text-muted-foreground">
+              <span className="font-medium text-success">FG Completed = MIN(produced) across all processes.</span>{" "}
               A unit is only finished when it has passed through every process step.
               {order.planned_qty != null && effectiveQty < order.planned_qty && (
                 <span className="ml-1">
@@ -455,18 +445,18 @@ export default function ProductionOrderDetailPage() {
                           )}
                         </div>
                         <div className="flex items-center justify-between text-xs mb-1.5">
-                          <span className="text-emerald-700 font-semibold">
+                          <span className="text-success font-semibold">
                             {proc.produced}{" "}
                             <span className="font-normal text-muted-foreground">done</span>
                           </span>
-                          <span className="text-amber-600">
+                          <span className="text-warning">
                             {proc.pending}{" "}
                             <span className="text-muted-foreground">pending</span>
                           </span>
                         </div>
                         <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                           <div
-                            className={`h-full rounded-full transition-all ${surplus > 0 ? "bg-purple-500" : "bg-emerald-500"}`}
+                            className={`h-full rounded-full transition-all ${surplus > 0 ? "bg-purple-500" : "bg-success"}`}
                             style={{ width: `${pct}%` }}
                           />
                         </div>
@@ -522,16 +512,16 @@ export default function ProductionOrderDetailPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <Package className="size-3.5 text-emerald-500 shrink-0" />
+                          <Package className="size-3.5 text-success shrink-0" />
                           <div>
-                            <p className="font-mono font-semibold text-emerald-700">{stats.produced}</p>
+                            <p className="font-mono font-semibold text-success">{stats.produced}</p>
                             <p className="text-muted-foreground">Units produced</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <CalendarDays className="size-3.5 text-blue-500 shrink-0" />
+                          <CalendarDays className="size-3.5 text-primary shrink-0" />
                           <div>
-                            <p className="font-mono font-semibold text-blue-700">{stats.dates.size} day{stats.dates.size !== 1 ? "s" : ""}</p>
+                            <p className="font-mono font-semibold text-primary">{stats.dates.size} day{stats.dates.size !== 1 ? "s" : ""}</p>
                             <p className="text-muted-foreground truncate max-w-[140px]" title={[...stats.dates].sort().join(", ")}>
                               {[...stats.dates].sort().slice(-2).join(", ") || "—"}
                             </p>
@@ -543,6 +533,20 @@ export default function ProductionOrderDetailPage() {
                 </div>
               );
             })()}
+
+            {/* ── Aggregate Time Summary ──────────────────────────────────────── */}
+            {(totalEstimatedMinutes > 0 || totalHours > 0) && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-muted/30 rounded-lg p-3">
+                  <div className="text-xs text-muted-foreground">Total Estimated Time</div>
+                  <div className="text-lg font-bold">{Math.floor(totalEstimatedMinutes / 60)}h {totalEstimatedMinutes % 60}m</div>
+                </div>
+                <div className="bg-muted/30 rounded-lg p-3">
+                  <div className="text-xs text-muted-foreground">Total Actual Time</div>
+                  <div className="text-lg font-bold">{totalHours.toFixed(1)}h</div>
+                </div>
+              </div>
+            )}
 
             {/* ── Process Steps & Job Cards ─────────────────────────────────── */}
             <div className="space-y-4">
@@ -595,10 +599,10 @@ export default function ProductionOrderDetailPage() {
                                 <div
                                   className={`h-full rounded-full transition-all ${
                                     processPct >= 100
-                                      ? "bg-emerald-500"
+                                      ? "bg-success"
                                       : processPct >= 50
-                                        ? "bg-blue-500"
-                                        : "bg-amber-500"
+                                        ? "bg-primary"
+                                        : "bg-warning"
                                   }`}
                                   style={{ width: `${processPct}%` }}
                                 />
@@ -616,7 +620,7 @@ export default function ProductionOrderDetailPage() {
                                       : `${process.estimated_time_minutes} min`} / unit
                                 </span>
                                 {processPending > 0 && (
-                                  <span className="text-[11px] text-amber-600 font-medium">
+                                  <span className="text-[11px] text-warning font-medium">
                                     {processPending} unit{processPending !== 1 ? "s" : ""} pending
                                   </span>
                                 )}
@@ -677,11 +681,11 @@ export default function ProductionOrderDetailPage() {
                                 <div className="flex items-center gap-3">
                                   <div>
                                     <span className="text-muted-foreground block">Produced</span>
-                                    <span className="font-mono font-medium text-emerald-600">{jc.qty_produced}</span>
+                                    <span className="font-mono font-medium text-success">{jc.qty_produced}</span>
                                   </div>
                                   <div>
                                     <span className="text-muted-foreground block">Pending</span>
-                                    <span className="font-mono font-medium text-amber-600">{jc.qty_pending}</span>
+                                    <span className="font-mono font-medium text-warning">{jc.qty_pending}</span>
                                   </div>
                                   <div>
                                     <span className="text-muted-foreground block">Hours</span>
@@ -689,6 +693,17 @@ export default function ProductionOrderDetailPage() {
                                   </div>
                                 </div>
                               </div>
+
+                              {process?.estimated_time_minutes != null && (
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <Clock className="size-3" />
+                                  <span>Est: {process.estimated_time_minutes}m</span>
+                                  <span>|</span>
+                                  <span className={jc.hours_worked * 60 > process.estimated_time_minutes ? "text-amber-600 font-medium" : ""}>
+                                    Actual: {jc.hours_worked}h
+                                  </span>
+                                </div>
+                              )}
 
                               <Badge variant={STATUS_BADGE[jc.status] ?? "outline"} className={`text-xs shrink-0 ${STATUS_COLOR[jc.status] ?? ""}`}>
                                 {STATUS_LABELS[jc.status] ?? jc.status}
@@ -841,16 +856,16 @@ export default function ProductionOrderDetailPage() {
 
                         {/* Stats row */}
                         <div className="grid grid-cols-3 gap-2 text-center">
-                          <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/20 p-2">
-                            <p className="text-lg font-bold text-emerald-600">{w.totalQty}</p>
+                          <div className="rounded-md bg-success/10 p-2">
+                            <p className="text-lg font-bold text-success">{w.totalQty}</p>
                             <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">Pcs Produced</p>
                           </div>
-                          <div className="rounded-md bg-purple-50 dark:bg-purple-950/20 p-2">
+                          <div className="rounded-md bg-purple-50 p-2">
                             <p className="text-lg font-bold text-purple-600">{w.totalHours.toFixed(1)}</p>
                             <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">Hours Worked</p>
                           </div>
-                          <div className="rounded-md bg-blue-50 dark:bg-blue-950/20 p-2">
-                            <p className="text-lg font-bold text-blue-600">
+                          <div className="rounded-md bg-primary/10 p-2">
+                            <p className="text-lg font-bold text-primary">
                               {w.totalHours > 0 ? (w.totalQty / w.totalHours).toFixed(1) : "—"}
                             </p>
                             <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">Pcs / Hr</p>
@@ -882,7 +897,7 @@ export default function ProductionOrderDetailPage() {
                                 )}
                               </div>
                               <div className="flex items-center gap-2 shrink-0 ml-2">
-                                <span className="text-emerald-600 font-medium"><Package className="size-2.5 inline mr-0.5" />{jc.qty_produced}</span>
+                                <span className="text-success font-medium"><Package className="size-2.5 inline mr-0.5" />{jc.qty_produced}</span>
                                 <span className="text-purple-600 font-medium"><Clock className="size-2.5 inline mr-0.5" />{jc.hours_worked}h</span>
                               </div>
                             </div>
@@ -939,11 +954,11 @@ export default function ProductionOrderDetailPage() {
               {jc && (
                 <div className="grid grid-cols-3 gap-3 rounded-lg border bg-muted/30 p-3 text-sm shrink-0">
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-emerald-600">{jc.qty_produced}</p>
+                    <p className="text-2xl font-bold text-success">{jc.qty_produced}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">Qty Produced</p>
                   </div>
                   <div className="text-center border-x">
-                    <p className="text-2xl font-bold text-amber-600">{jc.qty_pending}</p>
+                    <p className="text-2xl font-bold text-warning">{jc.qty_pending}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">Qty Pending</p>
                   </div>
                   <div className="text-center">
@@ -998,11 +1013,11 @@ export default function ProductionOrderDetailPage() {
                       let summary = "";
 
                       if (isCreated) {
-                        icon = <CheckCircle className="size-3.5 text-emerald-500" />;
+                        icon = <CheckCircle className="size-3.5 text-success" />;
                         accentColor = "border-l-emerald-400";
                         summary = "Job card created";
                       } else if (isQtyChange) {
-                        icon = <Package className="size-3.5 text-blue-500" />;
+                        icon = <Package className="size-3.5 text-primary" />;
                         accentColor = "border-l-blue-400";
                         const diff = h.new_value && h.old_value
                           ? parseFloat(h.new_value) - parseFloat(h.old_value)
@@ -1016,7 +1031,7 @@ export default function ProductionOrderDetailPage() {
                           : null;
                         summary = `Hours worked: ${h.old_value ?? "—"} → ${h.new_value ?? "—"}${diff !== null ? ` (${diff >= 0 ? "+" : ""}${diff.toFixed(1)} h)` : ""}`;
                       } else if (isWorkerChange) {
-                        icon = <User className="size-3.5 text-amber-500" />;
+                        icon = <User className="size-3.5 text-warning" />;
                         accentColor = "border-l-amber-400";
                         summary = `Worker: ${h.old_value ?? "—"} → ${h.new_value ?? "—"}`;
                       } else if (isDateChange) {
@@ -1026,7 +1041,7 @@ export default function ProductionOrderDetailPage() {
                       } else if (h.field_name) {
                         summary = `${h.field_name.replace(/_/g, " ")}: ${h.old_value ?? "—"} → ${h.new_value ?? "—"}`;
                       } else if (h.change_type === "deleted") {
-                        icon = <Trash2 className="size-3.5 text-red-500" />;
+                        icon = <Trash2 className="size-3.5 text-destructive" />;
                         accentColor = "border-l-red-400";
                         summary = "Deactivated";
                       }
