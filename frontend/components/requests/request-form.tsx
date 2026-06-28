@@ -14,7 +14,6 @@ import {
 import { SearchCombobox } from "@/components/ui/search-combobox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   ToggleGroup,
   ToggleGroupItem,
@@ -50,18 +49,16 @@ interface InventoryItem {
   id: number;
   code: string;
   name: string;
-  unit_name: string;
-  item_type: string;
-}
-
-interface PaginatedInventory {
-  items: InventoryItem[];
 }
 
 const SUPPORTED_REQUESTABLE_TYPES = [
   "raw_material",
   "finished_good",
   "semi_finished",
+  "spare",
+  "consumable",
+  "attachment",
+  "weeder",
 ] as const;
 
 type RequestableItemType = (typeof SUPPORTED_REQUESTABLE_TYPES)[number];
@@ -70,7 +67,55 @@ const ITEM_TYPE_LABELS: Record<RequestableItemType, string> = {
   raw_material: "Raw materials",
   finished_good: "Finished goods",
   semi_finished: "Semi-finished",
+  spare: "Spares",
+  consumable: "Consumables",
+  attachment: "Attachments",
+  weeder: "Weeders",
 };
+
+async function fetchInventoryItems(type: RequestableItemType, q: string): Promise<InventoryItem[]> {
+  const searchParam = q.trim() ? `&search=${encodeURIComponent(q.trim())}` : '';
+  const qParam = q.trim() ? `&q=${encodeURIComponent(q.trim())}` : '';
+
+  switch (type) {
+    case "raw_material":
+    case "finished_good":
+    case "semi_finished": {
+      const data = await apiFetchJson<{ items: any[] }>(
+        `/api/v1/inventory?item_type=${type}&page_size=500&include_inactive=false${searchParam}`,
+      );
+      return (data.items || []).map((i) => ({ id: i.id, code: i.code, name: i.name }));
+    }
+    case "spare": {
+      const data = await apiFetchJson<any[]>(
+        `/api/v1/spares/variants/search?limit=50${qParam}`,
+      );
+      return (data || []).map((v: any) => ({
+        id: v.variant_id,
+        code: v.part_number || v.serial_number || "",
+        name: v.item_name,
+      }));
+    }
+    case "consumable": {
+      const data = await apiFetchJson<{ items: any[] }>(
+        `/api/v1/consumables?page_size=50${searchParam}`,
+      );
+      return (data.items || []).map((i) => ({ id: i.id, code: i.code || "", name: i.name }));
+    }
+    case "attachment": {
+      const data = await apiFetchJson<{ items: any[] }>(
+        `/api/v1/attachments?page_size=50${searchParam}`,
+      );
+      return (data.items || []).map((i) => ({ id: i.id, code: i.sn_no || "", name: i.description || i.sn_no || "" }));
+    }
+    case "weeder": {
+      const data = await apiFetchJson<{ items: any[] }>(
+        `/api/v1/weeders?page_size=50${searchParam}`,
+      );
+      return (data.items || []).map((i) => ({ id: i.id, code: i.sn_no || "", name: i.name || i.sn_no || "" }));
+    }
+  }
+}
 
 const TYPE_OPTIONS: { value: RequestType; label: string; short: string; icon: typeof ArrowLeftRight }[] = [
   { value: "internal_transfer", label: "Internal transfer", short: "Internal", icon: ArrowLeftRight },
@@ -126,8 +171,6 @@ export function RequestForm({
 
   const [depts, setDepts] = useState<DeptRef[]>([]);
   const [deptsLoadFailed, setDeptsLoadFailed] = useState(false);
-  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
-  const [inventoryLoading, setInventoryLoading] = useState(true);
   const [itemType, setItemType] = useState<RequestableItemType>("raw_material");
 
   const permittedTypes = useMemo<RequestableItemType[]>(() => getPermittedTypes(), []);
@@ -151,18 +194,7 @@ export function RequestForm({
       .catch(() => setDeptsLoadFailed(true));
   }, []);
 
-  useEffect(() => {
-    if (noAccess) return;
-    setInventoryLoading(true);
-    let cancelled = false;
-    apiFetchJson<PaginatedInventory>(
-      `/api/v1/inventory?item_type=${effectiveItemType}&page_size=500&include_inactive=false`
-    )
-      .then((r) => { if (!cancelled) setInventoryItems(r.items); })
-      .catch(() => { if (!cancelled) setInventoryItems([]); })
-      .finally(() => { if (!cancelled) setInventoryLoading(false); });
-    return () => { cancelled = true; };
-  }, [effectiveItemType, noAccess]);
+
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -363,14 +395,8 @@ export function RequestForm({
                     <SearchCombobox<InventoryItem>
                       variant="plain"
                       value={it.item_name || ""}
-                      placeholder={inventoryLoading ? "Loading inventory…" : "Search inventory item..."}
-                      disabled={inventoryLoading}
-                      fetcher={async (q) => {
-                        const searchParam = q.trim() ? `&search=${encodeURIComponent(q.trim())}` : '';
-                        return apiFetchJson<{ items: InventoryItem[] }>(
-                          `/api/v1/inventory?item_type=${effectiveItemType}&page_size=500&include_inactive=false${searchParam}`,
-                        ).then((r) => r.items);
-                      }}
+                      placeholder="Search inventory item..."
+                      fetcher={async (q) => fetchInventoryItems(effectiveItemType, q)}
                       getItemKey={(inv) => inv.id}
                       getItemLabel={(inv) => `${inv.code} · ${inv.name}`}
                       onSelect={(inv) => updateItem(i, { item_name: inv.name, inventory_item_id: inv.id })}
@@ -378,13 +404,9 @@ export function RequestForm({
                         <>
                           <span className="font-mono text-xs text-muted-foreground">{inv.code}</span>
                           <span className="ml-2">{inv.name}</span>
-                          <span className="ml-auto text-xs text-muted-foreground">{inv.unit_name}</span>
                         </>
                       )}
                     />
-                    {inventoryLoading && !it.inventory_item_id && (
-                      <Skeleton className="mt-1.5 h-2.5 w-32" />
-                    )}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <Button
