@@ -132,10 +132,12 @@ app.add_middleware(
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    logger.error("Unhandled exception on %s %s: %s", request.method, request.url.path, exc, exc_info=True)
+    import traceback
+    tb = traceback.format_exception(type(exc), exc, exc.__traceback__)
+    logger.error("Unhandled exception on %s %s: %s\n%s", request.method, request.url.path, exc, "".join(tb))
     return JSONResponse(
         status_code=500,
-        content={"detail": "Internal server error"},
+        content={"detail": "Internal server error", "error": str(exc), "type": type(exc).__name__},
     )
 
 # ── Core routers (always on) ──────────────────────────────────────────────────
