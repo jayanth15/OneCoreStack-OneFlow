@@ -3,10 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList,
-  BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -186,22 +183,18 @@ export default function SupplierDetailPage() {
   return (
     <>
       {/* ── Header ── */}
-      <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4 md:px-6">
-        <Link href="/dashboard/suppliers" className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
-          <ArrowLeft className="size-4" />
-        </Link>
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href="/dashboard/suppliers">Suppliers</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
-            <BreadcrumbItem>
-              <BreadcrumbPage>{loading ? "Loading…" : (data?.name ?? "Supplier")}</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </header>
+      <PageHeader
+        title={loading ? "Loading…" : (data?.name ?? "Supplier")}
+        breadcrumbs={[
+          { label: "Suppliers", href: "/dashboard/suppliers" },
+          { label: loading ? "Loading…" : (data?.name ?? "Supplier") },
+        ]}
+        actions={
+          <Link href="/dashboard/suppliers" className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
+            <ArrowLeft className="size-4" />
+          </Link>
+        }
+      />
 
       {/* ── Job Dialog ── */}
       <Dialog open={jobDialogOpen} onOpenChange={setJobDialogOpen}>
@@ -306,7 +299,7 @@ export default function SupplierDetailPage() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <h1 className="text-xl font-semibold">{data.name}</h1>
                   {!data.is_active && (
-                    <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-medium">Inactive</span>
+                    <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-medium">Inactive</span>
                   )}
                 </div>
                 {data.contact_person && (
@@ -366,7 +359,7 @@ export default function SupplierDetailPage() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-medium text-sm">{j.job_name}</span>
                           {j.rate !== null && (
-                            <span className="text-xs text-muted-foreground bg-slate-100 px-2 py-0.5 rounded-full">
+                            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
                               ₹{fmt(j.rate)}{j.unit ? ` / ${j.unit}` : ""}
                             </span>
                           )}

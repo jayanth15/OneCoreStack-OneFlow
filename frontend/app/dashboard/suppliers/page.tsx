@@ -2,9 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -164,41 +162,40 @@ export default function SuppliersPage() {
   return (
     <>
       {/* ── Header ── */}
-      <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4 md:pr-64">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem><BreadcrumbPage>Suppliers</BreadcrumbPage></BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-        <div className="ml-auto flex items-center gap-2">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
-            <Input
-              ref={searchRef}
-              className="pl-8 h-8 w-44 text-sm"
-              placeholder="Search suppliers…"
-              value={search}
-              onChange={(e) => { setLoading(true); setSearch(e.target.value); }}
-            />
-          </div>
-          {adminUser && (
-            <>
-              <Button
-                size="sm"
-                variant={showInactive ? "secondary" : "ghost"}
-                className="text-xs h-8"
-                onClick={() => setShowInactive((v) => !v)}
-              >
-                {showInactive ? "Hide Inactive" : "Show Inactive"}
-              </Button>
-              <Button size="sm" onClick={() => { setCreateForm(BLANK); setCreateError(null); setShowCreate(true); }}>
-                <UserPlus className="size-4 mr-1.5" />
-                New Supplier
-              </Button>
-            </>
-          )}
-        </div>
-      </header>
+      <PageHeader
+        title="Suppliers"
+        breadcrumbs={[{ label: "Suppliers" }]}
+        actions={
+          <>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+              <Input
+                ref={searchRef}
+                className="pl-8 h-8 w-44 text-sm"
+                placeholder="Search suppliers…"
+                value={search}
+                onChange={(e) => { setLoading(true); setSearch(e.target.value); }}
+              />
+            </div>
+            {adminUser && (
+              <>
+                <Button
+                  size="sm"
+                  variant={showInactive ? "secondary" : "ghost"}
+                  className="text-xs h-8"
+                  onClick={() => setShowInactive((v) => !v)}
+                >
+                  {showInactive ? "Hide Inactive" : "Show Inactive"}
+                </Button>
+                <Button size="sm" onClick={() => { setCreateForm(BLANK); setCreateError(null); setShowCreate(true); }}>
+                  <UserPlus className="size-4 mr-1.5" />
+                  New Supplier
+                </Button>
+              </>
+            )}
+          </>
+        }
+      />
 
       {/* ── Create Dialog ── */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
@@ -300,7 +297,7 @@ export default function SuppliersPage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-sm">{s.name}</span>
                     {!s.is_active && (
-                      <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-medium">Inactive</span>
+                      <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-medium">Inactive</span>
                     )}
                   </div>
                   <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
@@ -345,8 +342,8 @@ export default function SuppliersPage() {
                       onClick={() => toggleActive(s)}
                     >
                       {s.is_active
-                        ? <ToggleRight className="size-4 text-emerald-500" />
-                        : <ToggleLeft className="size-4 text-slate-400" />}
+                        ? <ToggleRight className="size-4 text-success" />
+                        : <ToggleLeft className="size-4 text-muted-foreground" />}
                     </Button>
                   </div>
                 )}

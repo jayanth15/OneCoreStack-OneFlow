@@ -1,10 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -107,13 +104,13 @@ interface UnifiedRow {
 // ── TypeBadge ─────────────────────────────────────────────────────────────────
 
 const TYPE_CONFIG: Record<UnifiedRow["type"], { label: string; bg: string; text: string; Icon: React.ElementType }> = {
-  spare:        { label: "Spare",         bg: "bg-violet-100", text: "text-violet-700", Icon: Wrench },
-  consumable:   { label: "Consumable",    bg: "bg-blue-100",   text: "text-blue-700",   Icon: FlaskConical },
-  attachment:   { label: "Attachment",    bg: "bg-sky-100",    text: "text-sky-700",    Icon: Paperclip },
-  weeder:       { label: "Weeder",        bg: "bg-green-100",  text: "text-green-700",  Icon: Scissors },
-  raw_material:  { label: "Raw Material", bg: "bg-orange-100", text: "text-orange-700", Icon: Box },
-  finished_good: { label: "Finished Good", bg: "bg-teal-100",  text: "text-teal-700",   Icon: Package },
-  semi_finished: { label: "Semi Finished", bg: "bg-indigo-100", text: "text-indigo-700", Icon: Layers },
+  spare:        { label: "Spare",         bg: "bg-tone-violet/10", text: "text-tone-violet", Icon: Wrench },
+  consumable:   { label: "Consumable",    bg: "bg-primary/10",   text: "text-primary",   Icon: FlaskConical },
+  attachment:   { label: "Attachment",    bg: "bg-primary/10",    text: "text-primary",    Icon: Paperclip },
+  weeder:       { label: "Weeder",        bg: "bg-success/10",  text: "text-success",  Icon: Scissors },
+  raw_material:  { label: "Raw Material", bg: "bg-tone-amber/15", text: "text-tone-amber", Icon: Box },
+  finished_good: { label: "Finished Good", bg: "bg-tone-emerald/10",  text: "text-tone-emerald",   Icon: Package },
+  semi_finished: { label: "Semi Finished", bg: "bg-tone-violet/10", text: "text-tone-violet", Icon: Layers },
 };
 
 function TypeBadge({ type, small }: { type: UnifiedRow["type"]; small?: boolean }) {
@@ -345,37 +342,33 @@ export default function StockAlertsPage() {
   return (
     <>
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-background flex h-16 shrink-0 items-center border-b px-6 gap-4 md:pr-64">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <Link href="/dashboard" className="text-muted-foreground hover:text-foreground text-sm">Dashboard</Link>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <Link href="/dashboard/inventory" className="text-muted-foreground hover:text-foreground text-sm">Inventory</Link>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem><BreadcrumbPage>Stock Alerts</BreadcrumbPage></BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-        <div className="ml-auto flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
-            <RefreshCw className={`size-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} />Refresh
-          </Button>
-          {selectedRows.length > 0 && (
-            <Button size="sm" onClick={handlePrint}>
-              <Printer className="size-3.5 mr-1.5" />Print / Purchase Request
+      <PageHeader
+        title="Stock Alerts"
+        description="All inventory items below their reorder level. Select items and enter quantity needed to print a purchase request."
+        breadcrumbs={[
+          { label: "Dashboard", href: "/dashboard" },
+          { label: "Inventory", href: "/dashboard/inventory" },
+          { label: "Stock Alerts" },
+        ]}
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
+              <RefreshCw className={`size-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} />Refresh
             </Button>
-          )}
-        </div>
-      </header>
+            {selectedRows.length > 0 && (
+              <Button size="sm" onClick={handlePrint}>
+                <Printer className="size-3.5 mr-1.5" />Print / Purchase Request
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <div className="p-4 md:p-6 space-y-4">
         {/* Title */}
         <div>
           <h1 className="text-xl font-semibold flex items-center gap-2">
-            <AlertTriangle className="size-5 text-amber-500" />
+            <AlertTriangle className="size-5 text-warning" />
             Stock Alerts
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
@@ -401,7 +394,7 @@ export default function StockAlertsPage() {
                 <Icon className="size-3.5" />
                 {label}
                 {!loading && count > 0 && (
-                  <span className="ml-1 text-[10px] font-semibold bg-amber-100 text-amber-700 rounded-full px-1.5 py-0.5">
+                  <span className="ml-1 text-[10px] font-semibold bg-warning/15 text-warning rounded-full px-1.5 py-0.5">
                     {count}
                   </span>
                 )}
@@ -418,16 +411,16 @@ export default function StockAlertsPage() {
           ))}</div>
         ) : rows.length === 0 ? (
           <div className="rounded-xl border p-14 text-center space-y-3">
-            <div className="size-14 rounded-full bg-emerald-100 flex items-center justify-center mx-auto">
-              <Package className="size-7 text-emerald-600" />
+            <div className="size-14 rounded-full bg-success/10 flex items-center justify-center mx-auto">
+              <Package className="size-7 text-success" />
             </div>
             <p className="text-sm font-medium">All stock levels are healthy!</p>
             <p className="text-xs text-muted-foreground">No inventory items are below their reorder level.</p>
           </div>
         ) : displayRows.length === 0 ? (
           <div className="rounded-xl border p-14 text-center space-y-3">
-            <div className="size-14 rounded-full bg-emerald-100 flex items-center justify-center mx-auto">
-              <Package className="size-7 text-emerald-600" />
+            <div className="size-14 rounded-full bg-success/10 flex items-center justify-center mx-auto">
+              <Package className="size-7 text-success" />
             </div>
             <p className="text-sm font-medium">No low-stock items in this category!</p>
           </div>
@@ -468,7 +461,7 @@ export default function StockAlertsPage() {
                 </thead>
                 <tbody className="divide-y">
                   {displayRows.map(r => (
-                    <tr key={r.key} className={`transition-colors ${selected.has(r.key) ? "bg-amber-50/50 dark:bg-amber-950/10" : "hover:bg-muted/20"}`}>
+                    <tr key={r.key} className={`transition-colors ${selected.has(r.key) ? "bg-warning/15/50" : "hover:bg-muted/20"}`}>
                       <td className="px-3 py-3 text-center">
                         <input type="checkbox" checked={selected.has(r.key)} onChange={() => toggle(r.key)}
                           className="size-4 rounded border-input accent-primary" />
@@ -483,7 +476,7 @@ export default function StockAlertsPage() {
                       </td>
                       <td className="px-4 py-3 text-sm text-muted-foreground">{r.category}</td>
                       <td className="px-4 py-3 text-right">
-                        <span className="text-amber-600 font-medium inline-flex items-center gap-1 justify-end">
+                        <span className="text-warning font-medium inline-flex items-center gap-1 justify-end">
                           <AlertTriangle className="size-3" />{fmtQty(r.qty, r.unit)}
                         </span>
                       </td>
@@ -507,7 +500,7 @@ export default function StockAlertsPage() {
             {/* Mobile cards */}
             <div className="md:hidden space-y-2">
               {displayRows.map(r => (
-                <div key={r.key} className={`rounded-lg border p-3 space-y-2 ${selected.has(r.key) ? "border-amber-300 bg-amber-50/50 dark:bg-amber-950/10" : "bg-card"}`}>
+                <div key={r.key} className={`rounded-lg border p-3 space-y-2 ${selected.has(r.key) ? "border-amber-300 bg-warning/15/50" : "bg-card"}`}>
                   <div className="flex items-start gap-2">
                     <input type="checkbox" checked={selected.has(r.key)} onChange={() => toggle(r.key)}
                       className="mt-0.5 size-4 rounded border-input accent-primary shrink-0" />
@@ -521,7 +514,7 @@ export default function StockAlertsPage() {
                   </div>
                   <div className="flex items-center justify-between gap-3 pl-6">
                     <div className="space-y-0.5 text-xs">
-                      <span className="text-amber-600 font-medium inline-flex items-center gap-1">
+                      <span className="text-warning font-medium inline-flex items-center gap-1">
                         <AlertTriangle className="size-3" />Current: {fmtQty(r.qty, r.unit)}
                       </span>
                       <div className="text-muted-foreground">Reorder: {fmtQty(r.reorder_level, r.unit)}</div>
@@ -542,7 +535,7 @@ export default function StockAlertsPage() {
 
             {/* Summary footer */}
             {selectedRows.length > 0 && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-4 flex items-center justify-between gap-4 flex-wrap">
+              <div className="rounded-lg border border-warning/20 bg-warning/15 p-4 flex items-center justify-between gap-4 flex-wrap">
                 <div className="text-sm">
                   <span className="font-medium">{selectedRows.length} item{selectedRows.length !== 1 ? "s" : ""} selected</span>
                   <span className="text-muted-foreground ml-2">

@@ -50,9 +50,9 @@ def _user_can_see_type(user: User, request_type: str, user_depts: list) -> bool:
                         customer dispatches, or user is admin.
     """
     if request_type == REQUEST_TYPE_VENDOR_PURCHASE:
-        return user.role == "admin"
+        return user.role in ("admin", "super_admin")
     if request_type == REQUEST_TYPE_CUSTOMER_DISPATCH:
-        if user.role == "admin":
+        if user.role in ("admin", "super_admin"):
             return True
         return any(d.handles_customer_dispatch for d in user_depts)
     return True  # internal_transfer: all users
@@ -129,7 +129,9 @@ def list_requests(
     label_map = build_department_label_map(session)
     return [
         RequestListRead(
-            id=r.id, sn_no=r.sn_no, request_type=r.request_type, department=r.department,
+            id=r.id, sn_no=r.sn_no, request_type=r.request_type,
+            from_department=r.from_department,
+            department=r.department,
             department_label=label_for_code(r.department, label_map),
             from_whom=r.from_whom, quantity=r.quantity, status=r.status,
             requested_by_username=r.requested_by_username, created_at=r.created_at,
@@ -166,7 +168,9 @@ def list_inbox(
             if not _user_can_accept(current_user, r, session, user_depts):
                 continue
         out.append(RequestListRead(
-            id=r.id, sn_no=r.sn_no, request_type=r.request_type, department=r.department,
+            id=r.id, sn_no=r.sn_no, request_type=r.request_type,
+            from_department=r.from_department,
+            department=r.department,
             department_label=label_for_code(r.department, label_map),
             from_whom=r.from_whom, quantity=r.quantity, status=r.status,
             requested_by_username=r.requested_by_username, created_at=r.created_at,
@@ -191,9 +195,22 @@ def create_request(
         raise HTTPException(status_code=403, detail=f"Not allowed to create {payload.request_type} requests")
 
     sn_no = generate_sn(session, payload.request_type)
+    # Auto-stamp requester's home department (not for customer_dispatch)
+    from_department: Optional[str] = None
+    if payload.request_type != REQUEST_TYPE_CUSTOMER_DISPATCH:
+        user_departments = get_user_departments(session, current_user.id)  # type: ignore[arg-type]
+        if user_departments:
+            from_department = user_departments[0].code
+
+    # Validate: internal_transfer cannot send to own department
+    if payload.request_type == REQUEST_TYPE_INTERNAL_TRANSFER:
+        if from_department and payload.department == from_department:
+            raise HTTPException(status_code=400, detail="Cannot create an internal transfer to the same department")
+
     new_req = Request(
         sn_no=sn_no,
         request_type=payload.request_type,
+        from_department=from_department,
         department=payload.department,
         from_whom=payload.from_whom,
         quantity=sum(i.quantity for i in payload.items) if payload.items else (payload.dispatch.quantity if payload.dispatch else 0.0),
@@ -268,7 +285,7 @@ def update_request(
     req = session.get(Request, request_id)
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
-    if req.requested_by_user_id != current_user.id and current_user.role != "admin":
+    if req.requested_by_user_id != current_user.id and current_user.role not in ("admin", "super_admin"):
         raise HTTPException(status_code=403, detail="Only the requester or an admin can edit")
 
     if req.status not in ("pending",):
@@ -367,7 +384,7 @@ def review_request(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.role != "admin":
+    if current_user.role not in ("admin", "super_admin"):
         raise HTTPException(status_code=403, detail="Only admins can review requests")
     req = session.get(Request, request_id)
     if not req:
@@ -591,7 +608,7 @@ def set_status(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.role != "admin":
+    if current_user.role not in ("admin", "super_admin"):
         raise HTTPException(status_code=403, detail="Only admins can change status manually")
     req = session.get(Request, request_id)
     if not req:
@@ -634,7 +651,9 @@ def _build_read(req: Request, session: Session) -> RequestRead:
     ).all()
     label_map = build_department_label_map(session)
     return RequestRead(
-        id=req.id, sn_no=req.sn_no, request_type=req.request_type, department=req.department,
+        id=req.id, sn_no=req.sn_no, request_type=req.request_type,
+        from_department=req.from_department,
+        department=req.department,
         department_label=label_for_code(req.department, label_map),
         from_whom=req.from_whom, quantity=req.quantity, notes=req.notes, status=req.status,
         requested_by_user_id=req.requested_by_user_id, requested_by_username=req.requested_by_username,

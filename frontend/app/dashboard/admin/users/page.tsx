@@ -2,14 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-  BreadcrumbLink,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -115,29 +108,15 @@ export default function UsersPage() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-6">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href="/dashboard/admin/departments">Admin</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
-            <BreadcrumbItem>
-              <BreadcrumbPage>Users</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </header>
-
-      <div className="p-6 space-y-4">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-semibold">Users</h1>
-            <p className="text-sm text-muted-foreground">
-              Manage system users and their department assignments.
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
+      <PageHeader
+        title="Users"
+        description="Manage system users and their department assignments."
+        breadcrumbs={[
+          { label: "Admin", href: "/dashboard/admin/departments" },
+          { label: "Users" },
+        ]}
+        actions={
+          <>
             <label className="flex items-center gap-1.5 text-sm text-muted-foreground cursor-pointer select-none">
               <input
                 type="checkbox"
@@ -151,8 +130,11 @@ export default function UsersPage() {
               <PlusIcon className="size-4 mr-1" />
               Add User
             </Button>
-          </div>
-        </div>
+          </>
+        }
+      />
+
+      <div className="p-6 space-y-4">
 
         {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
 

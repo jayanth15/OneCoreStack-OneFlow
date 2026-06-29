@@ -3,10 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList,
-  BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -154,32 +151,21 @@ export default function EditSchedulePage() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4 md:px-6">
-        <Link href="/dashboard/schedule" className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
-          <ArrowLeft className="size-4" />
-        </Link>
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href="/dashboard/schedule">Schedule</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
-            <BreadcrumbItem>
-              <BreadcrumbPage>{loading ? "Edit…" : `Edit ${scheduleNumber}`}</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </header>
+      <PageHeader
+        title="Edit Schedule"
+        description={!loading && scheduleNumber ? `Editing ${scheduleNumber} — ${form.customer_name}` : undefined}
+        breadcrumbs={[
+          { label: "Schedule", href: "/dashboard/schedule" },
+          { label: loading ? "Edit…" : `Edit ${scheduleNumber}` },
+        ]}
+        actions={
+          <Link href="/dashboard/schedule" className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
+            <ArrowLeft className="size-4" />
+          </Link>
+        }
+      />
 
       <div className="p-4 md:p-8 max-w-lg mx-auto">
-        <div className="mb-6">
-          <h1 className="text-xl font-semibold">Edit Schedule</h1>
-          {!loading && scheduleNumber && (
-            <p className="text-sm text-muted-foreground mt-1">
-              Editing <span className="font-mono font-medium">{scheduleNumber}</span> — {form.customer_name}
-            </p>
-          )}
-        </div>
 
         {loadError ? (
           <p className="text-sm text-destructive">{loadError}</p>
@@ -195,7 +181,7 @@ export default function EditSchedulePage() {
             <div className="space-y-1.5">
               <Label htmlFor="customer_name">Vendor / OEM Name <span className="text-destructive">*</span></Label>
               {customers.length === 0 ? (
-                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 flex items-center gap-2">
+                <div className="rounded-md border border-warning/20 bg-warning/15 px-3 py-2 text-sm text-amber-800 flex items-center gap-2">
                   No vendors yet —
                   <Link href="/dashboard/vendors" className="underline font-medium inline-flex items-center gap-1">
                     Add a vendor first <ExternalLink className="size-3" />
@@ -226,7 +212,7 @@ export default function EditSchedulePage() {
                 </Link>
               </div>
               {fgItems.length === 0 ? (
-                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 flex items-center gap-2">
+                <div className="rounded-md border border-warning/20 bg-warning/15 px-3 py-2 text-sm text-amber-800 flex items-center gap-2">
                   No finished goods yet —
                   <Link href="/dashboard/inventory/new" className="underline font-medium inline-flex items-center gap-1">
                     Create a Finished Good first <ExternalLink className="size-3" />
@@ -302,7 +288,7 @@ export default function EditSchedulePage() {
                     <div className="flex items-center gap-2 text-sm">
                       {availability.has_fg_shortfall
                         ? <PackageX className="size-4 text-destructive shrink-0" />
-                        : <PackageCheck className="size-4 text-emerald-600 shrink-0" />}
+                        : <PackageCheck className="size-4 text-success shrink-0" />}
                       <span className="font-medium">Finished Goods:</span>
                       <span>In stock&nbsp;<strong>{availability.fg_available}</strong></span>
                       <span className="text-muted-foreground">/</span>
@@ -323,7 +309,7 @@ export default function EditSchedulePage() {
                               <div><span className="text-muted-foreground">Need:</span> {r.required_qty} {r.raw_material_unit}</div>
                               <div>{r.shortfall > 0
                                 ? <span className="text-destructive font-medium">Short: {r.shortfall}</span>
-                                : <span className="text-emerald-600">OK</span>}
+                                : <span className="text-success">OK</span>}
                               </div>
                             </div>
                           </div>
@@ -349,7 +335,7 @@ export default function EditSchedulePage() {
                                 <td className="text-right py-1">
                                   {r.shortfall > 0
                                     ? <span className="text-destructive flex items-center justify-end gap-1"><TrendingDown className="size-3" />{r.shortfall}</span>
-                                    : <span className="text-emerald-600">OK</span>}
+                                    : <span className="text-success">OK</span>}
                                 </td>
                               </tr>
                             ))}

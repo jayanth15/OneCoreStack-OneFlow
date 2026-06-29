@@ -18,6 +18,7 @@ from app.models.bom_item import BomItem
 from app.models.inventory import InventoryItem
 from app.models.inventory_history import InventoryHistory
 from app.models.schedule import Schedule
+from app.models.unit import Unit
 from app.models.user import User
 
 router = APIRouter(
@@ -138,7 +139,7 @@ class InventoryItemCreate(BaseModel):
     code: str
     name: str
     item_type: str = "raw_material"
-    unit: str
+    unit_id: Optional[int] = None
     quantity_on_hand: float = 0.0
     reorder_level: float = 0.0
     storage_type: Optional[str] = None
@@ -148,7 +149,7 @@ class InventoryItemCreate(BaseModel):
     image_base64: Optional[str] = None
     vendor_name: Optional[str] = None
     weight_value: Optional[float] = None
-    weight_unit: Optional[str] = None
+    weight_unit_id: Optional[int] = None
     is_active: bool = True
 
     @field_validator("item_type")
@@ -163,7 +164,7 @@ class InventoryItemUpdate(BaseModel):
     code: Optional[str] = None
     name: Optional[str] = None
     item_type: Optional[str] = None
-    unit: Optional[str] = None
+    unit_id: Optional[int] = None
     quantity_on_hand: Optional[float] = None
     reorder_level: Optional[float] = None
     storage_type: Optional[str] = None
@@ -173,7 +174,7 @@ class InventoryItemUpdate(BaseModel):
     image_base64: Optional[str] = None
     vendor_name: Optional[str] = None
     weight_value: Optional[float] = None
-    weight_unit: Optional[str] = None
+    weight_unit_id: Optional[int] = None
     is_active: Optional[bool] = None
 
     @field_validator("item_type")
@@ -189,7 +190,8 @@ class InventoryItemResponse(BaseModel):
     code: str
     name: str
     item_type: str
-    unit: str
+    unit_id: Optional[int] = None
+    unit_name: Optional[str] = None
     quantity_on_hand: float
     reorder_level: float
     storage_type: Optional[str]
@@ -203,7 +205,8 @@ class InventoryItemResponse(BaseModel):
     rate: Optional[float] = None
     vendor_name: Optional[str] = None
     weight_value: Optional[float] = None
-    weight_unit: Optional[str] = None
+    weight_unit_id: Optional[int] = None
+    weight_unit_name: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -317,6 +320,15 @@ def list_items(
     )
 
     admin = is_admin_or_above(current_user)
+
+    all_unit_ids = set()
+    all_weight_unit_ids = set()
+    for item in items:
+        if item.unit_id: all_unit_ids.add(item.unit_id)
+        if item.weight_unit_id: all_weight_unit_ids.add(item.weight_unit_id)
+    unit_map = {u.id: u.name for u in session.exec(select(Unit).where(Unit.id.in_(all_unit_ids))).all()} if all_unit_ids else {}
+    weight_unit_map = {u.id: u.name for u in session.exec(select(Unit).where(Unit.id.in_(all_weight_unit_ids))).all()} if all_weight_unit_ids else {}
+
     result = []
     for item in items:
         extra = _compute_extra(session, item)
@@ -325,7 +337,8 @@ def list_items(
             "code": item.code,
             "name": item.name,
             "item_type": item.item_type,
-            "unit": item.unit,
+            "unit_id": item.unit_id,
+            "unit_name": unit_map.get(item.unit_id) if item.unit_id else None,
             "quantity_on_hand": item.quantity_on_hand,
             "reorder_level": item.reorder_level,
             "storage_type": item.storage_type,
@@ -335,7 +348,8 @@ def list_items(
             "rate": item.rate if admin else None,
             "vendor_name": item.vendor_name,
             "weight_value": item.weight_value,
-            "weight_unit": item.weight_unit,
+            "weight_unit_id": item.weight_unit_id,
+            "weight_unit_name": weight_unit_map.get(item.weight_unit_id) if item.weight_unit_id else None,
             **extra,
         }
         result.append(d)
@@ -359,7 +373,7 @@ def create_item(
         code=body.code.upper().strip(),
         name=body.name.strip(),
         item_type=body.item_type,
-        unit=body.unit.strip(),
+        unit_id=body.unit_id,
         quantity_on_hand=body.quantity_on_hand,
         reorder_level=body.reorder_level,
         storage_type=body.storage_type,
@@ -369,7 +383,7 @@ def create_item(
         image_base64=body.image_base64,
         vendor_name=body.vendor_name or None,
         weight_value=body.weight_value,
-        weight_unit=body.weight_unit,
+        weight_unit_id=body.weight_unit_id,
         is_active=body.is_active,
         updated_at=datetime.now(tz=timezone.utc),
     )
@@ -400,7 +414,18 @@ def get_item(
         raise HTTPException(status_code=404, detail="Item not found")
     admin = is_admin_or_above(current_user)
     extra = _compute_extra(session, item)
-    return {**item.__dict__, "rate": item.rate if admin else None, "image_base64": item.image_base64, **extra}
+    unit = session.get(Unit, item.unit_id) if item.unit_id else None
+    wunit = session.get(Unit, item.weight_unit_id) if item.weight_unit_id else None
+    return {
+        **item.__dict__,
+        "unit_id": item.unit_id,
+        "unit_name": unit.name if unit else None,
+        "weight_unit_id": item.weight_unit_id,
+        "weight_unit_name": wunit.name if wunit else None,
+        "rate": item.rate if admin else None,
+        "image_base64": item.image_base64,
+        **extra,
+    }
 
 
 @router.put("/{item_id}", response_model=InventoryItemDetailResponse)
@@ -432,8 +457,8 @@ def update_item(
         item.name = body.name.strip()
     if body.item_type is not None:
         item.item_type = body.item_type
-    if body.unit is not None:
-        item.unit = body.unit.strip()
+    if body.unit_id is not None:
+        item.unit_id = body.unit_id
     if body.quantity_on_hand is not None:
         item.quantity_on_hand = body.quantity_on_hand
     if body.reorder_level is not None:
@@ -454,8 +479,8 @@ def update_item(
         item.vendor_name = body.vendor_name or None
     if body.weight_value is not None:
         item.weight_value = body.weight_value
-    if body.weight_unit is not None:
-        item.weight_unit = body.weight_unit
+    if body.weight_unit_id is not None:
+        item.weight_unit_id = body.weight_unit_id
 
     item.updated_at = datetime.now(tz=timezone.utc)
 
@@ -470,7 +495,18 @@ def update_item(
     session.refresh(item)
 
     extra = _compute_extra(session, item)
-    return {**item.__dict__, "rate": item.rate if admin else None, "image_base64": item.image_base64, **extra}
+    unit = session.get(Unit, item.unit_id) if item.unit_id else None
+    wunit = session.get(Unit, item.weight_unit_id) if item.weight_unit_id else None
+    return {
+        **item.__dict__,
+        "unit_id": item.unit_id,
+        "unit_name": unit.name if unit else None,
+        "weight_unit_id": item.weight_unit_id,
+        "weight_unit_name": wunit.name if wunit else None,
+        "rate": item.rate if admin else None,
+        "image_base64": item.image_base64,
+        **extra,
+    }
 
 
 @router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -526,7 +562,18 @@ def adjust_stock(
     session.refresh(item)
 
     extra = _compute_extra(session, item)
-    return {**item.__dict__, "rate": item.rate if admin else None, "image_base64": item.image_base64, **extra}
+    unit = session.get(Unit, item.unit_id) if item.unit_id else None
+    wunit = session.get(Unit, item.weight_unit_id) if item.weight_unit_id else None
+    return {
+        **item.__dict__,
+        "unit_id": item.unit_id,
+        "unit_name": unit.name if unit else None,
+        "weight_unit_id": item.weight_unit_id,
+        "weight_unit_name": wunit.name if wunit else None,
+        "rate": item.rate if admin else None,
+        "image_base64": item.image_base64,
+        **extra,
+    }
 
 
 @router.get("/{item_id}/history", response_model=list[HistoryEntryResponse])
@@ -665,12 +712,16 @@ def get_item_detail(
 
     admin = is_admin_or_above(current_user)
 
+    unit_obj = session.get(Unit, item.unit_id) if item.unit_id else None
+    wunit_obj = session.get(Unit, item.weight_unit_id) if item.weight_unit_id else None
+
     base: dict[str, Any] = {
         "id": item.id,
         "code": item.code,
         "name": item.name,
         "item_type": item.item_type,
-        "unit": item.unit,
+        "unit_id": item.unit_id,
+        "unit_name": unit_obj.name if unit_obj else None,
         "quantity_on_hand": item.quantity_on_hand,
         "reorder_level": item.reorder_level,
         "storage_type": item.storage_type,
@@ -681,7 +732,8 @@ def get_item_detail(
         "image_base64": item.image_base64,
         "vendor_name": item.vendor_name,
         "weight_value": item.weight_value,
-        "weight_unit": item.weight_unit,
+        "weight_unit_id": item.weight_unit_id,
+        "weight_unit_name": wunit_obj.name if wunit_obj else None,
         "has_design_drawing": item.design_drawing_pdf is not None,
     }
 
@@ -713,16 +765,20 @@ def get_item_detail(
             rm_needed_for_demand = total_demand * bom.qty_per_unit
             can_produce = (item.quantity_on_hand / bom.qty_per_unit) if bom.qty_per_unit > 0 else 0.0
 
+            rm_unit = session.get(Unit, item.unit_id) if item.unit_id else None
+            fg_unit_obj = session.get(Unit, fg_item.unit_id) if fg_item and fg_item.unit_id else None
             bom_usage.append({
                 "bom_id": bom.id,
                 "is_active": bom.is_active,
                 "product_name": bom.product_name,
                 "qty_per_unit": bom.qty_per_unit,
-                "unit": item.unit,
+                "unit_id": item.unit_id,
+                "unit_name": rm_unit.name if rm_unit else None,
                 "notes": bom.notes,
                 "fg_item_id": fg_item.id if fg_item else None,
                 "fg_available_qty": fg_item.quantity_on_hand if fg_item else None,
-                "fg_unit": fg_item.unit if fg_item else None,
+                "fg_unit_id": fg_item.unit_id if fg_item else None,
+                "fg_unit_name": fg_unit_obj.name if fg_unit_obj else None,
                 "active_schedule_count": len(active_schedules),
                 "total_active_demand": total_demand,
                 "rm_needed_for_demand": round(rm_needed_for_demand, 4),
@@ -783,12 +839,14 @@ def get_item_detail(
         else:
             production_capacity = min(production_capacity, can_produce_from_rm)
 
+        rm_unit_obj = session.get(Unit, rm.unit_id) if rm.unit_id else None
         bom_requirements.append({
             "bom_id": bom.id,
             "raw_material_id": rm.id,
             "raw_material_code": rm.code,
             "raw_material_name": rm.name,
-            "unit": rm.unit,
+            "unit_id": rm.unit_id,
+            "unit_name": rm_unit_obj.name if rm_unit_obj else None,
             "qty_per_unit": bom.qty_per_unit,
             "available_qty": rm.quantity_on_hand,
             "reorder_level": rm.reorder_level,

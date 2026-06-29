@@ -129,6 +129,7 @@ class RequestRead(BaseModel):
     id: int
     sn_no: str
     request_type: str
+    from_department: Optional[str] = None
     department: Optional[str] = None
     department_label: Optional[str] = None
     from_whom: Optional[str] = None
@@ -167,6 +168,7 @@ class RequestListRead(BaseModel):
     id: int
     sn_no: str
     request_type: str
+    from_department: Optional[str] = None
     department: Optional[str] = None
     department_label: Optional[str] = None
     from_whom: Optional[str] = None

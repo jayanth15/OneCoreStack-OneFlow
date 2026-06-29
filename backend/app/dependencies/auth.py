@@ -69,3 +69,44 @@ def require_super_admin(
 
 def is_admin_or_above(user: User) -> bool:
     return user.role in ("admin", "super_admin")
+
+
+def require_grn_access(
+    user: Annotated[User, Depends(get_current_active_user)],
+) -> User:
+    """Require grn_access flag on the user (or admin/super_admin)."""
+    if is_admin_or_above(user) or user.grn_access:
+        return user
+    raise HTTPException(status_code=403, detail="GRN access required")
+
+
+def require_dispatch_access(
+    user: Annotated[User, Depends(get_current_active_user)],
+) -> User:
+    """Require dispatch_access flag on the user (or admin/super_admin)."""
+    if is_admin_or_above(user) or user.dispatch_access:
+        return user
+    raise HTTPException(status_code=403, detail="Dispatch access required")
+
+
+def require_gate_pass_access(
+    user: Annotated[User, Depends(get_current_active_user)],
+) -> User:
+    """Require gate_pass_access flag on the user (or admin/super_admin)."""
+    if is_admin_or_above(user) or user.gate_pass_access:
+        return user
+    raise HTTPException(status_code=403, detail="Gate pass access required")
+
+
+def require_purchase_access(
+    user: Annotated[User, Depends(get_current_active_user)],
+) -> User:
+    """Require purchase_access flag on the user (or admin/super_admin)."""
+    if is_admin_or_above(user) or user.purchase_access:
+        return user
+    raise HTTPException(status_code=403, detail="Purchase access required")
+
+
+SessionDep = Annotated[Session, Depends(get_session)]
+CurrentUser = Annotated[User, Depends(get_current_active_user)]
+AdminUser = Annotated[User, Depends(require_admin)]

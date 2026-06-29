@@ -3,9 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -185,76 +183,74 @@ function InventoryLanding() {
       id: "finished_good", label: "Finished Goods", desc: "Final products ready for dispatch",
       href: "/dashboard/inventory/finished-goods",
       icon: <Package className="size-8" />,
-      accent: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400",
+      accent: "bg-tone-emerald/10 text-tone-emerald",
       border: "hover:border-teal-400",
     },
     {
       id: "raw_material", label: "Raw Materials", desc: "Input materials and components",
       href: "/dashboard/inventory/raw-materials",
       icon: <Box className="size-8" />,
-      accent: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+      accent: "bg-tone-amber/15 text-tone-amber",
       border: "hover:border-orange-400",
     },
     {
       id: "semi_finished", label: "Semi Finished", desc: "Work-in-progress goods",
       href: "/dashboard/inventory/semi-finished",
       icon: <Layers className="size-8" />,
-      accent: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
+      accent: "bg-tone-violet/10 text-tone-violet",
       border: "hover:border-indigo-400",
     },
     {
       id: "spares", label: "Spares", desc: "Spare parts organised by category",
       href: "/dashboard/inventory/spares",
       icon: <Wrench className="size-8" />,
-      accent: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+      accent: "bg-warning/15 text-warning",
       border: "hover:border-amber-400",
     },
     {
       id: "consumables", label: "Consumables", desc: "Oils, chemicals & consumable stock",
       href: "/dashboard/inventory/consumables",
       icon: <FlaskConical className="size-8" />,
-      accent: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400",
+      accent: "bg-tone-violet/10 text-tone-violet",
       border: "hover:border-violet-400",
     },
     {
       id: "attachments", label: "Attachments", desc: "Attachment inventory items",
       href: "/dashboard/inventory/attachments",
       icon: <Paperclip className="size-8" />,
-      accent: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400",
+      accent: "bg-primary/10 text-primary",
       border: "hover:border-sky-400",
     },
     {
       id: "weeders", label: "Weeders", desc: "Weeder inventory items",
       href: "/dashboard/inventory/weeders",
       icon: <Scissors className="size-8" />,
-      accent: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+      accent: "bg-success/10 text-success",
       border: "hover:border-green-400",
     },
     {
       id: "scrap", label: "Scraps", desc: "Scrap materials from production",
       href: "/dashboard/inventory/scraps",
       icon: <Recycle className="size-8" />,
-      accent: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
+      accent: "bg-rose-100 text-rose-700",
       border: "hover:border-rose-400",
     },
     {
       id: "stock_alerts", label: "Stock Alerts", desc: "Items below reorder level",
       href: "/dashboard/inventory/stock-alerts",
       icon: <AlertTriangle className="size-8" />,
-      accent: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+      accent: "bg-destructive/10 text-destructive",
       border: "hover:border-red-400",
     },
   ];
 
   return (
     <>
-      <header className="sticky top-0 z-10 bg-background flex h-16 shrink-0 items-center border-b px-6">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem><BreadcrumbPage>Inventory</BreadcrumbPage></BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </header>
+      <PageHeader
+        title="Inventory"
+        description="Select an inventory type to view and manage items."
+        breadcrumbs={[{ label: "Inventory" }]}
+      />
       <div className="p-4 md:p-6 space-y-4">
         <div>
           <h1 className="text-xl font-semibold">Inventory</h1>
@@ -493,19 +489,19 @@ function InventoryPageInner() {
   return (
     <>
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-background flex h-16 shrink-0 items-center border-b px-6">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <Link href="/dashboard/inventory" className="text-muted-foreground hover:text-foreground text-sm">Inventory</Link>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>{TABS.find((t) => t.id === tab)?.label ?? "Inventory"}</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </header>
+      <PageHeader
+        title={TABS.find((t) => t.id === tab)?.label ?? "Inventory"}
+        description={
+          tab === "raw_material" ? "Input materials and components." :
+          tab === "semi_finished" ? "Work-in-progress goods." :
+          tab === "all" ? "All inventory items." :
+          "Final products ready for dispatch."
+        }
+        breadcrumbs={[
+          { label: "Inventory", href: "/dashboard/inventory" },
+          { label: TABS.find((t) => t.id === tab)?.label ?? "Inventory" },
+        ]}
+      />
 
       <div className="p-4 md:p-6 space-y-4">
         {/* Heading */}
@@ -526,13 +522,13 @@ function InventoryPageInner() {
         {(lowCount > 0 || shortfall > 0) && (
           <div className="flex flex-wrap gap-2">
             {lowCount > 0 && (
-              <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-1.5">
+              <div className="flex items-center gap-1.5 text-xs text-warning bg-warning/15 border border-warning/20 rounded-md px-3 py-1.5">
                 <AlertTriangle className="size-3.5 shrink-0" />
                 {lowCount} item{lowCount !== 1 ? "s" : ""} below reorder level
               </div>
             )}
             {shortfall > 0 && (
-              <div className="flex items-center gap-1.5 text-xs text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-1.5">
+              <div className="flex items-center gap-1.5 text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-md px-3 py-1.5">
                 <TrendingDown className="size-3.5 shrink-0" />
                 {shortfall} raw material{shortfall !== 1 ? "s" : ""} have shortfall vs schedule
               </div>
@@ -606,7 +602,7 @@ function InventoryPageInner() {
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
                     <div className="flex items-center gap-1">
                       <span className="text-muted-foreground">Available:</span>
-                      <span className={`font-medium ${low ? "text-amber-600" : short ? "text-red-600" : ""}`}>
+                      <span className={`font-medium ${low ? "text-warning" : short ? "text-destructive" : ""}`}>
                         {(low || short) && <AlertTriangle className="size-3 inline mr-0.5" />}
                         {fmtQty(item.quantity_on_hand)} {item.unit}
                       </span>
@@ -614,7 +610,7 @@ function InventoryPageInner() {
                     {showRMCols && item.required_qty != null && item.required_qty > 0 && (
                       <div>
                         <span className="text-muted-foreground">Required:</span>{" "}
-                        <span className={item.required_qty > item.quantity_on_hand ? "text-red-600 font-medium" : ""}>
+                        <span className={item.required_qty > item.quantity_on_hand ? "text-destructive font-medium" : ""}>
                           {fmtQty(item.required_qty)} {item.unit}
                         </span>
                       </div>
@@ -633,15 +629,15 @@ function InventoryPageInner() {
                   <div className="flex justify-end gap-0.5 pt-1 border-t">
                     <Button variant="ghost" size="icon" className="size-7" title="View Details"
                       onClick={() => router.push(`/dashboard/inventory/${item.id}`)}>
-                      <Eye className="size-3.5 text-blue-600" />
+                      <Eye className="size-3.5 text-primary" />
                     </Button>
                     <Button variant="ghost" size="icon" className="size-7" title="Add Stock"
                       onClick={() => { setAdjustType("add"); openAdjust(item); }}>
-                      <PackagePlus className="size-3.5 text-emerald-600" />
+                      <PackagePlus className="size-3.5 text-success" />
                     </Button>
                     <Button variant="ghost" size="icon" className="size-7" title="Remove Stock"
                       onClick={() => { setAdjustType("subtract"); openAdjust(item); }}>
-                      <PackageMinus className="size-3.5 text-amber-600" />
+                      <PackageMinus className="size-3.5 text-warning" />
                     </Button>
                     <Button variant="ghost" size="icon" className="size-7" title="Edit"
                       onClick={() => router.push(`/dashboard/inventory/${item.id}/edit`)}>
@@ -650,7 +646,7 @@ function InventoryPageInner() {
                     {admin && (
                       <Button variant="ghost" size="icon" className="size-7" title="History"
                         onClick={() => openHistory(item)}>
-                        <History className="size-3.5 text-blue-600" />
+                        <History className="size-3.5 text-primary" />
                       </Button>
                     )}
                     <Button variant="ghost" size="icon"
@@ -729,7 +725,7 @@ function InventoryPageInner() {
                         )}
                         {/* Available */}
                         <td className={["px-4 py-3 text-right tabular-nums font-medium",
-                          low ? "text-amber-600" : short ? "text-red-600" : ""].join(" ")}>
+                          low ? "text-warning" : short ? "text-destructive" : ""].join(" ")}>
                           <div className="flex items-center justify-end gap-1">
                             {(low || short) && <AlertTriangle className="size-3 shrink-0" />}
                             {fmtQty(item.quantity_on_hand)} {item.unit}
@@ -740,7 +736,7 @@ function InventoryPageInner() {
                           <td className="px-4 py-3 text-right tabular-nums text-xs">
                             {item.required_qty != null && item.required_qty > 0 ? (
                               <span className={item.required_qty > item.quantity_on_hand
-                                ? "text-red-600 font-medium" : "text-muted-foreground"}>
+                                ? "text-destructive font-medium" : "text-muted-foreground"}>
                                 {fmtQty(item.required_qty)} {item.unit}
                               </span>
                             ) : <span className="text-muted-foreground">—</span>}
@@ -778,15 +774,15 @@ function InventoryPageInner() {
                           <div className="inline-flex gap-0.5">
                             <Button variant="ghost" size="icon" className="size-7" title="View Details"
                               onClick={() => router.push(`/dashboard/inventory/${item.id}`)}>
-                              <Eye className="size-3.5 text-blue-600" />
+                              <Eye className="size-3.5 text-primary" />
                             </Button>
                             <Button variant="ghost" size="icon" className="size-7" title="Add Stock"
                               onClick={() => { setAdjustType("add"); openAdjust(item); }}>
-                              <PackagePlus className="size-3.5 text-emerald-600" />
+                              <PackagePlus className="size-3.5 text-success" />
                             </Button>
                             <Button variant="ghost" size="icon" className="size-7" title="Remove Stock"
                               onClick={() => { setAdjustType("subtract"); openAdjust(item); }}>
-                              <PackageMinus className="size-3.5 text-amber-600" />
+                              <PackageMinus className="size-3.5 text-warning" />
                             </Button>
                             <Button variant="ghost" size="icon" className="size-7" title="Edit"
                               onClick={() => router.push(`/dashboard/inventory/${item.id}/edit`)}>
@@ -795,7 +791,7 @@ function InventoryPageInner() {
                             {admin && (
                               <Button variant="ghost" size="icon" className="size-7" title="History"
                                 onClick={() => openHistory(item)}>
-                                <History className="size-3.5 text-blue-600" />
+                                <History className="size-3.5 text-primary" />
                               </Button>
                             )}
                             <Button variant="ghost" size="icon"

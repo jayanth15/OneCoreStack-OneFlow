@@ -56,13 +56,13 @@ export function UserAvatar({
       <img
         src={photoBase64}
         alt={username}
-        className={`${dim} rounded-full object-cover ring-2 ring-border shrink-0`}
+        className={`${dim} rounded-full object-cover ring-2 ring-primary/20 shrink-0`}
       />
     );
   }
   const initials = username.slice(0, 2).toUpperCase();
   return (
-    <div className={`${dim} rounded-full bg-primary flex items-center justify-center ring-2 ring-border shrink-0`}>
+    <div className={`${dim} rounded-full bg-primary flex items-center justify-center ring-2 ring-primary/20 shrink-0`}>
       <span className={`${text} font-semibold text-primary-foreground`}>{initials}</span>
     </div>
   );
@@ -137,18 +137,18 @@ function NotificationBell() {
           <Bell className="size-4.5 text-muted-foreground" />
         )}
         {unreadCount > 0 && (
-          <span className="absolute top-0.5 right-0.5 min-w-[16px] h-4 rounded-full bg-red-500 text-[10px] font-bold text-white flex items-center justify-center px-1">
+          <span className="absolute top-0.5 right-0.5 min-w-[16px] h-4 rounded-full bg-destructive text-[10px] font-bold text-white flex items-center justify-center px-1">
             {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1.5 w-80 max-h-[70vh] flex flex-col rounded-xl border bg-popover shadow-lg z-50 overflow-hidden">
+        <div className="absolute right-0 top-full mt-1.5 w-80 max-h-[70vh] flex flex-col rounded-xl border bg-popover shadow-md z-50 overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
             <span className="text-sm font-semibold">
-              Notifications {unreadCount > 0 && <span className="text-red-500">({unreadCount})</span>}
+              Notifications {unreadCount > 0 && <span className="text-destructive">({unreadCount})</span>}
             </span>
             {unreadCount > 0 && (
               <button
@@ -174,7 +174,7 @@ function NotificationBell() {
                   onClick={() => handleNotifClick(n)}
                   className={cn(
                     "w-full text-left px-4 py-3 border-b last:border-0 hover:bg-muted/60 transition-colors",
-                    !n.is_read && "bg-blue-50 dark:bg-blue-950/20"
+                    !n.is_read && "bg-accent"
                   )}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -182,7 +182,7 @@ function NotificationBell() {
                     <span className="text-[10px] text-muted-foreground shrink-0 mt-0.5">{fmtAge(n.created_at)}</span>
                   </div>
                   {n.body && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.body}</p>}
-                  {!n.is_read && <span className="inline-block mt-1 size-1.5 rounded-full bg-blue-500" />}
+                  {!n.is_read && <span className="inline-block mt-1 size-1.5 rounded-full bg-primary" />}
                 </button>
               ))
             )}
@@ -238,7 +238,7 @@ function UserMenu({ user }: { user: CurrentUser }) {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1.5 w-64 rounded-xl border bg-popover shadow-lg z-50 overflow-hidden">
+        <div className="absolute right-0 top-full mt-1.5 w-64 rounded-xl border bg-popover shadow-md z-50 overflow-hidden">
           {/* Profile header */}
           <div className="flex flex-col items-center gap-3 px-4 py-4 border-b bg-muted/30">
             <UserAvatar username={user.username} photoBase64={user.photo_base64} size="lg" />

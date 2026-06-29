@@ -18,6 +18,7 @@ from app.dependencies.auth import get_current_user
 from app.models.gate_pass import GatePass
 from app.models.gate_pass_history import GatePassHistory
 from app.models.gate_pass_item import GatePassItem
+from app.models.unit import Unit
 from app.models.user import User
 
 router = APIRouter(prefix="/api/v1/gate-passes", tags=["gate-passes"])
@@ -61,7 +62,7 @@ def list_gate_passes(
     for gi in all_gp_items:
         items_by_gp.setdefault(gi.gate_pass_id, []).append(gi)
 
-    return {"items": [_to_dict(g, items_by_gp.get(g.id, [])) for g in page_gps], "total": total, "page": page, "page_size": page_size}
+    return {"items": [_to_dict(g, items_by_gp.get(g.id, []), session) for g in page_gps], "total": total, "page": page, "page_size": page_size}
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -74,12 +75,12 @@ def create_gate_pass(
     raw_items = body.get("items") or []
     first_item_name = ""
     first_qty = 0.0
-    first_unit = None
+    first_unit_id = None
     if raw_items:
         first = raw_items[0]
         first_item_name = (first.get("item_name") or "").strip()
         first_qty = float(first.get("quantity") or 0)
-        first_unit = (first.get("unit") or "").strip() or None
+        first_unit_id = first.get("unit_id") or None
 
     gp = GatePass(
         gate_pass_number=_next_gp_number(session),
@@ -90,7 +91,7 @@ def create_gate_pass(
         supplier_name=(body.get("supplier_name") or "").strip() or None,
         material=first_item_name or (body.get("material") or "").strip(),
         quantity=first_qty or float(body.get("quantity") or 0),
-        unit=first_unit or (body.get("unit") or "").strip() or None,
+        unit_id=first_unit_id or body.get("unit_id") or None,
         purpose=(body.get("purpose") or "").strip() or None,
         vehicle_number=(body.get("vehicle_number") or "").strip() or None,
         date=(body.get("date") or "").strip() or None,
@@ -116,7 +117,7 @@ def create_gate_pass(
             inv_type=item_data.get("inv_type") or None,
             inv_item_id=item_data.get("inv_item_id"),
             quantity=float(item_data.get("quantity") or 0),
-            unit=(item_data.get("unit") or "").strip() or None,
+            unit_id=item_data.get("unit_id") or None,
         ))
 
     session.commit()
@@ -130,7 +131,7 @@ def create_gate_pass(
     ))
     session.commit()
     saved_items = list(session.exec(select(GatePassItem).where(GatePassItem.gate_pass_id == gp.id)).all())
-    return _to_dict(gp, saved_items)
+    return _to_dict(gp, saved_items, session)
 def get_gate_pass(
     gp_id: int,
     session: Annotated[Session, Depends(get_session)],
@@ -141,7 +142,7 @@ def get_gate_pass(
     if not gp:
         raise HTTPException(status_code=404, detail="Gate pass not found")
     gp_items = list(session.exec(select(GatePassItem).where(GatePassItem.gate_pass_id == gp_id)).all())
-    return _to_dict(gp, gp_items)
+    return _to_dict(gp, gp_items, session)
 
 
 @router.put("/{gp_id}")
@@ -159,7 +160,7 @@ def update_gate_pass(
     old_status = gp.status
 
     for field in ("pass_type", "vendor_id", "vendor_name", "supplier_id", "supplier_name",
-                  "material", "quantity", "unit", "purpose", "vehicle_number", "date", "notes", "status",
+                  "material", "quantity", "unit_id", "purpose", "vehicle_number", "date", "notes", "status",
                   "purchase_request_id", "purchase_request_number",
                   "purchase_order_id", "purchase_order_number"):
         if field in body:
@@ -184,13 +185,13 @@ def update_gate_pass(
                 inv_type=item_data.get("inv_type") or None,
                 inv_item_id=item_data.get("inv_item_id"),
                 quantity=float(item_data.get("quantity") or 0),
-                unit=(item_data.get("unit") or "").strip() or None,
+                unit_id=item_data.get("unit_id") or None,
             ))
         if raw_items:
             first_data = raw_items[0]
             gp.material = (first_data.get("item_name") or "").strip()
             gp.quantity = float(first_data.get("quantity") or 0)
-            gp.unit = (first_data.get("unit") or "").strip() or None
+            gp.unit_id = first_data.get("unit_id") or None
 
     session.add(gp)
     session.commit()
@@ -207,7 +208,7 @@ def update_gate_pass(
         ))
         session.commit()
     saved_items = list(session.exec(select(GatePassItem).where(GatePassItem.gate_pass_id == gp.id)).all())
-    return _to_dict(gp, saved_items)
+    return _to_dict(gp, saved_items, session)
 
 
 @router.delete("/{gp_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -233,7 +234,27 @@ def _require_access(user: User) -> None:
     raise HTTPException(status_code=403, detail="Gate pass access required")
 
 
-def _to_dict(g: GatePass, items: list[GatePassItem] | None = None) -> dict[str, Any]:
+def _to_dict(g: GatePass, items: list[GatePassItem] | None = None, session: Session | None = None) -> dict[str, Any]:
+    header_unit_name = None
+    if g.unit_id and session:
+        u = session.get(Unit, g.unit_id)
+        header_unit_name = u.name if u else None
+    item_list = []
+    if items:
+        for i in items:
+            i_unit_name = None
+            if i.unit_id and session:
+                u = session.get(Unit, i.unit_id)
+                i_unit_name = u.name if u else None
+            item_list.append({
+                "id": i.id,
+                "item_name": i.item_name,
+                "inv_type": i.inv_type,
+                "inv_item_id": i.inv_item_id,
+                "quantity": i.quantity,
+                "unit_id": i.unit_id,
+                "unit_name": i_unit_name,
+            })
     return {
         "id": g.id,
         "gate_pass_number": g.gate_pass_number,
@@ -244,7 +265,8 @@ def _to_dict(g: GatePass, items: list[GatePassItem] | None = None) -> dict[str, 
         "supplier_name": g.supplier_name,
         "material": g.material,
         "quantity": g.quantity,
-        "unit": g.unit,
+        "unit_id": g.unit_id,
+        "unit_name": header_unit_name,
         "purpose": g.purpose,
         "vehicle_number": g.vehicle_number,
         "date": g.date,
@@ -256,15 +278,5 @@ def _to_dict(g: GatePass, items: list[GatePassItem] | None = None) -> dict[str, 
         "purchase_request_number": g.purchase_request_number,
         "purchase_order_id": g.purchase_order_id,
         "purchase_order_number": g.purchase_order_number,
-        "items": [
-            {
-                "id": i.id,
-                "item_name": i.item_name,
-                "inv_type": i.inv_type,
-                "inv_item_id": i.inv_item_id,
-                "quantity": i.quantity,
-                "unit": i.unit,
-            }
-            for i in (items or [])
-        ],
+        "items": item_list,
     }

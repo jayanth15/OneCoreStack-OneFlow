@@ -45,13 +45,13 @@ export interface RequestDetailDialogProps {
 }
 
 const STATUS_META: Record<RequestStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" | "ghost"; tone: string }> = {
-  pending:            { label: "Pending",            variant: "secondary",   tone: "bg-slate-100 text-slate-700 ring-slate-200" },
-  approved:           { label: "Approved",           variant: "default",      tone: "bg-blue-100 text-blue-700 ring-blue-200" },
-  in_progress:        { label: "In progress",        variant: "secondary",   tone: "bg-amber-100 text-amber-800 ring-amber-200" },
+  pending:            { label: "Pending",            variant: "secondary",   tone: "bg-muted text-foreground ring-slate-200" },
+  approved:           { label: "Approved",           variant: "default",      tone: "bg-primary/10 text-primary ring-primary/20" },
+  in_progress:        { label: "In progress",        variant: "secondary",   tone: "bg-warning/15 text-warning ring-warning/20" },
   awaiting_signoff:   { label: "Awaiting signoff",   variant: "secondary",   tone: "bg-purple-100 text-purple-700 ring-purple-200" },
-  received:           { label: "Received",           variant: "secondary",   tone: "bg-emerald-100 text-emerald-700 ring-emerald-200" },
-  not_approved:       { label: "Rejected",           variant: "destructive", tone: "bg-red-100 text-red-700 ring-red-200" },
-  cancelled:          { label: "Cancelled",          variant: "outline",     tone: "bg-slate-200 text-slate-600 ring-slate-300" },
+  received:           { label: "Received",           variant: "secondary",   tone: "bg-success/10 text-success ring-success/20" },
+  not_approved:       { label: "Rejected",           variant: "destructive", tone: "bg-destructive/10 text-destructive ring-destructive/20" },
+  cancelled:          { label: "Cancelled",          variant: "outline",     tone: "bg-slate-200 text-muted-foreground ring-slate-300" },
 };
 
 const REQUEST_TYPE_META: Record<string, { label: string; icon: typeof Send }> = {
@@ -76,14 +76,14 @@ const HISTORY_LABELS: Record<string, string> = {
 const HISTORY_TONE: Record<string, string> = {
   created: "bg-slate-400",
   edited: "bg-slate-400",
-  approved: "bg-emerald-500",
-  rejected: "bg-red-500",
+  approved: "bg-success",
+  rejected: "bg-destructive",
   cancelled: "bg-slate-400",
-  responded: "bg-blue-500",
+  responded: "bg-primary",
   delivered: "bg-purple-500",
-  delivery_acknowledged: "bg-emerald-500",
-  status_change: "bg-amber-500",
-  deleted: "bg-red-500",
+  delivery_acknowledged: "bg-success",
+  status_change: "bg-warning",
+  deleted: "bg-destructive",
 };
 
 const LIFECYCLE_STEPS: { key: RequestStatus; label: string }[] = [
@@ -197,7 +197,7 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
   const isTerminalNegative = data && (data.status === "not_approved" || data.status === "cancelled");
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
       <DialogContent
         className="max-w-[calc(100%-1rem)] sm:max-w-2xl p-0 gap-0 max-h-[90vh] overflow-hidden"
         onInteractOutside={(e) => e.preventDefault()}
@@ -396,7 +396,7 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
               {data.acknowledged_by_username && (
                 <Card size="sm" className="ring-1 ring-foreground/5 bg-emerald-50/30">
                   <CardContent className="p-4 space-y-3">
-                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-700">
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-success">
                       <PackageCheck className="size-3.5" />
                       Confirmed
                     </div>

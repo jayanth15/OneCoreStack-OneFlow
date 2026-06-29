@@ -50,6 +50,7 @@ export interface UnifiedRequest {
   id: number;
   sn_no: string;
   request_type: RequestType;
+  from_department?: string | null;
   department?: string | null;
   department_label?: string | null;
   from_whom?: string | null;
@@ -86,6 +87,7 @@ export interface RequestListItem {
   id: number;
   sn_no: string;
   request_type: RequestType;
+  from_department?: string | null;
   department?: string | null;
   department_label?: string | null;
   from_whom?: string | null;

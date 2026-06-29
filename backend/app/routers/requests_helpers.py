@@ -1,5 +1,5 @@
 """Helpers used by both the new /requests router and the legacy shims."""
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlmodel import Session, select
@@ -56,7 +56,7 @@ def generate_sn(session: Session, request_type: str) -> str:
     Strategy: SELECT MAX(sequence) for current year.
     """
     prefix = _prefix_for(request_type)
-    year = datetime.utcnow().year
+    year = datetime.now(tz=timezone.utc).year
     sn_prefix = f"{prefix}-{year}-"
     rows = session.exec(
         select(Request.sn_no).where(Request.sn_no.like(f"{sn_prefix}%"))

@@ -2,9 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -57,12 +55,12 @@ interface PaginatedSchedules {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const STATUS_COLOR: Record<string, string> = {
-  pending:       "bg-amber-100 text-amber-800",
-  confirmed:     "bg-blue-100 text-blue-800",
-  in_production: "bg-emerald-100 text-emerald-800",
-  completed:     "bg-violet-100 text-violet-800",
-  delivered:     "bg-slate-100 text-slate-600",
-  cancelled:     "bg-red-100 text-red-700",
+  pending:       "bg-warning/15 text-amber-800",
+  confirmed:     "bg-primary/10 text-blue-800",
+  in_production: "bg-success/10 text-emerald-800",
+  completed:     "bg-tone-violet/10 text-violet-800",
+  delivered:     "bg-muted text-muted-foreground",
+  cancelled:     "bg-destructive/10 text-destructive",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -225,31 +223,19 @@ function SchedulePageInner() {
 
   return (
     <>
-      <header className="sticky top-0 z-10 bg-background flex h-16 shrink-0 items-center border-b px-6">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem><BreadcrumbPage>Schedule</BreadcrumbPage></BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </header>
+      <PageHeader
+        title="Schedule"
+        description="Vendor / OEM delivery schedules — the starting point for production planning."
+        breadcrumbs={[{ label: "Schedule" }]}
+        actions={admin ? (
+          <Button size="sm" onClick={() => router.push("/dashboard/schedule/new")}>
+            <PlusIcon className="size-4 mr-1" />
+            New Schedule
+          </Button>
+        ) : undefined}
+      />
 
       <div className="p-4 md:p-6 space-y-4">
-        {/* Heading */}
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-semibold">Schedule</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Vendor / OEM delivery schedules — the starting point for production planning.
-            </p>
-          </div>
-          {admin && (
-            <Button size="sm" onClick={() => router.push("/dashboard/schedule/new")}>
-              <PlusIcon className="size-4 mr-1" />
-              New Schedule
-            </Button>
-          )}
-        </div>
-
         {/* Status tabs + Search */}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
           <div className="flex items-center gap-1 border-b overflow-x-auto flex-1">
@@ -330,14 +316,14 @@ function SchedulePageInner() {
                   <div><span className="text-muted-foreground">Delivery:</span> {fmtDate(s.scheduled_date)}</div>
                   <div><span className="text-muted-foreground">Sch. Qty:</span> <span className="font-medium">{fmt(s.scheduled_qty)}</span></div>
                   {s.backlog_qty > 0 && (
-                    <div className="text-amber-600"><AlertTriangle className="size-3 inline mr-0.5" />Backlog: {fmt(s.backlog_qty)}</div>
+                    <div className="text-warning"><AlertTriangle className="size-3 inline mr-0.5" />Backlog: {fmt(s.backlog_qty)}</div>
                   )}
                   <div><span className="text-muted-foreground">Total:</span> <span className="font-semibold">{fmt(s.total_qty)}</span></div>
                 </div>
                 {admin && (
                   <div className="flex justify-end gap-1 pt-1 border-t">
                     {s.status === "completed" && (
-                      <Button variant="ghost" size="sm" className="h-8 text-xs text-violet-700 hover:text-violet-900"
+                      <Button variant="ghost" size="sm" className="h-8 text-xs text-tone-violet hover:text-violet-900"
                         onClick={() => setMarkDeliverId(s.id)} title="Mark as Delivered">
                         <Truck className="size-3.5 mr-1" />Deliver
                       </Button>
@@ -414,7 +400,7 @@ function SchedulePageInner() {
                       <td className="px-4 py-3 text-right tabular-nums">{fmt(s.scheduled_qty)}</td>
                       <td className="px-4 py-3 text-right tabular-nums">
                         {s.backlog_qty > 0 ? (
-                          <span className="flex items-center justify-end gap-1 text-amber-600">
+                          <span className="flex items-center justify-end gap-1 text-warning">
                             <AlertTriangle className="size-3" />
                             {fmt(s.backlog_qty)}
                           </span>
@@ -425,7 +411,7 @@ function SchedulePageInner() {
                       <td className="px-4 py-3 text-right tabular-nums font-semibold">
                         {fmt(s.total_qty)}
                         {s.backlog_qty > 0 && (
-                          <div className="text-xs font-normal text-amber-600">incl. backlog</div>
+                          <div className="text-xs font-normal text-warning">incl. backlog</div>
                         )}
                       </td>
                       <td className="px-4 py-3">
@@ -436,7 +422,7 @@ function SchedulePageInner() {
                       <td className="px-4 py-3 text-right">
                         <div className="inline-flex gap-1">
                           {admin && s.status === "completed" && (
-                            <Button variant="ghost" size="sm" className="h-8 text-xs text-violet-700 hover:text-violet-900"
+                            <Button variant="ghost" size="sm" className="h-8 text-xs text-tone-violet hover:text-violet-900"
                               onClick={() => setMarkDeliverId(s.id)} title="Mark as Delivered">
                               <Truck className="size-3.5 mr-1" />Deliver
                             </Button>
@@ -481,7 +467,7 @@ function SchedulePageInner() {
                       {fmt(schedules.reduce((a, s) => a + s.scheduled_qty, 0))}
                     </td>
                     <td className="px-4 py-2 text-right text-xs font-semibold tabular-nums">
-                      {(() => { const b = schedules.reduce((a, s) => a + s.backlog_qty, 0); return b > 0 ? <span className="text-amber-600">{fmt(b)}</span> : "—"; })()}
+                      {(() => { const b = schedules.reduce((a, s) => a + s.backlog_qty, 0); return b > 0 ? <span className="text-warning">{fmt(b)}</span> : "—"; })()}
                     </td>
                     <td className="px-4 py-2 text-right text-xs font-semibold tabular-nums">
                       {fmt(schedules.reduce((a, s) => a + s.total_qty, 0))}

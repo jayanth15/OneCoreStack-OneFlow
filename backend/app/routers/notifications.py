@@ -80,7 +80,7 @@ def list_notifications(
         select(Notification)
         .where(Notification.user_id == current_user.id)
         .order_by(Notification.is_read, Notification.created_at.desc())  # type: ignore[union-attr]
-        .limit(10)
+        .limit(50)
     )
     notifications = session.exec(stmt).all()
     return [_out(n) for n in notifications]
