@@ -159,6 +159,25 @@ def _debug_all_tables():
     return {"tables": insp.get_table_names()}
 
 
+@app.get("/_debug/alembic-version")
+def _debug_alembic():
+    from sqlalchemy import text
+    from app.core.database import engine
+    with engine.connect() as conn:
+        v = conn.execute(text("SELECT version_num FROM alembic_version")).fetchone()
+    return {"version": v[0] if v else None}
+
+
+@app.get("/_debug/unit-rows")
+def _debug_unit_rows():
+    from sqlalchemy import text
+    from app.core.database import engine
+    with engine.connect() as conn:
+        rows = conn.execute(text("SELECT * FROM unit")).fetchall()
+        cols = conn.execute(text("PRAGMA table_info(unit)")).fetchall()
+    return {"columns": [c[1] for c in cols], "rows": [list(r) for r in rows]}
+
+
 # ── Core routers (always on) ──────────────────────────────────────────────────
 app.include_router(auth_router.router)
 app.include_router(bom_router.router)
