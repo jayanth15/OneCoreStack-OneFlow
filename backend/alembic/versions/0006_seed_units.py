@@ -4,6 +4,10 @@ Production 0005 added the unit_id FK columns but the unit table was empty,
 so per-row unit_id backfills came out NULL. This migration seeds a
 standard starter set so the units UI / future item creation has options.
 
+Note: the production `unit` table has `created_at DATETIME NOT NULL` with
+no server default (so the SQLAlchemy server_default set in 0003 didn't
+take). The INSERT below explicitly sets created_at.
+
 Revision ID: 0006
 Revises: 0005
 """
@@ -29,7 +33,8 @@ def upgrade() -> None:
         "roll", "bag", "drum", "can", "tube", "sheet", "coil",
     ):
         bind.execute(text(
-            "INSERT OR IGNORE INTO unit (name, is_active) VALUES (:name, 1)"
+            "INSERT OR IGNORE INTO unit (name, is_active, created_at) "
+            "VALUES (:name, 1, CURRENT_TIMESTAMP)"
         ), {"name": name})
 
 
@@ -37,3 +42,4 @@ def downgrade() -> None:
     # No-op: removing units would orphan existing references; this is a
     # forward-only seed.
     pass
+

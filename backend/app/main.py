@@ -163,9 +163,11 @@ def _debug_unit_rows():
 
 @app.post("/_debug/seed-units")
 def _debug_seed_units():
+    from datetime import datetime, timezone
     from sqlalchemy import text
     from app.core.database import engine
     inserted = 0
+    now = datetime.now(tz=timezone.utc).isoformat()
     with engine.begin() as conn:
         for name in (
             "kg", "g", "mg", "lb",
@@ -176,8 +178,8 @@ def _debug_seed_units():
             "roll", "bag", "drum", "can", "tube", "sheet", "coil",
         ):
             res = conn.execute(text(
-                "INSERT INTO unit (name, is_active) VALUES (:name, 1)"
-            ), {"name": name})
+                "INSERT INTO unit (name, is_active, created_at) VALUES (:name, 1, :now)"
+            ), {"name": name, "now": now})
             inserted += res.rowcount or 0
     return {"inserted": inserted}
 
