@@ -76,6 +76,14 @@ def upgrade() -> None:
             sa.Column("created_at", sa.DateTime(), server_default=sa.text("CURRENT_TIMESTAMP")),
         )
 
+    # Seed common units so future items / UIs have a starter set. Idempotent.
+    for name in ("kg", "g", "mg", "lb", "pcs", "nos", "set", "box", "ltr", "ml",
+                 "mtr", "cm", "mm", "ft", "in", "sqft", "sqm", "cft", "roll",
+                 "pair", "dozen", "bag", "drum", "can", "tube", "sheet", "coil"):
+        bind.execute(text(
+            "INSERT OR IGNORE INTO unit (name) VALUES (:name)"
+        ), {"name": name})
+
     # ── 2. Migrate unit → unit_id (and weight_unit → weight_unit_id, etc.) ─
     bind = op.get_bind()
 
