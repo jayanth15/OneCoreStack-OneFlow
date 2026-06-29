@@ -161,6 +161,36 @@ def _debug_unit_rows():
     return {"columns": [c[1] for c in cols], "rows": [list(r) for r in rows]}
 
 
+@app.post("/_debug/seed-units")
+def _debug_seed_units():
+    from sqlalchemy import text
+    from app.core.database import engine
+    inserted = 0
+    with engine.begin() as conn:
+        for name in (
+            "kg", "g", "mg", "lb",
+            "pcs", "nos", "set", "box", "dozen", "pair",
+            "ltr", "ml",
+            "mtr", "cm", "mm", "ft", "in",
+            "sqft", "sqm", "cft",
+            "roll", "bag", "drum", "can", "tube", "sheet", "coil",
+        ):
+            res = conn.execute(text(
+                "INSERT INTO unit (name, is_active) VALUES (:name, 1)"
+            ), {"name": name})
+            inserted += res.rowcount or 0
+    return {"inserted": inserted}
+
+
+@app.get("/_debug/av")
+def _debug_alembic():
+    from sqlalchemy import text
+    from app.core.database import engine
+    with engine.connect() as conn:
+        v = conn.execute(text("SELECT version_num FROM alembic_version")).fetchone()
+    return {"version": v[0] if v else None}
+
+
 # ── Core routers (always on) ──────────────────────────────────────────────────
 app.include_router(auth_router.router)
 app.include_router(bom_router.router)
