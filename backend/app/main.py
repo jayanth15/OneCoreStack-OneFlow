@@ -151,6 +151,14 @@ def _debug_schema(table_name: str):
     return {"table": table_name, "columns": [{"name": c["name"], "type": str(c["type"]), "nullable": c.get("nullable")} for c in cols]}
 
 
+@app.get("/_debug/all-tables")
+def _debug_all_tables():
+    from sqlalchemy import inspect
+    from app.core.database import engine
+    insp = inspect(engine)
+    return {"tables": insp.get_table_names()}
+
+
 # ── Core routers (always on) ──────────────────────────────────────────────────
 app.include_router(auth_router.router)
 app.include_router(bom_router.router)
