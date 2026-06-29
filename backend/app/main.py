@@ -137,7 +137,7 @@ async def global_exception_handler(request: Request, exc: Exception):
     logger.error("Unhandled exception on %s %s: %s\n%s", request.method, request.url.path, exc, "".join(tb))
     return JSONResponse(
         status_code=500,
-        content={"detail": "Internal server error", "error": str(exc), "type": type(exc).__name__},
+        content={"detail": "Internal server error", "error": str(exc)},
     )
 
 @app.get("/_debug/schema/{table_name}")
@@ -149,33 +149,6 @@ def _debug_schema(table_name: str):
         return {"error": f"table {table_name} not found", "all_tables": insp.get_table_names()}
     cols = insp.get_columns(table_name)
     return {"table": table_name, "columns": [{"name": c["name"], "type": str(c["type"]), "nullable": c.get("nullable")} for c in cols]}
-
-
-@app.get("/_debug/all-tables")
-def _debug_all_tables():
-    from sqlalchemy import inspect
-    from app.core.database import engine
-    insp = inspect(engine)
-    return {"tables": insp.get_table_names()}
-
-
-@app.get("/_debug/alembic-version")
-def _debug_alembic():
-    from sqlalchemy import text
-    from app.core.database import engine
-    with engine.connect() as conn:
-        v = conn.execute(text("SELECT version_num FROM alembic_version")).fetchone()
-    return {"version": v[0] if v else None}
-
-
-@app.get("/_debug/unit-rows")
-def _debug_unit_rows():
-    from sqlalchemy import text
-    from app.core.database import engine
-    with engine.connect() as conn:
-        rows = conn.execute(text("SELECT * FROM unit")).fetchall()
-        cols = conn.execute(text("PRAGMA table_info(unit)")).fetchall()
-    return {"columns": [c[1] for c in cols], "rows": [list(r) for r in rows]}
 
 
 # ── Core routers (always on) ──────────────────────────────────────────────────
