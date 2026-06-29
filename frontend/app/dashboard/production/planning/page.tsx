@@ -3,10 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList,
-  BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -72,8 +69,8 @@ const STATUS_BADGE: Record<string, "default" | "secondary" | "outline" | "destru
 
 const STATUS_COLOR: Record<string, string> = {
   draft:       "",
-  approved:    "text-blue-700",
-  in_progress: "!bg-amber-100 !text-amber-800",
+  approved:    "text-primary",
+  in_progress: "!bg-warning/15 !text-amber-800",
   completed:   "text-muted-foreground",
 };
 
@@ -170,40 +167,30 @@ function PlanningPageInner() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4 md:px-6">
-        <Link href="/dashboard/production"
-          className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
-          <ArrowLeft className="size-4" />
-        </Link>
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href="/dashboard/production">Production</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
-            <BreadcrumbItem>
-              <BreadcrumbPage>Planning</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </header>
+      <PageHeader
+        title="Production Planning"
+        description="Create production plans linked to customer schedules."
+        breadcrumbs={[
+          { label: "Production", href: "/dashboard/production" },
+          { label: "Planning" },
+        ]}
+        actions={
+          <>
+            <Link href="/dashboard/production"
+              className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
+              <ArrowLeft className="size-4" />
+            </Link>
+            {admin && (
+              <Button size="sm" onClick={() => router.push("/dashboard/production/planning/new")}>
+                <PlusIcon className="size-4 mr-1" />
+                New Plan
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <div className="p-4 md:p-6 space-y-4">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-semibold">Production Planning</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Create production plans linked to customer schedules.
-            </p>
-          </div>
-          {admin && (
-            <Button size="sm" onClick={() => router.push("/dashboard/production/planning/new")}>
-              <PlusIcon className="size-4 mr-1" />
-              New Plan
-            </Button>
-          )}
-        </div>
-
         {/* Filter tabs + Search */}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
           <div className="flex items-center gap-1 border-b overflow-x-auto flex-1">

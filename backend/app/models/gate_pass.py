@@ -20,7 +20,7 @@ class GatePass(SQLModel, table=True):
     # Material
     material: str = ""
     quantity: float = Field(default=0.0)
-    unit: Optional[str] = None
+    unit_id: Optional[int] = Field(default=None, foreign_key="unit.id")
 
     purpose: Optional[str] = None
     vehicle_number: Optional[str] = None
@@ -34,3 +34,7 @@ class GatePass(SQLModel, table=True):
     # Linked purchase request (optional)
     purchase_request_id: Optional[int] = Field(default=None)
     purchase_request_number: Optional[str] = None           # denormalized
+
+    # Linked purchase order (optional)
+    purchase_order_id: Optional[int] = Field(default=None)
+    purchase_order_number: Optional[str] = None             # denormalized

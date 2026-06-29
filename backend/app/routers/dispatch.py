@@ -18,6 +18,7 @@ from app.dependencies.auth import get_current_user
 from app.models.dispatch import Dispatch
 from app.models.dispatch_history import DispatchHistory
 from app.models.dispatch_item import DispatchItem
+from app.models.unit import Unit
 from app.models.user import User
 
 router = APIRouter(prefix="/api/v1/dispatch", tags=["dispatch"])
@@ -66,7 +67,7 @@ def list_dispatches(
     for di in all_items:
         items_by_dispatch.setdefault(di.dispatch_id, []).append(di)
 
-    return {"items": [_to_dict(d, items_by_dispatch.get(d.id, [])) for d in page_dispatches], "total": total, "page": page, "page_size": page_size}
+    return {"items": [_to_dict(d, items_by_dispatch.get(d.id, []), session) for d in page_dispatches], "total": total, "page": page, "page_size": page_size}
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -79,12 +80,12 @@ def create_dispatch(
     raw_items = body.get("items") or []
     first_item_name = ""
     first_qty = 0.0
-    first_unit = None
+    first_unit_id = None
     if raw_items:
         first = raw_items[0]
         first_item_name = (first.get("item_name") or "").strip()
         first_qty = float(first.get("quantity") or 0)
-        first_unit = (first.get("unit") or "").strip() or None
+        first_unit_id = first.get("unit_id") or None
 
     dispatch = Dispatch(
         dispatch_number=_next_dispatch_number(session),
@@ -95,9 +96,11 @@ def create_dispatch(
         supplier_name=(body.get("supplier_name") or "").strip() or None,
         schedule_id=body.get("schedule_id"),
         schedule_number=(body.get("schedule_number") or "").strip() or None,
+        request_id=body.get("request_id"),
+        request_sn_no=(body.get("request_sn_no") or "").strip() or None,
         product_name=first_item_name or (body.get("product_name") or "").strip(),
         quantity=first_qty or float(body.get("quantity") or 0),
-        unit=first_unit or (body.get("unit") or "").strip() or None,
+        unit_id=first_unit_id or body.get("unit_id") or None,
         dispatch_date=(body.get("dispatch_date") or "").strip() or None,
         vehicle_number=(body.get("vehicle_number") or "").strip() or None,
         driver_name=(body.get("driver_name") or "").strip() or None,
@@ -120,7 +123,7 @@ def create_dispatch(
             inv_type=item_data.get("inv_type") or None,
             inv_item_id=item_data.get("inv_item_id"),
             quantity=float(item_data.get("quantity") or 0),
-            unit=(item_data.get("unit") or "").strip() or None,
+            unit_id=item_data.get("unit_id") or None,
         )
         session.add(di)
         di_list.append(di)
@@ -128,7 +131,7 @@ def create_dispatch(
     session.commit()
     session.refresh(dispatch)
     saved_items = list(session.exec(select(DispatchItem).where(DispatchItem.dispatch_id == dispatch.id)).all())
-    return _to_dict(dispatch, saved_items)
+    return _to_dict(dispatch, saved_items, session)
 
 
 @router.get("/{dispatch_id}")
@@ -142,7 +145,7 @@ def get_dispatch(
     if not dispatch:
         raise HTTPException(status_code=404, detail="Dispatch not found")
     d_items = list(session.exec(select(DispatchItem).where(DispatchItem.dispatch_id == dispatch_id)).all())
-    return _to_dict(dispatch, d_items)
+    return _to_dict(dispatch, d_items, session)
 
 
 @router.put("/{dispatch_id}")
@@ -161,7 +164,8 @@ def update_dispatch(
 
     for field in ("party_type", "vendor_id", "vendor_name", "supplier_id", "supplier_name",
                   "schedule_id", "schedule_number",
-                  "product_name", "quantity", "unit", "dispatch_date",
+                  "request_id", "request_sn_no",
+                  "product_name", "quantity", "unit_id", "dispatch_date",
                   "vehicle_number", "driver_name", "notes", "status"):
         if field in body:
             val = body[field]
@@ -186,7 +190,7 @@ def update_dispatch(
                 inv_type=item_data.get("inv_type") or None,
                 inv_item_id=item_data.get("inv_item_id"),
                 quantity=float(item_data.get("quantity") or 0),
-                unit=(item_data.get("unit") or "").strip() or None,
+                unit_id=item_data.get("unit_id") or None,
             )
             session.add(di)
             new_dis.append(di)
@@ -195,7 +199,7 @@ def update_dispatch(
             first_data = raw_items[0]
             dispatch.product_name = (first_data.get("item_name") or "").strip()
             dispatch.quantity = float(first_data.get("quantity") or 0)
-            dispatch.unit = (first_data.get("unit") or "").strip() or None
+            dispatch.unit_id = first_data.get("unit_id") or None
 
     session.add(dispatch)
     session.commit()
@@ -222,7 +226,7 @@ def update_dispatch(
         ))
     session.commit()
 
-    return _to_dict(dispatch, saved_items)
+    return _to_dict(dispatch, saved_items, session)
 
 
 @router.delete("/{dispatch_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -294,7 +298,27 @@ def _require_dispatch_access(user: User) -> None:
     raise HTTPException(status_code=403, detail="Dispatch access required")
 
 
-def _to_dict(d: Dispatch, items: list[DispatchItem] | None = None) -> dict[str, Any]:
+def _to_dict(d: Dispatch, items: list[DispatchItem] | None = None, session: Session | None = None) -> dict[str, Any]:
+    header_unit_name = None
+    if d.unit_id and session:
+        u = session.get(Unit, d.unit_id)
+        header_unit_name = u.name if u else None
+    item_list = []
+    if items:
+        for i in items:
+            i_unit_name = None
+            if i.unit_id and session:
+                u = session.get(Unit, i.unit_id)
+                i_unit_name = u.name if u else None
+            item_list.append({
+                "id": i.id,
+                "item_name": i.item_name,
+                "inv_type": i.inv_type,
+                "inv_item_id": i.inv_item_id,
+                "quantity": i.quantity,
+                "unit_id": i.unit_id,
+                "unit_name": i_unit_name,
+            })
     return {
         "id": d.id,
         "dispatch_number": d.dispatch_number,
@@ -305,9 +329,12 @@ def _to_dict(d: Dispatch, items: list[DispatchItem] | None = None) -> dict[str, 
         "supplier_name": getattr(d, "supplier_name", None),
         "schedule_id": d.schedule_id,
         "schedule_number": d.schedule_number,
+        "request_id": d.request_id,
+        "request_sn_no": d.request_sn_no,
         "product_name": d.product_name,
         "quantity": d.quantity,
-        "unit": d.unit,
+        "unit_id": d.unit_id,
+        "unit_name": header_unit_name,
         "dispatch_date": d.dispatch_date,
         "vehicle_number": d.vehicle_number,
         "driver_name": d.driver_name,
@@ -315,15 +342,5 @@ def _to_dict(d: Dispatch, items: list[DispatchItem] | None = None) -> dict[str, 
         "status": d.status,
         "created_by": d.created_by,
         "created_at": d.created_at,
-        "items": [
-            {
-                "id": i.id,
-                "item_name": i.item_name,
-                "inv_type": i.inv_type,
-                "inv_item_id": i.inv_item_id,
-                "quantity": i.quantity,
-                "unit": i.unit,
-            }
-            for i in (items or [])
-        ],
+        "items": item_list,
     }

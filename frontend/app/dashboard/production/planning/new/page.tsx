@@ -3,10 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList,
-  BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -158,6 +155,9 @@ export default function NewPlanPage() {
     e.preventDefault();
     if (!form.schedule_id) { setError("Select a customer schedule"); return; }
     if (!form.title.trim()) { setError("Title is required"); return; }
+    if (processes.some((p) => !p.estimated_time_minutes || parseFloat(p.estimated_time_minutes) <= 0)) {
+      setError("All processes must have an estimated time"); return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -211,31 +211,22 @@ export default function NewPlanPage() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4 md:px-6">
-        <Link href="/dashboard/production/planning" className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
-          <ArrowLeft className="size-4" />
-        </Link>
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href="/dashboard/production">Production</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
-            <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href="/dashboard/production/planning">Planning</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
-            <BreadcrumbItem><BreadcrumbPage>New Plan</BreadcrumbPage></BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </header>
+      <PageHeader
+        title="New Production Plan"
+        description="Link a customer schedule, define process steps, and review required materials."
+        breadcrumbs={[
+          { label: "Production", href: "/dashboard/production" },
+          { label: "Planning", href: "/dashboard/production/planning" },
+          { label: "New Plan" },
+        ]}
+        actions={
+          <Link href="/dashboard/production/planning" className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
+            <ArrowLeft className="size-4" />
+          </Link>
+        }
+      />
 
       <div className="p-4 md:p-8 max-w-3xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-xl font-semibold">New Production Plan</h1>
-          <p className="text-sm text-muted-foreground mt-1">Link a customer schedule, define process steps, and review required materials.</p>
-        </div>
-
         <form onSubmit={handleSave} className="space-y-8">
 
           {/* ── Schedule ─────────────────────────────────────────────────── */}
@@ -257,7 +248,7 @@ export default function NewPlanPage() {
               </select>
               {schedLoading && <p className="text-xs text-muted-foreground">Loading schedules…</p>}
               {!schedLoading && schedules.length === 0 && (
-                <p className="text-xs text-amber-600 mt-1">No schedules available — all confirmed schedules already have active production plans.</p>
+                <p className="text-xs text-warning mt-1">No schedules available — all confirmed schedules already have active production plans.</p>
               )}
             </div>
 
@@ -413,7 +404,7 @@ export default function NewPlanPage() {
                           type="number" min={0} step="any"
                           value={proc.estimated_time_minutes}
                           onChange={(e) => updateProcess(proc.key, "estimated_time_minutes", e.target.value)}
-                          placeholder="Est. time"
+                          placeholder="Est. time *"
                           disabled={saving}
                           className="h-7 text-xs w-24"
                         />
@@ -486,18 +477,18 @@ export default function NewPlanPage() {
                             <p className="font-mono text-xs text-muted-foreground">{m.code} <span className="capitalize">· {m.item_type.replace("_", " ")}</span></p>
                           </div>
                           {m.to_purchase > 0 ? (
-                            <span className="inline-flex items-center gap-1 text-amber-700 text-xs font-semibold shrink-0">
+                            <span className="inline-flex items-center gap-1 text-warning text-xs font-semibold shrink-0">
                               <AlertTriangle className="size-3" />{m.to_purchase.toLocaleString()} {m.unit}
                             </span>
                           ) : (
-                            <span className="text-emerald-700 text-xs shrink-0">Sufficient</span>
+                            <span className="text-success text-xs shrink-0">Sufficient</span>
                           )}
                         </div>
                         <div className="grid grid-cols-3 gap-x-3 text-xs">
                           <div><span className="text-muted-foreground">Per Unit:</span> {m.qty_per_unit} {m.unit}</div>
                           <div><span className="text-muted-foreground">Required:</span> <span className="font-medium">{m.required_qty.toLocaleString()}</span></div>
                           <div><span className="text-muted-foreground">In Stock:</span>{" "}
-                            <span className={m.available_qty >= m.required_qty ? "text-emerald-700 font-medium" : "text-amber-600 font-medium"}>{m.available_qty.toLocaleString()}</span>
+                            <span className={m.available_qty >= m.required_qty ? "text-success font-medium" : "text-warning font-medium"}>{m.available_qty.toLocaleString()}</span>
                           </div>
                         </div>
                       </div>
@@ -528,18 +519,18 @@ export default function NewPlanPage() {
                             <td className="px-3 py-2 text-right text-xs text-muted-foreground">{m.qty_per_unit} {m.unit}</td>
                             <td className="px-3 py-2 text-right font-medium">{m.required_qty.toLocaleString()} {m.unit}</td>
                             <td className="px-3 py-2 text-right">
-                              <span className={m.available_qty >= m.required_qty ? "text-emerald-700 font-medium" : "text-amber-600 font-medium"}>
+                              <span className={m.available_qty >= m.required_qty ? "text-success font-medium" : "text-warning font-medium"}>
                                 {m.available_qty.toLocaleString()}
                               </span>
                             </td>
                             <td className="px-3 py-2 text-right">
                               {m.to_purchase > 0 ? (
-                                <span className="inline-flex items-center gap-1 text-amber-700 font-semibold">
+                                <span className="inline-flex items-center gap-1 text-warning font-semibold">
                                   <AlertTriangle className="size-3" />
                                   {m.to_purchase.toLocaleString()} {m.unit}
                                 </span>
                               ) : (
-                                <span className="text-emerald-700 text-xs">Sufficient</span>
+                                <span className="text-success text-xs">Sufficient</span>
                               )}
                             </td>
                           </tr>
@@ -548,7 +539,7 @@ export default function NewPlanPage() {
                     </table>
                   </div>
                   {materials.some((m) => m.to_purchase > 0) && (
-                    <div className="border-t bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    <div className="border-t bg-warning/15 px-3 py-2 text-xs text-amber-800">
                       Some materials need to be purchased before production can begin.
                     </div>
                   )}

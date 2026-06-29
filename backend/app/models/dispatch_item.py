@@ -14,4 +14,4 @@ class DispatchItem(SQLModel, table=True):
     inv_item_id: Optional[int] = Field(default=None)
 
     quantity: float = Field(default=0.0)
-    unit: Optional[str] = Field(default=None)
+    unit_id: Optional[int] = Field(default=None, foreign_key="unit.id")

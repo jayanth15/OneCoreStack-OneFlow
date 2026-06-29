@@ -12,6 +12,7 @@ from app.models.grn_item import GRNItem
 from app.models.inventory import InventoryItem
 from app.models.inventory_history import InventoryHistory
 from app.models.purchase_request import PurchaseRequest
+from app.models.unit import Unit
 from app.models.user import User
 
 router = APIRouter(
@@ -54,7 +55,7 @@ class GRNItemCreate(BaseModel):
     item_name: Optional[str] = None
     item_code: Optional[str] = None
     item_type: Optional[str] = None
-    unit: Optional[str] = None
+    unit_id: Optional[int] = None
     quantity_received: float = 0.0
     quantity_pr_requested: Optional[float] = None
 
@@ -109,7 +110,8 @@ class GRNItemOut(BaseModel):
     item_name: Optional[str]
     item_code: Optional[str]
     item_type: Optional[str]
-    unit: Optional[str]
+    unit_id: Optional[int] = None
+    unit_name: Optional[str] = None
     quantity_received: float
     quantity_pr_requested: Optional[float] = None
     quantity_filled: float
@@ -156,7 +158,8 @@ class LinkablePROut(BaseModel):
     item_name: Optional[str]
     item_code: Optional[str]
     item_type: Optional[str]
-    unit: Optional[str]
+    unit_id: Optional[int] = None
+    unit_name: Optional[str] = None
     inventory_item_id: Optional[int]
     quantity: float
     status: str
@@ -168,7 +171,14 @@ class LinkablePROut(BaseModel):
 def _build_grn_out(session: Session, grn: GRNRecord) -> GRNOut:
     items = list(session.exec(select(GRNItem).where(GRNItem.grn_id == grn.id)).all())
     out = GRNOut.model_validate(grn)
-    out.items = [GRNItemOut.model_validate(i) for i in items]
+    resolved: list[GRNItemOut] = []
+    for i in items:
+        unit = session.get(Unit, i.unit_id) if i.unit_id else None
+        item_out = GRNItemOut.model_validate(i)
+        item_out.unit_id = i.unit_id
+        item_out.unit_name = unit.name if unit else None
+        resolved.append(item_out)
+    out.items = resolved
     if grn.purchase_request_id:
         pr = session.get(PurchaseRequest, grn.purchase_request_id)
         out.purchase_request_sn_no = pr.sn_no if pr else None
@@ -181,21 +191,21 @@ def _create_grn_items(session: Session, grn_id: int, items_body: list[GRNItemCre
         item_name = ib.item_name
         item_code = ib.item_code
         item_type = ib.item_type
-        unit = ib.unit
+        unit_id = ib.unit_id
         if ib.inventory_item_id:
             inv = session.get(InventoryItem, ib.inventory_item_id)
             if inv:
                 item_name = item_name or inv.name
                 item_code = item_code or inv.code
                 item_type = item_type or inv.item_type
-                unit = unit or inv.unit
+                unit_id = unit_id or inv.unit_id
         session.add(GRNItem(
             grn_id=grn_id,
             inventory_item_id=ib.inventory_item_id,
             item_name=item_name,
             item_code=item_code,
             item_type=item_type,
-            unit=unit,
+            unit_id=unit_id,
             quantity_received=ib.quantity_received,
             quantity_pr_requested=ib.quantity_pr_requested,
             quantity_filled=0.0,
@@ -231,24 +241,38 @@ def linkable_prs(
     rows = session.exec(q.order_by(PurchaseRequest.id.desc()).limit(30)).all()  # type: ignore[union-attr]
     result = []
     for r in rows:
-        # Look up unit from inventory item if available
-        unit: Optional[str] = None
+        unit_id: Optional[int] = None
+        unit_name: Optional[str] = None
         if r.inventory_item_id:
             inv = session.get(InventoryItem, r.inventory_item_id)
             if inv:
-                unit = inv.unit
+                unit_id = inv.unit_id
+                u = session.get(Unit, inv.unit_id) if inv.unit_id else None
+                unit_name = u.name if u else None
         result.append(LinkablePROut(
             id=r.id,  # type: ignore[arg-type]
             sn_no=r.sn_no,
             item_name=r.item_name,
             item_code=r.item_code,
             item_type=r.item_type,
-            unit=unit,
+            unit_id=unit_id,
+            unit_name=unit_name,
             inventory_item_id=r.inventory_item_id,
             quantity=r.quantity,
             status=r.status,
         ))
     return result
+
+
+@router.get("/linkable-prs/{pr_id}/items", response_model=list[LinkablePROut])
+def get_linkable_pr_items_endpoint(
+    pr_id: int,
+    session: SessionDep,
+    _: CurrentUser,
+) -> list[LinkablePROut]:
+    """Return line items for a linkable PR. 404 if PR is missing, soft-deleted, or not linkable."""
+    from app.core.linkable_prs import get_linkable_pr_items as _get
+    return _get(session, pr_id)
 
 
 @router.get("", response_model=PaginatedGRN)

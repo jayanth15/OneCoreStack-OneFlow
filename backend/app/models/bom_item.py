@@ -18,6 +18,6 @@ class BomItem(SQLModel, table=True):
     qty_per_unit: float = Field(default=1.0)       # RM qty needed per 1 finished unit
     material_used: Optional[float] = Field(default=None)  # actual material consumed per unit (tracking)
     scrap: Optional[float] = Field(default=None)          # scrap generated per unit of this RM
-    material_unit: Optional[str] = None                   # unit for material_used / scrap (e.g. kg, MT)
+    material_unit_id: Optional[int] = Field(default=None, foreign_key="unit.id")
     notes: Optional[str] = None
     is_active: bool = Field(default=True)

@@ -20,6 +20,7 @@ from app.dependencies.auth import get_current_user, require_admin
 from app.models.supplier import Supplier
 from app.models.supplier_job import SupplierJob
 from app.models.supplier_material import SupplierMaterial
+from app.models.unit import Unit
 from app.models.user import User
 
 router = APIRouter(
@@ -202,24 +203,27 @@ def get_supplier_detail(
         .order_by(SupplierMaterial.id)  # type: ignore[union-attr]
     ).all()
 
+    job_list = []
+    for j in jobs:
+        ju = session.get(Unit, j.unit_id) if j.unit_id else None
+        job_list.append({
+            "id": j.id, "job_name": j.job_name, "description": j.description,
+            "rate": j.rate, "unit_id": j.unit_id, "unit_name": ju.name if ju else None,
+            "notes": j.notes, "is_active": j.is_active, "created_at": j.created_at,
+        })
+    mat_list = []
+    for m in materials:
+        mu = session.get(Unit, m.unit_id) if m.unit_id else None
+        mat_list.append({
+            "id": m.id, "material_name": m.material_name, "category": m.category,
+            "unit_id": m.unit_id, "unit_name": mu.name if mu else None,
+            "rate": m.rate, "notes": m.notes,
+            "is_active": m.is_active, "created_at": m.created_at,
+        })
     return {
         **_supplier_to_dict(supplier),
-        "jobs": [
-            {
-                "id": j.id, "job_name": j.job_name, "description": j.description,
-                "rate": j.rate, "unit": j.unit, "notes": j.notes,
-                "is_active": j.is_active, "created_at": j.created_at,
-            }
-            for j in jobs
-        ],
-        "materials": [
-            {
-                "id": m.id, "material_name": m.material_name, "category": m.category,
-                "unit": m.unit, "rate": m.rate, "notes": m.notes,
-                "is_active": m.is_active, "created_at": m.created_at,
-            }
-            for m in materials
-        ],
+        "jobs": job_list,
+        "materials": mat_list,
     }
 
 
@@ -245,7 +249,7 @@ def add_supplier_job(
         job_name=job_name,
         description=(body.get("description") or "").strip() or None,
         rate=body.get("rate"),
-        unit=(body.get("unit") or "").strip() or None,
+        unit_id=body.get("unit_id"),
         notes=(body.get("notes") or "").strip() or None,
         is_active=True,
         created_at=datetime.now(timezone.utc).isoformat(),
@@ -253,10 +257,11 @@ def add_supplier_job(
     session.add(job)
     session.commit()
     session.refresh(job)
+    ju = session.get(Unit, job.unit_id) if job.unit_id else None
     return {
         "id": job.id, "job_name": job.job_name, "description": job.description,
-        "rate": job.rate, "unit": job.unit, "notes": job.notes,
-        "is_active": job.is_active, "created_at": job.created_at,
+        "rate": job.rate, "unit_id": job.unit_id, "unit_name": ju.name if ju else None,
+        "notes": job.notes, "is_active": job.is_active, "created_at": job.created_at,
     }
 
 
@@ -278,8 +283,8 @@ def update_supplier_job(
         job.description = (body["description"] or "").strip() or None
     if "rate" in body:
         job.rate = body["rate"]
-    if "unit" in body:
-        job.unit = (body["unit"] or "").strip() or None
+    if "unit_id" in body:
+        job.unit_id = body["unit_id"]
     if "notes" in body:
         job.notes = (body["notes"] or "").strip() or None
     if "is_active" in body:
@@ -288,10 +293,11 @@ def update_supplier_job(
     session.add(job)
     session.commit()
     session.refresh(job)
+    ju = session.get(Unit, job.unit_id) if job.unit_id else None
     return {
         "id": job.id, "job_name": job.job_name, "description": job.description,
-        "rate": job.rate, "unit": job.unit, "notes": job.notes,
-        "is_active": job.is_active,
+        "rate": job.rate, "unit_id": job.unit_id, "unit_name": ju.name if ju else None,
+        "notes": job.notes, "is_active": job.is_active,
     }
 
 
@@ -330,7 +336,7 @@ def add_supplier_material(
         supplier_id=supplier_id,
         material_name=material_name,
         category=(body.get("category") or "").strip() or None,
-        unit=(body.get("unit") or "").strip() or None,
+        unit_id=body.get("unit_id"),
         rate=body.get("rate"),
         notes=(body.get("notes") or "").strip() or None,
         is_active=True,
@@ -339,9 +345,11 @@ def add_supplier_material(
     session.add(mat)
     session.commit()
     session.refresh(mat)
+    mu = session.get(Unit, mat.unit_id) if mat.unit_id else None
     return {
         "id": mat.id, "material_name": mat.material_name, "category": mat.category,
-        "unit": mat.unit, "rate": mat.rate, "notes": mat.notes,
+        "unit_id": mat.unit_id, "unit_name": mu.name if mu else None,
+        "rate": mat.rate, "notes": mat.notes,
         "is_active": mat.is_active, "created_at": mat.created_at,
     }
 
@@ -364,8 +372,8 @@ def update_supplier_material(
         mat.category = (body["category"] or "").strip() or None
     if "rate" in body:
         mat.rate = body["rate"]
-    if "unit" in body:
-        mat.unit = (body["unit"] or "").strip() or None
+    if "unit_id" in body:
+        mat.unit_id = body["unit_id"]
     if "notes" in body:
         mat.notes = (body["notes"] or "").strip() or None
     if "is_active" in body:
@@ -374,9 +382,11 @@ def update_supplier_material(
     session.add(mat)
     session.commit()
     session.refresh(mat)
+    mu = session.get(Unit, mat.unit_id) if mat.unit_id else None
     return {
         "id": mat.id, "material_name": mat.material_name, "category": mat.category,
-        "unit": mat.unit, "rate": mat.rate, "notes": mat.notes,
+        "unit_id": mat.unit_id, "unit_name": mu.name if mu else None,
+        "rate": mat.rate, "notes": mat.notes,
         "is_active": mat.is_active,
     }
 

@@ -31,8 +31,11 @@ class Request(SQLModel, table=True):
     # Type discriminator
     request_type: str = Field(default=REQUEST_TYPE_INTERNAL_TRANSFER, index=True)
 
-    # Routing — header-level department (fallback if no per-item depts)
-    department: Optional[str] = None
+    # Routing — requester's home department (auto-stamped on create)
+    from_department: Optional[str] = None
+
+    # Routing — header-level target department (fallback if no per-item depts)
+    department: Optional[str] = None  # TODO: rename to to_department
 
     # Vendor purchase fields (set when request_type=vendor_purchase)
     from_whom: Optional[str] = None

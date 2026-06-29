@@ -27,10 +27,9 @@ class Settings(BaseSettings):
     # App
     app_name: str = "OneFlow"
     debug: bool = False
+    environment: str = "development"  # "development" or "production"
 
     # Database — default is absolute so it is NOT affected by CWD.
-    # For Docker/Dokploy with a volume mount, set DATABASE_URL in the environment:
-    #   DATABASE_URL=sqlite:////data/oneflow.db
     database_url: str = _DEFAULT_DB_URL
 
     # JWT
@@ -42,6 +41,13 @@ class Settings(BaseSettings):
     # CORS
     cors_origins: list[str] = ["*"]
 
+    # Cookie security — auto-set based on environment
+    cookie_secure: bool = False
+
+    # Rate limiting (requests per minute)
+    login_rate_limit: int = 5
+    refresh_rate_limit: int = 10
+
     # Optional modules (all off by default, enable per deployment)
     module_planning: bool = False
     module_routing: bool = False
@@ -52,6 +58,9 @@ class Settings(BaseSettings):
 
     # Unified requests feature flag — controls shim router activation
     unified_requests_enabled: bool = True
+
+    # Auto-seed a default admin user on empty databases (set to False in production)
+    auto_seed_admin: bool = False
 
 
 settings = Settings()

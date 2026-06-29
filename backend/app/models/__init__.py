@@ -41,3 +41,16 @@ from app.models.request_customer_dispatch import RequestCustomerDispatch  # noqa
 from app.models.request_history import RequestHistory  # noqa: F401
 from app.models.request_item import RequestItem  # noqa: F401
 from app.models.notification import Notification  # noqa: F401
+from app.models.dispatch import Dispatch  # noqa: F401
+from app.models.dispatch_item import DispatchItem  # noqa: F401
+from app.models.dispatch_history import DispatchHistory  # noqa: F401
+from app.models.gate_pass import GatePass  # noqa: F401
+from app.models.gate_pass_item import GatePassItem  # noqa: F401
+from app.models.gate_pass_history import GatePassHistory  # noqa: F401
+from app.models.purchase_order import PurchaseOrder, PurchaseOrderItem  # noqa: F401
+from app.models.purchase_request_item import PurchaseRequestItem  # noqa: F401
+from app.models.receipt import Receipt  # noqa: F401
+from app.models.receipt_item import ReceiptItem  # noqa: F401
+from app.models.supplier_job import SupplierJob  # noqa: F401
+from app.models.supplier_material import SupplierMaterial  # noqa: F401
+from app.models.unit import Unit  # noqa: F401

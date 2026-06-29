@@ -51,6 +51,7 @@ const PRIMARY_NAV: NavItem[] = [
 // Always shown to all users in the More drawer
 const GENERAL_MORE_NAV: NavItem[] = [
   { label: "Requests", href: "/dashboard/requests", icon: ClipboardList },
+  { label: "Receipts", href: "/dashboard/receipts", icon: ClipboardCheck },
 ];
 
 // Only shown to admin / super_admin in the More drawer
@@ -212,7 +213,7 @@ export function BottomNav() {
               <item.icon className="size-5 shrink-0" />
               {item.label}
               {item.href === "/dashboard/requests" && requestCount > 0 && (
-                <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center">
+                <span className="ml-auto bg-destructive text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center">
                   {requestCount > 99 ? "99+" : requestCount}
                 </span>
               )}
@@ -242,7 +243,7 @@ export function BottomNav() {
                   ? `https://${window.location.hostname}/dashboard`
                   : `http://${window.location.hostname}:3000/setup`
               }
-              className="w-full flex items-start gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
+              className="w-full flex items-start gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-warning bg-warning/15 hover:bg-warning/25 transition-colors"
             >
               <ShieldAlert className="size-5 shrink-0 mt-0.5" />
               <span className="text-xs leading-snug">

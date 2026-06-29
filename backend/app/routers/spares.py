@@ -41,6 +41,7 @@ from app.models.spare_sub_category import SpareSubCategory
 from app.models.spare_item import SpareItem
 from app.models.spare_item_history import SpareItemHistory
 from app.models.spare_item_variant import SpareItemVariant
+from app.models.unit import Unit
 from app.models.user import User
 
 router = APIRouter(prefix="/api/v1/spares", tags=["spares"])
@@ -107,7 +108,7 @@ class ItemCreate(BaseModel):
     part_description: Optional[str] = None
     variant_model: Optional[str] = None
     rate: Optional[float] = None
-    unit: str = "pcs"
+    unit_id: Optional[int] = None
     opening_qty: float = 0.0
     recorded_qty: float = 0.0
     reorder_level: float = 0.0
@@ -121,7 +122,7 @@ class ItemUpdate(BaseModel):
     part_description: Optional[str] = None
     variant_model: Optional[str] = None
     rate: Optional[float] = None
-    unit: Optional[str] = None
+    unit_id: Optional[int] = None
     opening_qty: Optional[float] = None
     recorded_qty: Optional[float] = None
     reorder_level: Optional[float] = None
@@ -139,7 +140,8 @@ class ItemOut(BaseModel):
     part_description: Optional[str]
     variant_model: Optional[str]
     rate: Optional[float]
-    unit: str
+    unit_id: Optional[int] = None
+    unit_name: Optional[str] = None
     opening_qty: float
     recorded_qty: float
     reorder_level: float
@@ -224,7 +226,8 @@ class SearchItemOut(BaseModel):
     sub_category_name: Optional[str]
     recorded_qty: float
     reorder_level: float
-    unit: str
+    unit_id: Optional[int] = None
+    unit_name: Optional[str] = None
     is_low: bool
 
 
@@ -359,8 +362,12 @@ def _has_active_variants(session: Session, item_id: int) -> bool:
     return (count or 0) > 0
 
 
-def _item_out(item: SpareItem, variant_matched: bool = False, has_variants: bool = True) -> ItemOut:
+def _item_out(item: SpareItem, variant_matched: bool = False, has_variants: bool = True, session: Session | None = None) -> ItemOut:
     tv = round(item.rate * item.recorded_qty, 2) if (item.rate is not None and has_variants) else None
+    unit_name = None
+    if item.unit_id and session:
+        u = session.get(Unit, item.unit_id)
+        unit_name = u.name if u else None
     return ItemOut(
         id=item.id,  # type: ignore
         category_id=item.category_id,
@@ -370,7 +377,8 @@ def _item_out(item: SpareItem, variant_matched: bool = False, has_variants: bool
         part_description=item.part_description,
         variant_model=item.variant_model,
         rate=item.rate,
-        unit=item.unit,
+        unit_id=item.unit_id,
+        unit_name=unit_name,
         opening_qty=item.opening_qty,
         recorded_qty=item.recorded_qty,
         reorder_level=item.reorder_level,
@@ -596,7 +604,7 @@ def list_items(
         item_ids_with_variants = set()
 
     return {
-        "items": [_item_out(i, variant_matched=_is_variant_match(i), has_variants=i.id in item_ids_with_variants) for i in items],
+        "items": [_item_out(i, variant_matched=_is_variant_match(i), has_variants=i.id in item_ids_with_variants, session=session) for i in items],
         "total": total,
         "page": page,
         "page_size": page_size,
@@ -617,7 +625,7 @@ def create_item(
         part_description=body.part_description,
         variant_model=body.variant_model,
         rate=body.rate,
-        unit=body.unit,
+        unit_id=body.unit_id,
         opening_qty=body.opening_qty,
         recorded_qty=body.recorded_qty if body.recorded_qty else body.opening_qty,
         reorder_level=body.reorder_level,
@@ -626,7 +634,7 @@ def create_item(
         image_base64=body.image_base64,
     )
     session.add(item); session.commit(); session.refresh(item)
-    return _item_out(item, has_variants=False)
+    return _item_out(item, has_variants=False, session=session)
 
 
 # ── Individual item endpoints ─────────────────────────────────────────────────
@@ -634,7 +642,7 @@ def create_item(
 @router.get("/items/{item_id}")
 def get_item(item_id: int, session: SessionDep, _: CurrentUser) -> ItemOut:
     item = _item_or_404(session, item_id)
-    return _item_out(item, has_variants=_has_active_variants(session, item.id))
+    return _item_out(item, has_variants=_has_active_variants(session, item.id), session=session)
 
 
 @router.put("/items/{item_id}")
@@ -644,7 +652,7 @@ def update_item(item_id: int, body: ItemUpdate, session: SessionDep, _: AdminUse
         setattr(item, field, value)
     item.updated_at = datetime.now(tz=timezone.utc)
     session.add(item); session.commit(); session.refresh(item)
-    return _item_out(item, has_variants=_has_active_variants(session, item.id))
+    return _item_out(item, has_variants=_has_active_variants(session, item.id), session=session)
 
 
 @router.delete("/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -714,7 +722,7 @@ def adjust_item_stock(
     )
     session.add(hist)
     session.commit(); session.refresh(item)
-    return _item_out(item, has_variants=len(active_variants) > 0)
+    return _item_out(item, has_variants=len(active_variants) > 0, session=session)
 
 
 @router.get("/items/{item_id}/history")
@@ -1079,6 +1087,7 @@ def search_all_items(
                 if s:
                     sub_cache[item.sub_category_id] = s
             sub = sub_cache.get(item.sub_category_id)
+        unit_obj = session.get(Unit, item.unit_id) if item.unit_id else None
         results.append(SearchItemOut(
             item_id=item.id,  # type: ignore[arg-type]
             item_name=item.name,
@@ -1089,7 +1098,8 @@ def search_all_items(
             sub_category_name=sub.name if sub else None,
             recorded_qty=item.recorded_qty,
             reorder_level=item.reorder_level,
-            unit=item.unit,
+            unit_id=item.unit_id,
+            unit_name=unit_obj.name if unit_obj else None,
             is_low=item.reorder_level > 0 and item.recorded_qty <= item.reorder_level,
         ))
     return results

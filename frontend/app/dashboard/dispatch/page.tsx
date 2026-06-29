@@ -2,9 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,6 +33,8 @@ interface Dispatch {
   supplier_name: string | null;
   schedule_id: number | null;
   schedule_number: string | null;
+  request_id: number | null;
+  request_sn_no: string | null;
   product_name: string;
   quantity: number;
   unit: string | null;
@@ -67,15 +67,29 @@ interface DispatchFormState {
   driver_name: string;
   notes: string;
   status: string;
+  request_id: number | null;
+  request_sn_no: string;
+}
+
+interface CompanyInfo {
+  company_name: string;
+  company_address: string;
+  company_city: string;
+  company_state: string;
+  company_country: string;
+  company_pincode: string;
+  company_phone: string;
+  company_email: string;
+  company_gstin: string;
 }
 
 interface NameOption { id: number; name: string; }
 
 const STATUS_COLORS: Record<string, string> = {
-  pending:    "bg-amber-100 text-amber-700",
-  dispatched: "bg-blue-100 text-blue-700",
-  delivered:  "bg-emerald-100 text-emerald-700",
-  cancelled:  "bg-red-100 text-red-600",
+  pending:    "bg-warning/15 text-warning",
+  dispatched: "bg-primary/10 text-primary",
+  delivered:  "bg-success/10 text-success",
+  cancelled:  "bg-destructive/10 text-destructive",
 };
 const STATUSES = ["pending", "dispatched", "delivered", "cancelled"];
 
@@ -101,6 +115,8 @@ function BLANK_FORM(): DispatchFormState {
     items: [blankDispatchItem()],
     dispatch_date: "",
     vehicle_number: "", driver_name: "", notes: "", status: "pending",
+    request_id: null,
+    request_sn_no: "",
   };
 }
 
@@ -115,6 +131,7 @@ export default function DispatchPage() {
     if (!isAdminOrAbove() && !user.dispatch_access) router.replace("/dashboard");
   }, [router]);
 
+  const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [items, setItems] = useState<Dispatch[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -134,6 +151,7 @@ export default function DispatchPage() {
 
   const searchRef = useRef<HTMLInputElement>(null);
   const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
+  const [customerRequests, setCustomerRequests] = useState<{ id: number; sn_no: string; dispatch: { customer_name: string | null; inventory_type: string; item_sn_no: string | null; quantity: number } | null }[]>([]);
 
   function load() {
     setLoading(true);
@@ -151,7 +169,11 @@ export default function DispatchPage() {
   useEffect(() => { load(); }, [search, statusFilter]);
 
   useEffect(() => {
+    apiFetchJson<CompanyInfo>("/api/v1/settings/company").then(setCompanyInfo).catch(() => {});
     apiFetchJson<NameOption[]>("/api/v1/vendors/names").then(setVendors).catch(() => {});
+    apiFetchJson<{ id: number; sn_no: string; dispatch: { customer_name: string | null; inventory_type: string; item_sn_no: string | null; quantity: number } | null }[]>(
+      "/api/v1/requests?request_type=customer_dispatch&status=approved"
+    ).then(setCustomerRequests).catch(() => {});
   }, []);
 
   function buildPayload(form: DispatchFormState) {
@@ -166,6 +188,8 @@ export default function DispatchPage() {
       supplier_name: form.party_type === "supplier" ? form.supplier_name || null : null,
       schedule_id: null,
       schedule_number: null,
+      request_id: form.request_id,
+      request_sn_no: form.request_sn_no || null,
       product_name: first?.item_name ?? "",
       quantity: parseFloat(first?.quantity ?? "0") || 0,
       unit: first?.unit || null,
@@ -224,6 +248,8 @@ export default function DispatchPage() {
       driver_name: d.driver_name ?? "",
       notes: d.notes ?? "",
       status: d.status,
+      request_id: d.request_id,
+      request_sn_no: d.request_sn_no ?? "",
     });
     setEditError(null);
   }
@@ -270,6 +296,15 @@ export default function DispatchPage() {
     const partyLabel = d.party_type === "vendor" ? "Vendor" : "Supplier";
     const win = window.open("", "_blank", "width=800,height=600");
     if (!win) return;
+    const co = companyInfo;
+    const coHtml = (co && co.company_name) ? `
+      <div style="text-align:center;margin-bottom:20px;padding-bottom:10px;border-bottom:2px solid #333;">
+        <h1 style="margin:0;font-size:20px;font-weight:bold;">${co.company_name}</h1>
+        <p style="margin:4px 0;">${[co.company_address, co.company_city, co.company_state].filter(Boolean).join(', ')}${co.company_pincode ? ' - ' + co.company_pincode : ''}</p>
+        <p style="margin:2px 0;font-size:12px;">
+          ${[co.company_phone ? `Phone: ${co.company_phone}` : '', co.company_email ? `Email: ${co.company_email}` : '', co.company_gstin ? `GST: ${co.company_gstin}` : ''].filter(Boolean).join(' | ')}
+        </p>
+      </div>` : '';
     win.document.write(`<!DOCTYPE html><html><head><title>Dispatch &mdash; ${d.dispatch_number}</title>
 <style>
   body { font-family: Arial, sans-serif; font-size: 13px; margin: 24px; color: #111; }
@@ -282,6 +317,7 @@ export default function DispatchPage() {
   .lbl { color: #666; font-size: 11px; }
   @media print { body { margin: 0; } }
 </style></head><body>
+${coHtml}
 <h2>Dispatch &mdash; ${d.dispatch_number}</h2>
 <p class="meta">Generated on ${new Date().toLocaleString("en-IN")}</p>
 <div class="row">
@@ -310,35 +346,35 @@ ${d.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${d.notes}</p>` 
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4 md:pr-64">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem><BreadcrumbPage>Dispatch</BreadcrumbPage></BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-        <div className="ml-auto flex items-center gap-2 flex-wrap">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
-            <Input ref={searchRef} className="pl-8 h-8 w-40 text-sm" placeholder="Search…"
-              value={search} onChange={(e) => setSearch(e.target.value)} />
-          </div>
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
-            className="h-8 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-            <option value="">All statuses</option>
-            {STATUSES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
-          </select>
-          <Button size="sm" onClick={() => { setCreateForm(BLANK_FORM()); setCreateError(null); setShowCreate(true); }}>
-            <Plus className="size-4 mr-1.5" />New Dispatch
-          </Button>
-        </div>
-      </header>
+      <PageHeader
+        title="Dispatch"
+        breadcrumbs={[{ label: "Dispatch" }]}
+        actions={
+          <>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+              <Input ref={searchRef} className="pl-8 h-8 w-40 text-sm" placeholder="Search…"
+                value={search} onChange={(e) => setSearch(e.target.value)} />
+            </div>
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
+              className="h-8 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+              <option value="">All statuses</option>
+              {STATUSES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+            </select>
+            <Button size="sm" onClick={() => { setCreateForm(BLANK_FORM()); setCreateError(null); setShowCreate(true); }}>
+              <Plus className="size-4 mr-1.5" />New Dispatch
+            </Button>
+          </>
+        }
+      />
 
       {/* Create Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>New Dispatch</DialogTitle></DialogHeader>
           <DispatchForm form={createForm} vendors={vendors} saving={createSaving}
-            error={createError} onChange={setCreateForm} onSubmit={handleCreate} isCreate />
+            error={createError} onChange={setCreateForm} onSubmit={handleCreate} isCreate
+            customerRequests={customerRequests} />
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowCreate(false)} disabled={createSaving}>Cancel</Button>
             <Button disabled={createSaving} onClick={handleCreate}>
@@ -353,7 +389,8 @@ ${d.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${d.notes}</p>` 
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Edit Dispatch</DialogTitle></DialogHeader>
           <DispatchForm form={editForm} vendors={vendors} saving={editSaving}
-            error={editError} onChange={setEditForm} onSubmit={handleEdit} isCreate={false} />
+            error={editError} onChange={setEditForm} onSubmit={handleEdit} isCreate={false}
+            customerRequests={customerRequests} />
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setEditTarget(null)} disabled={editSaving}>Cancel</Button>
             <Button disabled={editSaving} onClick={handleEdit}>
@@ -398,7 +435,7 @@ ${d.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${d.notes}</p>` 
                   : d.product_name;
               return (
                 <div key={d.id} className="rounded-xl border bg-card p-4 flex items-start gap-4">
-                  <div className="flex size-9 items-center justify-center rounded-lg bg-blue-100 text-blue-700 shrink-0">
+                  <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
                     <PackageCheck className="size-4" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -408,7 +445,7 @@ ${d.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${d.notes}</p>` 
                         value={d.status}
                         onChange={(e) => handleStatusChange(d.id, e.target.value)}
                         disabled={statusUpdatingId === d.id}
-                        className={`text-xs px-2 py-0.5 rounded-full font-medium border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 ${STATUS_COLORS[d.status] ?? "bg-slate-100 text-slate-600"}`}
+                        className={`text-xs px-2 py-0.5 rounded-full font-medium border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 ${STATUS_COLORS[d.status] ?? "bg-muted text-muted-foreground"}`}
                       >
                         {STATUSES.map(s => (
                           <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
@@ -433,6 +470,7 @@ ${d.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${d.notes}</p>` 
                       {d.vehicle_number && <span>Vehicle: {d.vehicle_number}</span>}
                       {d.driver_name && <span>Driver: {d.driver_name}</span>}
                       {d.schedule_number && <span>Schedule: {d.schedule_number}</span>}
+                      {d.request_sn_no && <span>Request: {d.request_sn_no}</span>}
                     </div>
                     {d.notes && <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{d.notes}</p>}
                   </div>
@@ -457,7 +495,7 @@ ${d.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${d.notes}</p>` 
 // ── Form ──────────────────────────────────────────────────────────────────────
 
 function DispatchForm({
-  form, vendors, saving, error, onChange, onSubmit, isCreate,
+  form, vendors, saving, error, onChange, onSubmit, isCreate, customerRequests,
 }: {
   form: DispatchFormState;
   vendors: NameOption[];
@@ -466,6 +504,7 @@ function DispatchForm({
   onChange: (f: DispatchFormState) => void;
   onSubmit: (e: React.FormEvent) => void;
   isCreate: boolean;
+  customerRequests: { id: number; sn_no: string; dispatch: { customer_name: string | null; inventory_type: string; item_sn_no: string | null; quantity: number } | null }[];
 }) {
   function updateItem(key: string, patch: Partial<DispatchItemForm>) {
     onChange({ ...form, items: form.items.map(i => i._key === key ? { ...i, ...patch } : i) });
@@ -626,6 +665,56 @@ function DispatchForm({
           </select>
         </div>
       )}
+      <div className="space-y-1.5">
+        <Label htmlFor="d-request">Customer Dispatch Request <span className="text-xs text-muted-foreground">(optional)</span></Label>
+        <select id="d-request" value={form.request_id ?? ""}
+          onChange={async (e) => {
+            const reqId = parseInt(e.target.value);
+            if (!reqId) {
+              onChange({ ...form, request_id: null, request_sn_no: "" });
+              return;
+            }
+            try {
+              const req = await apiFetchJson<{
+                id: number; sn_no: string;
+                dispatch: { customer_name: string | null; inventory_type: string; item_sn_no: string | null; item_description: string | null; quantity: number } | null;
+              }>(`/api/v1/requests/${reqId}`);
+              const d = req.dispatch;
+              if (d) {
+                const items: DispatchItemForm[] = [{
+                  _key: Math.random().toString(36).slice(2),
+                  inv_type: d.inventory_type,
+                  inv_item_id: null,
+                  item_name: d.item_description || d.item_sn_no || "",
+                  quantity: String(d.quantity),
+                  unit: "",
+                }];
+                onChange({
+                  ...form,
+                  items,
+                  notes: d.customer_name ? `Customer: ${d.customer_name}` : form.notes,
+                  request_id: req.id,
+                  request_sn_no: req.sn_no,
+                });
+              } else {
+                onChange({
+                  ...form,
+                  request_id: req.id,
+                  request_sn_no: req.sn_no,
+                });
+              }
+            } catch { /* ignore */ }
+          }}
+          disabled={saving}
+          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
+          <option value="">— None —</option>
+          {customerRequests.map(r => (
+            <option key={r.id} value={r.id}>
+              {r.sn_no}{r.dispatch?.customer_name ? ` — ${r.dispatch.customer_name}` : ""}
+            </option>
+          ))}
+        </select>
+      </div>
       <div className="space-y-1.5">
         <Label htmlFor="d-notes">Notes</Label>
         <textarea id="d-notes" rows={2} placeholder="Remarks…" value={form.notes}

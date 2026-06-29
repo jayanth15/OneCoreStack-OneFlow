@@ -21,7 +21,7 @@ class SpareItem(SQLModel, table=True):
     rate: Optional[float] = None               # rate per unit
 
     # Quantities
-    unit: str = Field(default="pcs")           # unit of measure
+    unit_id: Optional[int] = Field(default=None, foreign_key="unit.id")
     opening_qty: float = Field(default=0.0)    # initial / opening quantity
     recorded_qty: float = Field(default=0.0)   # current recorded / physical qty
     reorder_level: float = Field(default=0.0)

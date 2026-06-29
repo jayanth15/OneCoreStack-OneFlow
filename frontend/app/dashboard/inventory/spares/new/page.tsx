@@ -3,10 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList,
-  BreadcrumbPage, BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -57,27 +54,15 @@ export default function NewSpareCategoryPage() {
   return (
     <>
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-background flex h-16 shrink-0 items-center border-b px-6">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <Link href="/dashboard/inventory" className="text-muted-foreground hover:text-foreground text-sm">
-                Inventory
-              </Link>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <Link href="/dashboard/inventory/spares" className="text-muted-foreground hover:text-foreground text-sm">
-                Spares
-              </Link>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>New Category</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </header>
+      <PageHeader
+        title="New Spare Category"
+        description={`Create a category to group related spare parts together (e.g. "Engines", "Filters", "Belts").`}
+        breadcrumbs={[
+          { label: "Inventory", href: "/dashboard/inventory" },
+          { label: "Spares", href: "/dashboard/inventory/spares" },
+          { label: "New Category" },
+        ]}
+      />
 
       <div className="p-4 md:p-6 max-w-lg">
         {/* Back link */}

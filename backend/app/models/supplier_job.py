@@ -15,7 +15,7 @@ class SupplierJob(SQLModel, table=True):
     job_name: str
     description: Optional[str] = Field(default=None)
     rate: Optional[float] = Field(default=None)
-    unit: Optional[str] = Field(default=None)      # e.g. "per piece", "per kg"
+    unit_id: Optional[int] = Field(default=None, foreign_key="unit.id")
     notes: Optional[str] = Field(default=None)
     is_active: bool = Field(default=True)
     created_at: Optional[str] = Field(default=None)

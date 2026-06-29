@@ -1,11 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -341,7 +338,7 @@ export default function WeedersPage() {
         <td className="px-4 py-2.5 max-w-xs"><span className="block truncate text-sm" title={item.description ?? ""}>{item.description ?? "\u2014"}</span></td>
         <td className="px-4 py-2.5 text-muted-foreground text-sm max-w-[130px]"><span className="block truncate">{item.storage_location ?? "\u2014"}</span></td>
         {admin && <td className="px-4 py-2.5 text-right tabular-nums text-sm font-medium">{fmtRate(item.rate_per_unit)}</td>}
-        <td className={`px-4 py-2.5 text-right tabular-nums text-sm ${isLow ? "text-amber-600 font-medium" : ""}`}>
+        <td className={`px-4 py-2.5 text-right tabular-nums text-sm ${isLow ? "text-warning font-medium" : ""}`}>
           <span className="inline-flex items-center gap-1 justify-end">
             {isLow && <AlertTriangle className="size-3" />}
             {fmtQty(item.qty)}
@@ -358,14 +355,14 @@ export default function WeedersPage() {
         <td className="px-4 py-2.5 text-right">
           <div className="inline-flex gap-0.5">
             <Button variant="ghost" size="icon" className="size-7" title="View" onClick={() => setViewItem(item)}>
-              <Eye className="size-3.5 text-blue-600" />
+              <Eye className="size-3.5 text-primary" />
             </Button>
             {canEdit && <>
               <Button variant="ghost" size="icon" className="size-7" title="Add Stock" onClick={() => openAdjust(item, "add")}>
-                <PackagePlus className="size-3.5 text-emerald-600" />
+                <PackagePlus className="size-3.5 text-success" />
               </Button>
               <Button variant="ghost" size="icon" className="size-7" title="Remove Stock" onClick={() => openAdjust(item, "subtract")}>
-                <PackageMinus className="size-3.5 text-amber-600" />
+                <PackageMinus className="size-3.5 text-warning" />
               </Button>
             </>}
             {admin && <Button variant="ghost" size="icon" className="size-7" title="History" onClick={() => openHistory(item)}>
@@ -400,7 +397,7 @@ export default function WeedersPage() {
             <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
               {item.storage_location && <span>\ud83d\udccd {item.storage_location}</span>}
               {admin && item.rate_per_unit != null && <span>{fmtRate(item.rate_per_unit)} / unit</span>}
-              <span className={`font-semibold ${isLow ? "text-amber-600" : "text-foreground"}`}>
+              <span className={`font-semibold ${isLow ? "text-warning" : "text-foreground"}`}>
                 {isLow && <AlertTriangle className="size-3 inline mr-0.5" />}
                 Qty: {fmtQty(item.qty)}
                 {item.reorder_level > 0 && <span className="text-muted-foreground font-normal text-[10px]"> /{fmtQty(item.reorder_level)}</span>}
@@ -409,10 +406,10 @@ export default function WeedersPage() {
             </div>
           </div>
           <div className="flex flex-col gap-1 shrink-0">
-            <Button variant="ghost" size="icon" className="size-8" onClick={() => setViewItem(item)}><Eye className="size-3.5 text-blue-600" /></Button>
+            <Button variant="ghost" size="icon" className="size-8" onClick={() => setViewItem(item)}><Eye className="size-3.5 text-primary" /></Button>
             {canEdit && <>
-              <Button variant="ghost" size="icon" className="size-8" onClick={() => openAdjust(item, "add")}><PackagePlus className="size-3.5 text-emerald-600" /></Button>
-              <Button variant="ghost" size="icon" className="size-8" onClick={() => openAdjust(item, "subtract")}><PackageMinus className="size-3.5 text-amber-600" /></Button>
+              <Button variant="ghost" size="icon" className="size-8" onClick={() => openAdjust(item, "add")}><PackagePlus className="size-3.5 text-success" /></Button>
+              <Button variant="ghost" size="icon" className="size-8" onClick={() => openAdjust(item, "subtract")}><PackageMinus className="size-3.5 text-warning" /></Button>
             </>}
             {admin && <Button variant="ghost" size="icon" className="size-8" onClick={() => openHistory(item)}><History className="size-3.5 text-muted-foreground" /></Button>}
             {admin && <Button variant="ghost" size="icon" className="size-8" onClick={() => openEditItem(item)}><Pencil className="size-3.5" /></Button>}
@@ -426,22 +423,21 @@ export default function WeedersPage() {
 
   return (
     <>
-      <header className="sticky top-0 z-10 bg-background flex h-16 shrink-0 items-center border-b px-6 gap-4 md:pr-64">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <Link href="/dashboard/inventory" className="text-muted-foreground hover:text-foreground text-sm">Inventory</Link>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem><BreadcrumbPage>Weeders</BreadcrumbPage></BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-        {admin && (
-          <Button size="sm" className="ml-auto" onClick={openCreateCat}>
+      <PageHeader
+        title="Weeders"
+        description={categories.length > 0
+          ? `${categories.length} categor${categories.length !== 1 ? "ies" : "y"} \u00b7 ${categories.reduce((s, c) => s + c.item_count, 0)} items`
+          : "Weeder inventory"}
+        breadcrumbs={[
+          { label: "Inventory", href: "/dashboard/inventory" },
+          { label: "Weeders" },
+        ]}
+        actions={admin ? (
+          <Button size="sm" onClick={openCreateCat}>
             <PlusIcon className="size-4 mr-1" /> New Category
           </Button>
-        )}
-      </header>
+        ) : undefined}
+      />
 
       <div className="p-4 md:p-6 space-y-4">
         <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -730,7 +726,7 @@ export default function WeedersPage() {
         <DialogContent className="max-w-sm">
           <DialogHeader className="mb-2">
             <DialogTitle className="flex items-center gap-2">
-              {adjustType === "add" ? <PackagePlus className="size-4 text-emerald-600" /> : <PackageMinus className="size-4 text-amber-600" />}
+              {adjustType === "add" ? <PackagePlus className="size-4 text-success" /> : <PackageMinus className="size-4 text-warning" />}
               {adjustType === "add" ? "Add Stock" : "Remove Stock"} \u2014 {adjustItem ? displayName(adjustItem) : ""}
             </DialogTitle>
           </DialogHeader>
@@ -746,7 +742,7 @@ export default function WeedersPage() {
             {adjustType === "subtract" && adjustItem && (() => {
               const entered = parseFloat(adjustQty);
               if (!isNaN(entered) && entered > adjustItem.qty) return (
-                <div className="flex items-start gap-1.5 rounded-md bg-amber-50 dark:bg-amber-950/20 border border-amber-200 px-3 py-2 text-sm text-amber-700">
+                <div className="flex items-start gap-1.5 rounded-md bg-warning/15 border border-warning/20 px-3 py-2 text-sm text-warning">
                   <AlertTriangle className="size-4 shrink-0 mt-0.5" />
                   <span>Only <strong>{fmtQty(adjustItem.qty)}</strong> available \u2014 stock will be reduced to 0.</span>
                 </div>
@@ -786,10 +782,10 @@ export default function WeedersPage() {
               {/* Status badges */}
               <div className="flex flex-wrap gap-1.5">
                 {!viewItem.is_active && (
-                  <span className="text-xs font-medium px-2 py-0.5 rounded border bg-red-50 text-red-700 border-red-200">Inactive</span>
+                  <span className="text-xs font-medium px-2 py-0.5 rounded border bg-destructive/10 text-destructive border-destructive/20">Inactive</span>
                 )}
                 {viewItem.reorder_level > 0 && viewItem.qty <= viewItem.reorder_level && (
-                  <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded border bg-amber-50 text-amber-800 border-amber-200">
+                  <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded border bg-warning/15 text-amber-800 border-warning/20">
                     <AlertTriangle className="size-3" /> Low Stock
                   </span>
                 )}
@@ -821,7 +817,7 @@ export default function WeedersPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-xs text-muted-foreground">On Hand</p>
-                    <p className={`text-lg font-semibold tabular-nums ${viewItem.reorder_level > 0 && viewItem.qty <= viewItem.reorder_level ? "text-amber-600" : ""}`}>
+                    <p className={`text-lg font-semibold tabular-nums ${viewItem.reorder_level > 0 && viewItem.qty <= viewItem.reorder_level ? "text-warning" : ""}`}>
                       {fmtQty(viewItem.qty)}
                     </p>
                   </div>
@@ -853,7 +849,7 @@ export default function WeedersPage() {
                     </div>
                     <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
                       <div
-                        className={`h-full rounded-full transition-all ${viewItem.qty <= viewItem.reorder_level ? "bg-amber-500" : "bg-emerald-500"}`}
+                        className={`h-full rounded-full transition-all ${viewItem.qty <= viewItem.reorder_level ? "bg-warning" : "bg-success"}`}
                         style={{ width: `${Math.min(100, (viewItem.qty / (viewItem.reorder_level * 2)) * 100)}%` }}
                       />
                     </div>
@@ -895,14 +891,14 @@ export default function WeedersPage() {
                     <tr key={r.id} className="hover:bg-muted/20">
                       <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{fmtDate(r.changed_at)}</td>
                       <td className="px-3 py-2">
-                        <span className={`inline-flex items-center gap-1 text-xs font-medium ${r.change_type === "add" ? "text-emerald-600" : r.change_type === "subtract" ? "text-amber-600" : "text-blue-600"}`}>
+                        <span className={`inline-flex items-center gap-1 text-xs font-medium ${r.change_type === "add" ? "text-success" : r.change_type === "subtract" ? "text-warning" : "text-primary"}`}>
                           {r.change_type === "add" && <PackagePlus className="size-3" />}
                           {r.change_type === "subtract" && <PackageMinus className="size-3" />}
                           {r.change_type}
                         </span>
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{fmtQty(r.qty_before)}</td>
-                      <td className={`px-3 py-2 text-right tabular-nums font-medium ${r.qty_delta > 0 ? "text-emerald-600" : r.qty_delta < 0 ? "text-amber-600" : ""}`}>
+                      <td className={`px-3 py-2 text-right tabular-nums font-medium ${r.qty_delta > 0 ? "text-success" : r.qty_delta < 0 ? "text-warning" : ""}`}>
                         {r.qty_delta > 0 ? "+" : ""}{fmtQty(r.qty_delta)}
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums font-semibold">{fmtQty(r.qty_after)}</td>

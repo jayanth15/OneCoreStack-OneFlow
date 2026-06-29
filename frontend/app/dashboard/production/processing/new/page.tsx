@@ -3,12 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList,
-  BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiFetchJson } from "@/lib/api";
 import { isAdminOrAbove } from "@/lib/user";
@@ -67,6 +63,17 @@ export default function NewProductionOrderPage() {
 
   const selectedPlan = plans.find((p) => String(p.id) === selectedPlanId) ?? null;
 
+  // Auto-fill dates from selected plan
+  useEffect(() => {
+    if (selectedPlan) {
+      setStartDate(selectedPlan.start_date ?? "");
+      setEndDate(selectedPlan.end_date ?? "");
+    } else {
+      setStartDate("");
+      setEndDate("");
+    }
+  }, [selectedPlan]);
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedPlanId) { setError("Select a production plan"); return; }
@@ -94,34 +101,23 @@ export default function NewProductionOrderPage() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4 md:px-6">
-        <Link href="/dashboard/production/processing"
-          className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
-          <ArrowLeft className="size-4" />
-        </Link>
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href="/dashboard/production">Production</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
-            <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href="/dashboard/production/processing">Processing</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
-            <BreadcrumbItem><BreadcrumbPage>Start Production</BreadcrumbPage></BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </header>
+      <PageHeader
+        title="Start Production"
+        description="Create a production order linked to a plan. You can then add job cards for each process step."
+        breadcrumbs={[
+          { label: "Production", href: "/dashboard/production" },
+          { label: "Processing", href: "/dashboard/production/processing" },
+          { label: "Start Production" },
+        ]}
+        actions={
+          <Link href="/dashboard/production/processing"
+            className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
+            <ArrowLeft className="size-4" />
+          </Link>
+        }
+      />
 
       <div className="p-4 md:p-8 max-w-lg mx-auto">
-        <div className="mb-6">
-          <h1 className="text-xl font-semibold">Start Production</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Create a production order linked to a plan. You can then add job cards for each process step.
-          </p>
-        </div>
-
         <form onSubmit={handleSave} className="space-y-5">
           {/* Plan selector */}
           <div className="space-y-1.5">
@@ -137,7 +133,7 @@ export default function NewProductionOrderPage() {
               ))}
             </select>
             {plans.length === 0 && (
-              <p className="text-xs text-amber-600 mt-1">No plans available — all approved plans already have active production orders.</p>
+              <p className="text-xs text-warning mt-1">No plans available — all approved plans already have active production orders.</p>
             )}
           </div>
 
@@ -145,7 +141,7 @@ export default function NewProductionOrderPage() {
           {selectedPlan && (
             <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
               <div className="flex items-center gap-2 text-sm font-medium">
-                <Info className="size-4 text-blue-600" />
+                <Info className="size-4 text-primary" />
                 Plan Details
               </div>
               <div className="grid grid-cols-2 gap-2 text-xs">
@@ -172,7 +168,7 @@ export default function NewProductionOrderPage() {
                   <p className="text-xs text-muted-foreground mb-1.5">Process steps (will be available for job cards):</p>
                   <div className="flex flex-wrap gap-1.5">
                     {selectedPlan.processes.map((p) => (
-                      <span key={p.id} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                      <span key={p.id} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
                         {p.sequence}. {p.name}
                       </span>
                     ))}
@@ -182,17 +178,23 @@ export default function NewProductionOrderPage() {
             </div>
           )}
 
-          {/* Dates */}
+          {/* Dates — auto-filled from selected plan, read-only */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="start_date">Start Date</Label>
-              <Input id="start_date" type="date" value={startDate}
-                onChange={(e) => setStartDate(e.target.value)} disabled={saving} />
+              <Label>Start Date</Label>
+              {selectedPlan ? (
+                <p className="text-sm font-medium py-2 px-1">{startDate || "—"}</p>
+              ) : (
+                <p className="text-sm text-muted-foreground py-2 px-1">Select a plan first</p>
+              )}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="end_date">End Date</Label>
-              <Input id="end_date" type="date" value={endDate}
-                onChange={(e) => setEndDate(e.target.value)} disabled={saving} />
+              <Label>End Date</Label>
+              {selectedPlan ? (
+                <p className="text-sm font-medium py-2 px-1">{endDate || "—"}</p>
+              ) : (
+                <p className="text-sm text-muted-foreground py-2 px-1">Select a plan first</p>
+              )}
             </div>
           </div>
 

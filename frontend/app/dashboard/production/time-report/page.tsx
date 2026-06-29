@@ -1,24 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList,
-  BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Combobox, ComboboxContent, ComboboxEmpty,
-  ComboboxInput, ComboboxItem, ComboboxList,
-} from "@/components/ui/combobox";
+import { SearchCombobox } from "@/components/ui/search-combobox";
 import { apiFetchJson } from "@/lib/api";
 import {
   ArrowLeft, Clock, User, Users, Package, TrendingUp,
-  Factory, Wrench, CalendarDays, ChevronDown, ChevronUp, BarChart3,
+  Factory, Wrench, CalendarDays, ChevronDown, ChevronUp, BarChart3, Printer,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -162,36 +156,36 @@ function WorkerReportDetail({ w }: { w: WorkerTimeSummary }) {
           label="Total Hours"
           value={`${w.total_hours.toFixed(1)} h`}
           sub={`${w.job_card_count} job card${w.job_card_count !== 1 ? "s" : ""}`}
-          color="bg-purple-50 dark:bg-purple-950/20"
+          color="bg-purple-50"
         />
         <StatCard
-          icon={<Package className="size-4 text-emerald-600" />}
+          icon={<Package className="size-4 text-success" />}
           label="Qty Produced"
           value={w.total_qty_produced % 1 === 0 ? String(w.total_qty_produced) : w.total_qty_produced.toFixed(1)}
           sub={`across ${w.process_names.length} process${w.process_names.length !== 1 ? "es" : ""}`}
-          color="bg-emerald-50 dark:bg-emerald-950/20"
+          color="bg-success/10"
         />
         <StatCard
-          icon={<TrendingUp className="size-4 text-blue-600" />}
+          icon={<TrendingUp className="size-4 text-primary" />}
           label="Avg Qty / Hour"
           value={w.avg_qty_per_hour > 0 ? w.avg_qty_per_hour.toFixed(1) : "—"}
           sub="productivity rate"
-          color="bg-blue-50 dark:bg-blue-950/20"
+          color="bg-primary/10"
         />
         <StatCard
-          icon={<CalendarDays className="size-4 text-amber-600" />}
+          icon={<CalendarDays className="size-4 text-warning" />}
           label="Working Days"
           value={String(w.work_dates.length)}
           sub={w.work_dates.length > 0
             ? `${fmtDate(w.work_dates[0])} – ${fmtDate(w.work_dates[w.work_dates.length - 1])}`
             : "—"}
-          color="bg-amber-50 dark:bg-amber-950/20"
+          color="bg-warning/15"
         />
       </div>
 
       {/* Shared-cards note */}
       {w.shared_card_count > 0 && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/20 px-4 py-2.5 text-xs text-blue-700 dark:text-blue-300 flex items-center gap-2">
+        <div className="rounded-lg border border-primary/20 bg-primary/10/50 px-4 py-2.5 text-xs text-primary flex items-center gap-2">
           <Users className="size-3.5 shrink-0" />
           <span>
             {w.shared_card_count} job card{w.shared_card_count !== 1 ? "s" : ""} were shared with other workers.
@@ -209,14 +203,14 @@ function WorkerReportDetail({ w }: { w: WorkerTimeSummary }) {
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium">{p.process_name}</span>
                   {p.shared_cards > 0 && (
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-950/30">
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 text-primary border-primary/20 bg-primary/10">
                       <Users className="size-2.5 mr-0.5" />{p.shared_cards} shared
                     </Badge>
                   )}
                 </div>
                 <div className="flex items-center gap-4 text-xs text-right shrink-0">
                   <span className="text-purple-600 font-mono font-semibold">{p.hours.toFixed(1)} h</span>
-                  <span className="text-emerald-600 font-mono font-semibold">
+                  <span className="text-success font-mono font-semibold">
                     {p.qty_produced % 1 === 0 ? p.qty_produced : p.qty_produced.toFixed(1)} pcs
                   </span>
                   <span className="text-muted-foreground w-14">{p.card_count} card{p.card_count !== 1 ? "s" : ""}</span>
@@ -238,20 +232,20 @@ function WorkerReportDetail({ w }: { w: WorkerTimeSummary }) {
                 <div className="flex-1 flex items-center gap-2">
                   <div className="flex-1 h-5 rounded bg-muted overflow-hidden relative">
                     <div
-                      className="h-full bg-purple-200 dark:bg-purple-900/40 rounded flex items-center pl-1.5"
+                      className="h-full bg-purple-200 rounded flex items-center pl-1.5"
                       style={{ width: `${Math.max(5, Math.round((d.hours / maxDateHours) * 100))}%` }}
                     >
-                      <span className="text-[10px] font-mono text-purple-700 dark:text-purple-300 whitespace-nowrap">
+                      <span className="text-[10px] font-mono text-purple-700 whitespace-nowrap">
                         {d.hours.toFixed(1)} h
                       </span>
                     </div>
                   </div>
-                  <span className="w-16 text-right text-emerald-600 font-mono shrink-0">
+                  <span className="w-16 text-right text-success font-mono shrink-0">
                     {d.qty_produced % 1 === 0 ? d.qty_produced : d.qty_produced.toFixed(1)} pcs
                   </span>
                   <span className="w-14 text-right text-muted-foreground shrink-0">
                     {d.card_count} card{d.card_count !== 1 ? "s" : ""}
-                    {d.shared_cards > 0 && <span className="ml-1 text-blue-500" title={`${d.shared_cards} shared`}>·{d.shared_cards}↗</span>}
+                    {d.shared_cards > 0 && <span className="ml-1 text-primary" title={`${d.shared_cards} shared`}>·{d.shared_cards}↗</span>}
                   </span>
                 </div>
               </div>
@@ -269,14 +263,14 @@ function WorkerReportDetail({ w }: { w: WorkerTimeSummary }) {
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-mono font-medium">{o.order_number}</span>
                   {o.shared_cards > 0 && (
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-950/30">
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 text-primary border-primary/20 bg-primary/10">
                       <Users className="size-2.5 mr-0.5" />{o.shared_cards} shared
                     </Badge>
                   )}
                 </div>
                 <div className="flex items-center gap-4 text-xs text-right shrink-0">
                   <span className="text-purple-600 font-mono font-semibold">{o.hours.toFixed(1)} h</span>
-                  <span className="text-emerald-600 font-mono font-semibold">
+                  <span className="text-success font-mono font-semibold">
                     {o.qty_produced % 1 === 0 ? o.qty_produced : o.qty_produced.toFixed(1)} pcs
                   </span>
                   <span className="text-muted-foreground w-14">{o.card_count} card{o.card_count !== 1 ? "s" : ""}</span>
@@ -297,14 +291,14 @@ function WorkerReportDetail({ w }: { w: WorkerTimeSummary }) {
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium">{m.machine_name}</span>
                   {m.shared_cards > 0 && (
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-950/30">
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 text-primary border-primary/20 bg-primary/10">
                       <Users className="size-2.5 mr-0.5" />{m.shared_cards} shared
                     </Badge>
                   )}
                 </div>
                 <div className="flex items-center gap-4 text-xs text-right shrink-0">
                   <span className="text-purple-600 font-mono font-semibold">{m.hours.toFixed(1)} h</span>
-                  <span className="text-emerald-600 font-mono font-semibold">
+                  <span className="text-success font-mono font-semibold">
                     {m.qty_produced % 1 === 0 ? m.qty_produced : m.qty_produced.toFixed(1)} pcs
                   </span>
                   <span className="text-muted-foreground w-14">{m.card_count} card{m.card_count !== 1 ? "s" : ""}</span>
@@ -348,21 +342,21 @@ function SummaryTable({ data }: { data: WorkerTimeSummary[] }) {
           label="Total Hours (All)"
           value={`${totalHours.toFixed(1)} h`}
           sub={`${data.length} worker${data.length !== 1 ? "s" : ""}`}
-          color="bg-purple-50 dark:bg-purple-950/20"
+          color="bg-purple-50"
         />
         <StatCard
-          icon={<Package className="size-4 text-emerald-600" />}
+          icon={<Package className="size-4 text-success" />}
           label="Total Qty (All)"
           value={totalQty % 1 === 0 ? String(totalQty) : totalQty.toFixed(1)}
           sub="contributions (may overlap on shared cards)"
-          color="bg-emerald-50 dark:bg-emerald-950/20"
+          color="bg-success/10"
         />
         <StatCard
-          icon={<TrendingUp className="size-4 text-blue-600" />}
+          icon={<TrendingUp className="size-4 text-primary" />}
           label="Overall Avg Qty/Hr"
           value={totalHours > 0 ? (totalQty / totalHours).toFixed(1) : "—"}
           sub="across all workers"
-          color="bg-blue-50 dark:bg-blue-950/20"
+          color="bg-primary/10"
         />
       </div>
 
@@ -392,13 +386,13 @@ function SummaryTable({ data }: { data: WorkerTimeSummary[] }) {
                     <p className="text-muted-foreground">hours</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-mono font-semibold text-emerald-600">
+                    <p className="font-mono font-semibold text-success">
                       {w.total_qty_produced % 1 === 0 ? w.total_qty_produced : w.total_qty_produced.toFixed(1)}
                     </p>
                     <p className="text-muted-foreground">pcs</p>
                   </div>
                   <div className="text-right hidden sm:block">
-                    <p className="font-mono font-semibold text-blue-600">{w.avg_qty_per_hour.toFixed(1)}</p>
+                    <p className="font-mono font-semibold text-primary">{w.avg_qty_per_hour.toFixed(1)}</p>
                     <p className="text-muted-foreground">pcs/hr</p>
                   </div>
                 </div>
@@ -421,13 +415,7 @@ function SummaryTable({ data }: { data: WorkerTimeSummary[] }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function TimeReportPage() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [workerOptions, setWorkerOptions] = useState<WorkerOption[]>([]);
-  const [fetchingWorkers, setFetchingWorkers] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const [selectedWorkerId, setSelectedWorkerId] = useState<number | "all" | null>(null);
-  const [selectedWorkerName, setSelectedWorkerName] = useState<string>("");
 
   const [data, setData] = useState<WorkerTimeSummary[]>([]);
   const [loading, setLoading] = useState(false);
@@ -435,21 +423,6 @@ export default function TimeReportPage() {
 
   const [dateFrom, setDateFrom] = useState(currentMonthStart);
   const [dateTo, setDateTo] = useState(todayStr);
-
-  const fetchWorkers = useCallback((q: string) => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(async () => {
-      setFetchingWorkers(true);
-      try {
-        const res = await apiFetchJson<WorkerOption[]>(`/api/v1/production/workers?search=${encodeURIComponent(q)}`);
-        setWorkerOptions(res);
-      } catch { /* ignore */ } finally {
-        setFetchingWorkers(false);
-      }
-    }, 250);
-  }, []);
-
-  useEffect(() => { fetchWorkers(""); }, [fetchWorkers]);
 
   function buildUrl(wId: number | "all" | null, from?: string, to?: string) {
     const params = new URLSearchParams();
@@ -474,20 +447,16 @@ export default function TimeReportPage() {
   function handleWorkerSelect(value: string) {
     if (!value) {
       setSelectedWorkerId(null);
-      setSelectedWorkerName("");
       setData([]);
       return;
     }
     if (value === "all") {
       setSelectedWorkerId("all");
-      setSelectedWorkerName("All Workers");
       fetchReport("all");
       return;
     }
     const id = Number(value);
-    const opt = workerOptions.find((w) => w.id === id);
     setSelectedWorkerId(id);
-    setSelectedWorkerName(opt?.username ?? "");
     fetchReport(id);
   }
 
@@ -496,77 +465,128 @@ export default function TimeReportPage() {
     fetchReport(selectedWorkerId, dateFrom || undefined, dateTo || undefined);
   }
 
+  function printWorkerReport() {
+    if (!singleWorker) return;
+    const w = singleWorker;
+    const dateRange = (dateFrom || dateTo)
+      ? `${fmtDate(dateFrom || dateTo)} – ${fmtDate(dateTo || dateFrom)}`
+      : "All time";
+    const totalDays = w.work_dates.length;
+
+    const dateRows = w.by_date
+      .map((d) => `<tr><td>${fmtDate(d.date)}</td><td style="text-align:right">${d.hours.toFixed(1)}</td><td style="text-align:right">${d.qty_produced % 1 === 0 ? d.qty_produced : d.qty_produced.toFixed(1)}</td><td style="text-align:right">${d.card_count}</td></tr>`)
+      .join("");
+
+    const processRows = w.by_process
+      .map((p) => `<tr><td>${p.process_name}</td><td style="text-align:right">${p.hours.toFixed(1)}</td><td style="text-align:right">${p.qty_produced % 1 === 0 ? p.qty_produced : p.qty_produced.toFixed(1)}</td><td style="text-align:right">${p.card_count}</td></tr>`)
+      .join("");
+
+    const orderRows = w.by_order
+      .map((o) => `<tr><td>${o.order_number}</td><td style="text-align:right">${o.hours.toFixed(1)}</td><td style="text-align:right">${o.qty_produced % 1 === 0 ? o.qty_produced : o.qty_produced.toFixed(1)}</td><td style="text-align:right">${o.card_count}</td></tr>`)
+      .join("");
+
+    const machineRows = w.by_machine
+      .map((m) => `<tr><td>${m.machine_name}</td><td style="text-align:right">${m.hours.toFixed(1)}</td><td style="text-align:right">${m.qty_produced % 1 === 0 ? m.qty_produced : m.qty_produced.toFixed(1)}</td><td style="text-align:right">${m.card_count}</td></tr>`)
+      .join("");
+
+    const section = (title: string, rows: string, headers: string) => rows
+      ? `<h2 style="font-size:14px;margin:16px 0 6px;border-bottom:1px solid #ddd;padding-bottom:4px">${title}</h2>
+         <table style="width:100%;border-collapse:collapse;font-size:12px">
+           <thead><tr style="background:#f3f4f6">${headers}</tr></thead>
+           <tbody>${rows}</tbody>
+         </table>`
+      : "";
+
+    const html = `<!DOCTYPE html><html><head><title>Time Report – ${w.username}</title>
+<style>
+  body{font-family:system-ui,sans-serif;margin:32px;color:#111;font-size:13px}
+  table td,table th{padding:4px 8px;border:1px solid #e5e7eb}
+  th{font-weight:600;background:#f3f4f6;text-align:left}
+  .cards{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
+  .card{flex:1;min-width:140px;border:1px solid #e5e7eb;border-radius:6px;padding:10px}
+  .card-label{font-size:11px;color:#6b7280}
+  .card-value{font-size:18px;font-weight:700}
+  .card-sub{font-size:11px;color:#6b7280;margin-top:2px}
+  @media print{body{margin:16px}}
+</style></head><body>
+<h1 style="font-size:20px;margin:0">${w.username}</h1>
+<p style="color:#6b7280;margin:2px 0 8px;font-size:13px">${dateRange}</p>
+<div class="cards">
+  <div class="card"><div class="card-label">Total Hours</div><div class="card-value">${w.total_hours.toFixed(1)} h</div><div class="card-sub">${w.job_card_count} job card${w.job_card_count !== 1 ? "s" : ""}</div></div>
+  <div class="card"><div class="card-label">Qty Produced</div><div class="card-value">${w.total_qty_produced % 1 === 0 ? w.total_qty_produced : w.total_qty_produced.toFixed(1)}</div><div class="card-sub">across ${w.process_names.length} process${w.process_names.length !== 1 ? "es" : ""}</div></div>
+  <div class="card"><div class="card-label">Avg Qty / Hour</div><div class="card-value">${w.avg_qty_per_hour > 0 ? w.avg_qty_per_hour.toFixed(1) : "—"}</div><div class="card-sub">productivity rate</div></div>
+  <div class="card"><div class="card-label">Working Days</div><div class="card-value">${totalDays}</div><div class="card-sub">${totalDays > 0 ? fmtDate(w.work_dates[0]) + " – " + fmtDate(w.work_dates[totalDays - 1]) : "—"}</div></div>
+</div>
+${section("By Process", processRows, "<th>Process</th><th style='text-align:right'>Hours</th><th style='text-align:right'>Qty</th><th style='text-align:right'>Cards</th>")}
+${section("Daily Activity", dateRows, "<th>Date</th><th style='text-align:right'>Hours</th><th style='text-align:right'>Qty</th><th style='text-align:right'>Cards</th>")}
+${section("By Production Order", orderRows, "<th>Order</th><th style='text-align:right'>Hours</th><th style='text-align:right'>Qty</th><th style='text-align:right'>Cards</th>")}
+${section("By Machine", machineRows, "<th>Machine</th><th style='text-align:right'>Hours</th><th style='text-align:right'>Qty</th><th style='text-align:right'>Cards</th>")}
+</body></html>`;
+
+    const win = window.open("", "_blank", "width=900,height=700");
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+      win.focus();
+      win.print();
+    }
+  }
+
   const singleWorker = typeof selectedWorkerId === "number"
-    ? data.find((w) => w.username === selectedWorkerName) ?? data[0] ?? null
+    ? data.find((w) => w.user_id === selectedWorkerId) ?? data[0] ?? null
     : null;
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4 md:px-6">
-        <Link href="/dashboard/production" className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
-          <ArrowLeft className="size-4" />
-        </Link>
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href="/dashboard/production">Production</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
-            <BreadcrumbItem>
-              <BreadcrumbPage>Worker Time Report</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </header>
+      <PageHeader
+        title="Worker Time Report"
+        description="Hours, productivity and process breakdown per worker. Filter by date range."
+        breadcrumbs={[
+          { label: "Production", href: "/dashboard/production" },
+          { label: "Worker Time Report" },
+        ]}
+        actions={
+          <Link href="/dashboard/production" className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
+            <ArrowLeft className="size-4" />
+          </Link>
+        }
+      />
 
       <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-xl font-semibold">Worker Time Report</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Hours, productivity and process breakdown per worker. Filter by date range.
-          </p>
-        </div>
-
         {/* Filters */}
         <div className="rounded-lg border p-4 space-y-4">
           <div className="space-y-1.5">
             <Label className="flex items-center gap-1.5 text-sm font-medium">
               <User className="size-3.5" />Worker
             </Label>
-            <Combobox
-              value={selectedWorkerId !== null ? String(selectedWorkerId) : ""}
-              onValueChange={(v: unknown) => handleWorkerSelect(v as string)}
-              filter={(_item: unknown) => true}
-            >
-              <ComboboxInput
-                placeholder="Search worker or select All Workers…"
-                value={searchQuery}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                  setSearchQuery(e.target.value);
-                  fetchWorkers(e.target.value);
-                }}
-                showTrigger
-                showClear={!!selectedWorkerId}
-                className="w-full"
-              />
-              <ComboboxContent>
-                <ComboboxList>
-                  {fetchingWorkers && (
-                    <div className="py-2 px-3 text-xs text-muted-foreground">Searching…</div>
-                  )}
-                  <ComboboxEmpty>No workers found</ComboboxEmpty>
-                  <ComboboxItem value="all">
-                    <span className="font-medium">All Workers</span>
-                    <span className="ml-auto text-xs text-muted-foreground">comparison view</span>
-                  </ComboboxItem>
-                  {workerOptions.map((w) => (
-                    <ComboboxItem key={w.id} value={String(w.id)}>
-                      {w.username}
-                    </ComboboxItem>
-                  ))}
-                </ComboboxList>
-              </ComboboxContent>
-            </Combobox>
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <SearchCombobox<WorkerOption>
+                  variant="list"
+                  value={selectedWorkerId !== null ? String(selectedWorkerId) : ""}
+                  placeholder="Search worker…"
+                  emptyText="No workers found"
+                  fetcher={async (q) =>
+                    apiFetchJson<WorkerOption[]>(
+                      `/api/v1/production/workers${q.trim() ? `?search=${encodeURIComponent(q)}` : ""}`,
+                    )
+                  }
+                  itemIdOf={(w) => w.id}
+                  getItemKey={(w) => w.id}
+                  getItemLabel={(w) => w.username}
+                  onSelect={(w) => handleWorkerSelect(String(w.id))}
+                  renderItem={(w) => <span>{w.username}</span>}
+                />
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleWorkerSelect("all")}
+                disabled={selectedWorkerId === "all"}
+              >
+                All Workers
+              </Button>
+            </div>
           </div>
 
           <form onSubmit={handleFilter} className="flex flex-wrap items-end gap-3">
@@ -627,6 +647,11 @@ export default function TimeReportPage() {
                   {dateFrom && dateTo ? `${fmtDate(dateFrom)} – ${fmtDate(dateTo)}` : "All time"}
                   {" · "}{singleWorker.job_card_count} job card{singleWorker.job_card_count !== 1 ? "s" : ""}
                 </p>
+              </div>
+              <div className="ml-auto">
+                <Button variant="outline" size="sm" onClick={printWorkerReport}>
+                  <Printer className="size-3.5 mr-1.5" />Print Report
+                </Button>
               </div>
             </div>
             <WorkerReportDetail w={singleWorker} />

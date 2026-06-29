@@ -2,9 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,13 +48,25 @@ interface PurchaseOrder {
   purchase_request_number: string | null;
 }
 
+interface CompanyInfo {
+  company_name: string;
+  company_address: string;
+  company_city: string;
+  company_state: string;
+  company_country: string;
+  company_pincode: string;
+  company_phone: string;
+  company_email: string;
+  company_gstin: string;
+}
+
 interface NameOption { id: number; name: string; }
 
 const STATUS_COLORS: Record<string, string> = {
-  draft:     "bg-slate-100 text-slate-600",
-  approved:  "bg-blue-100 text-blue-700",
-  received:  "bg-emerald-100 text-emerald-700",
-  cancelled: "bg-red-100 text-red-600",
+  draft:     "bg-muted text-muted-foreground",
+  approved:  "bg-primary/10 text-primary",
+  received:  "bg-success/10 text-success",
+  cancelled: "bg-destructive/10 text-destructive",
 };
 const STATUSES = ["draft", "approved", "received", "cancelled"];
 
@@ -82,6 +92,7 @@ export default function PurchaseOrdersPage() {
     if (!isAdminOrAbove() && !user.purchase_access) router.replace("/dashboard");
   }, [router]);
 
+  const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -107,6 +118,7 @@ export default function PurchaseOrdersPage() {
   }[]>([]);
   const [showFromRequest, setShowFromRequest] = useState(false);
   const [selectedPR, setSelectedPR] = useState<string>("");
+  const [loadingPR, setLoadingPR] = useState(false);
 
   function load() {
     setLoading(true);
@@ -122,11 +134,12 @@ export default function PurchaseOrdersPage() {
   useEffect(() => { load(); }, [statusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    apiFetchJson<CompanyInfo>("/api/v1/settings/company").then(setCompanyInfo).catch(() => {});
     apiFetchJson<NameOption[]>("/api/v1/suppliers/names").then(setSuppliers).catch(() => {});
     apiFetchJson<NameOption[]>("/api/v1/vendors/names").then(setVendors).catch(() => {});
-    apiFetchJson<{ items: { id: number; sn_no: string; item_name: string | null; items: { item_name: string | null; quantity: number }[] }[] }>(
+    apiFetchJson<{ id: number; sn_no: string; item_name: string | null; items: { item_name: string | null; quantity: number }[] }[]>(
       "/api/v1/purchase-requests?status=approved&page_size=100"
-    ).then(r => setPurchaseRequests(r.items)).catch(() => {});
+    ).then(setPurchaseRequests).catch(() => {});
   }, []);
 
   function buildPayload(form: ReturnType<typeof BLANK_FORM>) {
@@ -217,25 +230,36 @@ export default function PurchaseOrdersPage() {
     } finally { setStatusChangingId(null); }
   }
 
-  function seedFromPR(prId: number) {
-    const pr = purchaseRequests.find(p => p.id === prId);
-    if (!pr) return;
-    const prItems = pr.items && pr.items.length > 0
-      ? pr.items.map(i => ({ item_name: i.item_name ?? "", quantity: i.quantity, unit: "", rate: 0, notes: "" }))
-      : [{ item_name: pr.item_name ?? "", quantity: 1, unit: "", rate: 0, notes: "" }];
-    setCreateForm(f => ({
-      ...f,
-      items: prItems,
-      purchase_request_id: pr.id,
-      purchase_request_number: pr.sn_no,
-    }));
-    setShowCreate(true);
+  async function seedFromPR(prId: number) {
+    setLoadingPR(true);
+    try {
+      const prDetail = await apiFetchJson<any>(`/api/v1/purchase-requests/${prId}`);
+      const prItems = (prDetail.items || []).map((i: any) => ({
+        item_name: i.item_name ?? "",
+        quantity: i.quantity,
+        unit: i.unit ?? "",
+        rate: 0,
+        notes: "",
+      }));
+      setCreateForm(f => ({
+        ...f,
+        items: prItems.length > 0 ? prItems : [{ item_name: "", quantity: 1, unit: "", rate: 0, notes: "" }],
+        purchase_request_id: prDetail.id,
+        purchase_request_number: prDetail.sn_no,
+      }));
+      setShowCreate(true);
+    } catch {
+      setCreateForm(f => ({ ...f, items: [{ item_name: "", quantity: 1, unit: "", rate: 0, notes: "" }] }));
+      setShowCreate(true);
+    } finally {
+      setLoadingPR(false);
+    }
   }
 
-  function applyFromRequest() {
+  async function applyFromRequest() {
     const prId = parseInt(selectedPR);
     if (!prId) return;
-    seedFromPR(prId);
+    await seedFromPR(prId);
     setShowFromRequest(false);
     setSelectedPR("");
   }
@@ -246,17 +270,27 @@ export default function PurchaseOrdersPage() {
     if (!fromPr) return;
     const prId = parseInt(fromPr);
     if (!prId) return;
-    if (purchaseRequests.length === 0) return;  // wait for the list to load
-    seedFromPR(prId);
-    router.replace("/dashboard/purchase-orders");
+    (async () => {
+      await seedFromPR(prId);
+      router.replace("/dashboard/purchase-orders");
+    })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, purchaseRequests]);
+  }, [searchParams]);
 
   function printPurchaseOrder(po: PurchaseOrder) {
     const partyName = po.party_type === "vendor" ? po.vendor_name : po.supplier_name;
     const partyLabel = po.party_type === "vendor" ? "Vendor" : "Supplier";
     const win = window.open("", "_blank", "width=800,height=700");
     if (!win) return;
+    const co = companyInfo;
+    const coHtml = (co && co.company_name) ? `
+      <div style="text-align:center;margin-bottom:20px;padding-bottom:10px;border-bottom:2px solid #333;">
+        <h1 style="margin:0;font-size:20px;font-weight:bold;">${co.company_name}</h1>
+        <p style="margin:4px 0;">${[co.company_address, co.company_city, co.company_state].filter(Boolean).join(', ')}${co.company_pincode ? ' - ' + co.company_pincode : ''}</p>
+        <p style="margin:2px 0;font-size:12px;">
+          ${[co.company_phone ? `Phone: ${co.company_phone}` : '', co.company_email ? `Email: ${co.company_email}` : '', co.company_gstin ? `GST: ${co.company_gstin}` : ''].filter(Boolean).join(' | ')}
+        </p>
+      </div>` : '';
     win.document.write(`<!DOCTYPE html><html><head><title>Purchase Order — ${po.po_number}</title>
 <style>
   body { font-family: Arial, sans-serif; font-size: 13px; margin: 24px; color: #111; }
@@ -269,6 +303,7 @@ export default function PurchaseOrdersPage() {
   tfoot td { font-weight: 600; background: #f9f9f9; }
   @media print { body { margin: 0; } }
 </style></head><body>
+${coHtml}
 <h2>Purchase Order — ${po.po_number}</h2>
 <p style="color:#666;font-size:11px">Generated on ${new Date().toLocaleString("en-IN")}</p>
 <div class="row">
@@ -300,26 +335,25 @@ ${po.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${po.notes}</p>
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4 md:pr-64">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem><BreadcrumbPage>Purchase Orders</BreadcrumbPage></BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-        <div className="ml-auto flex items-center gap-2 flex-wrap">
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
-            className="h-8 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-            <option value="">All statuses</option>
-            {STATUSES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
-          </select>
-          <Button size="sm" variant="outline" onClick={() => { setSelectedPR(""); setShowFromRequest(true); }}>
-            <ClipboardCopy className="size-4 mr-1.5" />From Request
-          </Button>
-          <Button size="sm" onClick={() => { setCreateForm(BLANK_FORM()); setCreateError(null); setShowCreate(true); }}>
-            <Plus className="size-4 mr-1.5" />New PO
-          </Button>
-        </div>
-      </header>
+      <PageHeader
+        title="Purchase Orders"
+        breadcrumbs={[{ label: "Purchase Orders" }]}
+        actions={
+          <>
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
+              className="h-8 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+              <option value="">All statuses</option>
+              {STATUSES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+            </select>
+            <Button size="sm" variant="outline" onClick={() => { setSelectedPR(""); setShowFromRequest(true); }}>
+              <ClipboardCopy className="size-4 mr-1.5" />From Request
+            </Button>
+            <Button size="sm" onClick={() => { setCreateForm(BLANK_FORM()); setCreateError(null); setShowCreate(true); }}>
+              <Plus className="size-4 mr-1.5" />New PO
+            </Button>
+          </>
+        }
+      />
 
       {/* From Request Dialog */}
       <Dialog open={showFromRequest} onOpenChange={setShowFromRequest}>
@@ -332,9 +366,9 @@ ${po.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${po.notes}</p>
                 onChange={(e) => setSelectedPR(e.target.value)}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
                 <option value="">— Select request —</option>
-                {purchaseRequests.map(pr => (
+                {(purchaseRequests ?? []).map(pr => (
                   <option key={pr.id} value={pr.id}>
-                    {pr.sn_no}{pr.item_name ? ` — ${pr.item_name}` : ""}
+                    {pr.sn_no}
                   </option>
                 ))}
               </select>
@@ -375,7 +409,7 @@ ${po.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${po.notes}</p>
             <div className="px-4 pb-2 space-y-4">
               <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
                 <div><p className="text-xs text-muted-foreground">Status</p>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[viewTarget.status] ?? "bg-slate-100 text-slate-600"}`}>{viewTarget.status}</span>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[viewTarget.status] ?? "bg-muted text-muted-foreground"}`}>{viewTarget.status}</span>
                 </div>
                 {(viewTarget.supplier_name || viewTarget.vendor_name) && (
                   <div><p className="text-xs text-muted-foreground">{viewTarget.party_type === "vendor" ? "Vendor" : "Supplier"}</p>
@@ -384,11 +418,11 @@ ${po.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${po.notes}</p>
                 )}
                 {viewTarget.po_date && <div><p className="text-xs text-muted-foreground">PO Date</p><p className="font-medium">{viewTarget.po_date}</p></div>}
                 {viewTarget.expected_delivery && <div><p className="text-xs text-muted-foreground">Expected Delivery</p><p className="font-medium">{viewTarget.expected_delivery}</p></div>}
-                {viewTarget.total_value > 0 && <div><p className="text-xs text-muted-foreground">Total Value</p><p className="font-semibold text-violet-700">₹{viewTarget.total_value.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p></div>}
+                {viewTarget.total_value > 0 && <div><p className="text-xs text-muted-foreground">Total Value</p><p className="font-semibold text-tone-violet">₹{viewTarget.total_value.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p></div>}
                 {viewTarget.purchase_request_number && (
                   <div>
                     <p className="text-xs text-muted-foreground flex items-center gap-1"><Link2 className="size-3" />Linked PR</p>
-                    <p className="font-medium text-blue-600">{viewTarget.purchase_request_number}</p>
+                    <p className="font-medium text-primary">{viewTarget.purchase_request_number}</p>
                   </div>
                 )}
                 {viewTarget.notes && <div className="col-span-2"><p className="text-xs text-muted-foreground">Notes</p><p className="font-medium">{viewTarget.notes}</p></div>}
@@ -458,13 +492,13 @@ ${po.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${po.notes}</p>
           <div className="space-y-3">
             {orders.map((po) => (
               <div key={po.id} className="rounded-xl border bg-card p-4 flex items-start gap-4">
-                <div className="flex size-9 items-center justify-center rounded-lg bg-violet-100 text-violet-700 shrink-0">
+                <div className="flex size-9 items-center justify-center rounded-lg bg-tone-violet/10 text-tone-violet shrink-0">
                   <ShoppingCart className="size-4" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-mono font-semibold text-sm">{po.po_number}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[po.status] ?? "bg-slate-100 text-slate-600"}`}>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[po.status] ?? "bg-muted text-muted-foreground"}`}>
                       {po.status}
                     </span>
                   </div>
@@ -485,7 +519,7 @@ ${po.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${po.notes}</p>
                     </p>
                   )}
                   {po.purchase_request_number && (
-                    <p className="text-xs text-blue-600 mt-0.5">PR: {po.purchase_request_number}</p>
+                    <p className="text-xs text-primary mt-0.5">PR: {po.purchase_request_number}</p>
                   )}
                   {po.notes && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{po.notes}</p>}
                 </div>
@@ -670,7 +704,7 @@ function POForm({ form, suppliers, vendors, saving, error, onChange, onSubmit, i
             disabled={saving}
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
             <option value="">— None —</option>
-            {purchaseRequests.map(pr => (
+            {(purchaseRequests ?? []).map(pr => (
               <option key={pr.id} value={pr.id}>
                 {pr.sn_no}{pr.item_name ? ` — ${pr.item_name}` : ""}
               </option>

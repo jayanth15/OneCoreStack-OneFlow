@@ -109,6 +109,7 @@ def list_history(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     changed_by: Optional[str] = None,
+    entity_name: str = Query(""),
 ) -> HistoryPage:
     if not is_admin_or_above(current_user):
         raise HTTPException(status_code=403, detail="Admin access required")
@@ -126,35 +127,35 @@ def list_history(
     offset = (page - 1) * page_size
 
     if category == "inventory":
-        return _inventory_history(session, page, page_size, offset, start_dt, end_dt, changed_by, item_type=None)
+        return _inventory_history(session, page, page_size, offset, start_dt, end_dt, changed_by, entity_name=entity_name, item_type=None)
     elif category == "raw-materials":
-        return _inventory_history(session, page, page_size, offset, start_dt, end_dt, changed_by, item_type="raw_material")
+        return _inventory_history(session, page, page_size, offset, start_dt, end_dt, changed_by, entity_name=entity_name, item_type="raw_material")
     elif category == "finished-goods":
-        return _inventory_history(session, page, page_size, offset, start_dt, end_dt, changed_by, item_type="finished_good")
+        return _inventory_history(session, page, page_size, offset, start_dt, end_dt, changed_by, entity_name=entity_name, item_type="finished_good")
     elif category == "semi-finished":
-        return _inventory_history(session, page, page_size, offset, start_dt, end_dt, changed_by, item_type="semi_finished")
+        return _inventory_history(session, page, page_size, offset, start_dt, end_dt, changed_by, entity_name=entity_name, item_type="semi_finished")
     elif category == "scraps":
-        return _inventory_history(session, page, page_size, offset, start_dt, end_dt, changed_by, item_type="scrap")
+        return _inventory_history(session, page, page_size, offset, start_dt, end_dt, changed_by, entity_name=entity_name, item_type="scrap")
     elif category == "purchase-requests":
-        return _pr_history(session, page, page_size, offset, start_dt, end_dt, changed_by)
+        return _pr_history(session, page, page_size, offset, start_dt, end_dt, changed_by, entity_name)
     elif category == "marketing-requests":
-        return _mr_history(session, page, page_size, offset, start_dt, end_dt, changed_by)
+        return _mr_history(session, page, page_size, offset, start_dt, end_dt, changed_by, entity_name)
     elif category == "job-cards":
-        return _job_card_history(session, page, page_size, offset, start_dt, end_dt, changed_by)
+        return _job_card_history(session, page, page_size, offset, start_dt, end_dt, changed_by, entity_name)
     elif category == "schedules":
-        return _schedule_history(session, page, page_size, offset, start_dt, end_dt, changed_by)
+        return _schedule_history(session, page, page_size, offset, start_dt, end_dt, changed_by, entity_name)
     elif category == "consumables":
-        return _consumable_history(session, page, page_size, offset, start_dt, end_dt, changed_by)
+        return _consumable_history(session, page, page_size, offset, start_dt, end_dt, changed_by, entity_name)
     elif category == "spares":
-        return _spare_history(session, page, page_size, offset, start_dt, end_dt, changed_by)
+        return _spare_history(session, page, page_size, offset, start_dt, end_dt, changed_by, entity_name)
     elif category == "weeders":
-        return _weeder_history(session, page, page_size, offset, start_dt, end_dt, changed_by)
+        return _weeder_history(session, page, page_size, offset, start_dt, end_dt, changed_by, entity_name)
     elif category == "attachments":
-        return _attachment_history(session, page, page_size, offset, start_dt, end_dt, changed_by)
+        return _attachment_history(session, page, page_size, offset, start_dt, end_dt, changed_by, entity_name)
     elif category == "dispatches":
-        return _dispatch_history(session, page, page_size, offset, start_dt, end_dt, changed_by)
+        return _dispatch_history(session, page, page_size, offset, start_dt, end_dt, changed_by, entity_name)
     elif category == "gate-passes":
-        return _gate_pass_history(session, page, page_size, offset, start_dt, end_dt, changed_by)
+        return _gate_pass_history(session, page, page_size, offset, start_dt, end_dt, changed_by, entity_name)
     # Should never reach here
     raise HTTPException(status_code=500, detail="Unhandled category")
 
@@ -174,7 +175,7 @@ def _page_result(items: list[HistoryItem], total: int, page: int, page_size: int
     )
 
 
-def _apply_filters(q, model, start_dt, end_dt, changed_by):  # type: ignore[no-untyped-def]
+def _apply_filters(q, model, start_dt, end_dt, changed_by, entity_name=""):  # type: ignore[no-untyped-def]
     if start_dt:
         q = q.where(model.changed_at >= start_dt.isoformat())
     if end_dt:
@@ -186,7 +187,7 @@ def _apply_filters(q, model, start_dt, end_dt, changed_by):  # type: ignore[no-u
 
 def _inventory_history(
     session: Session, page: int, page_size: int, offset: int,
-    start_dt, end_dt, changed_by,
+    start_dt, end_dt, changed_by, entity_name: str = "",
     item_type: Optional[str] = None,
 ) -> HistoryPage:
     if item_type is not None:
@@ -198,7 +199,7 @@ def _inventory_history(
         )
     else:
         q = select(InventoryHistory)
-    q = _apply_filters(q, InventoryHistory, start_dt, end_dt, changed_by)
+    q = _apply_filters(q, InventoryHistory, start_dt, end_dt, changed_by, entity_name)
     total = session.exec(select(func.count()).select_from(q.subquery())).one()
     rows = session.exec(q.order_by(InventoryHistory.changed_at.desc()).offset(offset).limit(page_size)).all()  # type: ignore[union-attr]
 
@@ -224,15 +225,17 @@ def _inventory_history(
         )
         for r in rows
     ]
+    if entity_name:
+        out = [item for item in out if entity_name.lower() in (item.entity_name or "").lower()]
     return _page_result(out, total, page, page_size)
 
 
 def _pr_history(
     session: Session, page: int, page_size: int, offset: int,
-    start_dt, end_dt, changed_by,
+    start_dt, end_dt, changed_by, entity_name: str = "",
 ) -> HistoryPage:
     q = select(PurchaseRequestHistory)
-    q = _apply_filters(q, PurchaseRequestHistory, start_dt, end_dt, changed_by)
+    q = _apply_filters(q, PurchaseRequestHistory, start_dt, end_dt, changed_by, entity_name)
     total = session.exec(select(func.count()).select_from(q.subquery())).one()
     rows = session.exec(q.order_by(PurchaseRequestHistory.changed_at.desc()).offset(offset).limit(page_size)).all()  # type: ignore[union-attr]
 
@@ -257,15 +260,17 @@ def _pr_history(
         )
         for r in rows
     ]
+    if entity_name:
+        out = [item for item in out if entity_name.lower() in (item.entity_name or "").lower()]
     return _page_result(out, total, page, page_size)
 
 
 def _mr_history(
     session: Session, page: int, page_size: int, offset: int,
-    start_dt, end_dt, changed_by,
+    start_dt, end_dt, changed_by, entity_name: str = "",
 ) -> HistoryPage:
     q = select(MarketingRequestHistory)
-    q = _apply_filters(q, MarketingRequestHistory, start_dt, end_dt, changed_by)
+    q = _apply_filters(q, MarketingRequestHistory, start_dt, end_dt, changed_by, entity_name)
     total = session.exec(select(func.count()).select_from(q.subquery())).one()
     rows = session.exec(q.order_by(MarketingRequestHistory.changed_at.desc()).offset(offset).limit(page_size)).all()  # type: ignore[union-attr]
 
@@ -290,15 +295,17 @@ def _mr_history(
         )
         for r in rows
     ]
+    if entity_name:
+        out = [item for item in out if entity_name.lower() in (item.entity_name or "").lower()]
     return _page_result(out, total, page, page_size)
 
 
 def _job_card_history(
     session: Session, page: int, page_size: int, offset: int,
-    start_dt, end_dt, changed_by,
+    start_dt, end_dt, changed_by, entity_name: str = "",
 ) -> HistoryPage:
     q = select(JobCardHistory)
-    q = _apply_filters(q, JobCardHistory, start_dt, end_dt, changed_by)
+    q = _apply_filters(q, JobCardHistory, start_dt, end_dt, changed_by, entity_name)
     total = session.exec(select(func.count()).select_from(q.subquery())).one()
     rows = session.exec(q.order_by(JobCardHistory.changed_at.desc()).offset(offset).limit(page_size)).all()  # type: ignore[union-attr]
 
@@ -323,15 +330,17 @@ def _job_card_history(
         )
         for r in rows
     ]
+    if entity_name:
+        out = [item for item in out if entity_name.lower() in (item.entity_name or "").lower()]
     return _page_result(out, total, page, page_size)
 
 
 def _schedule_history(
     session: Session, page: int, page_size: int, offset: int,
-    start_dt, end_dt, changed_by,
+    start_dt, end_dt, changed_by, entity_name: str = "",
 ) -> HistoryPage:
     q = select(ScheduleHistory)
-    q = _apply_filters(q, ScheduleHistory, start_dt, end_dt, changed_by)
+    q = _apply_filters(q, ScheduleHistory, start_dt, end_dt, changed_by, entity_name)
     total = session.exec(select(func.count()).select_from(q.subquery())).one()
     rows = session.exec(q.order_by(ScheduleHistory.changed_at.desc()).offset(offset).limit(page_size)).all()  # type: ignore[union-attr]
 
@@ -355,15 +364,17 @@ def _schedule_history(
         )
         for r in rows
     ]
+    if entity_name:
+        out = [item for item in out if entity_name.lower() in (item.entity_name or "").lower()]
     return _page_result(out, total, page, page_size)
 
 
 def _consumable_history(
     session: Session, page: int, page_size: int, offset: int,
-    start_dt, end_dt, changed_by,
+    start_dt, end_dt, changed_by, entity_name: str = "",
 ) -> HistoryPage:
     q = select(ConsumableHistory)
-    q = _apply_filters(q, ConsumableHistory, start_dt, end_dt, changed_by)
+    q = _apply_filters(q, ConsumableHistory, start_dt, end_dt, changed_by, entity_name)
     total = session.exec(select(func.count()).select_from(q.subquery())).one()
     rows = session.exec(q.order_by(ConsumableHistory.changed_at.desc()).offset(offset).limit(page_size)).all()  # type: ignore[union-attr]
 
@@ -388,15 +399,17 @@ def _consumable_history(
         )
         for r in rows
     ]
+    if entity_name:
+        out = [item for item in out if entity_name.lower() in (item.entity_name or "").lower()]
     return _page_result(out, total, page, page_size)
 
 
 def _spare_history(
     session: Session, page: int, page_size: int, offset: int,
-    start_dt, end_dt, changed_by,
+    start_dt, end_dt, changed_by, entity_name: str = "",
 ) -> HistoryPage:
     q = select(SpareItemHistory)
-    q = _apply_filters(q, SpareItemHistory, start_dt, end_dt, changed_by)
+    q = _apply_filters(q, SpareItemHistory, start_dt, end_dt, changed_by, entity_name)
     total = session.exec(select(func.count()).select_from(q.subquery())).one()
     rows = session.exec(q.order_by(SpareItemHistory.changed_at.desc()).offset(offset).limit(page_size)).all()  # type: ignore[union-attr]
 
@@ -422,15 +435,17 @@ def _spare_history(
         )
         for r in rows
     ]
+    if entity_name:
+        out = [item for item in out if entity_name.lower() in (item.entity_name or "").lower()]
     return _page_result(out, total, page, page_size)
 
 
 def _weeder_history(
     session: Session, page: int, page_size: int, offset: int,
-    start_dt, end_dt, changed_by,
+    start_dt, end_dt, changed_by, entity_name: str = "",
 ) -> HistoryPage:
     q = select(WeederHistory)
-    q = _apply_filters(q, WeederHistory, start_dt, end_dt, changed_by)
+    q = _apply_filters(q, WeederHistory, start_dt, end_dt, changed_by, entity_name)
     total = session.exec(select(func.count()).select_from(q.subquery())).one()
     rows = session.exec(q.order_by(WeederHistory.changed_at.desc()).offset(offset).limit(page_size)).all()  # type: ignore[union-attr]
 
@@ -455,15 +470,17 @@ def _weeder_history(
         )
         for r in rows
     ]
+    if entity_name:
+        out = [item for item in out if entity_name.lower() in (item.entity_name or "").lower()]
     return _page_result(out, total, page, page_size)
 
 
 def _attachment_history(
     session: Session, page: int, page_size: int, offset: int,
-    start_dt, end_dt, changed_by,
+    start_dt, end_dt, changed_by, entity_name: str = "",
 ) -> HistoryPage:
     q = select(AttachmentHistory)
-    q = _apply_filters(q, AttachmentHistory, start_dt, end_dt, changed_by)
+    q = _apply_filters(q, AttachmentHistory, start_dt, end_dt, changed_by, entity_name)
     total = session.exec(select(func.count()).select_from(q.subquery())).one()
     rows = session.exec(q.order_by(AttachmentHistory.changed_at.desc()).offset(offset).limit(page_size)).all()  # type: ignore[union-attr]
 
@@ -488,15 +505,17 @@ def _attachment_history(
         )
         for r in rows
     ]
+    if entity_name:
+        out = [item for item in out if entity_name.lower() in (item.entity_name or "").lower()]
     return _page_result(out, total, page, page_size)
 
 
 def _dispatch_history(
     session: Session, page: int, page_size: int, offset: int,
-    start_dt, end_dt, changed_by,
+    start_dt, end_dt, changed_by, entity_name: str = "",
 ) -> HistoryPage:
     q = select(DispatchHistory)
-    q = _apply_filters(q, DispatchHistory, start_dt, end_dt, changed_by)
+    q = _apply_filters(q, DispatchHistory, start_dt, end_dt, changed_by, entity_name)
     total = session.exec(select(func.count()).select_from(q.subquery())).one()
     rows = session.exec(q.order_by(DispatchHistory.changed_at.desc()).offset(offset).limit(page_size)).all()  # type: ignore[union-attr]
 
@@ -520,15 +539,17 @@ def _dispatch_history(
         )
         for r in rows
     ]
+    if entity_name:
+        out = [item for item in out if entity_name.lower() in (item.entity_name or "").lower()]
     return _page_result(out, total, page, page_size)
 
 
 def _gate_pass_history(
     session: Session, page: int, page_size: int, offset: int,
-    start_dt, end_dt, changed_by,
+    start_dt, end_dt, changed_by, entity_name: str = "",
 ) -> HistoryPage:
     q = select(GatePassHistory)
-    q = _apply_filters(q, GatePassHistory, start_dt, end_dt, changed_by)
+    q = _apply_filters(q, GatePassHistory, start_dt, end_dt, changed_by, entity_name)
     total = session.exec(select(func.count()).select_from(q.subquery())).one()
     rows = session.exec(q.order_by(GatePassHistory.changed_at.desc()).offset(offset).limit(page_size)).all()  # type: ignore[union-attr]
 
@@ -552,4 +573,6 @@ def _gate_pass_history(
         )
         for r in rows
     ]
+    if entity_name:
+        out = [item for item in out if entity_name.lower() in (item.entity_name or "").lower()]
     return _page_result(out, total, page, page_size)

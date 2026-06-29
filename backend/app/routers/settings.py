@@ -161,7 +161,9 @@ def create_backup(background: BackgroundTasks) -> FileResponse:
         dst_conn.close()
     except Exception as exc:
         os.unlink(tmp_path)
-        raise HTTPException(status_code=500, detail=f"Backup failed: {exc}") from exc
+        import logging
+        logging.getLogger(__name__).error("Backup failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Backup failed") from exc
 
     # Schedule temp file deletion after response is sent
     background.add_task(os.unlink, tmp_path)

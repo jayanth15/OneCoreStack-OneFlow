@@ -1,6 +1,6 @@
 import json
 from datetime import datetime, timezone
-from typing import Annotated, Optional
+from typing import Annotated, Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, field_validator
@@ -18,6 +18,7 @@ from app.models.production_plan import ProductionPlan
 from app.models.production_process import ProductionProcess
 from app.models.department import Department
 from app.models.schedule import Schedule
+from app.models.unit import Unit
 from app.models.user import User
 from app.models.user_department import UserDepartment
 
@@ -40,6 +41,12 @@ _SCHEDULE_RANK = {"pending": 0, "confirmed": 1, "in_production": 2, "completed":
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+WEIGHT_TO_GRAM = {"kg": 1000.0, "g": 1.0, "mg": 0.001, "lb": 453.592}
+
+def _weight_to_grams(value: float | None, unit: str | None) -> float:
+    if value is None or not unit:
+        return 0.0
+    return value * WEIGHT_TO_GRAM.get(unit, 1.0)
 
 def _next_plan_number(session: Session) -> str:
     count = session.exec(select(func.count()).select_from(ProductionPlan)).one()
@@ -60,7 +67,7 @@ def _next_card_number(session: Session) -> str:
 
 _JOB_CARD_TRACKED_FIELDS = [
     "process_name", "tool_die_number", "machine_name", "worker_name",
-    "hours_worked", "qty_produced", "qty_pending", "work_date", "notes",
+    "hours_worked", "qty_produced", "actual_qty", "qty_pending", "work_date", "notes",
     "status", "is_active",
 ]
 
@@ -138,7 +145,7 @@ def _propagate_statuses(order_id: int, session: Session) -> None:
 
     Rules:
     - Order: ANY active card in_progress → order in_progress.
-             ALL active cards completed → order completed.
+             ALL active cards completed + FG qty met → order completed.
     - Plan:  ANY active order in_progress → plan in_progress.
              ALL active orders completed → plan completed.
     - Schedule: plan goes in_progress → schedule in_production.
@@ -154,20 +161,34 @@ def _propagate_statuses(order_id: int, session: Session) -> None:
         .where(JobCard.production_order_id == order_id, JobCard.is_active == True)  # noqa: E712
     ).all())
 
+    plan = session.get(ProductionPlan, order.production_plan_id)
+
     if cards:
         all_completed = all(c.status == "completed" for c in cards)
-        any_in_progress = any(c.status == "in_progress" for c in cards)
-        any_completed = any(c.status == "completed" for c in cards)
 
-        if all_completed and order.status != "completed":
+        # Compute effective FG qty (MIN across processes using actual_qty)
+        effective_qty = 0.0
+        if plan:
+            processes = list(session.exec(
+                select(ProductionProcess)
+                .where(ProductionProcess.plan_id == plan.id)
+            ).all())
+            per_process: dict[str, float] = {}
+            for p in processes:
+                per_process[p.name] = 0.0
+            for c in cards:
+                if c.process_name in per_process:
+                    per_process[c.process_name] += c.actual_qty
+            effective_qty = min(per_process.values()) if per_process else sum(c.actual_qty for c in cards)
+
+        fg_complete = effective_qty >= (plan.planned_qty if plan else 0)
+
+        if all_completed and fg_complete and order.status != "completed":
             order.status = "completed"
             session.add(order)
-        elif (any_in_progress or any_completed) and order.status == "open":
+        elif not all_completed and order.status == "open":
             order.status = "in_progress"
             session.add(order)
-
-    # ── Plan status from its orders ──
-    plan = session.get(ProductionPlan, order.production_plan_id)
     if not plan:
         return
 
@@ -265,7 +286,7 @@ def _consume_bom_materials(
                     code=scrap_code,
                     name=scrap_name,
                     item_type="scrap",
-                    unit=item.unit,
+                    unit_id=item.unit_id,
                     quantity_on_hand=0.0,
                 )
                 session.add(scrap_item)
@@ -319,15 +340,15 @@ def _recalc_fg_for_order(order: ProductionOrder, session: Session) -> None:
 
         if not processes:
             # No processes defined: legacy MIN across all cards
-            new_effective = min(c.qty_produced for c in cards)
+            new_effective = min(c.actual_qty for c in cards)
         else:
-            # Sum qty_produced per process; processes with no cards get 0
+            # Sum actual_qty per process; processes with no cards get 0
             per_process: dict[str, float] = {}
             for p in processes:
                 per_process[p.name] = 0.0
             for c in cards:
                 if c.process_name in per_process:
-                    per_process[c.process_name] += c.qty_produced
+                    per_process[c.process_name] += c.actual_qty
             # effective = minimum across all defined processes
             new_effective = min(per_process.values())
 
@@ -408,7 +429,7 @@ class ProcessCreate(BaseModel):
     estimated_time_minutes: Optional[float] = None
     material_qty: Optional[float] = None
     waste_qty: Optional[float] = None
-    material_unit: Optional[str] = None
+    material_unit_id: Optional[int] = None
 
 
 class ProcessUpdate(BaseModel):
@@ -418,7 +439,7 @@ class ProcessUpdate(BaseModel):
     estimated_time_minutes: Optional[float] = None
     material_qty: Optional[float] = None
     waste_qty: Optional[float] = None
-    material_unit: Optional[str] = None
+    material_unit_id: Optional[int] = None
 
 
 class ProcessResponse(BaseModel):
@@ -430,7 +451,8 @@ class ProcessResponse(BaseModel):
     estimated_time_minutes: Optional[float] = None
     material_qty: Optional[float] = None
     waste_qty: Optional[float] = None
-    material_unit: Optional[str] = None
+    material_unit_id: Optional[int] = None
+    material_unit_name: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -508,6 +530,14 @@ class PaginatedPlans(BaseModel):
     pages: int
 
 
+def _process_with_unit(p: ProductionProcess, session: Session) -> ProcessResponse:
+    pr = ProcessResponse.model_validate(p)
+    if p.material_unit_id:
+        u = session.get(Unit, p.material_unit_id)
+        pr.material_unit_name = u.name if u else None
+    return pr
+
+
 def _to_plan_response(plan: ProductionPlan, session: Session) -> PlanResponse:
     """Build a PlanResponse, enriching with linked Schedule data and processes."""
     sched: Optional[Schedule] = None
@@ -531,7 +561,7 @@ def _to_plan_response(plan: ProductionPlan, session: Session) -> PlanResponse:
         notes=plan.notes,
         status=plan.status,
         is_active=plan.is_active,
-        processes=[ProcessResponse.model_validate(p) for p in processes],
+        processes=[_process_with_unit(p, session) for p in processes],
         # Schedule enrichment
         schedule_number=sched.schedule_number if sched else None,
         customer_name=sched.customer_name if sched else None,
@@ -695,15 +725,16 @@ def list_processes(
     plan_id: int,
     session: Annotated[Session, Depends(get_session)],
     _: Annotated[User, Depends(get_current_user)],
-) -> list[ProductionProcess]:
+) -> list[ProcessResponse]:
     plan = session.get(ProductionPlan, plan_id)
     if not plan:
         raise HTTPException(status_code=404, detail="Production plan not found")
-    return list(session.exec(
+    rows = list(session.exec(
         select(ProductionProcess)
         .where(ProductionProcess.plan_id == plan_id)
         .order_by(ProductionProcess.sequence, ProductionProcess.id)  # type: ignore[union-attr]
     ).all())
+    return [_process_with_unit(p, session) for p in rows]
 
 
 @router.post("/plans/{plan_id}/processes", response_model=ProcessResponse, status_code=status.HTTP_201_CREATED)
@@ -712,7 +743,7 @@ def add_process(
     body: ProcessCreate,
     session: Annotated[Session, Depends(get_session)],
     _: Annotated[User, Depends(require_admin)],
-) -> ProductionProcess:
+) -> ProcessResponse:
     plan = session.get(ProductionPlan, plan_id)
     if not plan:
         raise HTTPException(status_code=404, detail="Production plan not found")
@@ -720,7 +751,7 @@ def add_process(
     session.add(proc)
     session.commit()
     session.refresh(proc)
-    return proc
+    return _process_with_unit(proc, session)
 
 
 @router.put("/plans/{plan_id}/processes/{process_id}", response_model=ProcessResponse)
@@ -730,7 +761,7 @@ def update_process(
     body: ProcessUpdate,
     session: Annotated[Session, Depends(get_session)],
     _: Annotated[User, Depends(require_admin)],
-) -> ProductionProcess:
+) -> ProcessResponse:
     proc = session.get(ProductionProcess, process_id)
     if not proc or proc.plan_id != plan_id:
         raise HTTPException(status_code=404, detail="Process not found")
@@ -740,7 +771,7 @@ def update_process(
     session.add(proc)
     session.commit()
     session.refresh(proc)
-    return proc
+    return _process_with_unit(proc, session)
 
 
 @router.delete("/plans/{plan_id}/processes/{process_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -766,12 +797,14 @@ class MaterialRequirement(BaseModel):
     item_id: int
     code: str
     name: str
-    unit: str
+    unit_id: Optional[int] = None
+    unit_name: Optional[str] = None
     item_type: str                  # raw_material | semi_finished
     qty_per_unit: float             # from BOM
-    required_qty: float             # qty_per_unit × planned_qty
+    required_qty: float             # qty_per_unit × planned_qty × (1 + scrap_rate)
     available_qty: float             # current quantity_on_hand
     to_purchase: float              # max(0, required - available)
+    scrap_rate: float = 0.0         # computed from weights (0 if manual override exists)
 
 
 @router.get("/bom-preview", response_model=list[MaterialRequirement])
@@ -794,23 +827,52 @@ def bom_preview(
         .order_by(BomItem.id)  # type: ignore[union-attr]
     ).all())
 
+    # --- Compute scrap rate from weights ---
+    fg = session.exec(
+        select(InventoryItem).where(
+            InventoryItem.item_type == "finished_good",
+            InventoryItem.name == product_name,
+            InventoryItem.is_active == True,  # noqa: E712
+        )
+    ).first()
+    total_input_g = 0.0
+    for b in bom_entries:
+        rm = session.get(InventoryItem, b.raw_material_id)
+        if not rm:
+            continue
+        rm_weight_unit = session.get(Unit, rm.weight_unit_id) if rm.weight_unit_id else None
+        total_input_g += _weight_to_grams(rm.weight_value, rm_weight_unit.name if rm_weight_unit else None) * b.qty_per_unit
+    fg_weight_unit = session.get(Unit, fg.weight_unit_id) if fg and fg.weight_unit_id else None
+    fg_weight_g = _weight_to_grams(fg.weight_value, fg_weight_unit.name if fg_weight_unit else None) if fg else 0.0
+    scrap_rate = 0.0
+    if total_input_g > 0 and fg_weight_g > 0 and total_input_g > fg_weight_g:
+        scrap_rate = round((total_input_g - fg_weight_g) / total_input_g, 4)
+
     result: list[MaterialRequirement] = []
     for b in bom_entries:
         item = session.get(InventoryItem, b.raw_material_id)
         if not item or not item.is_active:
             continue
-        required = round(b.qty_per_unit * planned_qty, 4)
+        # Use manual scrap per line if set, otherwise computed scrap_rate
+        if b.scrap is not None:
+            effective_scrap = b.scrap
+        else:
+            effective_scrap = scrap_rate
+        required = round(b.qty_per_unit * planned_qty * (1 + effective_scrap), 4)
         available = item.quantity_on_hand
+        item_unit = session.get(Unit, item.unit_id) if item.unit_id else None
         result.append(MaterialRequirement(
             item_id=item.id,  # type: ignore[arg-type]
             code=item.code,
             name=item.name,
-            unit=item.unit,
+            unit_id=item.unit_id,
+            unit_name=item_unit.name if item_unit else None,
             item_type=item.item_type,
             qty_per_unit=b.qty_per_unit,
             required_qty=required,
             available_qty=available,
             to_purchase=max(0.0, round(required - available, 4)),
+            scrap_rate=scrap_rate if b.scrap is None else 0.0,
         ))
     return result
 
@@ -862,6 +924,7 @@ class JobCardResponse(BaseModel):
     worker_names: list[str] = []
     hours_worked: float
     qty_produced: float
+    actual_qty: float = 0.0
     qty_pending: float
     work_date: Optional[str]
     notes: Optional[str]
@@ -961,7 +1024,7 @@ def _to_order_response(order: ProductionOrder, session: Session) -> OrderRespons
         planned_qty=plan.planned_qty if plan else None,
         effective_qty=order.effective_qty,
         fg_credited=order.fg_credited,
-        processes=[ProcessResponse.model_validate(p) for p in processes],
+        processes=[_process_with_unit(p, session) for p in processes],
         job_cards=[JobCardResponse.model_validate(c) for c in cards],
     )
 
@@ -1123,6 +1186,7 @@ class JobCardCreate(BaseModel):
     worker_names: list[str] = []   # multi-worker support
     hours_worked: float = 0.0
     qty_produced: float = 0.0
+    actual_qty: float = 0.0
     work_date: Optional[str] = None
     notes: Optional[str] = None
     is_active: bool = True
@@ -1139,6 +1203,7 @@ class JobCardUpdate(BaseModel):
     worker_names: Optional[list[str]] = None   # multi-worker support
     hours_worked: Optional[float] = None
     qty_produced: Optional[float] = None
+    actual_qty: Optional[float] = None
     work_date: Optional[str] = None
     notes: Optional[str] = None
     is_active: Optional[bool] = None
@@ -1249,7 +1314,7 @@ def create_job(
             JobCard.is_active == True,  # noqa: E712
         )
     ).all())
-    total_for_process = sum(c.qty_produced for c in same_process_cards)
+    total_for_process = sum(c.actual_qty for c in same_process_cards)
     job.qty_pending = max(0.0, round(planned_qty - total_for_process, 4))
     if total_for_process <= 0:
         job.status = "open"
@@ -1279,6 +1344,7 @@ def create_job(
     return job
 
 
+@router.get("/jobs/{job_id}", response_model=JobCardResponse)
 @router.get("/jobs/{job_id}", response_model=JobCardResponse)
 def get_job(
     job_id: int,
@@ -1365,7 +1431,7 @@ def update_job(
                     JobCard.is_active == True,  # noqa: E712
                 )
             ).all())
-            total_for_process = sum(c.qty_produced for c in same_process_cards)
+            total_for_process = sum(c.actual_qty for c in same_process_cards)
             job.qty_pending = max(0.0, round(plan.planned_qty - total_for_process, 4))
             if total_for_process <= 0:
                 job.status = "open"
@@ -1425,6 +1491,72 @@ def delete_job(
     job.is_active = False
     session.add(job)
     session.commit()
+
+
+@router.put("/orders/{order_id}/processes/{process_name}/actual-qty")
+def update_process_actual_qty(
+    order_id: int,
+    process_name: str,
+    body: dict[str, Any],
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, int]:
+    """Set the total actual_qty for all active job cards in a process.
+
+    Distributes the given total proportionally across active job cards
+    based on their current qty_produced (or evenly if none have qty).
+    """
+    if not is_admin_or_above(current_user):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    order = session.get(ProductionOrder, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # Decode URL-encoded process name
+    from urllib.parse import unquote
+    decoded_name = unquote(process_name)
+
+    cards = list(session.exec(
+        select(JobCard).where(
+            JobCard.production_order_id == order_id,
+            JobCard.process_name == decoded_name,
+            JobCard.is_active == True,
+        )
+    ).all())
+
+    total_actual = float(body.get("total_actual_qty", 0))
+    if total_actual < 0:
+        raise HTTPException(status_code=400, detail="total_actual_qty must be >= 0")
+
+    if not cards:
+        raise HTTPException(status_code=404, detail=f"No active job cards for process '{decoded_name}' in order {order_id}")
+
+    # Distribute proportionally by qty_produced, or evenly
+    total_estimated = sum(c.qty_produced for c in cards)
+    for c in cards:
+        if total_estimated > 0:
+            c.actual_qty = round(total_actual * (c.qty_produced / total_estimated), 2)
+        else:
+            c.actual_qty = round(total_actual / len(cards), 2)
+        # Record change in history
+        session.add(JobCardHistory(
+            job_card_id=c.id,  # type: ignore[arg-type]
+            changed_by_user_id=current_user.id,
+            changed_by_username=current_user.username,
+            changed_at=datetime.now(tz=timezone.utc),
+            change_type="updated",
+            field_name="actual_qty",
+            old_value=str(c.actual_qty),  # approximate
+            new_value=str(c.actual_qty),
+        ))
+        session.add(c)
+
+    # Recompute statuses
+    _recalc_fg_for_order(order, session)
+    _propagate_statuses(order.id, session)
+    session.commit()
+
+    return {"updated": len(cards)}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

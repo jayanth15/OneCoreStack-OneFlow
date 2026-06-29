@@ -2,12 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbList,
-  BreadcrumbPage,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { CalendarClock, ClipboardList, Clock, ChevronRight } from "lucide-react";
 import { getCurrentUser } from "@/lib/user";
 
@@ -18,7 +13,7 @@ const SECTIONS = [
       "Plan manpower, machines, tools & dies, laser-cutting (outsourced) and storage allocation for upcoming production runs.",
     icon: CalendarClock,
     href: "/dashboard/production/planning",
-    color: "text-blue-600 bg-blue-50",
+    color: "text-primary bg-primary/10",
   },
   {
     title: "Production Processing",
@@ -26,7 +21,7 @@ const SECTIONS = [
       "Create production orders, assign job cards per process step, and track worker output, hours & pending quantities.",
     icon: ClipboardList,
     href: "/dashboard/production/processing",
-    color: "text-emerald-600 bg-emerald-50",
+    color: "text-success bg-success/10",
   },
   {
     title: "Worker Time Report",
@@ -34,7 +29,7 @@ const SECTIONS = [
       "View aggregated work hours per worker, broken down by work type. Filter by date range to analyse productivity.",
     icon: Clock,
     href: "/dashboard/production/time-report",
-    color: "text-amber-600 bg-amber-50",
+    color: "text-warning bg-warning/15",
   },
 ];
 
@@ -56,24 +51,13 @@ export default function ProductionPage() {
 
   return (
     <>
-      <header className="sticky top-0 z-10 bg-background flex h-16 shrink-0 items-center border-b px-6">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbPage>Production</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </header>
+      <PageHeader
+        title="Production"
+        description="Plan and process your manufacturing operations."
+        breadcrumbs={[{ label: "Production" }]}
+      />
 
       <div className="p-4 md:p-8 max-w-2xl mx-auto space-y-4">
-        <div className="mb-6">
-          <h1 className="text-xl font-semibold">Production</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Plan and process your manufacturing operations.
-          </p>
-        </div>
-
         {visibleSections.map((s) => (
           <button
             key={s.href}

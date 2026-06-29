@@ -13,7 +13,13 @@ from app.core.database import get_session
 from app.dependencies.auth import get_current_user, require_admin
 from app.models.bom_item import BomItem
 from app.models.inventory import InventoryItem
+from app.models.unit import Unit
 from app.models.user import User
+
+
+class BomCloneBody(BaseModel):
+    source_product_name: str
+    target_product_name: str
 
 router = APIRouter(
     prefix="/api/v1/bom",
@@ -30,7 +36,7 @@ class BomItemCreate(BaseModel):
     qty_per_unit: float = 1.0
     material_used: Optional[float] = None
     scrap: Optional[float] = None
-    material_unit: Optional[str] = None
+    material_unit_id: Optional[int] = None
     notes: Optional[str] = None
     is_active: bool = True
 
@@ -48,7 +54,7 @@ class BomItemUpdate(BaseModel):
     qty_per_unit: Optional[float] = None
     material_used: Optional[float] = None
     scrap: Optional[float] = None
-    material_unit: Optional[str] = None
+    material_unit_id: Optional[int] = None
     notes: Optional[str] = None
     is_active: Optional[bool] = None
 
@@ -66,11 +72,13 @@ class BomItemResponse(BaseModel):
     raw_material_id: int
     raw_material_code: Optional[str] = None
     raw_material_name: Optional[str] = None
-    raw_material_unit: Optional[str] = None
+    raw_material_unit_id: Optional[int] = None
+    raw_material_unit_name: Optional[str] = None
     qty_per_unit: float
     material_used: Optional[float] = None
     scrap: Optional[float] = None
-    material_unit: Optional[str] = None
+    material_unit_id: Optional[int] = None
+    material_unit_name: Optional[str] = None
     notes: Optional[str]
     is_active: bool
 
@@ -111,11 +119,16 @@ def list_bom(
     result = []
     for b in entries:
         rm = session.get(InventoryItem, b.raw_material_id)
+        rm_unit = session.get(Unit, rm.unit_id) if rm and rm.unit_id else None
+        mat_unit = session.get(Unit, b.material_unit_id) if b.material_unit_id else None
         result.append({
             **b.__dict__,
             "raw_material_code": rm.code if rm else None,
             "raw_material_name": rm.name if rm else None,
-            "raw_material_unit": rm.unit if rm else None,
+            "raw_material_unit_id": rm.unit_id if rm else None,
+            "raw_material_unit_name": rm_unit.name if rm_unit else None,
+            "material_unit_id": b.material_unit_id,
+            "material_unit_name": mat_unit.name if mat_unit else None,
         })
     return result
 
@@ -130,6 +143,54 @@ def list_products(
         select(BomItem.product_name).where(BomItem.is_active == True)  # noqa: E712
     ).all())
     return sorted(set(entries))
+
+
+@router.post("/clone", response_model=list[BomItemResponse], status_code=status.HTTP_201_CREATED)
+def clone_bom(
+    body: BomCloneBody,
+    session: Annotated[Session, Depends(get_session)],
+    _: Annotated[User, Depends(require_admin)],
+) -> list[dict]:
+    source_lines = list(session.exec(
+        select(BomItem).where(
+            BomItem.product_name == body.source_product_name.strip(),
+            BomItem.is_active == True,  # noqa: E712
+        )
+    ).all())
+    if not source_lines:
+        raise HTTPException(status_code=404, detail="Source product BOM not found")
+
+    existing = session.exec(
+        select(BomItem).where(BomItem.product_name == body.target_product_name.strip())
+    ).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="Target product already has BOM entries")
+
+    created = []
+    for src in source_lines:
+        bom = BomItem(
+            product_name=body.target_product_name.strip(),
+            raw_material_id=src.raw_material_id,
+            qty_per_unit=src.qty_per_unit,
+            notes=src.notes,
+            is_active=True,
+        )
+        session.add(bom)
+        session.flush()
+        rm = session.get(InventoryItem, bom.raw_material_id)
+        rm_unit = session.get(Unit, rm.unit_id) if rm and rm.unit_id else None
+        mat_unit = session.get(Unit, bom.material_unit_id) if bom.material_unit_id else None
+        created.append({
+            **bom.__dict__,
+            "raw_material_code": rm.code if rm else None,
+            "raw_material_name": rm.name if rm else None,
+            "raw_material_unit_id": rm.unit_id if rm else None,
+            "raw_material_unit_name": rm_unit.name if rm_unit else None,
+            "material_unit_id": bom.material_unit_id,
+            "material_unit_name": mat_unit.name if mat_unit else None,
+        })
+    session.commit()
+    return created
 
 
 @router.post("", response_model=BomItemResponse, status_code=status.HTTP_201_CREATED)
@@ -151,18 +212,23 @@ def create_bom_item(
         qty_per_unit=body.qty_per_unit,
         material_used=body.material_used,
         scrap=body.scrap,
-        material_unit=body.material_unit,
+        material_unit_id=body.material_unit_id,
         notes=body.notes,
         is_active=body.is_active,
     )
     session.add(bom)
     session.commit()
     session.refresh(bom)
+    rm_unit = session.get(Unit, rm.unit_id) if rm.unit_id else None
+    mat_unit = session.get(Unit, bom.material_unit_id) if bom.material_unit_id else None
     return {
         **bom.__dict__,
         "raw_material_code": rm.code,
         "raw_material_name": rm.name,
-        "raw_material_unit": rm.unit,
+        "raw_material_unit_id": rm.unit_id,
+        "raw_material_unit_name": rm_unit.name if rm_unit else None,
+        "material_unit_id": bom.material_unit_id,
+        "material_unit_name": mat_unit.name if mat_unit else None,
     }
 
 
@@ -176,11 +242,16 @@ def get_bom_item(
     if not bom:
         raise HTTPException(status_code=404, detail="BOM entry not found")
     rm = session.get(InventoryItem, bom.raw_material_id)
+    rm_unit = session.get(Unit, rm.unit_id) if rm and rm.unit_id else None
+    mat_unit = session.get(Unit, bom.material_unit_id) if bom.material_unit_id else None
     return {
         **bom.__dict__,
         "raw_material_code": rm.code if rm else None,
         "raw_material_name": rm.name if rm else None,
-        "raw_material_unit": rm.unit if rm else None,
+        "raw_material_unit_id": rm.unit_id if rm else None,
+        "raw_material_unit_name": rm_unit.name if rm_unit else None,
+        "material_unit_id": bom.material_unit_id,
+        "material_unit_name": mat_unit.name if mat_unit else None,
     }
 
 
@@ -210,8 +281,8 @@ def update_bom_item(
         bom.material_used = body.material_used
     if body.scrap is not None:
         bom.scrap = body.scrap
-    if body.material_unit is not None:
-        bom.material_unit = body.material_unit
+    if body.material_unit_id is not None:
+        bom.material_unit_id = body.material_unit_id
     if body.notes is not None:
         bom.notes = body.notes
     if body.is_active is not None:
@@ -221,11 +292,16 @@ def update_bom_item(
     session.commit()
     session.refresh(bom)
     rm = session.get(InventoryItem, bom.raw_material_id)
+    rm_unit = session.get(Unit, rm.unit_id) if rm and rm.unit_id else None
+    mat_unit = session.get(Unit, bom.material_unit_id) if bom.material_unit_id else None
     return {
         **bom.__dict__,
         "raw_material_code": rm.code if rm else None,
         "raw_material_name": rm.name if rm else None,
-        "raw_material_unit": rm.unit if rm else None,
+        "raw_material_unit_id": rm.unit_id if rm else None,
+        "raw_material_unit_name": rm_unit.name if rm_unit else None,
+        "material_unit_id": bom.material_unit_id,
+        "material_unit_name": mat_unit.name if mat_unit else None,
     }
 
 

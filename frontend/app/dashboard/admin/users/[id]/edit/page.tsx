@@ -3,21 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-  BreadcrumbLink,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiFetchJson } from "@/lib/api";
 import { getCurrentUser, ALL_INVENTORY_TYPES, INVENTORY_TYPE_LABELS } from "@/lib/user";
-import { ArrowLeft, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 
 interface DeptRef {
   id: number;
@@ -212,38 +205,16 @@ export default function EditUserPage() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4 md:px-6">
-        <Link
-          href="/dashboard/admin/users"
-          className="p-1.5 rounded-md hover:bg-muted transition-colors"
-          aria-label="Back"
-        >
-          <ArrowLeft className="size-4" />
-        </Link>
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href="/dashboard/admin/users">Users</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
-            <BreadcrumbItem>
-              <BreadcrumbPage>
-                {loading ? "Edit…" : `Edit ${form.username}`}
-              </BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </header>
+      <PageHeader
+        title="Edit User"
+        description={!loading ? `Editing ${form.username}` : undefined}
+        breadcrumbs={[
+          { label: "Users", href: "/dashboard/admin/users" },
+          { label: loading ? "Edit…" : `Edit ${form.username}` },
+        ]}
+      />
 
       <div className="p-4 md:p-8 max-w-lg mx-auto">
-        <div className="mb-6">
-          <h1 className="text-xl font-semibold">Edit User</h1>
-          {!loading && (
-            <p className="text-sm text-muted-foreground mt-1">
-              Editing <span className="font-medium">{form.username}</span>
-            </p>
-          )}
-        </div>
 
         {loadError ? (
           <p className="text-sm text-destructive" role="alert">{loadError}</p>

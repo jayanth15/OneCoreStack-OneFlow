@@ -8,6 +8,7 @@ from sqlmodel import Session, func, select
 from app.core.database import get_session
 from app.dependencies.auth import get_current_user, require_admin
 from app.models.bom_item import BomItem
+from app.models.unit import Unit
 from app.models.vendor import Vendor
 from app.models.inventory import InventoryItem
 from app.models.production_plan import ProductionPlan
@@ -246,11 +247,13 @@ def check_availability(
             continue
         needed = qty * bom.qty_per_unit
         available = rm.quantity_on_hand
+        rm_unit = session.get(Unit, rm.unit_id) if rm.unit_id else None
         rm_requirements.append({
             "item_id": rm.id,
             "code": rm.code,
             "name": rm.name,
-            "unit": rm.unit,
+            "unit_id": rm.unit_id,
+            "unit_name": rm_unit.name if rm_unit else None,
             "qty_per_unit": bom.qty_per_unit,
             "required": needed,
             "available": available,

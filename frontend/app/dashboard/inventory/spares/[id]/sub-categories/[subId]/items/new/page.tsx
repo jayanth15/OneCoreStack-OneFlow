@@ -3,9 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -72,29 +70,16 @@ export default function NewSpareItemPage() {
 
   return (
     <>
-      <header className="sticky top-0 z-10 bg-background flex h-16 shrink-0 items-center border-b px-6">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <Link href="/dashboard/inventory" className="text-muted-foreground hover:text-foreground text-sm">Inventory</Link>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <Link href="/dashboard/inventory/spares" className="text-muted-foreground hover:text-foreground text-sm">Spares</Link>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <span className="text-muted-foreground text-sm">{info?.catName ?? "…"}</span>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <span className="text-muted-foreground text-sm">{info?.subName ?? "…"}</span>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem><BreadcrumbPage>New Item</BreadcrumbPage></BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </header>
+      <PageHeader
+        title="Add Spare Item"
+        breadcrumbs={[
+          { label: "Inventory", href: "/dashboard/inventory" },
+          { label: "Spares", href: "/dashboard/inventory/spares" },
+          { label: info?.catName ?? "…" },
+          { label: info?.subName ?? "…" },
+          { label: "New Item" },
+        ]}
+      />
 
       <div className="p-4 md:p-6 max-w-md">
         <Link href={backHref} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6">

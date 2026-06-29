@@ -11,7 +11,7 @@ class InventoryItem(SQLModel, table=True):
     code: str = Field(unique=True, index=True)
     name: str = Field(index=True)
     item_type: str = Field(default="raw_material", index=True)  # raw_material | finished_good | semi_finished
-    unit: str  # "kg", "pcs", "ltr", "mtr", etc.
+    unit_id: Optional[int] = Field(default=None, foreign_key="unit.id")
     quantity_on_hand: float = Field(default=0.0)
     reorder_level: float = Field(default=0.0)  # 0 = no alert
     storage_type: Optional[str] = None          # bin | tray | barrel | rack | etc.
@@ -21,5 +21,7 @@ class InventoryItem(SQLModel, table=True):
     image_base64: Optional[str] = None          # base64-encoded image — omitted from list responses
     vendor_name: Optional[str] = None           # primary vendor (for finished goods / semi-finished)
     design_drawing_pdf: Optional[str] = None    # base64-encoded design drawing PDF
+    weight_value: Optional[float] = Field(default=None)               # weight of one unit
+    weight_unit_id: Optional[int] = Field(default=None, foreign_key="unit.id")
     is_active: bool = Field(default=True)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))

@@ -3,10 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList,
-  BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,7 +14,7 @@ import { ArrowLeft } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-interface ProcessItem { id: number; name: string; sequence: number; }
+interface ProcessItem { id: number; name: string; sequence: number; estimated_time_minutes: number | null; }
 interface OrderInfo {
   id: number;
   order_number: string;
@@ -46,11 +43,14 @@ function NewJobCardInner() {
   const [processName, setProcessName] = useState(preSelectedProcess);
   const [toolDie, setToolDie] = useState(prefillToolDie);
   const [machine, setMachine] = useState(prefillMachine);
-  const [workersText, setWorkersText] = useState(prefillWorker);
+  const [selectedWorkers, setSelectedWorkers] = useState<{id: number; username: string}[]>([]);
+  const [workerSearch, setWorkerSearch] = useState("");
+  const [workerResults, setWorkerResults] = useState<{id: number; username: string}[]>([]);
+  const [workerBusy, setWorkerBusy] = useState(false);
   const [jobType, setJobType] = useState<"internal" | "supplier">(prefillJobType);
   const [supplierId, setSupplierId] = useState<string>(prefillSupplierId);
   const [hoursWorked, setHoursWorked] = useState("0");
-  const [qtyProduced, setQtyProduced] = useState("0");
+  const [actualQty, setActualQty] = useState("0");
   const [workDate, setWorkDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [dateLocked, setDateLocked] = useState(false);
   const [notes, setNotes] = useState("");
@@ -70,11 +70,10 @@ function NewJobCardInner() {
         if (!processName && o.processes.length > 0) {
           setProcessName(o.processes[0].name);
         }
-        // Pre-fill the worker field with the current user's username for worker-role users
-        // (overrides any URL prefill, since the worker is locked to their account)
+        // Pre-fill the worker for worker-role users
         const me = getCurrentUser();
-        if (me && isWorker() && !prefillWorker) {
-          setWorkersText(me.username);
+        if (me && isWorker()) {
+          setSelectedWorkers([{ id: me.id, username: me.username }]);
         }
         // Lock date for non-admins — always today
         if (!isAdminOrAbove()) {
@@ -86,28 +85,43 @@ function NewJobCardInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  // Debounced worker search
+  useEffect(() => {
+    if (!workerSearch.trim()) { setWorkerResults([]); setWorkerBusy(false); return; }
+    const timer = setTimeout(() => {
+      setWorkerBusy(true);
+      apiFetchJson<{id: number; username: string}[]>(`/api/v1/production/workers?search=${encodeURIComponent(workerSearch.trim())}`)
+        .then((r) => setWorkerResults(r))
+        .catch(() => setWorkerResults([]))
+        .finally(() => setWorkerBusy(false));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [workerSearch]);
+
+  // Auto-compute qty_produced from hours_worked and process estimated time
+  const selectedProcess = order?.processes.find((p) => p.name === processName) ?? null;
+  const estimatedTimeMinutes = selectedProcess?.estimated_time_minutes ?? null;
+  const computedQty = estimatedTimeMinutes && parseFloat(hoursWorked) > 0
+    ? ((parseFloat(hoursWorked) * 60) / estimatedTimeMinutes).toFixed(2)
+    : "0";
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!processName.trim()) { setError("Select a process"); return; }
-    if (jobType === "internal" && !workersText.trim()) { setError("Enter at least one worker name"); return; }
+    if (jobType === "internal" && selectedWorkers.length === 0) { setError("Select at least one worker"); return; }
     setSaving(true);
     setError(null);
     try {
-      // Parse the workers text into a list — supports commas, semicolons, "and"
-      const workerNames = jobType === "internal"
-        ? workersText
-            .split(/[,;]+|\band\b/)
-            .map(w => w.trim())
-            .filter(w => w.length > 0)
-        : [];
+      const workerNames = selectedWorkers.map((w) => w.username);
       const body = {
         process_name: processName.trim(),
         tool_die_number: toolDie || null,
         machine_name: machine || null,
-        worker_name: jobType === "internal" ? (workerNames[0] ?? null) : null,
+        worker_name: workerNames[0] ?? null,
         worker_names: workerNames,
         hours_worked: parseFloat(hoursWorked) || 0,
-        qty_produced: parseFloat(qtyProduced) || 0,
+        actual_qty: parseFloat(actualQty) || 0,
+        qty_produced: parseFloat(computedQty) || 0,
         work_date: workDate || null,
         notes: notes || null,
         job_type: jobType,
@@ -130,37 +144,23 @@ function NewJobCardInner() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4 md:px-6">
-        <Link href={backUrl} className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
-          <ArrowLeft className="size-4" />
-        </Link>
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href="/dashboard/production">Production</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
-            <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href="/dashboard/production/processing">Processing</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
-            <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href={backUrl}>{order?.order_number ?? "Order"}</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
-            <BreadcrumbItem><BreadcrumbPage>New Job Card</BreadcrumbPage></BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </header>
+      <PageHeader
+        title="New Job Card"
+        description="Track workers' production for a specific process step."
+        breadcrumbs={[
+          { label: "Production", href: "/dashboard/production" },
+          { label: "Processing", href: "/dashboard/production/processing" },
+          { label: order?.order_number ?? "Order", href: backUrl },
+          { label: "New Job Card" },
+        ]}
+        actions={
+          <Link href={backUrl} className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
+            <ArrowLeft className="size-4" />
+          </Link>
+        }
+      />
 
       <div className="p-4 md:p-8 max-w-lg mx-auto">
-        <div className="mb-6">
-          <h1 className="text-xl font-semibold">New Job Card</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Track workers&apos; production for a specific process step.
-          </p>
-        </div>
-
         {loading ? (
           <div className="space-y-4">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-9 w-full" />)}</div>
         ) : (
@@ -217,6 +217,14 @@ function NewJobCardInner() {
                   onChange={(e) => setProcessName(e.target.value)} disabled={saving}
                   placeholder="e.g. Blanking" />
               )}
+              {(() => {
+                const selected = order?.processes.find((p) => p.name === processName);
+                return selected?.estimated_time_minutes != null ? (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Estimated time: {selected.estimated_time_minutes} minutes
+                  </p>
+                ) : null;
+              })()}
             </div>
 
             {/* Tool & Die + Machine */}
@@ -233,44 +241,89 @@ function NewJobCardInner() {
               </div>
             </div>
 
-            {/* Workers (free-text input, only for internal jobs) */}
+            {/* Workers — multi-select with search (only for internal jobs) */}
             {jobType === "internal" && (
               <div className="space-y-1.5">
-                <Label htmlFor="workers">
-                  Worker(s) <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="workers"
-                  value={workersText}
-                  onChange={(e) => setWorkersText(e.target.value)}
-                  disabled={saving}
-                  placeholder="e.g. Ravi Kumar, Suresh"
-                />
+                <Label>Worker(s) <span className="text-destructive">*</span></Label>
+                <div className="relative">
+                  <Input
+                    value={workerSearch}
+                    onChange={(e) => setWorkerSearch(e.target.value)}
+                    disabled={saving}
+                    placeholder="Search worker name…"
+                  />
+                  {workerSearch.trim() && (
+                    <div className="absolute top-full mt-1 left-0 right-0 z-50 rounded-md border bg-popover shadow-md max-h-48 overflow-y-auto">
+                      {workerBusy ? (
+                        <p className="px-3 py-2 text-sm text-muted-foreground">Searching…</p>
+                      ) : workerResults.length === 0 ? (
+                        <p className="px-3 py-2 text-sm text-muted-foreground">No workers found</p>
+                      ) : (
+                        workerResults
+                          .filter((w) => !selectedWorkers.some((s) => s.id === w.id))
+                          .map((w) => (
+                            <button
+                              key={w.id}
+                              type="button"
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors"
+                              onMouseDown={(e) => { e.preventDefault(); setSelectedWorkers((prev) => [...prev, w]); setWorkerSearch(""); setWorkerResults([]); }}
+                            >
+                              {w.username}
+                            </button>
+                          ))
+                      )}
+                    </div>
+                  )}
+                </div>
+                {selectedWorkers.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {selectedWorkers.map((w) => (
+                      <span key={w.id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
+                        {w.username}
+                        <button type="button" className="size-3.5 flex items-center justify-center rounded-full hover:bg-primary/20"
+                          onClick={() => setSelectedWorkers((prev) => prev.filter((s) => s.id !== w.id))}>
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground">
-                  Type employee names. Separate multiple with commas, semicolons, or &quot;and&quot;.
+                  Search and select worker names from the list.
                 </p>
               </div>
             )}
 
-            {/* Qty + Hours */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="qty_produced">Qty Produced</Label>
-                <Input id="qty_produced" type="number" step="any" value={qtyProduced}
-                  onChange={(e) => setQtyProduced(e.target.value)} disabled={saving} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="hours">Hours Worked</Label>
-                <Input id="hours" type="number" step="0.1" value={hoursWorked}
-                  onChange={(e) => setHoursWorked(e.target.value)} disabled={saving} />
-              </div>
+            {/* Hours Worked — qty produced is auto-computed */}
+            <div className="space-y-1.5">
+              <Label htmlFor="hours">Hours Worked <span className="text-destructive">*</span></Label>
+              <Input id="hours" type="number" step="0.1" value={hoursWorked}
+                onChange={(e) => setHoursWorked(e.target.value)} disabled={saving} />
+              {estimatedTimeMinutes && parseFloat(hoursWorked) > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {computedQty} units estimated ({hoursWorked}h × 60 ÷ {estimatedTimeMinutes} min/unit)
+                </p>
+              )}
+              {estimatedTimeMinutes == null && (
+                <p className="text-xs text-amber-600">
+                  No estimated time set for this process. Qty produced will be 0.
+                </p>
+              )}
             </div>
 
-            {order?.planned_qty != null && (
-              <p className="text-xs text-muted-foreground">
-                Qty Pending will be auto-computed: {order.planned_qty} (planned) − qty produced
-              </p>
-            )}
+            {/* Actual Qty */}
+            <div className="space-y-1.5">
+              <Label htmlFor="actual_qty">Actual Produced <span className="text-destructive">*</span></Label>
+              <Input id="actual_qty" type="number" step="any" value={actualQty}
+                onChange={(e) => setActualQty(e.target.value)} disabled={saving} />
+              {parseFloat(computedQty) > 0 && parseFloat(actualQty) > 0 && (
+                <p className={`text-xs ${parseFloat(actualQty) >= parseFloat(computedQty) ? "text-success" : "text-amber-600"}`}>
+                  {parseFloat(actualQty) >= parseFloat(computedQty)
+                    ? "Met or exceeded estimated qty"
+                    : `${((parseFloat(computedQty) - parseFloat(actualQty)) / parseFloat(computedQty) * 100).toFixed(0)}% less than estimated`}
+                </p>
+              )}
+            </div>
 
             {/* Work Date */}
             <div className="space-y-1.5">

@@ -10,16 +10,17 @@ import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/
 import { TypeTabs, type TypeTabsValue } from "@/components/requests/type-tabs";
 import { RequestForm } from "@/components/requests/request-form";
 import { RequestDetailDialog } from "@/components/requests/request-detail-dialog";
+import { PageHeader } from "@/components/layout/page-header";
 import { Plus, FileText } from "lucide-react";
 
 const STATUS_BADGES: Record<string, string> = {
-  pending: "bg-slate-100 text-slate-700",
-  approved: "bg-blue-100 text-blue-700",
-  in_progress: "bg-amber-100 text-amber-700",
+  pending: "bg-muted text-slate-700",
+  approved: "bg-primary/10 text-primary",
+  in_progress: "bg-warning/15 text-warning",
   awaiting_signoff: "bg-purple-100 text-purple-700",
-  received: "bg-emerald-100 text-emerald-700",
-  not_approved: "bg-red-100 text-red-700",
-  cancelled: "bg-slate-200 text-slate-500",
+  received: "bg-success/10 text-success",
+  not_approved: "bg-destructive/10 text-destructive",
+  cancelled: "bg-muted text-muted-foreground",
 };
 
 export default function RequestsPage() {
@@ -106,7 +107,7 @@ export default function RequestsPage() {
   };
 
   if (!hydrated || !user) {
-    return <div className="p-6 text-sm text-slate-500">Loading…</div>;
+    return <div className="p-6 text-sm text-muted-foreground">Loading…</div>;
   }
 
   const counts: Partial<Record<TypeTabsValue, number>> = { all: allRows?.length ?? 0 };
@@ -115,64 +116,67 @@ export default function RequestsPage() {
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-4 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Requests</h1>
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="size-3.5" />
-              New request
-            </Button>
-          </DialogTrigger>
-          <DialogContent
-            className="max-w-[calc(100%-1rem)] sm:max-w-2xl p-0 gap-0 max-h-[90vh] overflow-hidden"
-            onInteractOutside={(e) => e.preventDefault()}
-          >
-            <div className="bg-gradient-to-b from-primary/[0.04] to-transparent px-6 pt-6 pb-4 border-b">
-              <div className="flex items-center gap-3">
-                <div className="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary">
-                  <FileText className="size-4" />
-                </div>
-                <div>
-                  <DialogTitle className="font-heading text-lg font-semibold tracking-wider uppercase normal-case">
-                    New request
-                  </DialogTitle>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Tell us what you need and where it should go.
-                  </p>
+    <>
+      <PageHeader
+        title="Requests"
+        actions={
+          <Dialog open={createOpen} onOpenChange={setCreateOpen} modal={false}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="size-3.5" />
+                New request
+              </Button>
+            </DialogTrigger>
+            <DialogContent
+              className="max-w-[calc(100%-1rem)] sm:max-w-2xl p-0 gap-0 max-h-[90vh] overflow-hidden"
+              onInteractOutside={(e) => e.preventDefault()}
+            >
+              <div className="bg-gradient-to-b from-primary/[0.04] to-transparent px-6 pt-6 pb-4 border-b">
+                <div className="flex items-center gap-3">
+                  <div className="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary">
+                    <FileText className="size-4" />
+                  </div>
+                  <div>
+                    <DialogTitle className="font-heading text-lg font-semibold tracking-wider uppercase normal-case">
+                      New request
+                    </DialogTitle>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Tell us what you need and where it should go.
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="px-6 py-5 overflow-y-auto max-h-[calc(90vh-110px)]">
-              <RequestForm
-                onSubmit={onCreate}
-                onCancel={() => setCreateOpen(false)}
-                submitLabel={createBusy ? "Creating…" : "Create request"}
-              />
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+              <div className="px-6 py-5 overflow-y-auto max-h-[calc(90vh-110px)]">
+                <RequestForm
+                  onSubmit={onCreate}
+                  onCancel={() => setCreateOpen(false)}
+                  submitLabel={createBusy ? "Creating…" : "Create request"}
+                />
+              </div>
+            </DialogContent>
+          </Dialog>
+        }
+      />
 
-      <TypeTabs value={tab} onChange={setTab} counts={counts} />
+      <div className="p-4 sm:p-6 space-y-4 max-w-6xl mx-auto">
+        <TypeTabs value={tab} onChange={setTab} counts={counts} />
 
       {loading ? (
-        <p className="text-sm text-slate-500">Loading…</p>
+        <p className="text-sm text-muted-foreground">Loading…</p>
       ) : !data || data.length === 0 ? (
-        <Card><CardContent className="p-6 text-center text-slate-500">No requests yet.</CardContent></Card>
+        <Card><CardContent className="p-6 text-center text-muted-foreground">No requests yet.</CardContent></Card>
       ) : (
         <ul className="space-y-2">
           {data.map((r) => (
             <li key={r.id} className={r.id === highlightId ? 'ring-2 ring-primary rounded-md' : ''}>
               <button
                 onClick={() => setDetailId(r.id)}
-                className="w-full text-left bg-white border border-slate-200 rounded-md p-3 hover:bg-slate-50 transition-colors"
+                className="w-full text-left bg-card border border-border rounded-md p-3 hover:bg-muted transition-colors"
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0">
                     <p className="font-medium text-sm">{r.sn_no}</p>
-                    <p className="text-xs text-slate-500 truncate">
+                    <p className="text-xs text-muted-foreground truncate">
                       {r.request_type.replace(/_/g, " ")}
                       {r.department_label && ` · ${r.department_label}`}
                       {r.from_whom && ` · from ${r.from_whom}`}
@@ -180,7 +184,7 @@ export default function RequestsPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-xs text-slate-500">qty {r.quantity}</span>
+                    <span className="text-xs text-muted-foreground">qty {r.quantity}</span>
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_BADGES[r.status]}`}>
                       {r.status}
                     </span>
@@ -199,5 +203,6 @@ export default function RequestsPage() {
         currentUser={{ id: user.id, role: user.role }}
       />
     </div>
+    </>
   );
 }

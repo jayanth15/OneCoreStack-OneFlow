@@ -16,6 +16,7 @@ from sqlmodel import Session, select
 from app.core.database import get_session
 from app.dependencies.auth import get_current_user
 from app.models.purchase_order import PurchaseOrder, PurchaseOrderItem
+from app.models.unit import Unit
 from app.models.user import User
 
 router = APIRouter(prefix="/api/v1/purchase-orders", tags=["purchase-orders"])
@@ -59,8 +60,30 @@ def list_pos(
         po_items = session.exec(
             select(PurchaseOrderItem).where(PurchaseOrderItem.purchase_order_id == po.id)
         ).all()
-        result.append(_to_dict(po, list(po_items)))
+        result.append(_to_dict(po, list(po_items), session))
     return {"items": result, "total": total, "page": page, "page_size": page_size}
+
+
+@router.get("/linkable")
+def list_linkable_pos(
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    search: str = "",
+) -> list[dict[str, Any]]:
+    _require_access(current_user)
+    q = select(PurchaseOrder).where(PurchaseOrder.status.in_(["approved", "draft"]))
+    pos = list(session.exec(q.order_by(PurchaseOrder.po_number)).all())
+    if search:
+        s = search.lower()
+        pos = [p for p in pos
+               if s in (p.po_number or "").lower()
+               or s in (p.supplier_name or "").lower()
+               or s in (p.vendor_name or "").lower()]
+    return [
+        {"id": p.id, "po_number": p.po_number, "supplier_name": p.supplier_name,
+         "vendor_name": p.vendor_name, "party_type": p.party_type}
+        for p in pos
+    ]
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -97,7 +120,7 @@ def create_po(
             purchase_order_id=po.id,  # type: ignore[arg-type]
             item_name=(item.get("item_name") or "").strip(),
             quantity=float(item.get("quantity") or 0),
-            unit=(item.get("unit") or "").strip() or None,
+            unit_id=item.get("unit_id") or None,
             rate=float(item["rate"]) if item.get("rate") is not None else None,
             notes=(item.get("notes") or "").strip() or None,
         ))
@@ -107,7 +130,7 @@ def create_po(
     po_items = list(session.exec(
         select(PurchaseOrderItem).where(PurchaseOrderItem.purchase_order_id == po.id)
     ).all())
-    return _to_dict(po, po_items)
+    return _to_dict(po, po_items, session)
 
 
 @router.get("/{po_id}")
@@ -123,7 +146,7 @@ def get_po(
     po_items = list(session.exec(
         select(PurchaseOrderItem).where(PurchaseOrderItem.purchase_order_id == po_id)
     ).all())
-    return _to_dict(po, po_items)
+    return _to_dict(po, po_items, session)
 
 
 @router.put("/{po_id}")
@@ -166,7 +189,7 @@ def update_po(
                 purchase_order_id=po_id,
                 item_name=(item.get("item_name") or "").strip(),
                 quantity=float(item.get("quantity") or 0),
-                unit=(item.get("unit") or "").strip() or None,
+                unit_id=item.get("unit_id") or None,
                 rate=float(item["rate"]) if item.get("rate") is not None else None,
                 notes=(item.get("notes") or "").strip() or None,
             ))
@@ -177,7 +200,7 @@ def update_po(
     po_items = list(session.exec(
         select(PurchaseOrderItem).where(PurchaseOrderItem.purchase_order_id == po_id)
     ).all())
-    return _to_dict(po, po_items)
+    return _to_dict(po, po_items, session)
 
 
 @router.delete("/{po_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -203,10 +226,25 @@ def _require_access(user: User) -> None:
     raise HTTPException(status_code=403, detail="Purchase order access required")
 
 
-def _to_dict(po: PurchaseOrder, items: list[PurchaseOrderItem]) -> dict[str, Any]:
+def _to_dict(po: PurchaseOrder, items: list[PurchaseOrderItem], session: Session | None = None) -> dict[str, Any]:
     total_value = sum(
         (i.quantity or 0) * (i.rate or 0) for i in items if i.rate is not None
     )
+    item_list = []
+    for i in items:
+        i_unit_name = None
+        if i.unit_id and session:
+            u = session.get(Unit, i.unit_id)
+            i_unit_name = u.name if u else None
+        item_list.append({
+            "id": i.id,
+            "item_name": i.item_name,
+            "quantity": i.quantity,
+            "unit_id": i.unit_id,
+            "unit_name": i_unit_name,
+            "rate": i.rate,
+            "notes": i.notes,
+        })
     return {
         "id": po.id,
         "po_number": po.po_number,
@@ -224,15 +262,5 @@ def _to_dict(po: PurchaseOrder, items: list[PurchaseOrderItem]) -> dict[str, Any
         "total_value": total_value if total_value > 0 else None,
         "purchase_request_id": po.purchase_request_id,
         "purchase_request_number": po.purchase_request_number,
-        "items": [
-            {
-                "id": i.id,
-                "item_name": i.item_name,
-                "quantity": i.quantity,
-                "unit": i.unit,
-                "rate": i.rate,
-                "notes": i.notes,
-            }
-            for i in items
-        ],
+        "items": item_list,
     }

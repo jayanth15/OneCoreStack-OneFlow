@@ -14,7 +14,7 @@ class SupplierMaterial(SQLModel, table=True):
     supplier_id: int = Field(index=True)
     material_name: str
     category: Optional[str] = Field(default=None)
-    unit: Optional[str] = Field(default=None)      # e.g. "kg", "meters"
+    unit_id: Optional[int] = Field(default=None, foreign_key="unit.id")
     rate: Optional[float] = Field(default=None)    # price per unit
     notes: Optional[str] = Field(default=None)
     is_active: bool = Field(default=True)

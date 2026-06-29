@@ -49,7 +49,14 @@ export async function apiFetchJson<T>(url: string, options?: FetchOptions): Prom
   const res = await apiFetch(url, options);
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body?.detail ?? `Request failed: ${res.status}`);
+    let message = body?.detail;
+    if (Array.isArray(message)) {
+      // Pydantic validation error — extract first message
+      message = message[0]?.msg ?? `Request failed: ${res.status}`;
+    } else if (!message) {
+      message = `Request failed: ${res.status}`;
+    }
+    throw new Error(message);
   }
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;

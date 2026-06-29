@@ -1,0 +1,1599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>OneFlow ERP — Application Flow Map</title>
+<style>
+  /* ───────────────────────── RESET / BASE ───────────────────────── */
+  *,*::before,*::after { box-sizing: border-box; }
+  :root {
+    --bg: #0b1020;
+    --bg-2: #11172e;
+    --bg-3: #1a2240;
+    --border: #2a3358;
+    --text: #e6ebf5;
+    --muted: #8a93b0;
+    --primary: #6366f1;
+    --primary-2: #8b5cf6;
+    --accent: #22d3ee;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --pink: #ec4899;
+    --emerald: #34d399;
+    --sky: #38bdf8;
+    --violet: #a78bfa;
+    --code-bg: #0a0f1e;
+    --shadow: 0 10px 30px rgba(0,0,0,.35);
+  }
+  html,body { margin:0; padding:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif; line-height:1.55; }
+  a { color:var(--accent); text-decoration:none; }
+  a:hover { text-decoration:underline; }
+  code, pre { font-family: ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace; }
+  code { background: rgba(99,102,241,.12); padding: 1px 6px; border-radius: 4px; font-size: 0.9em; color:#c7d2fe; }
+  pre { background:var(--code-bg); border:1px solid var(--border); border-radius:8px; padding:14px 16px; overflow-x:auto; font-size:13px; line-height:1.55; color:#cbd5e1; }
+  pre code { background: transparent; padding: 0; color: inherit; }
+
+  /* ───────────────────────── LAYOUT ───────────────────────── */
+  .container { max-width: 1280px; margin: 0 auto; padding: 0 24px; }
+  header.hero {
+    background: radial-gradient(1200px 600px at 20% -10%, rgba(99,102,241,.35), transparent 60%),
+                radial-gradient(900px 500px at 90% 10%, rgba(34,211,238,.18), transparent 60%),
+                linear-gradient(180deg, #0d1430 0%, var(--bg) 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 64px 0 48px;
+  }
+  .hero h1 { font-size: clamp(2rem, 4vw, 3.2rem); margin:0 0 8px; letter-spacing:-.02em; }
+  .hero .subtitle { color: var(--muted); font-size: 1.1rem; max-width: 780px; }
+  .hero .badges { margin-top: 20px; display:flex; flex-wrap:wrap; gap:8px; }
+  .badge { display:inline-flex; align-items:center; gap:6px; padding: 4px 10px; border:1px solid var(--border); border-radius:999px; background: rgba(255,255,255,.03); font-size: 12px; color:#cbd5e1; }
+  .badge .dot { width:7px; height:7px; border-radius:50%; background: var(--primary); }
+  .badge.green .dot { background: var(--success); }
+  .badge.cyan .dot { background: var(--accent); }
+  .badge.pink .dot { background: var(--pink); }
+  .badge.amber .dot { background: var(--warning); }
+
+  nav.toc {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(11,16,32,.85);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 0;
+  }
+  nav.toc .container { display:flex; flex-wrap:wrap; gap: 6px 14px; align-items:center; }
+  nav.toc a { color:#cbd5e1; font-size: 13px; padding: 4px 8px; border-radius: 6px; }
+  nav.toc a:hover { background: rgba(99,102,241,.15); text-decoration:none; }
+  nav.toc .label { color: var(--muted); font-size: 12px; margin-right: 4px; }
+
+  section { padding: 56px 0; border-bottom: 1px solid var(--border); }
+  section h2 { font-size: 1.8rem; margin: 0 0 6px; letter-spacing: -.01em; display:flex; align-items:center; gap:10px; }
+  section h2 .num { color: var(--muted); font-size: 1rem; font-weight: 500; }
+  section h3 { font-size: 1.25rem; margin: 28px 0 10px; color: #e2e8f0; }
+  section h4 { font-size: 1rem; margin: 18px 0 8px; color: #c7d2fe; }
+  section p { color: #cbd5e1; }
+  section .lead { color: var(--muted); max-width: 880px; }
+
+  .grid { display: grid; gap: 16px; }
+  .grid.cols-2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+  .grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .grid.cols-4 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+
+  .card {
+    background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.005));
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+    box-shadow: var(--shadow);
+  }
+  .card h3 { margin-top: 0; }
+  .card .tag { display:inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; background: rgba(99,102,241,.15); color: #c7d2fe; margin-right: 6px; }
+
+  /* Callout / alert boxes */
+  .callout { border-left: 3px solid var(--primary); background: rgba(99,102,241,.08); padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 14px 0; }
+  .callout.warn { border-color: var(--warning); background: rgba(245,158,11,.08); }
+  .callout.danger { border-color: var(--danger); background: rgba(239,68,68,.08); }
+  .callout.ok { border-color: var(--success); background: rgba(16,185,129,.08); }
+  .callout strong { color: #fff; }
+
+  /* Tables */
+  .table-wrap { overflow-x:auto; border:1px solid var(--border); border-radius: 10px; }
+  table { width:100%; border-collapse: collapse; font-size: 14px; }
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+  th { background: var(--bg-2); color: #cbd5e1; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  tr:last-child td { border-bottom: 0; }
+  tbody tr:hover { background: rgba(255,255,255,.02); }
+  td code { font-size: 12.5px; }
+
+  .pill { display:inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; font-weight: 600; }
+  .pill.get { background: rgba(34,211,238,.15); color:#67e8f9; }
+  .pill.post { background: rgba(16,185,129,.15); color:#6ee7b7; }
+  .pill.put { background: rgba(245,158,11,.15); color:#fcd34d; }
+  .pill.del { background: rgba(239,68,68,.15); color:#fca5a5; }
+  .pill.patch { background: rgba(168,85,247,.15); color:#d8b4fe; }
+
+  /* Diagram helpers */
+  .flow { display:flex; flex-wrap:wrap; gap: 12px; align-items:stretch; }
+  .flow .node {
+    flex: 1 1 180px; min-width: 160px;
+    background: var(--bg-2); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 14px; position: relative;
+  }
+  .flow .node .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 4px; }
+  .flow .node .val { font-weight: 600; }
+  .flow .node.primary { border-color: var(--primary); background: linear-gradient(180deg, rgba(99,102,241,.12), transparent); }
+  .flow .node.success { border-color: var(--success); background: linear-gradient(180deg, rgba(16,185,129,.12), transparent); }
+  .flow .node.warning { border-color: var(--warning); background: linear-gradient(180deg, rgba(245,158,11,.12), transparent); }
+  .flow .node.danger  { border-color: var(--danger);  background: linear-gradient(180deg, rgba(239,68,68,.12),  transparent); }
+
+  .arrow-row { display:flex; align-items:center; gap: 8px; color: var(--muted); margin: 6px 0; font-size: 12px; }
+  .arrow-row .arrow { flex: 1; height: 2px; background: linear-gradient(90deg, transparent, var(--primary), transparent); position: relative; }
+  .arrow-row .arrow::after { content: '▶'; position:absolute; right: -2px; top: -10px; color: var(--primary); font-size: 12px; }
+  .arrow-row .lbl { white-space: nowrap; }
+
+  .stack { display:flex; flex-direction:column; gap: 10px; }
+  .stack .row { display:flex; gap:10px; align-items:center; }
+  .stack .badge { white-space:nowrap; }
+
+  /* Sequence diagram */
+  .seq { font-family: ui-monospace, monospace; font-size: 13px; line-height: 1.7; background:var(--code-bg); border:1px solid var(--border); border-radius:10px; padding:18px; overflow-x:auto; }
+  .seq .actor { color: var(--violet); font-weight: 700; }
+  .seq .ok { color: var(--success); }
+  .seq .err { color: var(--danger); }
+  .seq .note { color: var(--muted); }
+  .seq .key { color: var(--accent); }
+  .seq .em { color: var(--warning); }
+
+  /* Tree */
+  .tree { font-family: ui-monospace, monospace; font-size: 13px; line-height: 1.7; background:var(--code-bg); border:1px solid var(--border); border-radius:10px; padding:16px 20px; overflow-x:auto; color:#cbd5e1; }
+  .tree .folder { color: #93c5fd; font-weight: 600; }
+  .tree .file { color: #cbd5e1; }
+  .tree .py { color: #c4b5fd; }
+  .tree .tsx { color: #67e8f9; }
+  .tree .ts { color: #67e8f9; }
+  .tree .json { color: #fcd34d; }
+  .tree .md { color: #94a3b8; }
+  .tree .env { color: #f0abfc; }
+  .tree .c { color: #fca5a5; }
+
+  /* Timeline */
+  .timeline { position: relative; padding-left: 28px; }
+  .timeline::before { content: ''; position: absolute; left: 10px; top: 0; bottom: 0; width: 2px; background: linear-gradient(180deg, var(--primary), transparent); }
+  .timeline .step { position: relative; margin-bottom: 22px; }
+  .timeline .step::before { content: ''; position: absolute; left: -22px; top: 6px; width: 12px; height: 12px; border-radius: 50%; background: var(--primary); box-shadow: 0 0 0 4px rgba(99,102,241,.2); }
+  .timeline .step .title { font-weight: 600; color: #e2e8f0; }
+  .timeline .step .desc { color: #cbd5e1; font-size: 14px; }
+  .timeline .step .meta { color: var(--muted); font-size: 12px; }
+
+  /* Accordion */
+  details.acc { border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; background: var(--bg-2); margin-bottom: 10px; }
+  details.acc summary { cursor: pointer; font-weight: 600; color: #e2e8f0; outline:none; list-style: none; display:flex; align-items:center; gap: 8px; }
+  details.acc summary::-webkit-details-marker { display:none; }
+  details.acc summary::before { content: '▸'; color: var(--primary); transition: transform .2s; display:inline-block; }
+  details.acc[open] summary::before { transform: rotate(90deg); }
+  details.acc .body { padding-top: 10px; color: #cbd5e1; font-size: 14px; }
+
+  /* Tabs */
+  .tabs { display:flex; gap: 4px; flex-wrap: wrap; margin-bottom: 12px; border-bottom: 1px solid var(--border); }
+  .tabs button { background: transparent; border:0; color: var(--muted); padding: 8px 14px; cursor: pointer; border-radius: 6px 6px 0 0; font-size: 13px; }
+  .tabs button:hover { color: var(--text); }
+  .tabs button.active { color: #fff; background: var(--bg-2); border: 1px solid var(--border); border-bottom-color: var(--bg-2); }
+  .tab-panel { display:none; }
+  .tab-panel.active { display:block; }
+
+  footer { padding: 32px 0; color: var(--muted); text-align:center; font-size: 13px; }
+
+  /* Search */
+  #search {
+    width: 100%; max-width: 520px; padding: 10px 14px; background: var(--bg-2);
+    border: 1px solid var(--border); border-radius: 10px; color: var(--text);
+    font-size: 14px; outline: none; margin-top: 18px;
+  }
+  #search:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(99,102,241,.2); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #3a4571; }
+
+  @media (max-width: 700px) {
+    header.hero { padding: 40px 0 32px; }
+    section { padding: 36px 0; }
+    nav.toc .container { font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ====================== HERO ====================== -->
+<header class="hero">
+  <div class="container">
+    <h1>OneFlow ERP — Application Flow Map</h1>
+    <p class="subtitle">
+      A complete, end-to-end map of how the OneFlow manufacturing ERP works:
+      from the browser, through the Next.js PWA shell, across the network proxy
+      into the FastAPI backend, down into the SQLite database, and back — including
+      auth, request lifecycles, module relationships, and the database schema.
+    </p>
+    <div class="badges">
+      <span class="badge"><span class="dot"></span> Next.js 16 (App Router)</span>
+      <span class="badge green"><span class="dot"></span> FastAPI + SQLModel</span>
+      <span class="badge cyan"><span class="dot"></span> SQLite (dev)</span>
+      <span class="badge pink"><span class="dot"></span> PWA (Workbox)</span>
+      <span class="badge amber"><span class="dot"></span> JWT (access + refresh)</span>
+      <span class="badge"><span class="dot"></span> Argon2 password hashing</span>
+    </div>
+    <input id="search" placeholder="Search the document (e.g. 'login', 'purchase request', 'GRN')…" />
+  </div>
+</header>
+
+<!-- ====================== TOC ====================== -->
+<nav class="toc">
+  <div class="container">
+    <span class="label">Jump to:</span>
+    <a href="#architecture">1. Architecture</a>
+    <a href="#tech-stack">2. Tech Stack</a>
+    <a href="#directory">3. Directory Layout</a>
+    <a href="#auth">4. Authentication Flow</a>
+    <a href="#request">5. Request Lifecycle</a>
+    <a href="#layout">6. Frontend Layout & Routing</a>
+    <a href="#backend">7. Backend Modules & Endpoints</a>
+    <a href="#database">8. Database Schema</a>
+    <a href="#rbac">9. Roles & Permissions</a>
+    <a href="#workflows">10. Core Workflows</a>
+    <a href="#pwa">11. PWA & HTTPS</a>
+    <a href="#lifecycle">12. Startup / Migrations / Backups</a>
+    <a href="#bugs">13. Notable Issues</a>
+  </div>
+</nav>
+
+<!-- ====================== 1. ARCHITECTURE ====================== -->
+<section id="architecture">
+  <div class="container">
+    <h2><span class="num">01</span> High-Level Architecture</h2>
+    <p class="lead">
+      OneFlow is a single-tenant ERP, packaged as a desktop-installable PWA.
+      It has two runtime processes that talk HTTP to each other, plus an
+      optional HTTPS reverse-proxy sitting in front of the Next.js server so
+      that mobile devices on a LAN can install it as a native-feeling app.
+    </p>
+
+    <div class="grid cols-2" style="margin-top: 24px;">
+      <div class="card">
+        <h3>Three-Tier Stack</h3>
+        <div class="stack">
+          <div class="row"><span class="badge"><span class="dot" style="background:var(--primary)"></span> Client</span> Browser / installed PWA shell, React 19, Tailwind v4, shadcn/ui primitives</div>
+          <div class="row"><span class="badge"><span class="dot" style="background:var(--accent)"></span> Edge</span> HTTPS proxy (<code>https-proxy.js</code>) — Linux :4443, Windows :443, terminates TLS with the local OneFlow CA</div>
+          <div class="row"><span class="badge"><span class="dot" style="background:var(--success)"></span> App</span> Next.js 16 (port 3000) + FastAPI / Uvicorn (port 8000). The two services are connected by a Next.js <code>rewrite()</code> rule that proxies <code>/api/*</code> to the FastAPI origin.</div>
+          <div class="row"><span class="badge"><span class="dot" style="background:var(--warning)"></span> Data</span> SQLite at <code>backend/app/db/oneflow.db</code>, auto-migrated on every startup; daily backup at 17:30 to <code>backups/YYYY/MM/DD/</code></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Network Flow (one request)</h3>
+        <pre><code>Browser
+  │  HTTPS (443 / 4443)
+  ▼
+https-proxy.js   (Node TLS terminator)
+  │  HTTP
+  ▼
+Next.js :3000   (App Router, PWA SW)
+  │  rewrite /api/*  →  BACKEND_URL/api/*
+  ▼
+FastAPI :8000   (Uvicorn)
+  │  SQLModel → SQLAlchemy
+  ▼
+SQLite file      (backend/app/db/oneflow.db)</code></pre>
+      </div>
+    </div>
+
+    <h3>Single-tenant assumption</h3>
+    <div class="callout">
+      <strong>One deployment = one customer.</strong> There is no multi-tenancy.
+      Per-tenant customisation is achieved by build-time environment variables
+      (<code>MODULE_PLANNING</code>, <code>MODULE_ROUTING</code>, etc.) that
+      toggle optional routers in <code>app/main.py</code>. The SQLite DB is
+      mounted as a Docker volume; the seed script (<code>backend/seed.py</code>)
+      provisions the default <code>admin / admin123</code> super-admin.
+    </div>
+
+    <h3>Service map</h3>
+    <div class="grid cols-3" style="margin-top: 12px;">
+      <div class="card">
+        <h4>Frontend (Node / Next.js)</h4>
+        <ul style="margin: 0; padding-left: 20px; color:#cbd5e1; font-size: 14px;">
+          <li>Port <code>:3000</code> (HTTP, internal)</li>
+          <li>PWA service worker generated by <code>@ducanh2912/next-pwa</code></li>
+          <li>Reverse-proxies <code>/api/*</code> → backend</li>
+          <li>Reachable from devices via the HTTPS proxy</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>Backend (Python / FastAPI)</h4>
+        <ul style="margin: 0; padding-left: 20px; color:#cbd5e1; font-size: 14px;">
+          <li>Port <code>:8000</code> (HTTP, internal)</li>
+          <li>Uvicorn (ASGI) under <code>app/main.py</code></li>
+          <li>25 routers mounted under <code>/api/v1/*</code></li>
+          <li>SQLite via SQLModel, with custom idempotent migrations</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>HTTPS Proxy (Node)</h4>
+        <ul style="margin: 0; padding-left: 20px; color:#cbd5e1; font-size: 14px;">
+          <li>Port <code>:4443</code> Linux / <code>:443</code> Windows</li>
+          <li>Loads TLS cert from <code>certs/oneflow-*.pem</code></li>
+          <li>Forwards plain HTTP to <code>:3000</code></li>
+          <li>Forwards WebSocket upgrades (none used today, but supported)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================== 2. TECH STACK ====================== -->
+<section id="tech-stack">
+  <div class="container">
+    <h2><span class="num">02</span> Technology Stack</h2>
+    <p class="lead">A pragmatic, batteries-included stack with no exotic dependencies. Every library is pinned in
+      <code>backend/requirements.txt</code> or <code>frontend/package.json</code>.</p>
+
+    <div class="grid cols-2">
+      <div class="card">
+        <h3>Backend <small style="color:var(--muted)">/ Python 3.12</small></h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Package</th><th>Version</th><th>Role</th></tr></thead>
+            <tbody>
+              <tr><td><code>fastapi</code></td><td>0.133.1</td><td>Web framework</td></tr>
+              <tr><td><code>uvicorn[standard]</code></td><td>0.41.0</td><td>ASGI server</td></tr>
+              <tr><td><code>sqlmodel</code></td><td>0.0.37</td><td>ORM (SQLAlchemy + Pydantic)</td></tr>
+              <tr><td><code>sqlalchemy</code></td><td>2.0.47</td><td>DB layer</td></tr>
+              <tr><td><code>pyjwt</code></td><td>2.11.0</td><td>JWT signing (HS256)</td></tr>
+              <tr><td><code>argon2-cffi</code></td><td>25.1.0</td><td>Password hashing</td></tr>
+              <tr><td><code>pydantic-settings</code></td><td>2.13.1</td><td>.env loader</td></tr>
+              <tr><td><code>python-multipart</code></td><td>0.0.22</td><td>Form parsing</td></tr>
+              <tr><td><code>psycopg2-binary</code></td><td>2.9.11</td><td>PostgreSQL driver (unused in dev)</td></tr>
+              <tr><td><code>watchfiles</code></td><td>1.1.1</td><td>Uvicorn hot-reload</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="font-size:13px; color:var(--muted); margin-top: 10px;">
+          <strong>No Alembic.</strong> Schema is created via <code>SQLModel.metadata.create_all()</code>
+          and then ~40 idempotent <code>_migrate_*()</code> Python functions patch the DB at startup.
+        </p>
+      </div>
+
+      <div class="card">
+        <h3>Frontend <small style="color:var(--muted)">/ Node 18+</small></h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Package</th><th>Version</th><th>Role</th></tr></thead>
+            <tbody>
+              <tr><td><code>next</code></td><td>16.1.6</td><td>React framework (App Router)</td></tr>
+              <tr><td><code>react</code> / <code>react-dom</code></td><td>19.2.3</td><td>UI library</td></tr>
+              <tr><td><code>tailwindcss</code></td><td>4.x</td><td>Utility-first CSS</td></tr>
+              <tr><td><code>@ducanh2912/next-pwa</code></td><td>10.2.9</td><td>PWA / Workbox service worker</td></tr>
+              <tr><td><code>radix-ui</code> + <code>@base-ui/react</code></td><td>^1.6 / ^1.5</td><td>Headless UI primitives</td></tr>
+              <tr><td><code>lucide-react</code></td><td>latest</td><td>Icon set</td></tr>
+              <tr><td><code>recharts</code></td><td>^3.7.0</td><td>Dashboard charts</td></tr>
+              <tr><td><code>class-variance-authority</code></td><td>latest</td><td>Component variants</td></tr>
+              <tr><td><code>tailwind-merge</code> + <code>clsx</code></td><td>latest</td><td>Class composition</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="font-size:13px; color:var(--muted); margin-top: 10px;">
+          <strong>No React Query / SWR.</strong> All data fetching uses native
+          <code>fetch</code> + <code>useState</code> + <code>useEffect</code>
+          through a 56-line <code>apiFetch</code> wrapper that handles JWT refresh.
+        </p>
+      </div>
+    </div>
+
+    <h3>Environment configuration</h3>
+    <div class="grid cols-2">
+      <div class="card">
+        <h4>Backend <code>backend/.env</code></h4>
+        <pre><code>DEBUG=false
+SECRET_KEY=change-me-…                # JWT signing
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+REFRESH_TOKEN_EXPIRE_DAYS=30
+CORS_ORIGINS=["http://localhost:3000"]
+# DATABASE_URL=postgresql+psycopg2://…  (optional, prod)
+MODULE_PLANNING=false                 # optional routers
+MODULE_ROUTING=false
+MODULE_RESOURCES=false
+MODULE_OUTSOURCING=false
+MODULE_QUALITY=false
+MODULE_DISPATCH=false</code></pre>
+      </div>
+      <div class="card">
+        <h4>Frontend <code>frontend/.env.local</code></h4>
+        <pre><code>NEXT_PUBLIC_API_URL=http://192.168.1.100:8000
+# (auto-generated by scripts/detect-backend.js using LAN IP)
+
+# next.config.ts reads (server-side):
+BACKEND_URL=http://localhost:8000</code></pre>
+        <p style="font-size:13px; color:var(--muted);">
+          The frontend actually never uses <code>NEXT_PUBLIC_API_URL</code> directly —
+          every <code>/api/*</code> URL is a relative path that Next.js rewrites to
+          <code>${BACKEND_URL}/api/*</code>.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================== 3. DIRECTORY ====================== -->
+<section id="directory">
+  <div class="container">
+    <h2><span class="num">03</span> Directory Layout</h2>
+    <p class="lead">A high-resolution map of where every piece of the application lives.</p>
+
+    <div class="grid cols-2">
+      <div class="card">
+        <h3>Backend <code>backend/</code></h3>
+        <div class="tree">
+<span class="folder">backend/</span>
+├── <span class="env">.env</span> · <span class="env">.env.example</span> · <span class="c">.python-version</span> (3.12)
+├── <span class="file">pyproject.toml</span> · <span class="file">requirements.txt</span> · <span class="file">Procfile</span>
+├── <span class="py">seed.py</span> <span class="note"># wipe + re-seed DB</span>
+│
+├── <span class="folder">app/</span>
+│   ├── <span class="py">main.py</span> <span class="note"># FastAPI app, lifespan, 25 routers</span>
+│   │
+│   ├── <span class="folder">core/</span>
+│   │   ├── <span class="py">config.py</span>     <span class="note"># pydantic-settings, .env loader</span>
+│   │   ├── <span class="py">database.py</span>   <span class="note"># engine, init_db, migrations, session</span>
+│   │   ├── <span class="py">security.py</span>   <span class="note"># argon2 + JWT (access/refresh)</span>
+│   │   └── <span class="py">backup.py</span>     <span class="note"># daily 17:30 sqlite .backup()</span>
+│   │
+│   ├── <span class="folder">dependencies/</span>
+│   │   └── <span class="py">auth.py</span>       <span class="note"># get_current_user, require_admin</span>
+│   │
+│   ├── <span class="folder">models/</span> <span class="note"># 41 SQLModel tables</span>
+│   │   ├── <span class="py">user.py</span> · <span class="py">token.py</span> · <span class="py">department.py</span>
+│   │   ├── <span class="py">user_department.py</span>
+│   │   ├── <span class="py">inventory.py</span> · <span class="py">inventory_history.py</span>
+│   │   ├── <span class="py">vendor.py</span> · <span class="py">supplier.py</span> (+ jobs/materials)
+│   │   ├── <span class="py">schedule.py</span> · <span class="py">schedule_history.py</span>
+│   │   ├── <span class="py">production_plan.py</span> · <span class="py">production_process.py</span>
+│   │   ├── <span class="py">production_order.py</span> · <span class="py">job_card.py</span>
+│   │   ├── <span class="py">job_card_history.py</span> · <span class="py">work_log.py</span> · <span class="py">work_type.py</span>
+│   │   ├── <span class="py">bom_item.py</span>
+│   │   ├── <span class="py">spare_category.py</span> · <span class="py">spare_sub_category.py</span>
+│   │   ├── <span class="py">spare_item.py</span> · <span class="py">spare_item_variant.py</span>
+│   │   ├── <span class="py">spare_item_history.py</span>
+│   │   ├── <span class="py">consumable.py</span> · <span class="py">consumable_history.py</span>
+│   │   ├── <span class="py">attachment_item.py</span> · <span class="py">attachment_history.py</span>
+│   │   ├── <span class="py">weeder_category.py</span> · <span class="py">weeder_item.py</span> · <span class="py">weeder_history.py</span>
+│   │   ├── <span class="py">purchase_request.py</span> + <span class="py">purchase_request_item.py</span> + <span class="py">purchase_request_history.py</span>
+│   │   ├── <span class="py">marketing_request.py</span> + <span class="py">marketing_request_history.py</span>
+│   │   ├── <span class="py">purchase_order.py</span> + <span class="py">purchase_order_item.py</span>
+│   │   ├── <span class="py">dispatch.py</span> + <span class="py">dispatch_item.py</span> + <span class="py">dispatch_history.py</span>
+│   │   ├── <span class="py">gate_pass.py</span> + <span class="py">gate_pass_item.py</span> + <span class="py">gate_pass_history.py</span>
+│   │   ├── <span class="py">receipt.py</span> · <span class="py">notification.py</span>
+│   │   ├── <span class="py">grn.py</span> + <span class="py">grn_item.py</span>
+│   │   └── <span class="py">company_settings.py</span>
+│   │
+│   ├── <span class="folder">routers/</span> <span class="note"># 25 FastAPI routers (see §7)</span>
+│   │   ├── <span class="py">auth.py</span> · <span class="py">dashboard.py</span>
+│   │   ├── <span class="py">users.py</span> · <span class="py">departments.py</span>
+│   │   ├── <span class="py">inventory.py</span> · <span class="py">bom.py</span> · <span class="py">vendors.py</span> · <span class="py">suppliers.py</span>
+│   │   ├── <span class="py">spares.py</span> · <span class="py">consumables.py</span> · <span class="py">attachments.py</span> · <span class="py">weeders.py</span>
+│   │   ├── <span class="py">schedule.py</span> · <span class="py">production.py</span> · <span class="py">work_types.py</span>
+│   │   ├── <span class="py">purchase_requests.py</span> · <span class="py">marketing_requests.py</span> · <span class="py">receipts.py</span>
+│   │   ├── <span class="py">grn.py</span> · <span class="py">dispatch.py</span> · <span class="py">gate_passes.py</span> · <span class="py">purchase_orders.py</span>
+│   │   ├── <span class="py">notifications.py</span> · <span class="py">history.py</span> · <span class="py">settings.py</span>
+│   │
+│   └── <span class="folder">db/</span>
+│       ├── <span class="file">oneflow.db</span>          <span class="note"># ~235 MB live SQLite</span>
+│       └── <span class="folder">backups/</span>
+│           └── <span class="folder">2026/04/…/06/</span>  <span class="note"># daily snapshots, 90-day retention</span></div>
+      </div>
+
+      <div class="card">
+        <h3>Frontend <code>frontend/</code></h3>
+        <div class="tree">
+<span class="folder">frontend/</span>
+├── <span class="file">package.json</span> · <span class="ts">tsconfig.json</span> · <span class="ts">next.config.ts</span> · <span class="ts">https-proxy.js</span>
+├── <span class="json">components.json</span> · <span class="env">.env.local</span>
+│
+├── <span class="folder">app/</span> <span class="note"># Next.js App Router</span>
+│   ├── <span class="tsx">layout.tsx</span> <span class="note"># root: fonts, viewport metadata</span>
+│   ├── <span class="tsx">page.tsx</span>   <span class="note"># → redirect /login</span>
+│   ├── <span class="tsx">manifest.ts</span> <span class="note"># PWA manifest</span>
+│   ├── <span class="tsx">globals.css</span> <span class="note"># Tailwind v4 + design tokens</span>
+│   │
+│   ├── <span class="folder">login/</span>          <span class="tsx">page.tsx</span>
+│   ├── <span class="folder">setup/</span>          <span class="tsx">page.tsx</span>   <span class="note"># cert install instructions</span>
+│   ├── <span class="folder">pwa-debug/</span>      <span class="tsx">page.tsx</span>   <span class="note"># PWA install diagnostics</span>
+│   │
+│   └── <span class="folder">dashboard/</span>
+│       ├── <span class="tsx">layout.tsx</span> <span class="note"># AuthGuard + DesktopSidebar + TopBar + BottomNav</span>
+│       ├── <span class="tsx">page.tsx</span>   <span class="note"># KPI dashboard</span>
+│       │
+│       ├── <span class="folder">requests/</span> · <span class="folder">receipts/</span>
+│       ├── <span class="folder">grn/</span> · <span class="folder">dispatch/</span> · <span class="folder">gate-passes/</span> · <span class="folder">purchase-orders/</span>
+│       ├── <span class="folder">history/</span>
+│       │
+│       ├── <span class="folder">schedule/</span>          <span class="note"># list, new, [id], [id]/edit</span>
+│       ├── <span class="folder">vendors/</span>           <span class="note"># list, [name]</span>
+│       ├── <span class="folder">suppliers/</span>         <span class="note"># list, [id]</span>
+│       │
+│       ├── <span class="folder">production/</span>
+│       │   ├── <span class="tsx">page.tsx</span>          <span class="note"># hub</span>
+│       │   ├── <span class="folder">planning/</span>     <span class="note"># list, new, [id], [id]/edit</span>
+│       │   ├── <span class="folder">processing/</span>    <span class="note"># orders + nested job cards</span>
+│       │   └── <span class="folder">time-report/</span>
+│       │
+│       ├── <span class="folder">inventory/</span>
+│       │   ├── <span class="tsx">page.tsx</span>          <span class="note"># unified (tabs)</span>
+│       │   ├── <span class="folder">finished-goods/</span> · <span class="folder">raw-materials/</span>
+│       │   ├── <span class="folder">semi-finished/</span> · <span class="folder">scraps/</span>
+│       │   ├── <span class="folder">consumables/</span> · <span class="folder">attachments/</span> · <span class="folder">weeders/</span>
+│       │   ├── <span class="folder">spares/</span>          <span class="note"># 3-level tree (1,836 lines)</span>
+│       │   ├── <span class="folder">stock-alerts/</span>
+│       │   └── <span class="folder">_components/</span>     <span class="note"># InventoryTypePage (shared)</span>
+│       │
+│       └── <span class="folder">admin/</span>
+│           ├── <span class="folder">settings/</span>
+│           ├── <span class="folder">departments/</span>   <span class="note"># CRUD</span>
+│           ├── <span class="folder">users/</span>         <span class="note"># CRUD + 550-line new form</span>
+│           └── <span class="folder">bom/</span>           <span class="note"># CRUD</span>
+│
+├── <span class="folder">components/</span>
+│   ├── <span class="tsx">auth-guard.tsx</span>          <span class="note"># client-side route guard</span>
+│   ├── <span class="folder">layout/</span>
+│   │   ├── <span class="tsx">desktop-sidebar.tsx</span> <span class="note"># custom 240px sidebar (md+)</span>
+│   │   ├── <span class="tsx">top-bar.tsx</span>         <span class="note"># notifications + user menu (md+)</span>
+│   │   └── <span class="tsx">bottom-nav.tsx</span>      <span class="note"># mobile tab bar + More drawer</span>
+│   └── <span class="folder">ui/</span>                 <span class="note"># 19 shadcn primitives</span>
+│
+├── <span class="folder">hooks/</span>
+│   ├── <span class="tsx">use-mobile.ts</span>          <span class="note"># useIsMobile() — 768px breakpoint</span>
+│   └── <span class="tsx">use-pwa-install.ts</span>    <span class="note"># install prompt / iOS / cert detection</span>
+│
+├── <span class="folder">lib/</span>
+│   ├── <span class="tsx">api.ts</span>                 <span class="note"># apiFetch + apiFetchJson (56 lines)</span>
+│   ├── <span class="tsx">auth.ts</span>                <span class="note"># sessionStorage token helpers</span>
+│   ├── <span class="tsx">user.ts</span>                <span class="note"># CurrentUser + role helpers</span>
+│   └── <span class="tsx">utils.ts</span>               <span class="note"># cn() class merger</span>
+│
+├── <span class="folder">certs/</span>                  <span class="note"># local CA + server certs (gitignored)</span>
+└── <span class="folder">scripts/</span>
+    └── <span class="js">detect-backend.js</span>       <span class="note"># auto-detects LAN IP → .env.local</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================== 4. AUTH FLOW ====================== -->
+<section id="auth">
+  <div class="container">
+    <h2><span class="num">04</span> Authentication Flow</h2>
+    <p class="lead">
+      OneFlow uses a two-token system: a short-lived access token in
+      <code>sessionStorage</code> and a long-lived refresh token in an
+      <code>HttpOnly</code> cookie. The frontend never sees the refresh token,
+      so even an XSS can only steal the 30-minute access token.
+    </p>
+
+    <div class="grid cols-2">
+      <div class="card">
+        <h3>1 — Login</h3>
+        <pre><code>POST /api/v1/auth/login
+Body: { username, password }
+        │
+        ▼
+[backend] verify_password (argon2) → User
+[backend] create_access_token(user_id)   # 30 min
+[backend] create_refresh_token(user_id)  # 30 days
+[backend] hash_token(rt) → refresh_tokens row
+[backend] Set-Cookie: oneflow_refresh=rt;
+                          HttpOnly; SameSite=Strict;
+                          path=/api/v1/auth
+        │
+        ▼
+Response: { access_token: "eyJ…" }
+        │
+        ▼
+[frontend] sessionStorage["oneflow_access_token"] = access_token
+[frontend] GET /api/v1/auth/me → CurrentUser
+[frontend] sessionStorage["oneflow_user"] = JSON.stringify(user)
+[frontend] router.push("/dashboard")</code></pre>
+      </div>
+
+      <div class="card">
+        <h3>2 — Silent refresh (on 401)</h3>
+        <pre><code>any API call → 401
+        │
+        ▼
+apiFetch() catches 401
+        │
+        ▼
+POST /api/v1/auth/refresh     (cookie auto-sent)
+        │
+        ▼
+[backend] decode_token(rt) → user_id
+[backend] find refresh_tokens row by hash
+[backend] mark OLD row as revoked = true
+[backend] create new refresh_token, store hash
+[backend] Set-Cookie: oneflow_refresh=new_rt
+        │
+        ▼
+Response: { access_token: "eyJ…" }
+        │
+        ▼
+[frontend] sessionStorage["oneflow_access_token"] = new
+[frontend] retry original request with new token
+            (skipRefresh: true to prevent loop)</code></pre>
+      </div>
+    </div>
+
+    <h3>3 — Logout</h3>
+    <pre><code>POST /api/v1/auth/logout  (cookie auto-sent)
+        │
+        ▼
+[backend] hash_token(cookie) → mark refresh_tokens row revoked=true
+[backend] Set-Cookie: oneflow_refresh=; Max-Age=0
+        │
+        ▼
+Response: 204 No Content
+        │
+        ▼
+[frontend] sessionStorage.removeItem("oneflow_access_token")
+[frontend] sessionStorage.removeItem("oneflow_user")
+[frontend] router.push("/login")</code></pre>
+
+    <h3>Authorisation model</h3>
+    <div class="grid cols-3" style="margin-top:8px;">
+      <div class="card">
+        <h4>Roles (string in <code>User.role</code>)</h4>
+        <p style="font-family: ui-monospace, monospace; font-size: 13px; color:#cbd5e1; margin:0;">
+          super_admin  ─► all permissions<br/>
+          &nbsp;&nbsp;&nbsp;▲<br/>
+          admin        ─► most permissions<br/>
+          &nbsp;&nbsp;&nbsp;▲<br/>
+          manager      ─► scoped by CSV flags<br/>
+          &nbsp;&nbsp;&nbsp;▲<br/>
+          worker       ─► most-restrictive
+        </p>
+      </div>
+      <div class="card">
+        <h4>Per-user boolean flags</h4>
+        <ul style="margin:0; padding-left:18px; font-size:14px; color:#cbd5e1;">
+          <li><code>can_create_receipt</code></li>
+          <li><code>grn_access</code></li>
+          <li><code>dispatch_access</code></li>
+          <li><code>gate_pass_access</code></li>
+          <li><code>purchase_access</code></li>
+        </ul>
+        <p style="font-size:12px; color:var(--muted); margin-top:8px;">Admin / super_admin always bypass these.</p>
+      </div>
+      <div class="card">
+        <h4>Per-user CSV columns</h4>
+        <ul style="margin:0; padding-left:18px; font-size:13px; color:#cbd5e1;">
+          <li><code>inventory_access</code> — view types</li>
+          <li><code>inventory_edit</code> — edit types</li>
+          <li><code>request_departments</code> — dept IDs</li>
+          <li><code>request_inventory</code> — requestable types</li>
+        </ul>
+        <p style="font-size:12px; color:var(--muted); margin-top:8px;">
+          Empty CSV = "all allowed" for access/request; empty = "none allowed" for edit.
+        </p>
+      </div>
+    </div>
+
+    <div class="callout warn">
+      <strong>Password hashing:</strong> Argon2 (via <code>argon2-cffi</code>).<br/>
+      <strong>JWT signing:</strong> HS256 with the <code>SECRET_KEY</code> env var.<br/>
+      <strong>Default in dev:</strong> <code>SECRET_KEY="dev-secret-key-do-not-use-in-production"</code> — must be rotated before going live.
+    </div>
+  </div>
+</section>
+
+<!-- ====================== 5. REQUEST LIFECYCLE ====================== -->
+<section id="request">
+  <div class="container">
+    <h2><span class="num">05</span> Request Lifecycle (step-by-step)</h2>
+    <p class="lead">
+      A complete trace of one authenticated CRUD operation, from the user
+      clicking a button to the database round-trip and back.
+    </p>
+
+    <div class="seq">
+<span class="note">── Example: a manager loads the spares list ──</span>
+
+<span class="actor">[browser]</span>  useEffect on /dashboard/inventory/spares
+              └─► apiFetchJson("/api/v1/spares/categories?page=1&page_size=20")
+
+<span class="actor">[lib/api.ts]</span>  const token = sessionStorage.getItem("oneflow_access_token")
+              fetch("/api/v1/spares/categories?…", {
+                credentials: "include",                       <span class="note"># cookie for refresh</span>
+                headers: { "Content-Type":"application/json",
+                          Authorization: "Bearer &lt;access_token&gt;" }
+              })
+
+<span class="actor">[Next.js :3000]</span>  Rewrite rule:
+              /api/:path*  →  ${BACKEND_URL}/api/:path*      <span class="note"># http://localhost:8000</span>
+              <span class="note"># no body inspection, no caching (PWA SW ignores /api/*)</span>
+
+<span class="actor">[FastAPI :8000]</span>  app.include_router(spares_router) @ /api/v1/spares
+              ▼
+              @router.get("/categories")                     <span class="note"># spares.py</span>
+              Depends(get_current_user)  ──► HTTPBearer() reads Authorization header
+              ▼
+              decode_token(token)                            <span class="key"># HS256, type="access"</span>
+              ▼
+              session.get(User, user_id)                     <span class="key"># ensure is_active=True</span>
+              ▼
+              session.exec(select(SpareCategory)…).all()
+              ▼
+              pydantic schemas serialise rows  →  JSON list
+
+<span class="actor">[response]</span>   200 OK
+              [{ id, name, code, is_active, item_count, … }, …]
+
+<span class="actor">[lib/api.ts]</span>  apiFetchJson parses JSON  →  Promise&lt;SpareCategory[]&gt; resolves
+              useState&lt;SpareCategory[]&gt;(data)              <span class="note"># re-render</span></div>
+
+    <h3>The 401 path (token expired mid-session)</h3>
+    <div class="seq">
+<span class="actor">[fetch]</span>     returns 401                              <span class="err"># access token expired</span>
+<span class="actor">[apiFetch]</span>  not skipRefresh?  <span class="key">→</span>  silent refresh
+              fetch("/api/v1/auth/refresh", { method:"POST", credentials:"include" })
+<span class="actor">[backend]</span>    hash cookie  →  find refresh_tokens row (revoked=False, not expired)
+              rotate: revoke old, issue new, set-cookie
+              return { access_token: "new…" }
+<span class="actor">[apiFetch]</span>  setAccessToken(new)
+              retry original request, skipRefresh=true       <span class="note"># to break the loop</span>
+<span class="actor">[fallback]</span>   if refresh also 401  →  clearAccessToken(), window.location="/login"</div>
+  </div>
+</section>
+
+<!-- ====================== 6. FRONTEND LAYOUT ====================== -->
+<section id="layout">
+  <div class="container">
+    <h2><span class="num">06</span> Frontend Layout & Routing</h2>
+    <p class="lead">
+      The dashboard is a single Next.js layout that decides between a desktop
+      sidebar and a mobile bottom-nav based on the <code>useIsMobile()</code>
+      768 px breakpoint. All feature pages live as siblings under
+      <code>app/dashboard/</code>.
+    </p>
+
+    <h3>Component tree (dashboard layout)</h3>
+<pre><code>&lt;html&gt;
+ └─ &lt;body&gt;                 <span class="note">app/layout.tsx — fonts, metadata, viewport</span>
+     └─ {children}          <span class="note">/login OR /setup OR /pwa-debug OR /dashboard/*</span>
+
+&lt;AuthGuard&gt;                                <span class="note"># sessionStorage token check</span>
+ └─ &lt;div class="flex h-dvh bg-background"&gt;
+     ├─ &lt;DesktopSidebar /&gt;                 <span class="note"># hidden md:flex · w-60 · sticky left</span>
+     │   ├─ OneFlow logo
+     │   ├─ Core nav (Dashboard, Inventory, Schedule, Production, Requests, Receipts, ±GRN/Dispatch/GatePass/Purchase)
+     │   └─ Admin nav (Vendors, Suppliers, Departments, Users, BOM, History, Settings)   <span class="note"># admin only</span>
+     │
+     ├─ &lt;div class="flex-1 overflow-hidden"&gt;
+     │   └─ &lt;main class="overflow-y-auto pb-16 md:pb-0"&gt;
+     │       └─ {children}                  <span class="note"># the actual page</span>
+     │
+     ├─ &lt;TopBar /&gt;                         <span class="note"># hidden md:flex · fixed top-right</span>
+     │   ├─ &lt;NotificationBell /&gt;           <span class="note"># polls /notifications every 30 s</span>
+     │   └─ &lt;UserMenu /&gt;                   <span class="note"># avatar, name, role, dept codes, sign out</span>
+     │
+     └─ &lt;BottomNav /&gt;                      <span class="note"># hidden max-md:flex · fixed bottom</span>
+         ├─ Home · Inventory · Schedule · Production
+         └─ "More" drawer (slide-up Sheet) ─ Requests, Receipts, ±GRN/Dispatch/…, admin items, PWA install, sign out</code></pre>
+
+    <h3>Polling cadence</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Component</th><th>Polled endpoint</th><th>Interval</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td><code>DesktopSidebar</code></td><td><code>/notifications/unread-count</code>, <code>/purchase-requests/active-count</code>, <code>/receipts/pending-count</code></td><td>30 s</td><td>Updates badge counts in the nav</td></tr>
+          <tr><td><code>TopBar &gt; NotificationBell</code></td><td><code>/notifications</code></td><td>30 s</td><td>Refreshes popover list and unread count</td></tr>
+          <tr><td><code>BottomNav</code></td><td><code>/purchase-requests/active-count</code>, <code>/receipts/pending-count</code></td><td>30 s</td><td>Same as sidebar, for mobile badges</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Complete route table</h3>
+    <div class="tabs" data-tabset="routes">
+      <button class="active" data-tab="public">Public</button>
+      <button data-tab="dash">Dashboard core</button>
+      <button data-tab="inv">Inventory</button>
+      <button data-tab="prod">Production</button>
+      <button data-tab="admin">Admin</button>
+    </div>
+    <div class="tab-panel active" data-tab="routes" data-name="public">
+      <div class="table-wrap"><table>
+        <thead><tr><th>Route</th><th>File</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td><code>/</code></td><td><code>app/page.tsx</code></td><td>Server component → <code>redirect("/login")</code></td></tr>
+          <tr><td><code>/login</code></td><td><code>app/login/page.tsx</code></td><td>Client component, posts to <code>/api/v1/auth/login</code></td></tr>
+          <tr><td><code>/setup</code></td><td><code>app/setup/page.tsx</code></td><td>CA cert download + per-platform install instructions</td></tr>
+          <tr><td><code>/pwa-debug</code></td><td><code>app/pwa-debug/page.tsx</code></td><td>Service-worker / install-prompt diagnostics</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="tab-panel" data-tab="routes" data-name="dash">
+      <div class="table-wrap"><table>
+        <thead><tr><th>Route</th><th>Backend endpoint(s)</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td><code>/dashboard</code></td><td><code>GET /api/v1/dashboard</code></td><td>KPI cards, recharts charts, recent activity</td></tr>
+          <tr><td><code>/dashboard/requests</code></td><td><code>GET/POST /api/v1/purchase-requests</code> + actions</td><td>Supports <code>?highlight=&lt;id&gt;</code> deep-link from notifications</td></tr>
+          <tr><td><code>/dashboard/receipts</code></td><td><code>GET /api/v1/receipts</code></td><td>Acknowledge sign-off, multi-dept aware</td></tr>
+          <tr><td><code>/dashboard/dispatch</code></td><td><code>GET/POST /api/v1/dispatch</code></td><td>Requires <code>dispatch_access</code> or admin</td></tr>
+          <tr><td><code>/dashboard/grn</code></td><td><code>GET/POST /api/v1/grn</code></td><td>Goods Received Notes; requires <code>grn_access</code> or admin</td></tr>
+          <tr><td><code>/dashboard/gate-passes</code></td><td><code>GET/POST /api/v1/gate-passes</code></td><td>In/out gate passes; <code>gate_pass_access</code> or admin</td></tr>
+          <tr><td><code>/dashboard/purchase-orders</code></td><td><code>GET/POST /api/v1/purchase-orders</code></td><td>Supports <code>?from_pr=&lt;id&gt;</code> deep link from requests</td></tr>
+          <tr><td><code>/dashboard/history</code></td><td><code>GET /api/v1/history/&lt;category&gt;</code></td><td>Admin-only 14-tab audit log viewer</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="tab-panel" data-tab="routes" data-name="inv">
+      <div class="table-wrap"><table>
+        <thead><tr><th>Route</th><th>Backend endpoint(s)</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td><code>/dashboard/inventory</code></td><td><code>GET /api/v1/inventory</code></td><td>Unified view (tabs: All / FG / RM / SF)</td></tr>
+          <tr><td><code>/dashboard/inventory/new</code></td><td><code>POST /api/v1/inventory</code></td><td>Create any type</td></tr>
+          <tr><td><code>/dashboard/inventory/[id]</code></td><td><code>GET /api/v1/inventory/[id]</code></td><td>Detail (rate hidden from non-admins)</td></tr>
+          <tr><td><code>/dashboard/inventory/[id]/edit</code></td><td><code>PUT /api/v1/inventory/[id]</code></td><td></td></tr>
+          <tr><td><code>/dashboard/inventory/finished-goods</code></td><td><code>GET /api/v1/inventory?item_type=finished_good</code></td><td>Wraps shared <code>InventoryTypePage</code></td></tr>
+          <tr><td><code>/dashboard/inventory/raw-materials</code></td><td>…?item_type=raw_material</td><td></td></tr>
+          <tr><td><code>/dashboard/inventory/semi-finished</code></td><td>…?item_type=semi_finished</td><td></td></tr>
+          <tr><td><code>/dashboard/inventory/scraps</code></td><td>…?item_type=scrap</td><td>Auto-generated by production orders</td></tr>
+          <tr><td><code>/dashboard/inventory/consumables</code></td><td><code>GET/POST /api/v1/consumables</code></td><td>838 lines, stock adjust + history</td></tr>
+          <tr><td><code>/dashboard/inventory/attachments</code></td><td><code>GET/POST /api/v1/attachments</code></td><td>789 lines</td></tr>
+          <tr><td><code>/dashboard/inventory/weeders</code></td><td><code>GET/POST /api/v1/weeders</code> + categories</td><td>956 lines, category-tree UI</td></tr>
+          <tr><td><code>/dashboard/inventory/spares</code></td><td><code>GET/POST /api/v1/spares/categories,sub-categories,items,variants</code></td><td>1,836 lines — 3-level hierarchy</td></tr>
+          <tr><td><code>/dashboard/inventory/stock-alerts</code></td><td><code>GET /api/v1/dashboard/low-stock</code></td><td>Cross-type low-stock summary</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="tab-panel" data-tab="routes" data-name="prod">
+      <div class="table-wrap"><table>
+        <thead><tr><th>Route</th><th>Backend endpoint(s)</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td><code>/dashboard/schedule</code></td><td><code>GET /api/v1/schedules</code></td><td>Customer orders / FG delivery commitments</td></tr>
+          <tr><td><code>/dashboard/schedule/new</code> · <code>[id]</code> · <code>[id]/edit</code></td><td><code>POST/GET/PUT /api/v1/schedules[/:id]</code></td><td>Status: pending → confirmed → in_production → completed → delivered</td></tr>
+          <tr><td><code>/dashboard/production</code></td><td>n/a (hub)</td><td>3 sub-sections: Planning, Processing, Time Report</td></tr>
+          <tr><td><code>/dashboard/production/planning</code></td><td><code>GET /api/v1/production/plans</code></td><td>Multi-process plans per schedule</td></tr>
+          <tr><td><code>/dashboard/production/planning/new</code> · <code>[id]</code> · <code>[id]/edit</code></td><td><code>POST/GET/PUT</code> + <code>/processes</code></td><td>Admin-only edits</td></tr>
+          <tr><td><code>/dashboard/production/processing</code></td><td><code>GET /api/v1/production/orders</code></td><td>Production runs</td></tr>
+          <tr><td><code>/dashboard/production/processing/new</code></td><td><code>POST /api/v1/production/orders</code></td><td>Auto-deducts BOM from inventory on output</td></tr>
+          <tr><td><code>/dashboard/production/processing/[id]</code></td><td><code>GET /api/v1/production/orders/[id]</code></td><td>Shows job cards, propagation rules</td></tr>
+          <tr><td><code>/dashboard/production/processing/[id]/jobs/new</code></td><td><code>POST /api/v1/production/orders/[id]/jobs</code></td><td>Workers must be in Production dept</td></tr>
+          <tr><td><code>/dashboard/production/processing/[id]/jobs/[jobId]</code></td><td><code>GET /api/v1/production/jobs/[jobId]</code></td><td>Per-card detail + field-level history</td></tr>
+          <tr><td><code>/dashboard/production/time-report</code></td><td><code>GET /api/v1/production/time-report</code></td><td>Worker hours aggregated by process / order / date / machine</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="tab-panel" data-tab="routes" data-name="admin">
+      <div class="table-wrap"><table>
+        <thead><tr><th>Route</th><th>Backend endpoint(s)</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td><code>/dashboard/admin/settings</code></td><td><code>GET/PUT /api/v1/settings/company</code>, <code>POST /api/v1/settings/backup</code></td><td>Company info + DB backup download</td></tr>
+          <tr><td><code>/dashboard/admin/departments</code></td><td><code>GET/POST/PUT/DELETE /api/v1/admin/departments</code></td><td>Admin-only</td></tr>
+          <tr><td><code>/dashboard/admin/users</code></td><td><code>GET/POST/PUT/DELETE /api/v1/admin/users</code></td><td>550-line create form (role + flags + depts + photo)</td></tr>
+          <tr><td><code>/dashboard/admin/bom</code></td><td><code>GET/POST/PUT/DELETE /api/v1/bom</code></td><td>Bill of materials (product → raw material)</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <h3>Frontend data-fetching pattern (universal)</h3>
+<pre><code><span class="note">// every page looks like this — no React Query, no SWR</span>
+"use client";
+import { useEffect, useState } from "react";
+import { apiFetchJson } from "@/lib/api";
+
+const [data, setData]       = useState&lt;T | null&gt;(null);
+const [loading, setLoading] = useState(true);
+const [error, setError]     = useState&lt;string | null&gt;(null);
+
+useEffect(() =&gt; {
+  setLoading(true);
+  apiFetchJson&lt;T&gt;("/api/v1/...")
+    .then(setData)
+    .catch((e: unknown) =&gt; setError(e instanceof Error ? e.message : "Failed"))
+    .finally(() =&gt; setLoading(false));
+}, [deps]);
+
+<span class="note">// patterns observed across the codebase:</span>
+- Manual pagination: URLSearchParams("page","page_size")
+- Debounced search: 300 ms setTimeout
+- Auto-refresh: setInterval(load, 30_000)
+- Optimistic updates: local state first, API second
+- Multi-item forms: array of { _key, … } rows with add/remove buttons</code></pre>
+  </div>
+</section>
+
+<!-- ====================== 7. BACKEND MODULES ====================== -->
+<section id="backend">
+  <div class="container">
+    <h2><span class="num">07</span> Backend Modules & Endpoints</h2>
+    <p class="lead">25 routers, 120+ endpoints, all mounted under <code>/api/v1/</code>.</p>
+
+    <h3>Domain map</h3>
+    <div class="grid cols-3">
+      <div class="card">
+        <h4>Identity & Admin</h4>
+        <p style="font-size:13px; color:#cbd5e1;">
+          <code>auth</code> · <code>users</code> · <code>departments</code> · <code>settings</code> · <code>notifications</code> · <code>history</code>
+        </p>
+      </div>
+      <div class="card">
+        <h4>Inventory</h4>
+        <p style="font-size:13px; color:#cbd5e1;">
+          <code>inventory</code> · <code>bom</code> · <code>spares</code> · <code>consumables</code> · <code>attachments</code> · <code>weeders</code>
+        </p>
+      </div>
+      <div class="card">
+        <h4>Production & Schedule</h4>
+        <p style="font-size:13px; color:#cbd5e1;">
+          <code>schedule</code> · <code>production</code> (1,739 lines — the largest) · <code>work_types</code>
+        </p>
+      </div>
+      <div class="card">
+        <h4>Logistics (in)</h4>
+        <p style="font-size:13px; color:#cbd5e1;">
+          <code>receipts</code> · <code>grn</code> · <code>purchase_requests</code>
+        </p>
+      </div>
+      <div class="card">
+        <h4>Logistics (out)</h4>
+        <p style="font-size:13px; color:#cbd5e1;">
+          <code>dispatch</code> · <code>gate_passes</code> · <code>purchase_orders</code> · <code>marketing_requests</code>
+        </p>
+      </div>
+      <div class="card">
+        <h4>Master data</h4>
+        <p style="font-size:13px; color:#cbd5e1;">
+          <code>vendors</code> (was <code>customers</code>) · <code>suppliers</code> (with nested jobs & materials)
+        </p>
+      </div>
+    </div>
+
+    <h3>Selected endpoints (auth + cross-cutting)</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Path</th><th>Access</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><span class="pill get">GET</span></td><td><code>/health</code></td><td>public</td><td>Liveness check</td></tr>
+          <tr><td><span class="pill post">POST</span></td><td><code>/api/v1/auth/login</code></td><td>public</td><td>Username/password → access token + refresh cookie</td></tr>
+          <tr><td><span class="pill post">POST</span></td><td><code>/api/v1/auth/refresh</code></td><td>cookie</td><td>Rotate refresh, return new access</td></tr>
+          <tr><td><span class="pill post">POST</span></td><td><code>/api/v1/auth/logout</code></td><td>cookie</td><td>Revoke refresh, clear cookie</td></tr>
+          <tr><td><span class="pill get">GET</span></td><td><code>/api/v1/auth/me</code></td><td>user</td><td>Current user + role + flags + departments</td></tr>
+          <tr><td><span class="pill get">GET</span></td><td><code>/api/v1/dashboard</code></td><td>user</td><td>Aggregated KPIs, status breakdowns, charts</td></tr>
+          <tr><td><span class="pill get">GET</span></td><td><code>/api/v1/notifications</code></td><td>user</td><td>Last 10 notifications (unread first)</td></tr>
+          <tr><td><span class="pill get">GET</span></td><td><code>/api/v1/notifications/unread-count</code></td><td>user</td><td>Badge count</td></tr>
+          <tr><td><span class="pill post">POST</span></td><td><code>/api/v1/notifications/{id}/read</code></td><td>user</td><td>Mark one as read</td></tr>
+          <tr><td><span class="pill post">POST</span></td><td><code>/api/v1/notifications/read-all</code></td><td>user</td><td>Mark all as read</td></tr>
+          <tr><td><span class="pill get">GET</span></td><td><code>/api/v1/settings/company</code></td><td>user</td><td>Read company info (public, used by prints)</td></tr>
+          <tr><td><span class="pill put">PUT</span></td><td><code>/api/v1/settings/company</code></td><td>admin</td><td>Update company info</td></tr>
+          <tr><td><span class="pill post">POST</span></td><td><code>/api/v1/settings/backup</code></td><td>admin</td><td>Download SQLite backup (temp file, unlink after send)</td></tr>
+          <tr><td><span class="pill get">GET</span></td><td><code>/api/v1/history/{category}</code></td><td>admin</td><td>Unified history across 15 categories</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Inventory endpoints (representative)</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Path</th><th>Access</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><span class="pill get">GET</span></td><td><code>/api/v1/inventory</code></td><td>user</td><td>Paginated list (filters: <code>item_type, vendor_name, search, include_inactive, page, page_size</code>)</td></tr>
+          <tr><td><span class="pill post">POST</span></td><td><code>/api/v1/inventory</code></td><td>user</td><td>Create (rate field admin-only)</td></tr>
+          <tr><td><span class="pill put">PUT</span></td><td><code>/api/v1/inventory/{id}</code></td><td>user</td><td>Update</td></tr>
+          <tr><td><span class="pill del">DEL</span></td><td><code>/api/v1/inventory/{id}</code></td><td>user</td><td>Soft-delete (is_active=false)</td></tr>
+          <tr><td><span class="pill post">POST</span></td><td><code>/api/v1/inventory/{id}/adjust</code></td><td>user</td><td>Add / subtract / set stock; writes <code>inventory_history</code></td></tr>
+          <tr><td><span class="pill get">GET</span></td><td><code>/api/v1/inventory/{id}/history</code></td><td>admin</td><td>Stock change audit</td></tr>
+          <tr><td><span class="pill get">GET</span></td><td><code>/api/v1/inventory/{id}/drawing</code></td><td>user</td><td>Base64 design-drawing PDF</td></tr>
+          <tr><td><span class="pill put">PUT</span></td><td><code>/api/v1/inventory/{id}/drawing</code></td><td>user</td><td>Upload / clear drawing</td></tr>
+          <tr><td><span class="pill get">GET</span></td><td><code>/api/v1/inventory/{id}/stats</code></td><td>user</td><td>Total received / total consumed</td></tr>
+          <tr><td><span class="pill get">GET</span></td><td><code>/api/v1/inventory/{id}/detail</code></td><td>user</td><td>BOM usage / schedules / production capacity</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Production endpoints (representative — <code>production.py</code> is 1,739 lines)</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Path</th><th>Access</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><span class="pill get">GET</span></td><td><code>/api/v1/production/plans</code></td><td>user</td><td>List plans (filters: <code>status, include_inactive, available_for_orders, search</code>)</td></tr>
+          <tr><td><span class="pill post">POST</span></td><td><code>/api/v1/production/plans</code></td><td>admin</td><td>Create plan (auto-advances schedule)</td></tr>
+          <tr><td><span class="pill get">GET</span></td><td><code>/api/v1/production/plans/{id}/processes</code></td><td>user</td><td>List plan's process steps</td></tr>
+          <tr><td><span class="pill get">GET</span></td><td><code>/api/v1/production/bom-preview</code></td><td>user</td><td>BOM material requirements for product × qty</td></tr>
+          <tr><td><span class="pill get">GET</span></td><td><code>/api/v1/production/orders</code></td><td>user</td><td>List production orders</td></tr>
+          <tr><td><span class="pill post">POST</span></td><td><code>/api/v1/production/orders</code></td><td>admin</td><td>Create order (auto-advances plan/schedule)</td></tr>
+          <tr><td><span class="pill get">GET</span></td><td><code>/api/v1/production/orders/{id}/jobs</code></td><td>user</td><td>Workers see only their own</td></tr>
+          <tr><td><span class="pill post">POST</span></td><td><code>/api/v1/production/orders/{id}/jobs</code></td><td>user*</td><td>Workers must be in Production dept</td></tr>
+          <tr><td><span class="pill put">PUT</span></td><td><code>/api/v1/production/jobs/{id}</code></td><td>user*</td><td>Non-admins can only update their own</td></tr>
+          <tr><td><span class="pill get">GET</span></td><td><code>/api/v1/production/jobs/{id}/history</code></td><td>user</td><td>Field-level audit trail</td></tr>
+          <tr><td><span class="pill get">GET</span></td><td><code>/api/v1/production/workers</code></td><td>user</td><td>Active users for worker dropdown</td></tr>
+          <tr><td><span class="pill get">GET</span></td><td><code>/api/v1/production/time-report</code></td><td>user</td><td>Worker hours aggregated per process/order/date/machine</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="font-size:13px; color:var(--muted);">
+      <strong>Status propagation:</strong> Job card → Production order → Production plan → Schedule.
+      FG is only credited when <em>all</em> process steps have produced; <code>effective_qty = MIN(qty_produced)</code>.
+    </p>
+
+    <h3>Requests & receipts</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Path</th><th>Access</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><span class="pill get">GET</span></td><td><code>/api/v1/purchase-requests/active-count</code></td><td>user</td><td>Sidebar badge</td></tr>
+          <tr><td><span class="pill get">GET</span></td><td><code>/api/v1/purchase-requests</code></td><td>user</td><td>Scoped by role (admins see all, others see own + fulfilling dept)</td></tr>
+          <tr><td><span class="pill post">POST</span></td><td><code>/api/v1/purchase-requests</code></td><td>user</td><td>Create (notifies all admins)</td></tr>
+          <tr><td><span class="pill post">POST</span></td><td><code>/api/v1/purchase-requests/{id}/approve</code></td><td>admin</td><td>Approve (notifies requester)</td></tr>
+          <tr><td><span class="pill post">POST</span></td><td><code>/api/v1/purchase-requests/{id}/reject</code></td><td>admin</td><td>Reject (notifies requester)</td></tr>
+          <tr><td><span class="pill post">POST</span></td><td><code>/api/v1/purchase-requests/{id}/respond</code></td><td>user*</td><td>Accept items (not requester unless per-item depts exist)</td></tr>
+          <tr><td><span class="pill post">POST</span></td><td><code>/api/v1/receipts</code></td><td>user*</td><td>Create goods-received (not requester); moves PR → awaiting_signoff</td></tr>
+          <tr><td><span class="pill post">POST</span></td><td><code>/api/v1/receipts/{id}/acknowledge</code></td><td>user*</td><td>Sign-off (requester / dept-colleague / admin); moves PR → received</td></tr>
+          <tr><td><span class="pill get">GET</span></td><td><code>/api/v1/receipts/pending-count</code></td><td>user</td><td>Sidebar badge</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout">
+      <strong>Notification fan-out:</strong> Routers like <code>purchase_requests.py</code> and <code>receipts.py</code> call
+      <code>create_notification()</code> synchronously inside the same DB transaction to fire <em>request_created</em>,
+      <em>request_approved</em>, <em>request_rejected</em>, <em>request_responded</em>, <em>receipt_created</em>, and
+      <em>receipt_acknowledged</em> events to the appropriate users. The bell icon at the top of the dashboard polls
+      <code>/api/v1/notifications</code> every 30 s and lights up the badge.
+    </div>
+  </div>
+</section>
+
+<!-- ====================== 8. DATABASE ====================== -->
+<section id="database">
+  <div class="container">
+    <h2><span class="num">08</span> Database Schema (41 tables)</h2>
+    <p class="lead">
+      One SQLite file. All tables created by <code>SQLModel.metadata.create_all()</code>
+      at startup, then patched in-place by a chain of idempotent <code>_migrate_*()</code>
+      functions. No Alembic. No PostgreSQL in dev (driver is bundled, ready for prod).
+    </p>
+
+    <h3>Entity groups</h3>
+    <div class="grid cols-3">
+      <div class="card">
+        <h4>Identity & org <small style="color:var(--muted)">4 tables</small></h4>
+        <ul style="font-size:14px; padding-left:18px; color:#cbd5e1;">
+          <li><code>users</code></li>
+          <li><code>user_departments</code> (M:N)</li>
+          <li><code>departments</code></li>
+          <li><code>refresh_tokens</code></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>Inventory <small style="color:var(--muted)">14 tables</small></h4>
+        <ul style="font-size:14px; padding-left:18px; color:#cbd5e1;">
+          <li><code>inventory_item</code> · <code>inventory_history</code></li>
+          <li><code>bom_item</code></li>
+          <li><code>spare_category</code> · <code>spare_sub_category</code> · <code>spare_item</code> · <code>spare_item_variant</code> · <code>spare_item_history</code></li>
+          <li><code>consumable</code> · <code>consumable_history</code></li>
+          <li><code>attachment_item</code> · <code>attachment_history</code></li>
+          <li><code>weeder_category</code> · <code>weeder_item</code> · <code>weeder_history</code></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>Production & schedule <small style="color:var(--muted)">9 tables</small></h4>
+        <ul style="font-size:14px; padding-left:18px; color:#cbd5e1;">
+          <li><code>schedule</code> · <code>schedule_history</code></li>
+          <li><code>production_plan</code> · <code>production_process</code></li>
+          <li><code>production_order</code></li>
+          <li><code>job_card</code> · <code>job_card_history</code></li>
+          <li><code>work_log</code> · <code>work_type</code></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>Vendors & suppliers <small style="color:var(--muted)">4 tables</small></h4>
+        <ul style="font-size:14px; padding-left:18px; color:#cbd5e1;">
+          <li><code>vendors</code> (was <code>customers</code>)</li>
+          <li><code>suppliers</code></li>
+          <li><code>supplier_jobs</code></li>
+          <li><code>supplier_materials</code></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>Requests <small style="color:var(--muted)">5 tables</small></h4>
+        <ul style="font-size:14px; padding-left:18px; color:#cbd5e1;">
+          <li><code>purchase_request</code> · <code>purchase_request_item</code> · <code>purchase_request_history</code></li>
+          <li><code>marketing_request</code> · <code>marketing_request_history</code></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>Logistics & other <small style="color:var(--muted)">9 tables</small></h4>
+        <ul style="font-size:14px; padding-left:18px; color:#cbd5e1;">
+          <li><code>purchase_order</code> · <code>purchase_order_item</code></li>
+          <li><code>dispatch</code> · <code>dispatch_item</code> · <code>dispatch_history</code></li>
+          <li><code>gate_pass</code> · <code>gate_pass_item</code> · <code>gate_pass_history</code></li>
+          <li><code>receipt</code> · <code>notification</code></li>
+          <li><code>grn_record</code> · <code>grn_item</code></li>
+          <li><code>company_settings</code></li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>Key relationships (ER overview)</h3>
+    <div class="card" style="overflow-x:auto;">
+<pre><code>                 ┌──────────────┐
+                 │   users      │
+                 └──────┬───────┘
+            ┌───────────┼────────────────┐
+            ▼           ▼                ▼
+    user_departments  refresh_tokens   (CSV flags in
+            │                            users.inventory_*)
+            ▼
+    ┌──────────────┐
+    │ departments  │   code, name, description
+    └──────────────┘
+
+  schedule ──< production_plan ──< production_process
+                  │                       │
+                  ▼                       ▼
+            production_order        job_card ──< job_card_history
+                                       │
+                                       ▼
+                                  (uses workers from users,
+                                   writes work_log)
+
+  inventory_item  ◄────  bom_item  ────►  inventory_item   (raw_material)
+        │
+        ├── inventory_history
+        └── design_drawing_pdf (base64 column)
+
+  spare_category ──< spare_sub_category ──< spare_item ──< spare_item_variant
+                                                   │
+                                                   └─► spare_item_history
+
+  consumable ──< consumable_history
+  attachment_item ──< attachment_history
+  weeder_category ──< weeder_item ──< weeder_history
+
+  purchase_request ──< purchase_request_item
+                  └──< purchase_request_history
+                  └──< receipt
+                  └──< marketing_request (sibling)
+
+  purchase_order ──< purchase_order_item   (linkable to PR)
+  dispatch ──< dispatch_item ──< dispatch_history
+  gate_pass ──< gate_pass_item ──< gate_pass_history
+  grn_record ──< grn_item
+
+  vendors ◄── schedule (vendor.name == schedule.customer_name)
+  suppliers ──< supplier_jobs
+            └──< supplier_materials
+            └──< job_card (job_type, supplier_id, supplier_name)
+
+  notification (fan-out sink for create_notification())
+  company_settings (key/value, single row)</code></pre>
+    </div>
+
+    <h3>Status state machines</h3>
+    <div class="grid cols-3">
+      <div class="card">
+        <h4>Schedule</h4>
+        <p style="font-family:ui-monospace,monospace; font-size:12px; color:#cbd5e1;">pending → confirmed → in_production → completed → delivered<br/><span style="color:var(--warning)">↘ cancelled (from any non-terminal)</span></p>
+      </div>
+      <div class="card">
+        <h4>Plan / Order / Job</h4>
+        <p style="font-family:ui-monospace,monospace; font-size:12px; color:#cbd5e1;">Plan:&nbsp;&nbsp;&nbsp; draft → approved → in_progress → completed<br/>Order:&nbsp; open → in_progress → completed<br/>Job:&nbsp;&nbsp;&nbsp;&nbsp; open → in_progress → completed<br/><span style="color:var(--warning)">↘ cancelled (any time)</span></p>
+      </div>
+      <div class="card">
+        <h4>Purchase request</h4>
+        <p style="font-family:ui-monospace,monospace; font-size:12px; color:#cbd5e1;">pending → approved / not_approved<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; │<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ▼<br/>approved → in_progress → awaiting_signoff → received<br/><span style="color:var(--warning)">↘ cancelled</span></p>
+      </div>
+      <div class="card">
+        <h4>GRN</h4>
+        <p style="font-family:ui-monospace,monospace; font-size:12px; color:#cbd5e1;">draft → partially_filled → stock_filled<br/><span style="color:var(--muted)"># fill-items / return-items move qty between received and inventory.quantity_on_hand</span></p>
+      </div>
+      <div class="card">
+        <h4>Dispatch / Gate pass / PO</h4>
+        <p style="font-family:ui-monospace,monospace; font-size:12px; color:#cbd5e1;">Dispatch: pending → dispatched → delivered (↘ cancelled)<br/>Gate pass: open → closed<br/>PO: draft → approved → received (↘ cancelled)</p>
+      </div>
+      <div class="card">
+        <h4>Receipt / Marketing</h4>
+        <p style="font-family:ui-monospace,monospace; font-size:12px; color:#cbd5e1;">Receipt:&nbsp;&nbsp; pending_ack → acknowledged<br/>Marketing: pending → approved / not_approved (↘ cancelled)</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================== 9. RBAC ====================== -->
+<section id="rbac">
+  <div class="container">
+    <h2><span class="num">09</span> Roles & Permissions Matrix</h2>
+    <p class="lead">
+      Five permission dimensions: <strong>role</strong>, <strong>boolean access flags</strong>,
+      <strong>CSV inventory scopes</strong>, and <strong>route-level guards</strong> on the frontend.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Capability</th>
+            <th>super_admin</th>
+            <th>admin</th>
+            <th>manager</th>
+            <th>worker</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Login / use app</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+          <tr><td>View any inventory type</td><td>✓</td><td>✓</td><td colspan="2" style="text-align:center; color:var(--muted)">scoped by <code>inventory_access</code> (empty = all)</td></tr>
+          <tr><td>Edit inventory</td><td>✓</td><td>✓</td><td colspan="2" style="text-align:center; color:var(--muted)">must be in <code>inventory_edit</code> (empty = NONE)</td></tr>
+          <tr><td>See <code>rate</code> on inventory</td><td>✓</td><td>✓</td><td>—</td><td>—</td></tr>
+          <tr><td>View inventory history</td><td>✓</td><td>✓</td><td>—</td><td>—</td></tr>
+          <tr><td>Manage departments / users / BOM / settings</td><td>✓</td><td>✓</td><td>—</td><td>—</td></tr>
+          <tr><td>View global <code>/history</code></td><td>✓</td><td>✓</td><td>—</td><td>—</td></tr>
+          <tr><td>Create production plans / orders</td><td>✓</td><td>✓</td><td>—</td><td>—</td></tr>
+          <tr><td>Create job cards</td><td>✓</td><td>✓</td><td>—</td><td>✓ (in Production dept)</td></tr>
+          <tr><td>Update own job card</td><td>✓</td><td>✓</td><td>—</td><td>✓</td></tr>
+          <tr><td>Approve / reject purchase request</td><td>✓</td><td>✓</td><td>—</td><td>—</td></tr>
+          <tr><td>Create purchase request</td><td>✓</td><td>✓</td><td colspan="2" style="text-align:center; color:var(--muted)">scoped by <code>request_departments</code> + <code>request_inventory</code></td></tr>
+          <tr><td>Create receipt (sign-off)</td><td>✓</td><td>✓</td><td>—</td><td>—</td></tr>
+          <tr><td>Acknowledge receipt</td><td>✓</td><td>✓</td><td colspan="2" style="text-align:center; color:var(--muted)">requester, dept-colleague, or admin</td></tr>
+          <tr><td>Access <strong>GRN</strong> module</td><td>✓</td><td>✓</td><td colspan="2" style="text-align:center; color:var(--muted)"><code>grn_access</code></td></tr>
+          <tr><td>Access <strong>Dispatch</strong> module</td><td>✓</td><td>✓</td><td colspan="2" style="text-align:center; color:var(--muted)"><code>dispatch_access</code></td></tr>
+          <tr><td>Access <strong>Gate Passes</strong></td><td>✓</td><td>✓</td><td colspan="2" style="text-align:center; color:var(--muted)"><code>gate_pass_access</code></td></tr>
+          <tr><td>Access <strong>Purchase Orders</strong></td><td>✓</td><td>✓</td><td colspan="2" style="text-align:center; color:var(--muted)"><code>purchase_access</code></td></tr>
+          <tr><td>View Vendors / Suppliers</td><td>✓</td><td>✓</td><td>—</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Permission helpers (frontend)</h3>
+<pre><code><span class="note">// lib/user.ts</span>
+canAccessInventory(type)  <span class="note">// admin → all; empty CSV → all; else CSV ∋ type</span>
+canEditInventory(type)    <span class="note">// admin → all; empty CSV → NONE; else CSV ∋ type</span>
+canRequestFromDept(id)    <span class="note">// admin → all; empty CSV → all; else CSV ∋ id</span>
+canRequestInventory(type) <span class="note">// admin → all; empty CSV → all; else CSV ∋ type</span>
+
+isAdmin()        = role in {"admin","super_admin"}
+isAdminOrAbove() = isAdmin()
+isSuperAdmin()   = role == "super_admin"
+isManager()      = role == "manager"
+isWorker()       = role == "worker"
+isManagerOrWorker() = role in {"manager","worker"}</code></pre>
+
+    <h3>Route guards (two layers)</h3>
+    <div class="grid cols-2">
+      <div class="card">
+        <h4>Backend — FastAPI Depends</h4>
+<pre><code>Depends(get_current_user)        <span class="note"># any active user</span>
+Depends(get_current_active_user) <span class="note"># re-checks is_active</span>
+Depends(require_admin)            <span class="note"># role in (admin, super_admin)</span>
+Depends(require_super_admin)      <span class="note"># role == super_admin</span>
+is_admin_or_above(user) → bool   <span class="note"># for inline checks</span></code></pre>
+      </div>
+      <div class="card">
+        <h4>Frontend — AuthGuard + page-level checks</h4>
+<pre><code>// components/auth-guard.tsx — wraps all /dashboard/*
+if (!isAuthenticated()) router.replace("/login");
+
+// inside each page that needs a stricter gate
+useEffect(() =&gt; {
+  if (!user) return;
+  if (!isAdmin() &amp;&amp; !user.dispatch_access) {
+    router.replace("/dashboard");
+  }
+}, [user, router]);</code></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================== 10. WORKFLOWS ====================== -->
+<section id="workflows">
+  <div class="container">
+    <h2><span class="num">10</span> Core Workflows</h2>
+    <p class="lead">The four most important end-to-end flows, from a user action to its data effect.</p>
+
+    <h3>① Login → Dashboard</h3>
+    <div class="timeline">
+      <div class="step">
+        <div class="title">Browser lands on <code>/</code></div>
+        <div class="desc"><code>app/page.tsx</code> is a server component that <code>redirect("/login")</code>s.</div>
+      </div>
+      <div class="step">
+        <div class="title">User submits credentials</div>
+        <div class="desc"><code>app/login/page.tsx</code> calls <code>apiLogin(username, password)</code>, which POSTs <code>/api/v1/auth/login</code>.</div>
+      </div>
+      <div class="step">
+        <div class="title">Backend issues tokens</div>
+        <div class="desc">Argon2 verifies password → creates 30-min access JWT + 30-day refresh JWT → stores SHA-256 of refresh in <code>refresh_tokens</code> → sets <code>oneflow_refresh</code> HttpOnly cookie (path <code>/api/v1/auth</code>, SameSite=Strict).</div>
+      </div>
+      <div class="step">
+        <div class="title">Frontend stores session</div>
+        <div class="desc">Access token → <code>sessionStorage["oneflow_access_token"]</code>. Then GET <code>/api/v1/auth/me</code> → full user object → <code>sessionStorage["oneflow_user"]</code>.</div>
+      </div>
+      <div class="step">
+        <div class="title">Router push → <code>/dashboard</code></div>
+        <div class="desc"><code>dashboard/layout.tsx</code> wraps content in <code>&lt;AuthGuard&gt;</code>; <code>isAuthenticated()</code> returns <code>true</code>; sidebar polls counts; <code>TopBar</code> polls notifications; page renders KPIs.</div>
+      </div>
+    </div>
+
+    <h3>② Purchase request lifecycle</h3>
+    <div class="flow">
+      <div class="node"><div class="lbl">Requester</div><div class="val">POST /purchase-requests</div><small style="color:var(--muted)">status = <strong>pending</strong><br/>multi-item, multi-dept</small></div>
+      <div class="node warning"><div class="lbl">Admin</div><div class="val">POST …/approve or …/reject</div><small style="color:var(--muted)">notifies requester<br/>fires <em>request_approved/rejected</em></small></div>
+      <div class="node"><div class="lbl">Fulfiller</div><div class="val">POST …/respond</div><small style="color:var(--muted)">status → <strong>in_progress</strong><br/>(not requester unless per-item depts)</small></div>
+      <div class="node"><div class="lbl">Fulfiller</div><div class="val">POST /receipts</div><small style="color:var(--muted)">status → <strong>awaiting_signoff</strong><br/>fires <em>receipt_created</em></small></div>
+      <div class="node success"><div class="lbl">Requester</div><div class="val">POST /receipts/{id}/acknowledge</div><small style="color:var(--muted)">status → <strong>received</strong><br/>fires <em>receipt_acknowledged</em></small></div>
+    </div>
+    <p style="font-size:13px; color:var(--muted); margin-top:8px;">
+      Self-fulfillment is blocked: the requester cannot <code>POST /receipts</code> for their own request.
+      Multi-dept requests (items with explicit per-line <code>department</code>) relax this rule.
+    </p>
+
+    <h3>③ Production order → BOM deduction</h3>
+    <div class="timeline">
+      <div class="step">
+        <div class="title">Admin creates production order</div>
+        <div class="desc"><code>POST /api/v1/production/orders</code> with <code>plan_id</code> + <code>qty_planned</code>. Schedule status auto-advances to <em>in_production</em>.</div>
+      </div>
+      <div class="step">
+        <div class="title">Job cards created per process step</div>
+        <div class="desc">Each step in the plan's <code>production_process</code> gets a <code>job_card</code>. Multi-worker cards store <code>worker_names</code> as a JSON array.</div>
+      </div>
+      <div class="step">
+        <div class="title">Workers report output</div>
+        <div class="desc"><code>PUT /api/v1/production/jobs/{id}</code> updates <code>qty_produced</code>, <code>status</code>, etc. Workers see only their own cards; admins see all.</div>
+      </div>
+      <div class="step">
+        <div class="title">BOM auto-deducted + scrap auto-created</div>
+        <div class="desc">On <code>qty_produced</code> increase, the router looks up <code>bom_item</code> for the product → deducts raw materials from <code>inventory_item</code> → writes <code>inventory_history</code> rows. Any <code>scrap</code> in the BOM is added to a <em>scrap</em>-typed inventory item.</div>
+      </div>
+      <div class="step">
+        <div class="title">Status propagation upward</div>
+        <div class="desc">When all processes have produced, <code>effective_qty = MIN(qty_produced)</code> is computed; FG inventory is credited; order → <em>completed</em> → plan → <em>completed</em> → schedule → <em>completed</em>.</div>
+      </div>
+    </div>
+
+    <h3>④ Stock adjustment + audit trail</h3>
+    <div class="seq">
+<span class="actor">[UI]</span>  form: item_id, mode (add|subtract|set), qty, note
+       │
+       ▼
+<span class="actor">[frontend]</span>  apiFetchJson("/api/v1/inventory/{id}/adjust", { method:"POST", body:… })
+
+<span class="actor">[backend inventory.py]</span>
+       1. Lock the row: SELECT … FOR UPDATE  (single-writer)
+       2. old = item.quantity_on_hand
+       3. new = apply(mode, qty, old)
+       4. UPDATE inventory_item SET quantity_on_hand = new
+       5. INSERT inventory_history { item_id, qty_before, qty_after, delta,
+                                     change_type, changed_by_user_id, changed_by_username,
+                                     note, source, created_at }
+       6. session.commit()
+
+<span class="actor">[admin history view]</span>  GET /api/v1/inventory/{id}/history
+       <span class="note"># also aggregated cross-table at GET /api/v1/dashboard/low-stock</span></div>
+  </div>
+</section>
+
+<!-- ====================== 11. PWA ====================== -->
+<section id="pwa">
+  <div class="container">
+    <h2><span class="num">11</span> PWA, HTTPS & Install</h2>
+    <p class="lead">
+      OneFlow is designed to be installed as a standalone app on phones and tablets.
+      Because mobile PWAs require HTTPS, a Node reverse-proxy in front of Next.js
+      terminates TLS with a self-signed OneFlow CA. Devices install the CA once
+      via <code>/setup</code> and Chrome then offers the install prompt automatically.
+    </p>
+
+    <h3>Lifecycle</h3>
+    <div class="grid cols-3">
+      <div class="card">
+        <h4>1 · Generate certs (one-time)</h4>
+        <p style="font-size:14px; color:#cbd5e1;">
+          <code>install.bat</code> (Windows) or <code>start-linux.sh</code> creates a local CA
+          and a server cert. Linux uses PEM (<code>certs/oneflow-*.pem</code>); Windows
+          builds a <code>.pfx</code> bundle (passphrase <code>oneflow-local</code>).
+        </p>
+      </div>
+      <div class="card">
+        <h4>2 · Install HTTPS proxy</h4>
+        <p style="font-size:14px; color:#cbd5e1;">
+          <code>https-proxy.js</code> listens on <code>:4443</code> (Linux) or <code>:443</code> (Windows).
+          Linux also adds an iptables rule redirecting <code>:443 → :4443</code> (since non-root can't bind 443).
+        </p>
+      </div>
+      <div class="card">
+        <h4>3 · Device trusts CA</h4>
+        <p style="font-size:14px; color:#cbd5e1;">
+          Phone visits <code>http://&lt;server-ip&gt;:3000/setup</code> → downloads
+          <code>oneflow-ca.crt</code> → installs it. Then opens
+          <code>https://&lt;server-ip&gt;</code> → Chrome offers "Install App".
+        </p>
+      </div>
+    </div>
+
+    <h3>Service worker</h3>
+    <pre><code><span class="note">// next.config.ts → @ducanh2912/next-pwa</span>
+withPWAInit({
+  dest: "public",
+  cacheOnFrontEndNav: true,
+  aggressiveFrontEndNavCaching: true,
+  reloadOnOnline: true,
+  disable: process.env.NODE_ENV === "development",   <span class="note"># no SW in dev</span>
+  workboxOptions: {
+    runtimeCaching: [
+      { urlPattern: /^\/api\//, handler: "NetworkOnly" }  <span class="note"># never cache API</span>
+    ]
+  }
+})</code></pre>
+
+    <h3>Install-prompt detection (<code>hooks/use-pwa-install.ts</code>)</h3>
+    <div class="grid cols-4">
+      <div class="card"><h4>prompt</h4><p style="font-size:13px; color:#cbd5e1;">Trusted HTTPS + <code>beforeinstallprompt</code> fired → fire native prompt</p></div>
+      <div class="card"><h4>ios</h4><p style="font-size:13px; color:#cbd5e1;">iPad/iPhone Safari → show "Share → Add to Home Screen"</p></div>
+      <div class="card"><h4>android-http</h4><p style="font-size:13px; color:#cbd5e1;">No HTTPS → link to HTTPS version</p></div>
+      <div class="card"><h4>android-needs-cert</h4><p style="font-size:13px; color:#cbd5e1;">HTTPS but cert untrusted → link to <code>/setup</code></p></div>
+    </div>
+    <div class="callout warn">
+      <strong>Android 7+ caveat:</strong> Chrome ignores user-installed CAs for non-dev sessions.
+      The app auto-detects this and shows a one-time fallback link to the HTTP origin so the
+      user can still reach <code>/setup</code>.
+    </div>
+  </div>
+</section>
+
+<!-- ====================== 12. STARTUP ====================== -->
+<section id="lifecycle">
+  <div class="container">
+    <h2><span class="num">12</span> Startup, Migrations & Backups</h2>
+    <p class="lead">
+      Everything happens in the FastAPI <code>lifespan</code> context manager
+      in <code>app/main.py</code>. Idempotent — safe to run on every boot.
+    </p>
+
+    <h3>Startup sequence</h3>
+    <div class="timeline">
+      <div class="step">
+        <div class="title">1. <code>init_db()</code></div>
+        <div class="desc">Imports <code>app.models</code> → calls <code>SQLModel.metadata.create_all(engine)</code>. Chmods the DB file to <code>0o664</code> for cross-container UID compatibility.</div>
+      </div>
+      <div class="step">
+        <div class="title">2. <code>run_migrations()</code></div>
+        <div class="desc">Safe, idempotent column adds: spare_item_variant.reorder_level, spare_item_history.variant_label, six new user flags, weeder_item.category_id, receipt/department/purchase_request/bom_item columns, and three indexes.</div>
+      </div>
+      <div class="step">
+        <div class="title">3. ~35 <code>_migrate_*()</code> functions</div>
+        <div class="desc">Each checks <code>PRAGMA table_info</code> / <code>sqlite_master</code> first. Some ADD COLUMN, some rebuild tables (SQLite can't DROP COLUMN), some rename (<code>customers → vendors</code>), some backfill default data (e.g. <code>changed_by_username</code> from <code>changed_by_user_id</code>).</div>
+      </div>
+      <div class="step">
+        <div class="title">4. <code>_seed_customers_from_schedules()</code></div>
+        <div class="desc">Populates the new <code>Vendor</code> table with names that exist in <code>Schedule.customer_name</code> so old data still resolves to a vendor.</div>
+      </div>
+      <div class="step">
+        <div class="title">5. <code>_auto_seed_if_empty()</code></div>
+        <div class="desc">If <code>users</code> is empty, creates the default <code>admin / admin123</code> super-admin and links it to the Production department.</div>
+      </div>
+      <div class="step">
+        <div class="title">6. <code>start_scheduler()</code></div>
+        <div class="desc">Arms a single <code>threading.Timer</code> for 17:30. When it fires: <code>sqlite3.Connection.backup()</code> streams 256-page chunks to <code>backups/YYYY/MM/DD/oneflow.db</code>, then runs <code>cleanup_old_backups(retention_days=90)</code> which deletes day folders older than 90 days and prunes empty month/year dirs. The timer is daemon-threaded and self-reschedules.</div>
+      </div>
+    </div>
+
+    <h3>On-demand backup (admin)</h3>
+    <pre><code>POST /api/v1/settings/backup          <span class="note"># admin-only</span>
+       │
+       ▼
+[backend] shutil.copy("oneflow.db", tempfile)
+       │
+       ▼
+BackgroundTasks.add_task(os.unlink, tempfile_path)   <span class="note"># delete after response sent</span>
+       │
+       ▼
+FileResponse(tempfile, media_type="application/octet-stream",
+             filename=f"oneflow-backup-{date}.db")</code></pre>
+  </div>
+</section>
+
+<!-- ====================== 13. BUGS ====================== -->
+<section id="bugs">
+  <div class="container">
+    <h2><span class="num">13</span> Notable Issues & Gotchas</h2>
+    <p class="lead">Things worth knowing if you're about to extend or debug the system.</p>
+
+    <div class="callout danger">
+      <strong>🐞 Bug — missing decorator in <code>gate_passes.py:132</code></strong><br/>
+      The function <code>get_gate_pass(gp_id, …)</code> is missing its
+      <code>@router.get("/{gp_id}")</code> decorator, so
+      <code>GET /api/v1/gate-passes/{gp_id}</code> is unreachable. The function body is intact;
+      adding the decorator one line above fixes it.
+    </div>
+
+    <div class="callout warn">
+      <strong>🐞 Mild — duplicate <code>departments_router.public_router</code> include</strong><br/>
+      <code>app/main.py:1303-1304</code> includes the same router twice. Harmless (FastAPI dedupes
+      route registrations by (path, method)) but noisy and worth removing.
+    </div>
+
+    <div class="callout warn">
+      <strong>⚠ Alembic listed but unused</strong><br/>
+      <code>requirements.txt</code> pins <code>alembic==1.18.4</code> but there is no
+      <code>alembic/</code> directory and no migration runner. Schema management is done by
+      hand-rolled <code>_migrate_*()</code> functions. Adding Alembic would be a significant
+      quality-of-life improvement.
+    </div>
+
+    <div class="callout">
+      <strong>⚠ Postgres driver bundled but not exercised</strong><br/>
+      <code>psycopg2-binary</code> is in <code>requirements.txt</code> and the config supports
+      <code>DATABASE_URL=postgresql+psycopg2://…</code>, but the in-place migration
+      helpers are SQLite-only (use <code>PRAGMA table_info</code>). Switching to Postgres
+      in prod would need a small refactor of <code>app/core/database.py</code>.
+    </div>
+
+    <div class="callout warn">
+      <strong>⚠ Dark-mode CSS exists but no toggle</strong><br/>
+      <code>app/globals.css</code> defines full <code>:root</code> + <code>.dark</code> token
+      sets and every component has <code>dark:</code> variants, but the <code>.dark</code>
+      class is never applied anywhere. Adding a toggle is a 5-line change.
+    </div>
+
+    <div class="callout">
+      <strong>ℹ No tests anywhere</strong><br/>
+      Neither the backend nor the frontend ships tests. The <code>PLAN.md</code> verification
+      checklist includes only <code>tsc --noEmit</code> and a port check.
+    </div>
+
+    <div class="callout">
+      <strong>ℹ No WebSockets</strong><br/>
+      The <code>websockets</code> package is in requirements (transitive), but no
+      <code>@app.websocket</code> or <code>@router.websocket</code> endpoints exist.
+      Live updates are done by client-side polling every 30 s.
+    </div>
+  </div>
+</section>
+
+<footer>
+  Generated from a complete read of <code>backend/app/</code> and <code>frontend/</code>.
+  All file paths and line numbers refer to the current state of the repository.
+</footer>
+
+<!-- ====================== SCRIPTS ====================== -->
+<script>
+  // Tab switching
+  document.querySelectorAll('.tabs').forEach(tabs => {
+    const set = tabs.dataset.tabset;
+    tabs.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        tabs.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.querySelectorAll(`.tab-panel[data-tab="${set}"]`).forEach(p => p.classList.remove('active'));
+        document.querySelector(`.tab-panel[data-tab="${set}"][data-name="${btn.dataset.tab}"]`).classList.add('active');
+      });
+    });
+  });
+
+  // Search
+  const search = document.getElementById('search');
+  if (search) {
+    const sections = Array.from(document.querySelectorAll('section'));
+    search.addEventListener('input', () => {
+      const q = search.value.trim().toLowerCase();
+      sections.forEach(sec => {
+        if (!q) { sec.style.display = ''; return; }
+        const text = sec.textContent.toLowerCase();
+        sec.style.display = text.includes(q) ? '' : 'none';
+      });
+    });
+  }
+</script>
+
+</body>
+</html>

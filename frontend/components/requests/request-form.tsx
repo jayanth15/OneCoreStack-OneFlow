@@ -11,17 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Combobox,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxInput,
-  ComboboxItem,
-  ComboboxList,
-} from "@/components/ui/combobox";
+import { SearchCombobox } from "@/components/ui/search-combobox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   ToggleGroup,
   ToggleGroupItem,
@@ -31,7 +23,7 @@ import type {
   CreateRequestPayload, RequestType, RequestItem, RequestCustomerDispatch,
 } from "@/lib/requests";
 import { apiFetchJson } from "@/lib/api";
-import { getCurrentUser, canRequestInventory } from "@/lib/user";
+import { getCurrentUser } from "@/lib/user";
 import {
   ArrowLeftRight,
   ShoppingCart,
@@ -57,18 +49,16 @@ interface InventoryItem {
   id: number;
   code: string;
   name: string;
-  unit: string;
-  item_type: string;
-}
-
-interface PaginatedInventory {
-  items: InventoryItem[];
 }
 
 const SUPPORTED_REQUESTABLE_TYPES = [
   "raw_material",
   "finished_good",
   "semi_finished",
+  "spare",
+  "consumable",
+  "attachment",
+  "weeder",
 ] as const;
 
 type RequestableItemType = (typeof SUPPORTED_REQUESTABLE_TYPES)[number];
@@ -77,7 +67,55 @@ const ITEM_TYPE_LABELS: Record<RequestableItemType, string> = {
   raw_material: "Raw materials",
   finished_good: "Finished goods",
   semi_finished: "Semi-finished",
+  spare: "Spares",
+  consumable: "Consumables",
+  attachment: "Attachments",
+  weeder: "Weeders",
 };
+
+async function fetchInventoryItems(type: RequestableItemType, q: string): Promise<InventoryItem[]> {
+  const searchParam = q.trim() ? `&search=${encodeURIComponent(q.trim())}` : '';
+  const qParam = q.trim() ? `&q=${encodeURIComponent(q.trim())}` : '';
+
+  switch (type) {
+    case "raw_material":
+    case "finished_good":
+    case "semi_finished": {
+      const data = await apiFetchJson<{ items: any[] }>(
+        `/api/v1/inventory?item_type=${type}&page_size=500&include_inactive=false${searchParam}`,
+      );
+      return (data.items || []).map((i) => ({ id: i.id, code: i.code, name: i.name }));
+    }
+    case "spare": {
+      const data = await apiFetchJson<any[]>(
+        `/api/v1/spares/variants/search?limit=50${qParam}`,
+      );
+      return (data || []).map((v: any) => ({
+        id: v.variant_id,
+        code: v.part_number || v.serial_number || "",
+        name: v.item_name,
+      }));
+    }
+    case "consumable": {
+      const data = await apiFetchJson<{ items: any[] }>(
+        `/api/v1/consumables?page_size=50${searchParam}`,
+      );
+      return (data.items || []).map((i) => ({ id: i.id, code: i.code || "", name: i.name }));
+    }
+    case "attachment": {
+      const data = await apiFetchJson<{ items: any[] }>(
+        `/api/v1/attachments?page_size=50${searchParam}`,
+      );
+      return (data.items || []).map((i) => ({ id: i.id, code: i.sn_no || "", name: i.description || i.sn_no || "" }));
+    }
+    case "weeder": {
+      const data = await apiFetchJson<{ items: any[] }>(
+        `/api/v1/weeders?page_size=50${searchParam}`,
+      );
+      return (data.items || []).map((i) => ({ id: i.id, code: i.sn_no || "", name: i.name || i.sn_no || "" }));
+    }
+  }
+}
 
 const TYPE_OPTIONS: { value: RequestType; label: string; short: string; icon: typeof ArrowLeftRight }[] = [
   { value: "internal_transfer", label: "Internal transfer", short: "Internal", icon: ArrowLeftRight },
@@ -102,12 +140,16 @@ function getPermittedTypes(): RequestableItemType[] {
   if (user.role === "admin" || user.role === "super_admin") {
     return [...SUPPORTED_REQUESTABLE_TYPES];
   }
-  const granted = user.request_inventory && user.request_inventory.length > 0
-    ? user.request_inventory
-    : (user.inventory_access && user.inventory_access.length > 0
-        ? user.inventory_access
-        : [...SUPPORTED_REQUESTABLE_TYPES]);
-  return SUPPORTED_REQUESTABLE_TYPES.filter((t) => canRequestInventory(t) || granted.includes(t));
+  return SUPPORTED_REQUESTABLE_TYPES.filter((t) => {
+    // Allowed by inventory_access (if set / non-empty)
+    const hasInventoryAccess = !user.inventory_access || user.inventory_access.length === 0
+      || user.inventory_access.includes(t);
+    // Allowed by request_inventory (if set / non-empty)
+    const hasRequestAccess = !user.request_inventory || user.request_inventory.length === 0
+      || user.request_inventory.includes(t);
+    // A type is permitted if the user has EITHER access
+    return hasInventoryAccess || hasRequestAccess;
+  });
 }
 
 export function RequestForm({
@@ -129,8 +171,6 @@ export function RequestForm({
 
   const [depts, setDepts] = useState<DeptRef[]>([]);
   const [deptsLoadFailed, setDeptsLoadFailed] = useState(false);
-  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
-  const [inventoryLoading, setInventoryLoading] = useState(true);
   const [itemType, setItemType] = useState<RequestableItemType>("raw_material");
 
   const permittedTypes = useMemo<RequestableItemType[]>(() => getPermittedTypes(), []);
@@ -154,21 +194,18 @@ export function RequestForm({
       .catch(() => setDeptsLoadFailed(true));
   }, []);
 
-  useEffect(() => {
-    if (noAccess) return;
-    let cancelled = false;
-    apiFetchJson<PaginatedInventory>(
-      `/api/v1/inventory?item_type=${effectiveItemType}&page_size=500&include_inactive=false`
-    )
-      .then((r) => { if (!cancelled) setInventoryItems(r.items); })
-      .catch(() => { if (!cancelled) setInventoryItems([]); })
-      .finally(() => { if (!cancelled) setInventoryLoading(false); });
-    return () => { cancelled = true; };
-  }, [effectiveItemType, noAccess]);
+
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (noAccess) return;
+
+    const filledItems = type === "customer_dispatch" ? [] : items.filter((i) => i.item_name);
+    if (type !== "customer_dispatch" && filledItems.length === 0) {
+      // Silently prevent submit — user hasn't entered any items yet.
+      return;
+    }
+
     setBusy(true);
     try {
       const payload: CreateRequestPayload = {
@@ -176,7 +213,7 @@ export function RequestForm({
         department: department || undefined,
         from_whom: type === "vendor_purchase" ? fromWhom : undefined,
         notes: notes || undefined,
-        items: type === "customer_dispatch" ? [] : items.filter((i) => i.item_name),
+        items: filledItems,
         dispatch: type === "customer_dispatch" ? dispatch : undefined,
       };
       await onSubmit(payload);
@@ -202,13 +239,13 @@ export function RequestForm({
       <div className="px-2 py-6">
         <Card className="ring-1 ring-foreground/5">
           <CardContent className="p-6 flex flex-col items-center text-center gap-3">
-            <div className="grid size-10 place-items-center rounded-full bg-amber-100 text-amber-700">
+            <div className="grid size-10 place-items-center rounded-full bg-warning/15 text-warning">
               <ShieldAlert className="size-5" />
             </div>
             <div>
               <h3 className="text-sm font-semibold">No inventory access</h3>
               <p className="text-xs text-muted-foreground mt-1 max-w-sm">
-                You don&apos;t have permission to request any inventory types. Please contact your administrator to update your access.
+                You don&apos;t have permission to request any inventory types. This form supports raw materials, finished goods, and semi-finished goods — your account may need additional permissions for these types. Please contact your administrator.
               </p>
             </div>
           </CardContent>
@@ -355,36 +392,21 @@ export function RequestForm({
               {items.map((it, i) => (
                 <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-2 rounded-lg border bg-muted/20 p-2.5">
                   <div className="flex-1 min-w-0">
-                    <Combobox
-                      value={it.inventory_item_id ? String(it.inventory_item_id) : ""}
-                      onValueChange={(v: unknown) => {
-                        const raw = v as string;
-                        const id = raw ? Number(raw) : null;
-                        const found = inventoryItems.find((x) => x.id === id);
-                        updateItem(i, { item_name: found?.name ?? "", inventory_item_id: id });
-                      }}
-                    >
-                      <ComboboxInput
-                        placeholder={inventoryLoading ? "Loading inventory…" : "Search inventory item..."}
-                        className="w-full"
-                        disabled={inventoryLoading}
-                      />
-                      <ComboboxContent>
-                        <ComboboxList>
-                          <ComboboxEmpty>No items found</ComboboxEmpty>
-                          {inventoryItems.map((inv) => (
-                            <ComboboxItem key={inv.id} value={String(inv.id)}>
-                              <span className="font-mono text-xs text-muted-foreground">{inv.code}</span>
-                              <span className="ml-2">{inv.name}</span>
-                              <span className="ml-auto text-xs text-muted-foreground">{inv.unit}</span>
-                            </ComboboxItem>
-                          ))}
-                        </ComboboxList>
-                      </ComboboxContent>
-                    </Combobox>
-                    {inventoryLoading && !it.inventory_item_id && (
-                      <Skeleton className="mt-1.5 h-2.5 w-32" />
-                    )}
+                    <SearchCombobox<InventoryItem>
+                      variant="plain"
+                      value={it.item_name || ""}
+                      placeholder="Search inventory item..."
+                      fetcher={async (q) => fetchInventoryItems(effectiveItemType, q)}
+                      getItemKey={(inv) => inv.id}
+                      getItemLabel={(inv) => `${inv.code} · ${inv.name}`}
+                      onSelect={(inv) => updateItem(i, { item_name: inv.name, inventory_item_id: inv.id })}
+                      renderItem={(inv) => (
+                        <>
+                          <span className="font-mono text-xs text-muted-foreground">{inv.code}</span>
+                          <span className="ml-2">{inv.name}</span>
+                        </>
+                      )}
+                    />
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <Button

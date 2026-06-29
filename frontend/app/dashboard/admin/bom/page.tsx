@@ -2,10 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList,
-  BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -99,31 +96,22 @@ export default function BomPage() {
 
   return (
     <>
-      <header className="sticky top-0 z-10 bg-background flex h-16 shrink-0 items-center border-b px-6">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href="/dashboard/admin/users">Admin</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
-            <BreadcrumbItem><BreadcrumbPage>Bill of Materials</BreadcrumbPage></BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </header>
-
-      <div className="p-4 md:p-6 space-y-4">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-xl font-semibold">Bill of Materials (BOM)</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Define which raw materials are needed per unit of each product.
-            </p>
-          </div>
+      <PageHeader
+        title="Bill of Materials (BOM)"
+        description="Define which raw materials are needed per unit of each product."
+        breadcrumbs={[
+          { label: "Admin", href: "/dashboard/admin/users" },
+          { label: "Bill of Materials" },
+        ]}
+        actions={
           <Button size="sm" onClick={() => router.push("/dashboard/admin/bom/new")}>
             <PlusIcon className="size-4 mr-1" />
             Add BOM Line
           </Button>
-        </div>
+        }
+      />
+
+      <div className="p-4 md:p-6 space-y-4">
 
         {/* Filters */}
         <div className="flex items-center gap-3 flex-wrap">
@@ -192,25 +180,11 @@ export default function BomPage() {
                           </Button>
                         </div>
                       </div>
-                      <div className="text-xs">
-                        <span className="text-muted-foreground">Qty / Unit:</span>{" "}
-                        <span className="font-medium">{line.qty_per_unit} {line.raw_material_unit}</span>
-                      </div>
-                      {line.material_used != null && (
-                        <div className="text-xs">
-                          <span className="text-muted-foreground">Material Used / Unit:</span>{" "}
-                          <span className="font-medium">{line.material_used} {usedUnit ?? "—"}</span>
-                        </div>
-                      )}
-                      {line.scrap != null && (
-                        <div className="text-xs">
-                          <span className="text-muted-foreground">Scrap / Unit:</span>{" "}
-                          <span className="font-medium">{line.scrap} {usedUnit ?? "—"}</span>
-                        </div>
-                      )}
-                      <div className="text-xs">
-                        <span className="text-muted-foreground">Unit (Used / Scrap):</span>{" "}
-                        <span className="font-medium">{line.material_unit ?? <span className="text-muted-foreground">inherits RM unit</span>}</span>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mt-2">
+                        <div><span className="text-muted-foreground">Qty / Unit:</span> <span className="font-medium">{line.qty_per_unit}</span></div>
+                        <div><span className="text-muted-foreground">Mat. Used:</span> <span className="font-medium">{line.material_used ?? "—"}</span></div>
+                        <div><span className="text-muted-foreground">Scrap:</span> <span className="font-medium">{line.scrap != null ? line.scrap : "Computed"}</span></div>
+                        <div><span className="text-muted-foreground">Unit:</span> <span className="font-medium">{line.material_unit ?? "inherits RM"}</span></div>
                       </div>
                       {line.notes && <p className="text-xs text-muted-foreground">{line.notes}</p>}
                     </div>
@@ -236,7 +210,7 @@ export default function BomPage() {
                       return (
                       <tr key={line.id} className={["border-b last:border-0 hover:bg-muted/20", !line.is_active ? "opacity-60" : ""].join(" ")}>
                         <td className="px-4 py-2.5">
-                          <div className="font-medium">{line.raw_material_name}</div>
+                          <div className="font-medium truncate max-w-[200px] whitespace-nowrap block">{line.raw_material_name}</div>
                           <div className="text-xs text-muted-foreground font-mono">{line.raw_material_code}</div>
                         </td>
                         <td className="px-4 py-2.5 text-right tabular-nums">
@@ -246,7 +220,7 @@ export default function BomPage() {
                           {line.material_used != null ? `${line.material_used} ${usedUnit ?? ""}` : "—"}
                         </td>
                         <td className="px-4 py-2.5 text-right tabular-nums">
-                          {line.scrap != null ? `${line.scrap} ${usedUnit ?? ""}` : "—"}
+                          {line.scrap != null ? `${line.scrap} ${usedUnit ?? ""}` : <span className="text-muted-foreground italic">Computed from weights</span>}
                         </td>
                         <td className="px-4 py-2.5 text-xs">
                           {line.material_unit ?? <span className="text-muted-foreground">inherits RM unit</span>}

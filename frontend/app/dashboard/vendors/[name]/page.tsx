@@ -3,10 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList,
-  BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
@@ -99,11 +96,11 @@ function fmt(n: number) {
 }
 
 const STATUS_BADGE: Record<string, string> = {
-  pending:       "bg-slate-100 text-slate-700",
-  confirmed:     "bg-blue-100 text-blue-700",
-  in_production: "bg-amber-100 text-amber-800",
-  delivered:     "bg-emerald-100 text-emerald-800",
-  cancelled:     "bg-red-100 text-red-700",
+  pending:       "bg-muted text-slate-700",
+  confirmed:     "bg-primary/10 text-primary",
+  in_production: "bg-warning/15 text-amber-800",
+  delivered:     "bg-success/10 text-emerald-800",
+  cancelled:     "bg-destructive/10 text-destructive",
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -170,29 +167,23 @@ export default function VendorDetailPage() {
   return (
     <>
       {/* ── Header ── */}
-      <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4 md:px-6">
-        <Link href="/dashboard/vendors" className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
-          <ArrowLeft className="size-4" />
-        </Link>
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href="/dashboard/vendors">Vendors</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
-            <BreadcrumbItem>
-              <BreadcrumbPage>{loading ? "Loading…" : vendorName}</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-        <Button
-          size="sm"
-          className="ml-auto"
-          onClick={() => router.push(`/dashboard/schedule/new`)}
-        >
-          + New Schedule
-        </Button>
-      </header>
+      <PageHeader
+        title={loading ? "Loading…" : vendorName}
+        breadcrumbs={[
+          { label: "Vendors", href: "/dashboard/vendors" },
+          { label: loading ? "Loading…" : vendorName },
+        ]}
+        actions={
+          <>
+            <Link href="/dashboard/vendors" className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
+              <ArrowLeft className="size-4" />
+            </Link>
+            <Button size="sm" onClick={() => router.push(`/dashboard/schedule/new`)}>
+              + New Schedule
+            </Button>
+          </>
+        }
+      />
 
       <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-6">
         {loading && (
@@ -232,12 +223,12 @@ export default function VendorDetailPage() {
               </div>
               <div className="rounded-xl border bg-card p-4 space-y-1">
                 <p className="text-xs text-muted-foreground">Total Delivered</p>
-                <p className="text-2xl font-bold text-emerald-600">{fmt(data.total_delivered)}</p>
+                <p className="text-2xl font-bold text-success">{fmt(data.total_delivered)}</p>
                 <p className="text-xs text-muted-foreground">units lifetime</p>
               </div>
               <div className="rounded-xl border bg-card p-4 space-y-1">
                 <p className="text-xs text-muted-foreground">Carry-over Backlog</p>
-                <p className={`text-2xl font-bold ${data.total_backlog > 0 ? "text-amber-600" : ""}`}>
+                <p className={`text-2xl font-bold ${data.total_backlog > 0 ? "text-warning" : ""}`}>
                   {fmt(data.total_backlog)}
                 </p>
                 <p className="text-xs text-muted-foreground">units from prev. periods</p>
@@ -272,13 +263,13 @@ export default function VendorDetailPage() {
                     : null;
 
                   return (
-                    <div key={p.product_name} className={`rounded-lg border p-4 ${urgent ? "border-amber-200 bg-amber-50/40" : ""}`}>
+                    <div key={p.product_name} className={`rounded-lg border p-4 ${urgent ? "border-warning/20 bg-warning/15/40" : ""}`}>
                       <div className="flex items-start gap-3 flex-wrap">
                         {/* Product name + FG link */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             {hasFG ? (
-                              <Link href={`/dashboard/inventory/${p.fg_item_id}`} className="font-semibold text-sm hover:underline text-blue-600">
+                              <Link href={`/dashboard/inventory/${p.fg_item_id}`} className="font-semibold text-sm hover:underline text-primary">
                                 {p.product_name}
                               </Link>
                             ) : (
@@ -288,7 +279,7 @@ export default function VendorDetailPage() {
                               <span className="text-xs font-mono text-muted-foreground">{p.fg_code}</span>
                             )}
                             {urgent && p.next_delivery_date && (
-                              <span className="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+                              <span className="text-xs bg-warning/15 text-amber-800 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
                                 <Clock className="size-3" />
                                 {days === 0 ? "Due today" : days! < 0 ? `${Math.abs(days!)}d overdue` : `Due in ${days}d`}
                               </span>
@@ -304,13 +295,13 @@ export default function VendorDetailPage() {
                               </span>
                             )}
                             {p.total_backlog > 0 && (
-                              <span className="text-amber-600 flex items-center gap-1">
+                              <span className="text-warning flex items-center gap-1">
                                 <TrendingDown className="size-3" />
                                 {fmt(p.total_backlog)} backlog
                               </span>
                             )}
                             {p.total_delivered > 0 && (
-                              <span className="text-emerald-600 flex items-center gap-1">
+                              <span className="text-success flex items-center gap-1">
                                 <TrendingUp className="size-3" />
                                 {fmt(p.total_delivered)} delivered
                               </span>
@@ -328,8 +319,8 @@ export default function VendorDetailPage() {
                         {hasFG && p.fg_available_qty !== null && (
                           <div className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg ring-1 ${
                             fgCoverage
-                              ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
-                              : "bg-red-50 text-red-700 ring-red-200"
+                              ? "bg-success/10 text-success ring-emerald-200"
+                              : "bg-destructive/10 text-destructive ring-red-200"
                           }`}>
                             {fgCoverage
                               ? <PackageCheck className="size-3.5" />
@@ -382,13 +373,13 @@ export default function VendorDetailPage() {
                         <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground flex-wrap">
                           <span>{fg.item_type === "finished_good" ? "Finished Good" : "Semi-Finished"}</span>
                           <span>·</span>
-                          <span className={fg.quantity_on_hand > 0 ? "text-emerald-600" : "text-amber-600"}>
+                          <span className={fg.quantity_on_hand > 0 ? "text-success" : "text-warning"}>
                             {fg.quantity_on_hand} {fg.unit} in stock
                           </span>
                           {fg.has_design_drawing && (
                             <>
                               <span>·</span>
-                              <span className="text-blue-600">Has Drawing</span>
+                              <span className="text-primary">Has Drawing</span>
                             </>
                           )}
                         </div>
@@ -429,11 +420,11 @@ export default function VendorDetailPage() {
                         <div><span className="text-muted-foreground">Ordered:</span> <span className="font-medium">{fmt(s.scheduled_qty)}</span></div>
                         <div>
                           <span className="text-muted-foreground">Backlog:</span>{" "}
-                          {s.backlog_qty > 0 ? <span className="text-amber-600">{fmt(s.backlog_qty)}</span> : "—"}
+                          {s.backlog_qty > 0 ? <span className="text-warning">{fmt(s.backlog_qty)}</span> : "—"}
                         </div>
                         <div className="flex items-center gap-1">
                           <span className="text-muted-foreground">Delivery:</span> {fmtDate(s.scheduled_date)}
-                          {days !== null && days <= 7 && days >= 0 && <Clock className="size-3 text-amber-500" />}
+                          {days !== null && days <= 7 && days >= 0 && <Clock className="size-3 text-warning" />}
                         </div>
                       </div>
                       <div className="flex justify-end pt-1 border-t">
@@ -447,7 +438,7 @@ export default function VendorDetailPage() {
                   <div className="flex items-center justify-between text-xs px-1 pt-1 border-t">
                     <span className="text-muted-foreground font-medium">Active Total</span>
                     <span className="font-semibold">{fmt(data.total_active_qty)}
-                      {data.total_backlog > 0 && <span className="ml-2 text-amber-600">(backlog: {fmt(data.total_backlog)})</span>}
+                      {data.total_backlog > 0 && <span className="ml-2 text-warning">(backlog: {fmt(data.total_backlog)})</span>}
                     </span>
                   </div>
                 )}
@@ -479,14 +470,14 @@ export default function VendorDetailPage() {
                           <td className="py-2.5 pr-4 text-right tabular-nums">{fmt(s.scheduled_qty)}</td>
                           <td className="py-2.5 pr-4 text-right tabular-nums">
                             {s.backlog_qty > 0
-                              ? <span className="text-amber-600">{fmt(s.backlog_qty)}</span>
+                              ? <span className="text-warning">{fmt(s.backlog_qty)}</span>
                               : <span className="text-muted-foreground">—</span>}
                           </td>
                           <td className="py-2.5 pr-4">
                             <div className="flex items-center gap-1.5">
                               <span>{fmtDate(s.scheduled_date)}</span>
                               {days !== null && days <= 7 && days >= 0 && (
-                                <Clock className="size-3 text-amber-500" />
+                                <Clock className="size-3 text-warning" />
                               )}
                             </div>
                           </td>
@@ -514,7 +505,7 @@ export default function VendorDetailPage() {
                       <tr className="border-t bg-muted/30">
                         <td colSpan={2} className="py-2 pr-4 text-xs font-medium text-muted-foreground">Active Total</td>
                         <td className="py-2 pr-4 text-right tabular-nums font-semibold">{fmt(data.total_active_qty)}</td>
-                        <td className="py-2 pr-4 text-right tabular-nums font-semibold text-amber-600">
+                        <td className="py-2 pr-4 text-right tabular-nums font-semibold text-warning">
                           {data.total_backlog > 0 ? fmt(data.total_backlog) : "—"}
                         </td>
                         <td colSpan={3} />
@@ -530,7 +521,7 @@ export default function VendorDetailPage() {
               const inProd = data.schedules.filter(s => s.status === "in_production");
               if (inProd.length === 0) return null;
               return (
-                <div className="rounded-xl border-2 border-amber-200 bg-amber-50/50 p-5">
+                <div className="rounded-xl border-2 border-warning/20 bg-warning/15/50 p-5">
                   <SectionHeader icon={Clock} title={`Current Jobs (${inProd.length})`} />
                   <div className="space-y-2">
                     {inProd.map(s => {
@@ -542,14 +533,14 @@ export default function VendorDetailPage() {
                             <p className="font-medium text-sm truncate">{s.description}</p>
                             <p className="text-xs text-muted-foreground mt-0.5">
                               Qty: <span className="font-semibold text-foreground">{fmt(s.scheduled_qty)}</span>
-                              {s.backlog_qty > 0 && <span className="text-amber-600 ml-2">+{fmt(s.backlog_qty)} backlog</span>}
+                              {s.backlog_qty > 0 && <span className="text-warning ml-2">+{fmt(s.backlog_qty)} backlog</span>}
                             </p>
                           </div>
                           <div className="text-right shrink-0">
                             <p className="text-xs text-muted-foreground">Delivery</p>
                             <p className="text-sm font-medium">{fmtDate(s.scheduled_date)}</p>
                             {days !== null && (
-                              <p className={`text-xs font-medium ${days < 0 ? "text-red-600" : days <= 7 ? "text-amber-600" : "text-emerald-600"}`}>
+                              <p className={`text-xs font-medium ${days < 0 ? "text-destructive" : days <= 7 ? "text-warning" : "text-success"}`}>
                                 {days === 0 ? "Today" : days < 0 ? `${Math.abs(days)}d overdue` : `in ${days}d`}
                               </p>
                             )}
@@ -581,15 +572,15 @@ export default function VendorDetailPage() {
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="font-mono text-xs">{po.po_number}</span>
                           <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
-                            po.status === "received" ? "bg-emerald-100 text-emerald-700" :
-                            po.status === "approved" ? "bg-blue-100 text-blue-700" :
-                            po.status === "cancelled" ? "bg-red-100 text-red-700" :
-                            "bg-slate-100 text-slate-700"
+                            po.status === "received" ? "bg-success/10 text-success" :
+                            po.status === "approved" ? "bg-primary/10 text-primary" :
+                            po.status === "cancelled" ? "bg-destructive/10 text-destructive" :
+                            "bg-muted text-slate-700"
                           }`}>
                             {po.status}
                           </span>
                           {po.purchase_request_number && (
-                            <span className="text-[10px] text-blue-600 font-mono">PR: {po.purchase_request_number}</span>
+                            <span className="text-[10px] text-primary font-mono">PR: {po.purchase_request_number}</span>
                           )}
                         </div>
                         <div className="flex items-center gap-3 text-xs text-muted-foreground shrink-0">

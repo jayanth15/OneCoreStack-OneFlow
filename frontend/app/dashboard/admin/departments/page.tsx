@@ -2,14 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-  BreadcrumbLink,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -93,30 +86,15 @@ export default function DepartmentsPage() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-6">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href="/dashboard">Dashboard</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
-            <BreadcrumbItem>
-              <BreadcrumbPage>Departments</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </header>
-
-      <div className="p-4 md:p-6 space-y-4">
-        {/* ── Header ─────────────────────────────────────────────────────── */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h1 className="text-xl font-semibold">Departments</h1>
-            <p className="text-sm text-muted-foreground">
-              Manage organizational departments. Users can belong to multiple departments.
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
+      <PageHeader
+        title="Departments"
+        description="Manage organizational departments. Users can belong to multiple departments."
+        breadcrumbs={[
+          { label: "Dashboard", href: "/dashboard" },
+          { label: "Departments" },
+        ]}
+        actions={
+          <>
             <label className="flex items-center gap-1.5 text-sm text-muted-foreground cursor-pointer select-none">
               <input
                 type="checkbox"
@@ -130,8 +108,11 @@ export default function DepartmentsPage() {
               <PlusIcon className="size-4 mr-1" />
               Add Department
             </Button>
-          </div>
-        </div>
+          </>
+        }
+      />
+
+      <div className="p-4 md:p-6 space-y-4">
 
         {/* ── Summary Cards ──────────────────────────────────────────────── */}
         {!loading && depts.length > 0 && (
@@ -142,7 +123,7 @@ export default function DepartmentsPage() {
             </div>
             <div className="rounded-lg border bg-card p-3">
               <p className="text-xs text-muted-foreground">Active</p>
-              <p className="text-lg font-semibold text-green-600">{activeDepts}</p>
+              <p className="text-lg font-semibold text-success">{activeDepts}</p>
             </div>
             <div className="rounded-lg border bg-card p-3">
               <p className="text-xs text-muted-foreground">Total Users Assigned</p>
@@ -303,7 +284,7 @@ export default function DepartmentsPage() {
               This will mark <strong>{deleteDept?.name ?? "this department"}</strong> as inactive.
               It will no longer appear in lists but existing records are kept.
               {(deleteDept?.user_count ?? 0) > 0 && (
-                <span className="block mt-1 text-amber-600">
+                <span className="block mt-1 text-warning">
                   This department has {deleteDept?.user_count} user{deleteDept?.user_count !== 1 ? "s" : ""} assigned.
                 </span>
               )}

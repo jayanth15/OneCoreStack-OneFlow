@@ -1,15 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbList,
-  BreadcrumbPage,
-} from "@/components/ui/breadcrumb";
+import { useCallback, useEffect, useState } from "react";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchCombobox } from "@/components/ui/search-combobox";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
@@ -81,6 +77,18 @@ interface GRNRecord {
   items: GRNItem[];
 }
 
+interface CompanyInfo {
+  company_name: string;
+  company_address: string;
+  company_city: string;
+  company_state: string;
+  company_country: string;
+  company_pincode: string;
+  company_phone: string;
+  company_email: string;
+  company_gstin: string;
+}
+
 interface PaginatedGRN {
   items: GRNRecord[];
   total: number;
@@ -109,6 +117,30 @@ interface PRItem {
 interface UserItem {
   id: number;
   username: string;
+}
+
+interface LinkablePo {
+  id: number;
+  po_number: string;
+  supplier_name: string | null;
+  vendor_name: string | null;
+  party_type: string;
+}
+
+interface PoDetailItem {
+  id: number;
+  item_name: string;
+  quantity: number;
+  unit: string | null;
+}
+
+interface PoDetail {
+  id: number;
+  po_number: string;
+  party_type: string;
+  supplier_name: string | null;
+  vendor_name: string | null;
+  items: PoDetailItem[];
 }
 
 // ── Form row type ─────────────────────────────────────────────────────────────
@@ -154,222 +186,32 @@ function grnItemToFormRow(item: GRNItem): FormItemRow {
   };
 }
 
-function prToFormRow(pr: PRItem): FormItemRow {
+function prItemToFormRow(pr: PRItem): FormItemRow {
   return {
-    _key: ++_rowKey,
+    _key: Date.now() + Math.random(),
     inventory_item_id: pr.inventory_item_id,
     item_name: pr.item_name ?? "",
     item_code: pr.item_code ?? "",
-    item_type: pr.item_type ?? "raw_material",
+    item_type: pr.item_type ?? "",
     unit: pr.unit ?? "",
-    quantity_received: String(pr.quantity),
-    quantity_pr_requested: String(pr.quantity),
+    quantity_received: "",
+    quantity_pr_requested: String(pr.quantity ?? ""),
     invTypeFilter: "",
   };
 }
 
-// ── Inventory combobox ────────────────────────────────────────────────────────
-
-function InvCombobox({
-  value,
-  onSelect,
-  disabled,
-  itemTypeFilter,
-}: {
-  value: string;
-  onSelect: (item: InvItem) => void;
-  disabled?: boolean;
-  itemTypeFilter?: string;
-}) {
-  const [query, setQuery] = useState(value);
-  const [results, setResults] = useState<InvItem[]>([]);
-  const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => { setQuery(value); }, [value]);
-
-  const search = useCallback(
-    (q: string) => {
-      if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(async () => {
-        setBusy(true);
-        try {
-          const qs = q.trim() ? `&search=${encodeURIComponent(q)}` : "";
-          const tf = itemTypeFilter ? `&item_type=${encodeURIComponent(itemTypeFilter)}` : "";
-          const d = await apiFetchJson<PaginatedInv>(
-            `/api/v1/inventory?page_size=12&include_inactive=false${tf}${qs}`
-          );
-          setResults(d.items.map((i) => ({ id: i.id, code: i.code, name: i.name, item_type: i.item_type, unit: i.unit })));
-        } catch { /* ignore */ } finally { setBusy(false); }
-      }, q.trim() ? 300 : 0);
-    },
-    [itemTypeFilter]
-  );
-
-  return (
-    <div className="relative">
-      <input
-        type="text"
-        value={query}
-        disabled={disabled}
-        placeholder="Search inventory item…"
-        className="w-full px-3 py-1.5 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-        onChange={(e) => { setQuery(e.target.value); setOpen(true); search(e.target.value); }}
-        onFocus={() => { setOpen(true); if (!query) search(""); }}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
-      />
-      {open && (results.length > 0 || busy) && (
-        <div className="absolute z-50 top-full mt-1 w-full bg-popover border rounded-md shadow-md overflow-hidden">
-          {busy && results.length === 0 ? (
-            <div className="px-3 py-2 text-xs text-muted-foreground flex items-center gap-1.5">
-              <Loader2 className="size-3 animate-spin" /> Searching…
-            </div>
-          ) : (
-            results.map((item) => (
-              <button key={item.id} type="button"
-                className="w-full px-3 py-2 text-left text-sm hover:bg-accent transition-colors"
-                onMouseDown={() => { onSelect(item); setQuery(item.name); setOpen(false); }}>
-                <span className="font-medium">{item.name}</span>
-                <span className="text-xs text-muted-foreground ml-2">{item.code}</span>
-                <span className="text-xs text-muted-foreground ml-1">· {item.unit}</span>
-              </button>
-            ))
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── PR combobox ───────────────────────────────────────────────────────────────
-
-function PrCombobox({
-  value,
-  onSelect,
-  disabled,
-}: {
-  value: string;
-  onSelect: (pr: PRItem) => void;
-  disabled?: boolean;
-}) {
-  const [query, setQuery] = useState(value);
-  const [results, setResults] = useState<PRItem[]>([]);
-  const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => { setQuery(value); }, [value]);
-
-  const search = useCallback((q: string) => {
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(async () => {
-      setBusy(true);
-      try {
-        const qs = q.trim() ? `?search=${encodeURIComponent(q)}` : "";
-        setResults(await apiFetchJson<PRItem[]>(`/api/v1/grn/linkable-prs${qs}`));
-      } catch { /* ignore */ } finally { setBusy(false); }
-    }, q.trim() ? 300 : 0);
-  }, []);
-
-  return (
-    <div className="relative">
-      <input
-        type="text"
-        value={query}
-        disabled={disabled}
-        placeholder="Search purchase request…"
-        className="w-full px-3 py-1.5 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-        onChange={(e) => { setQuery(e.target.value); setOpen(true); search(e.target.value); }}
-        onFocus={() => { setOpen(true); if (!query) search(""); }}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
-      />
-      {open && (results.length > 0 || busy) && (
-        <div className="absolute z-50 top-full mt-1 w-full bg-popover border rounded-md shadow-md overflow-hidden">
-          {busy && results.length === 0 ? (
-            <div className="px-3 py-2 text-xs text-muted-foreground flex items-center gap-1.5">
-              <Loader2 className="size-3 animate-spin" /> Searching…
-            </div>
-          ) : (
-            results.map((pr) => (
-              <button key={pr.id} type="button"
-                className="w-full px-3 py-2 text-left text-sm hover:bg-accent transition-colors"
-                onMouseDown={() => { onSelect(pr); setQuery(`${pr.sn_no} · ${pr.item_name ?? ""}`); setOpen(false); }}>
-                <span className="font-mono font-medium text-xs">{pr.sn_no}</span>
-                <span className="text-sm ml-2">{pr.item_name ?? "—"}</span>
-                <span className="text-xs text-muted-foreground ml-1.5">
-                  qty {pr.quantity} · {pr.status}
-                </span>
-              </button>
-            ))
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── User combobox ─────────────────────────────────────────────────────────────
-
-function UserCombobox({
-  value,
-  onSelect,
-  disabled,
-}: {
-  value: string;
-  onSelect: (u: UserItem) => void;
-  disabled?: boolean;
-}) {
-  const [query, setQuery] = useState(value);
-  const [results, setResults] = useState<UserItem[]>([]);
-  const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => { setQuery(value); }, [value]);
-
-  const search = useCallback((q: string) => {
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(async () => {
-      setBusy(true);
-      try {
-        const d = await apiFetchJson<UserItem[]>(`/api/v1/admin/users?include_inactive=false`);
-        setResults((q.trim() ? d.filter((u) => u.username.toLowerCase().includes(q.toLowerCase())) : d).slice(0, 20));
-      } catch { /* ignore */ } finally { setBusy(false); }
-    }, q.trim() ? 200 : 0);
-  }, []);
-
-  return (
-    <div className="relative">
-      <input
-        type="text"
-        value={query}
-        disabled={disabled}
-        placeholder="Search user…"
-        className="w-full px-3 py-1.5 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-        onChange={(e) => { setQuery(e.target.value); setOpen(true); search(e.target.value); }}
-        onFocus={() => { setOpen(true); if (!query) search(""); }}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
-      />
-      {open && (results.length > 0 || busy) && (
-        <div className="absolute z-50 top-full mt-1 w-full bg-popover border rounded-md shadow-md overflow-hidden">
-          {busy && results.length === 0 ? (
-            <div className="px-3 py-2 text-xs text-muted-foreground flex items-center gap-1.5">
-              <Loader2 className="size-3 animate-spin" /> Searching…
-            </div>
-          ) : (
-            results.map((u) => (
-              <button key={u.id} type="button"
-                className="w-full px-3 py-2 text-left text-sm hover:bg-accent transition-colors"
-                onMouseDown={() => { onSelect(u); setQuery(u.username); setOpen(false); }}>
-                {u.username}
-              </button>
-            ))
-          )}
-        </div>
-      )}
-    </div>
-  );
+function poItemToFormRow(item: PoDetailItem): FormItemRow {
+  return {
+    _key: Date.now() + Math.random(),
+    inventory_item_id: null,
+    item_name: item.item_name ?? "",
+    item_code: "",
+    item_type: "raw_material",
+    unit: item.unit ?? "",
+    quantity_received: "",
+    quantity_pr_requested: "",
+    invTypeFilter: "",
+  };
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -385,10 +227,10 @@ function fmtDateTime(iso: string | null) {
 
 function StatusBadge({ status }: { status: string }) {
   if (status === "stock_filled")
-    return <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700 border border-green-200"><CheckCircle className="size-3" /> Stock Filled</span>;
+    return <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-success/10 text-success border border-success/20"><CheckCircle className="size-3" /> Stock Filled</span>;
   if (status === "partially_filled")
-    return <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200"><Package className="size-3" /> Partial</span>;
-  return <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200"><Clock className="size-3" /> In Lobby</span>;
+    return <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-tone-violet/10 text-tone-violet border border-indigo-200"><Package className="size-3" /> Partial</span>;
+  return <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-warning/15 text-warning border border-warning/20"><Clock className="size-3" /> In Lobby</span>;
 }
 
 const INV_TYPE_OPTIONS = [
@@ -405,6 +247,7 @@ const INV_TYPE_OPTIONS = [
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function GRNPage() {
+  const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [data, setData] = useState<PaginatedGRN | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -427,6 +270,10 @@ export default function GRNPage() {
   const [formItems, setFormItems] = useState<FormItemRow[]>([newRow()]);
   const [saving, setSaving] = useState(false);
   const [formErr, setFormErr] = useState<string | null>(null);
+  const [prefillErr, setPrefillErr] = useState<string | null>(null);
+  const [linkedPoId, setLinkedPoId] = useState<number | null>(null);
+  const [linkedPoLabel, setLinkedPoLabel] = useState("");
+  const [poPrefillErr, setPoPrefillErr] = useState<string | null>(null);
 
   // View detail dialog
   const [viewGrn, setViewGrn] = useState<GRNRecord | null>(null);
@@ -446,6 +293,7 @@ export default function GRNPage() {
   useEffect(() => {
     const user = getCurrentUser();
     if (user) setCanManage(user.grn_access === true);
+    apiFetchJson<CompanyInfo>("/api/v1/settings/company").then(setCompanyInfo).catch(() => {});
   }, []);
 
   const fetchData = useCallback(() => {
@@ -467,6 +315,8 @@ export default function GRNPage() {
     setGrnNotes("");
     setLinkedPrId(null);
     setLinkedPrLabel("");
+    setLinkedPoId(null);
+    setLinkedPoLabel("");
     setPoNumber("");
     setDcNumber("");
     setInspectedByUserId(null);
@@ -508,16 +358,50 @@ export default function GRNPage() {
   // Whether items are editable in the current form context
   const canEditFormItems = !editingGrn || editingGrn.status === "draft";
 
-  function handlePrSelect(pr: PRItem) {
+  async function handlePrSelect(pr: PRItem) {
+    const replacingWithQty = formItems.some(
+      (r) => parseFloat(r.quantity_received) > 0,
+    );
+    if (replacingWithQty) {
+      if (!confirm("This will replace the items already added. Continue?")) {
+        return;
+      }
+    }
     setLinkedPrId(pr.id);
     setLinkedPrLabel(`${pr.sn_no} · ${pr.item_name ?? ""}`);
-    // Auto-fill item row from PR
-    if (canEditFormItems && (pr.item_name || pr.inventory_item_id)) {
-      const prRow = prToFormRow(pr);
-      setFormItems((prev) => {
-        const hasEmpty = prev.length === 1 && !prev[0].item_name && !prev[0].inventory_item_id;
-        return hasEmpty ? [prRow] : [...prev, prRow];
-      });
+    setPrefillErr(null);
+    try {
+      const items = await apiFetchJson<PRItem[]>(`/api/v1/grn/linkable-prs/${pr.id}/items`);
+      setFormItems(items.length > 0 ? items.map(prItemToFormRow) : [prItemToFormRow(pr)]);
+    } catch (e: unknown) {
+      setLinkedPrId(null);
+      setLinkedPrLabel("");
+      setPrefillErr(e instanceof Error ? e.message : "Could not load PR items");
+    }
+  }
+
+  async function handlePoSelect(po: LinkablePo) {
+    const replacingWithQty = formItems.some(
+      (r) => parseFloat(r.quantity_received) > 0,
+    );
+    if (replacingWithQty) {
+      if (!confirm("This will replace the items already added. Continue?")) {
+        return;
+      }
+    }
+    setLinkedPoId(po.id);
+    setLinkedPoLabel(`${po.po_number} · ${po.supplier_name || po.vendor_name || ""}`);
+    setPoPrefillErr(null);
+    try {
+      const detail = await apiFetchJson<PoDetail>(`/api/v1/purchase-orders/${po.id}`);
+      setPoNumber(detail.po_number || "");
+      if (detail.items && detail.items.length > 0) {
+        setFormItems(detail.items.map(poItemToFormRow));
+      }
+    } catch (e: unknown) {
+      setLinkedPoId(null);
+      setLinkedPoLabel("");
+      setPoPrefillErr(e instanceof Error ? e.message : "Could not load PO details");
     }
   }
 
@@ -627,6 +511,15 @@ export default function GRNPage() {
     const totalReceived = grn.items.reduce((s, it) => s + it.quantity_received, 0);
     const totalFilled = grn.items.reduce((s, it) => s + it.quantity_filled, 0);
     const totalReturned = grn.items.reduce((s, it) => s + it.quantity_returned, 0);
+    const co = companyInfo;
+    const coHtml = (co && co.company_name) ? `
+      <div style="text-align:center;margin-bottom:20px;padding-bottom:10px;border-bottom:2px solid #333;">
+        <h1 style="margin:0;font-size:20px;font-weight:bold;">${co.company_name}</h1>
+        <p style="margin:4px 0;">${[co.company_address, co.company_city, co.company_state].filter(Boolean).join(', ')}${co.company_pincode ? ' - ' + co.company_pincode : ''}</p>
+        <p style="margin:2px 0;font-size:12px;">
+          ${[co.company_phone ? `Phone: ${co.company_phone}` : '', co.company_email ? `Email: ${co.company_email}` : '', co.company_gstin ? `GST: ${co.company_gstin}` : ''].filter(Boolean).join(' | ')}
+        </p>
+      </div>` : '';
     win.document.write(`<!DOCTYPE html><html><head><title>GRN — ${grn.grn_number}</title>
 <style>
   body { font-family: Arial, sans-serif; font-size: 13px; margin: 24px; color: #111; }
@@ -640,6 +533,7 @@ export default function GRNPage() {
   .text-right { text-align: right; }
   @media print { body { margin: 0; } }
 </style></head><body>
+${coHtml}
 <h2>Goods Received Note — ${grn.grn_number}</h2>
 <p style="color:#666;font-size:11px">Generated on ${new Date().toLocaleString("en-IN")}</p>
 <div class="row">
@@ -773,12 +667,74 @@ ${grn.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${grn.notes}</
       <div>
         <Label className="text-sm">Linked Purchase Request (optional)</Label>
         <div className="mt-1">
-          <PrCombobox value={linkedPrLabel} onSelect={handlePrSelect} disabled={saving} />
+          <SearchCombobox<PRItem>
+            variant="plain"
+            value={linkedPrLabel}
+            disabled={saving}
+            placeholder="Search purchase request…"
+            fetcher={async (q) => {
+              const qs = q.trim() ? `?search=${encodeURIComponent(q)}` : "";
+              return apiFetchJson<PRItem[]>(`/api/v1/grn/linkable-prs${qs}`);
+            }}
+            getItemKey={(p) => p.id}
+            getItemLabel={(p) => `${p.sn_no} · ${p.item_name ?? ""}`}
+            onSelect={handlePrSelect}
+            renderItem={(pr) => (
+              <>
+                <span className="font-mono font-medium text-xs">{pr.sn_no}</span>
+                <span className="text-sm ml-2">{pr.item_name ?? "—"}</span>
+                <span className="text-xs text-muted-foreground ml-1.5">
+                  qty {pr.quantity} · {pr.status}
+                </span>
+              </>
+            )}
+          />
         </div>
+        {prefillErr && (
+          <p className="text-xs text-destructive mt-1">{prefillErr}</p>
+        )}
         {linkedPrId && (
           <button type="button" className="text-xs text-muted-foreground hover:text-destructive mt-1"
             onClick={() => { setLinkedPrId(null); setLinkedPrLabel(""); }} disabled={saving}>
             Clear linked PR
+          </button>
+        )}
+      </div>
+
+      {/* Linked PO */}
+      <div>
+        <Label className="text-sm">Linked Purchase Order (optional)</Label>
+        <div className="mt-1">
+          <SearchCombobox<LinkablePo>
+            variant="plain"
+            value={linkedPoLabel}
+            disabled={saving}
+            placeholder="Search purchase order…"
+            fetcher={async (q) => {
+              const qs = q.trim() ? `?search=${encodeURIComponent(q)}` : "";
+              return apiFetchJson<LinkablePo[]>(`/api/v1/purchase-orders/linkable${qs}`);
+            }}
+            getItemKey={(p) => p.id}
+            getItemLabel={(p) => `${p.po_number} · ${p.supplier_name || p.vendor_name || ""}`}
+            onSelect={handlePoSelect}
+            renderItem={(po) => (
+              <>
+                <span className="font-mono font-medium text-xs">{po.po_number}</span>
+                <span className="text-sm ml-2">{po.supplier_name || po.vendor_name || "—"}</span>
+                <span className="text-xs text-muted-foreground ml-1.5">
+                  {po.party_type}
+                </span>
+              </>
+            )}
+          />
+        </div>
+        {poPrefillErr && (
+          <p className="text-xs text-destructive mt-1">{poPrefillErr}</p>
+        )}
+        {linkedPoId && (
+          <button type="button" className="text-xs text-muted-foreground hover:text-destructive mt-1"
+            onClick={() => { setLinkedPoId(null); setLinkedPoLabel(""); }} disabled={saving}>
+            Clear linked PO
           </button>
         )}
       </div>
@@ -801,9 +757,17 @@ ${grn.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${grn.notes}</
       <div>
         <Label className="text-sm">Inspected By (optional)</Label>
         <div className="mt-1">
-          <UserCombobox value={inspectedByUsername}
+          <SearchCombobox<UserItem>
+            variant="plain"
+            value={inspectedByUsername}
+            disabled={saving}
+            placeholder="Search user…"
+            fetcher={async () => apiFetchJson<UserItem[]>(`/api/v1/admin/users?include_inactive=false`)}
+            getItemKey={(u) => u.id}
+            getItemLabel={(u) => u.username}
             onSelect={(u) => { setInspectedByUserId(u.id); setInspectedByUsername(u.username); }}
-            disabled={saving} />
+            renderItem={(u) => <span>{u.username}</span>}
+          />
         </div>
         {inspectedByUserId && (
           <button type="button" className="text-xs text-muted-foreground hover:text-destructive mt-1"
@@ -826,7 +790,7 @@ ${grn.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${grn.notes}</
         </div>
 
         {!canEditFormItems && (
-          <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700 mb-2">
+          <div className="rounded-md bg-warning/15 border border-warning/20 px-3 py-2 text-xs text-warning mb-2">
             Items are locked — filling has already started. Use Fill Items or Return Items to adjust quantities.
           </div>
         )}
@@ -860,11 +824,33 @@ ${grn.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${grn.notes}</
                     </div>
                     <div className="col-span-2">
                       <Label className="text-xs text-muted-foreground mb-1 block">Inventory Item</Label>
-                      <InvCombobox value={row.item_name} disabled={saving} itemTypeFilter={row.invTypeFilter}
+                      <SearchCombobox<InvItem>
+                        variant="plain"
+                        value={row.item_name}
+                        disabled={saving}
+                        placeholder="Search inventory item…"
+                        fetcher={async (q) => {
+                          const tf = row.invTypeFilter ? `&item_type=${encodeURIComponent(row.invTypeFilter)}` : "";
+                          const qs = q.trim() ? `&search=${encodeURIComponent(q)}` : "";
+                          const d = await apiFetchJson<PaginatedInv>(
+                            `/api/v1/inventory?page_size=12&include_inactive=false${tf}${qs}`,
+                          );
+                          return d.items.map((i) => ({ id: i.id, code: i.code, name: i.name, item_type: i.item_type, unit: i.unit }));
+                        }}
+                        getItemKey={(i) => i.id}
+                        getItemLabel={(i) => i.name}
                         onSelect={(item) => updateRow(row._key, {
                           inventory_item_id: item.id, item_name: item.name,
                           item_code: item.code, item_type: item.item_type, unit: item.unit,
-                        })} />
+                        })}
+                        renderItem={(i) => (
+                          <>
+                            <span className="font-medium">{i.name}</span>
+                            <span className="text-xs text-muted-foreground ml-2">{i.code}</span>
+                            <span className="text-xs text-muted-foreground ml-1">· {i.unit}</span>
+                          </>
+                        )}
+                      />
                     </div>
                   </div>
 
@@ -879,7 +865,7 @@ ${grn.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${grn.notes}</
                       <Label className="text-xs text-muted-foreground mb-1 block">
                         Qty Received{row.unit ? ` (${row.unit})` : ""}
                         {row.quantity_pr_requested && (
-                          <span className="ml-1 text-blue-600">(PR: {row.quantity_pr_requested})</span>
+                          <span className="ml-1 text-primary">(PR: {row.quantity_pr_requested})</span>
                         )}
                       </Label>
                       <Input type="number" min="0.001" step="any" value={row.quantity_received}
@@ -894,7 +880,7 @@ ${grn.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${grn.notes}</
                   <div><span className="text-muted-foreground">Item:</span> <span className="font-medium">{row.item_name || "—"}</span></div>
                   <div><span className="text-muted-foreground">Qty:</span> <span className="font-medium">{row.quantity_received} {row.unit}</span></div>
                   {row.quantity_pr_requested && (
-                    <div className="col-span-2"><span className="text-muted-foreground">PR requested:</span> <span className="font-medium text-blue-700">{row.quantity_pr_requested} {row.unit}</span></div>
+                    <div className="col-span-2"><span className="text-muted-foreground">PR requested:</span> <span className="font-medium text-primary">{row.quantity_pr_requested} {row.unit}</span></div>
                   )}
                 </div>
               )}
@@ -907,15 +893,10 @@ ${grn.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${grn.notes}</
 
   return (
     <>
-      <header className="sticky top-0 z-10 bg-background flex h-16 shrink-0 items-center border-b px-6">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbPage>Goods Received Notes</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </header>
+      <PageHeader
+        title="Goods Received Notes"
+        breadcrumbs={[{ label: "Goods Received Notes" }]}
+      />
 
       <div className="p-4 md:p-6 space-y-4">
         {/* Header */}
@@ -997,7 +978,7 @@ ${grn.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${grn.notes}</
                     return (
                       <div>
                         <span className="text-muted-foreground">PR / Rcvd:</span>{" "}
-                        <span className={`font-semibold tabular-nums ${short ? "text-red-600" : over ? "text-amber-600" : "text-green-700"}`}>
+                        <span className={`font-semibold tabular-nums ${short ? "text-destructive" : over ? "text-warning" : "text-success"}`}>
                           {totalPrQty} / {totalRcvd}
                         </span>
                       </div>
@@ -1014,7 +995,7 @@ ${grn.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${grn.notes}</
                     </Button>
                   )}
                   {canManage && g.status !== "stock_filled" && (
-                    <Button variant="ghost" size="sm" className="h-8 text-xs text-green-700 hover:text-green-900"
+                    <Button variant="ghost" size="sm" className="h-8 text-xs text-success hover:text-green-900"
                       onClick={() => { setFillGrn(g); initFillQtys(g); }}>
                       <CheckCircle className="size-3.5 mr-1" />
                       {g.status === "partially_filled" ? "Fill More" : "Fill Items"}
@@ -1078,7 +1059,7 @@ ${grn.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${grn.notes}</
                         <td className="px-4 py-3 text-xs">{fmtDate(g.created_at)}</td>
                         <td className="px-4 py-3 text-xs">
                           {g.purchase_request_sn_no
-                            ? <span className="font-mono text-blue-700">{g.purchase_request_sn_no}</span>
+                            ? <span className="font-mono text-primary">{g.purchase_request_sn_no}</span>
                             : <span className="text-muted-foreground">—</span>}
                         </td>
                         <td className="px-4 py-3 text-sm">{g.received_by_username ?? "—"}</td>
@@ -1094,7 +1075,7 @@ ${grn.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${grn.notes}</
                         <td className="px-4 py-3 text-center">
                           {hasPrQty ? (
                             <span className={`text-xs font-semibold tabular-nums ${
-                              qtyShort ? "text-red-600" : qtyOver ? "text-amber-600" : "text-green-700"
+                              qtyShort ? "text-destructive" : qtyOver ? "text-warning" : "text-success"
                             }`}>
                               {totalPrQty} / {totalReceivedQty}
                             </span>
@@ -1114,7 +1095,7 @@ ${grn.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${grn.notes}</
                               </Button>
                             )}
                             {canManage && g.status !== "stock_filled" && (
-                              <Button variant="ghost" size="sm" className="h-8 text-xs text-green-700 hover:text-green-900"
+                              <Button variant="ghost" size="sm" className="h-8 text-xs text-success hover:text-green-900"
                                 onClick={() => { setFillGrn(g); initFillQtys(g); }}>
                                 <CheckCircle className="size-3.5 mr-1" />
                                 {g.status === "partially_filled" ? "Fill More" : "Fill Items"}
@@ -1177,7 +1158,7 @@ ${grn.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${grn.notes}</
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <CheckCircle className="size-4 text-green-600" />
+              <CheckCircle className="size-4 text-success" />
               Fill Items — {fillGrn?.grn_number}
             </DialogTitle>
           </DialogHeader>
@@ -1209,12 +1190,12 @@ ${grn.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${grn.notes}</
                             <span className="font-medium">{item.item_name ?? "—"}</span>
                             {item.item_code && <span className="text-muted-foreground ml-1 font-mono">{item.item_code}</span>}
                           </td>
-                          <td className="px-3 py-2 text-right font-mono text-blue-700">
+                          <td className="px-3 py-2 text-right font-mono text-primary">
                             {item.quantity_pr_requested != null ? item.quantity_pr_requested : "—"}
                           </td>
                           <td className="px-3 py-2 text-right font-mono">{item.quantity_received} {item.unit ?? ""}</td>
-                          <td className="px-3 py-2 text-right font-mono text-green-700">{item.quantity_filled}</td>
-                          <td className="px-3 py-2 text-right font-mono text-amber-700">{Math.round(remaining * 1000) / 1000}</td>
+                          <td className="px-3 py-2 text-right font-mono text-success">{item.quantity_filled}</td>
+                          <td className="px-3 py-2 text-right font-mono text-warning">{Math.round(remaining * 1000) / 1000}</td>
                           <td className="px-3 py-2 text-right">
                             {canFill ? (
                               <Input type="number" min="0" max={remaining} step="any"
@@ -1274,7 +1255,7 @@ ${grn.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${grn.notes}</
                           <span className="font-medium">{item.item_name ?? "—"}</span>
                           {item.item_code && <span className="text-muted-foreground ml-1 font-mono">{item.item_code}</span>}
                         </td>
-                        <td className="px-3 py-2 text-right font-mono text-green-700">{item.quantity_filled} {item.unit ?? ""}</td>
+                        <td className="px-3 py-2 text-right font-mono text-success">{item.quantity_filled} {item.unit ?? ""}</td>
                         <td className="px-3 py-2 text-right font-mono text-muted-foreground">{item.quantity_returned}</td>
                         <td className="px-3 py-2 text-right">
                           <Input type="number" min="0" max={item.quantity_filled} step="any"
@@ -1350,7 +1331,7 @@ ${grn.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${grn.notes}</
                 {viewGrn.purchase_request_sn_no && (
                   <div>
                     <p className="text-xs text-muted-foreground">Linked PR</p>
-                    <p className="font-mono font-medium text-blue-700">{viewGrn.purchase_request_sn_no}</p>
+                    <p className="font-mono font-medium text-primary">{viewGrn.purchase_request_sn_no}</p>
                   </div>
                 )}
                 {viewGrn.po_number && (
@@ -1372,8 +1353,8 @@ ${grn.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${grn.notes}</
                   </div>
                 )}
                 {(viewGrn.status === "stock_filled" || viewGrn.status === "partially_filled") && viewGrn.stock_filled_by_username && (
-                  <div className="col-span-2 rounded-md bg-green-50 border border-green-200 p-2.5">
-                    <p className="text-xs text-green-700">
+                  <div className="col-span-2 rounded-md bg-success/10 border border-success/20 p-2.5">
+                    <p className="text-xs text-success">
                       Last filled by <strong>{viewGrn.stock_filled_by_username}</strong> on {fmtDateTime(viewGrn.stock_filled_at)}
                     </p>
                   </div>
@@ -1404,16 +1385,16 @@ ${grn.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${grn.notes}</
                               <span className="font-medium">{item.item_name ?? "—"}</span>
                               {item.item_code && <span className="text-muted-foreground ml-1.5 font-mono">{item.item_code}</span>}
                             </td>
-                            <td className="px-3 py-2 text-right font-mono text-blue-700">
+                            <td className="px-3 py-2 text-right font-mono text-primary">
                               {item.quantity_pr_requested != null ? item.quantity_pr_requested : "—"}
                             </td>
-                            <td className={["px-3 py-2 text-right font-mono font-medium", qtyMismatch ? "text-orange-600" : ""].join(" ")}>
+                            <td className={["px-3 py-2 text-right font-mono font-medium", qtyMismatch ? "text-tone-amber" : ""].join(" ")}>
                               {item.quantity_received} {item.unit ?? ""}
                               {qtyMismatch && <span className="ml-1 text-orange-500" title="Quantity differs from PR">⚠</span>}
                             </td>
-                            <td className="px-3 py-2 text-right font-mono text-green-700">{item.quantity_filled}</td>
+                            <td className="px-3 py-2 text-right font-mono text-success">{item.quantity_filled}</td>
                             <td className="px-3 py-2 text-right font-mono text-rose-700">{item.quantity_returned}</td>
-                            <td className="px-3 py-2 text-right font-mono text-amber-700">{Math.round(remaining * 1000) / 1000}</td>
+                            <td className="px-3 py-2 text-right font-mono text-warning">{Math.round(remaining * 1000) / 1000}</td>
                           </tr>
                         );
                       })}

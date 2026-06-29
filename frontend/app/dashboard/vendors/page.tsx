@@ -2,9 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage,
-} from "@/components/ui/breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,10 +51,10 @@ function daysUntil(d: string | null): number | null {
 }
 
 const STATUS_DOT: Record<string, string> = {
-  pending:       "bg-slate-400",
-  confirmed:     "bg-blue-500",
-  in_production: "bg-amber-500",
-  delivered:     "bg-emerald-500",
+  pending:       "bg-muted-foreground",
+  confirmed:     "bg-primary",
+  in_production: "bg-warning",
+  delivered:     "bg-success",
   cancelled:     "bg-red-400",
 };
 
@@ -149,31 +147,30 @@ export default function VendorsPage() {
   return (
     <>
       {/* ── Header ── */}
-      <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4 md:pr-64">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem><BreadcrumbPage>Vendors</BreadcrumbPage></BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-        <div className="ml-auto flex items-center gap-2">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
-            <Input
-              ref={searchRef}
-              className="pl-8 h-8 w-48 text-sm"
-              placeholder="Search vendors…"
-              value={search}
-              onChange={(e) => { setLoading(true); setSearch(e.target.value); }}
-            />
-          </div>
-          {adminUser && (
-            <Button size="sm" onClick={() => { setCreateForm(BLANK_CREATE); setCreateError(null); setShowCreate(true); }}>
-              <UserPlus className="size-4 mr-1.5" />
-              New Vendor
-            </Button>
-          )}
-        </div>
-      </header>
+      <PageHeader
+        title="Vendors"
+        breadcrumbs={[{ label: "Vendors" }]}
+        actions={
+          <>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+              <Input
+                ref={searchRef}
+                className="pl-8 h-8 w-48 text-sm"
+                placeholder="Search vendors…"
+                value={search}
+                onChange={(e) => { setLoading(true); setSearch(e.target.value); }}
+              />
+            </div>
+            {adminUser && (
+              <Button size="sm" onClick={() => { setCreateForm(BLANK_CREATE); setCreateError(null); setShowCreate(true); }}>
+                <UserPlus className="size-4 mr-1.5" />
+                New Vendor
+              </Button>
+            )}
+          </>
+        }
+      />
 
       {/* ── Create Customer Sheet ── */}
       <Sheet open={showCreate} onOpenChange={setShowCreate}>
@@ -307,17 +304,17 @@ export default function VendorsPage() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-semibold text-sm">{c.vendor_name}</span>
                             {c.active_schedules > 0 && (
-                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                              <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
                                 {c.active_schedules} active
                               </span>
                             )}
                             {c.total_schedules === 0 && (
-                              <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-medium">
+                              <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-medium">
                                 No schedules yet
                               </span>
                             )}
                             {urgent && c.next_delivery_date && (
-                              <span className="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+                              <span className="text-xs bg-warning/15 text-amber-800 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
                                 <Clock className="size-3" />
                                 {days === 0 ? "Due today" : days! < 0 ? `${Math.abs(days!)}d overdue` : `${days}d left`}
                               </span>
@@ -345,13 +342,13 @@ export default function VendorsPage() {
                               </span>
                             )}
                             {c.total_delivered > 0 && (
-                              <span className="flex items-center gap-1 text-emerald-600">
+                              <span className="flex items-center gap-1 text-success">
                                 <TrendingUp className="size-3" />
                                 {c.total_delivered.toLocaleString()} delivered
                               </span>
                             )}
                             {c.next_delivery_date && (
-                              <span className={urgent ? "text-amber-700 font-medium" : ""}>
+                              <span className={urgent ? "text-warning font-medium" : ""}>
                                 Next: {fmtDate(c.next_delivery_date)}
                               </span>
                             )}

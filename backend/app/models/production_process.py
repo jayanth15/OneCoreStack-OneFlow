@@ -23,4 +23,4 @@ class ProductionProcess(SQLModel, table=True):
     # ── Material usage / waste ─────────────────────────────────────────────────
     material_qty: Optional[float] = None    # material consumed per unit in this step
     waste_qty: Optional[float] = None       # waste generated per unit in this step
-    material_unit: Optional[str] = None     # unit label, e.g. "kg", "pcs", "m"
+    material_unit_id: Optional[int] = Field(default=None, foreign_key="unit.id")

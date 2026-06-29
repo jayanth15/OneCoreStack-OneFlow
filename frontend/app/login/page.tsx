@@ -2,16 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Factory, AlertCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { apiLogin, setAccessToken } from "@/lib/auth";
 import { setCurrentUser } from "@/lib/user";
 
@@ -31,7 +25,6 @@ export default function LoginPage() {
       const data = await apiLogin(username, password);
       setAccessToken(data.access_token);
 
-      // Fetch and store current user info (role determines what's visible in sidebar)
       const meRes = await fetch("/api/v1/auth/me", {
         headers: { Authorization: `Bearer ${data.access_token}` },
         credentials: "include",
@@ -62,61 +55,88 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <div className="w-full max-w-sm">
-        {/* Logo / App name */}
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold tracking-tight">OneFlow</h1>
-          <p className="text-muted-foreground text-sm mt-1">Manufacturing ERP</p>
+    <div className="min-h-screen flex bg-background">
+      {/* Left brand panel — desktop only */}
+      <div className="hidden lg:flex flex-col justify-between w-1/2 bg-gradient-to-br from-blue-600 to-blue-700 p-12 text-white">
+        <div className="flex items-center gap-3">
+          <div className="size-10 rounded-xl bg-white/15 flex items-center justify-center">
+            <Factory className="size-6 text-white" />
+          </div>
+          <span className="text-xl font-bold tracking-tight">OneFlow</span>
         </div>
 
-        <Card>
-          <CardHeader className="pb-4">
-            <CardTitle className="text-xl">Sign in</CardTitle>
-            <CardDescription>Enter your credentials to continue</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="username">Username</Label>
-                <Input
-                  id="username"
-                  type="text"
-                  autoComplete="username"
-                  placeholder="admin"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  required
-                  disabled={loading}
-                />
+        <div className="max-w-md">
+          <h2 className="text-3xl font-bold tracking-tight leading-tight">
+            Modular manufacturing ERP
+          </h2>
+          <p className="mt-4 text-white/80 text-lg leading-relaxed">
+            Inventory, production, scheduling, and dispatch — all in one flow.
+          </p>
+        </div>
+
+        <p className="text-white/60 text-sm">OneFlow</p>
+      </div>
+
+      {/* Right form panel */}
+      <div className="flex flex-1 items-center justify-center px-4 py-12">
+        <div className="w-full max-w-sm">
+          {/* Mobile brand header */}
+          <div className="mb-8 flex items-center gap-2.5 lg:hidden">
+            <div className="size-9 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+              <Factory className="size-5 text-white" />
+            </div>
+            <span className="text-xl font-bold tracking-tight">OneFlow</span>
+          </div>
+
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold tracking-tight">Sign in</h1>
+            <p className="text-muted-foreground text-sm mt-1">
+              Enter your credentials to continue
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                type="text"
+                autoComplete="username"
+                placeholder="admin"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+                disabled={loading}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                disabled={loading}
+              />
+            </div>
+
+            {error && (
+              <div className="flex items-start gap-2 rounded-lg bg-destructive/10 px-3 py-2.5 text-sm text-destructive" role="alert">
+                <AlertCircle className="size-4 shrink-0 mt-0.5" />
+                <span>{error}</span>
               </div>
+            )}
 
-              <div className="space-y-1.5">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  autoComplete="current-password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  disabled={loading}
-                />
-              </div>
-
-              {error && (
-                <p className="text-sm text-destructive" role="alert">
-                  {error}
-                </p>
-              )}
-
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Signing in…" : "Sign in"}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading && <Loader2 className="size-4 animate-spin" />}
+              {loading ? "Signing in…" : "Sign in"}
+            </Button>
+          </form>
+        </div>
       </div>
     </div>
   );
