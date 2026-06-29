@@ -132,12 +132,10 @@ app.add_middleware(
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    import traceback
-    tb = traceback.format_exception(type(exc), exc, exc.__traceback__)
-    logger.error("Unhandled exception on %s %s: %s\n%s", request.method, request.url.path, exc, "".join(tb))
+    logger.error("Unhandled exception on %s %s: %s", request.method, request.url.path, exc, exc_info=True)
     return JSONResponse(
         status_code=500,
-        content={"detail": "Internal server error", "error": str(exc)},
+        content={"detail": "Internal server error"},
     )
 
 @app.get("/_debug/schema/{table_name}")
@@ -149,48 +147,6 @@ def _debug_schema(table_name: str):
         return {"error": f"table {table_name} not found", "all_tables": insp.get_table_names()}
     cols = insp.get_columns(table_name)
     return {"table": table_name, "columns": [{"name": c["name"], "type": str(c["type"]), "nullable": c.get("nullable")} for c in cols]}
-
-
-@app.get("/_debug/unit-rows")
-def _debug_unit_rows():
-    from sqlalchemy import text
-    from app.core.database import engine
-    with engine.connect() as conn:
-        rows = conn.execute(text("SELECT * FROM unit")).fetchall()
-        cols = conn.execute(text("PRAGMA table_info(unit)")).fetchall()
-    return {"columns": [c[1] for c in cols], "rows": [list(r) for r in rows]}
-
-
-@app.post("/_debug/seed-units")
-def _debug_seed_units():
-    from datetime import datetime, timezone
-    from sqlalchemy import text
-    from app.core.database import engine
-    inserted = 0
-    now = datetime.now(tz=timezone.utc).isoformat()
-    with engine.begin() as conn:
-        for name in (
-            "kg", "g", "mg", "lb",
-            "pcs", "nos", "set", "box", "dozen", "pair",
-            "ltr", "ml",
-            "mtr", "cm", "mm", "ft", "in",
-            "sqft", "sqm", "cft",
-            "roll", "bag", "drum", "can", "tube", "sheet", "coil",
-        ):
-            res = conn.execute(text(
-                "INSERT INTO unit (name, is_active, created_at) VALUES (:name, 1, :now)"
-            ), {"name": name, "now": now})
-            inserted += res.rowcount or 0
-    return {"inserted": inserted}
-
-
-@app.get("/_debug/av")
-def _debug_alembic():
-    from sqlalchemy import text
-    from app.core.database import engine
-    with engine.connect() as conn:
-        v = conn.execute(text("SELECT version_num FROM alembic_version")).fetchone()
-    return {"version": v[0] if v else None}
 
 
 # ── Core routers (always on) ──────────────────────────────────────────────────
