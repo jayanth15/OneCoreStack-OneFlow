@@ -140,6 +140,17 @@ async def global_exception_handler(request: Request, exc: Exception):
         content={"detail": "Internal server error", "error": str(exc), "type": type(exc).__name__},
     )
 
+@app.get("/_debug/schema/{table_name}")
+def _debug_schema(table_name: str):
+    from sqlalchemy import inspect
+    from app.core.database import engine
+    insp = inspect(engine)
+    if table_name not in insp.get_table_names():
+        return {"error": f"table {table_name} not found", "all_tables": insp.get_table_names()}
+    cols = insp.get_columns(table_name)
+    return {"table": table_name, "columns": [{"name": c["name"], "type": str(c["type"]), "nullable": c.get("nullable")} for c in cols]}
+
+
 # ── Core routers (always on) ──────────────────────────────────────────────────
 app.include_router(auth_router.router)
 app.include_router(bom_router.router)
