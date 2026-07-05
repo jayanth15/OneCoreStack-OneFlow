@@ -91,8 +91,11 @@ export interface RequestListItem {
   sn_no: string;
   request_type: RequestType;
   from_department?: string | null;
+  from_department_label?: string | null;
   department?: string | null;
   department_label?: string | null;
+  target_departments?: string[];
+  target_department_labels?: string[];
   from_whom?: string | null;
   quantity: number;
   status: RequestStatus;

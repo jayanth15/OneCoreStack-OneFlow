@@ -654,7 +654,7 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
                   </Button>
                 )}
                 {data.status === "awaiting_signoff" && (
-                  <Button size="sm" onClick={openReceipt}>
+                  <Button size="sm" onClick={() => openReceipt()}>
                     <ScrollText className="size-3.5" />
                     Open Receipt
                   </Button>

@@ -20,9 +20,15 @@ const CERT_FILE    = path.join(__dirname, "..", "certs", "oneflow-cert.pem");
 const ENV_FILE     = path.join(__dirname, "..", ".env.local");
 
 function getLocalIP() {
-  const ifaces = os.networkInterfaces();
+  let ifaces;
+  try {
+    ifaces = os.networkInterfaces();
+  } catch (error) {
+    console.warn(`[detect-backend] Could not inspect network interfaces, using localhost: ${error.message}`);
+    return "localhost";
+  }
   for (const name of Object.keys(ifaces)) {
-    for (const iface of ifaces[name]) {
+    for (const iface of ifaces[name] || []) {
       if (iface.family === "IPv4" && !iface.internal) {
         return iface.address;
       }
