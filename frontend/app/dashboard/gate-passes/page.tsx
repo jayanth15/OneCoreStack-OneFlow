@@ -184,18 +184,19 @@ export default function GatePassesPage() {
       .finally(() => setLoading(false));
   }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
   useEffect(() => { load(); }, [search, passTypeFilter]);
 
   useEffect(() => {
     apiFetchJson<CompanyInfo>("/api/v1/settings/company").then(setCompanyInfo).catch(() => {});
     apiFetchJson<NameOption[]>("/api/v1/vendors/names").then(setVendors).catch(() => {});
-    apiFetchJson<{ items: { id: number; sn_no: string; item_name: string | null }[] }>(
+    apiFetchJson<NameOption[]>("/api/v1/suppliers/names").then(setSuppliers).catch(() => {});
+    apiFetchJson<{ items?: { id: number; sn_no: string; item_name: string | null }[] } | { id: number; sn_no: string; item_name: string | null }[]>(
       "/api/v1/purchase-requests?status_filter=approved&page_size=100"
-    ).then(r => setPurchaseRequests(r.items)).catch(() => {});
+    ).then(r => setPurchaseRequests(Array.isArray(r) ? r : Array.isArray(r.items) ? r.items : [])).catch(() => setPurchaseRequests([]));
     apiFetchJson<{ id: number; po_number: string; supplier_name: string | null; vendor_name: string | null; party_type: string }[]>(
       "/api/v1/purchase-orders/linkable"
-    ).then(setPurchaseOrders).catch(() => {});
+    ).then(r => setPurchaseOrders(Array.isArray(r) ? r : [])).catch(() => setPurchaseOrders([]));
   }, []);
 
   function buildPayload(form: GPFormState) {
@@ -719,7 +720,7 @@ ${coHtml}
 
 function GPForm({
   form, vendors, suppliers, saving, error, onChange, onSubmit, isCreate,
-  purchaseRequests, purchaseOrders,
+  purchaseRequests = [], purchaseOrders = [],
 }: {
   form: GPFormState;
   vendors: NameOption[];
@@ -729,8 +730,8 @@ function GPForm({
   onChange: (f: GPFormState) => void;
   onSubmit: (e: React.FormEvent) => void;
   isCreate: boolean;
-  purchaseRequests: { id: number; sn_no: string; item_name: string | null }[];
-  purchaseOrders: { id: number; po_number: string; supplier_name: string | null; vendor_name: string | null; party_type: string }[];
+  purchaseRequests?: { id: number; sn_no: string; item_name: string | null }[];
+  purchaseOrders?: { id: number; po_number: string; supplier_name: string | null; vendor_name: string | null; party_type: string }[];
 }) {
   function updateItem(key: string, patch: Partial<GPItemForm>) {
     onChange({ ...form, items: form.items.map(i => i._key === key ? { ...i, ...patch } : i) });
@@ -1007,7 +1008,9 @@ function GPInvCombobox({ invType, value, disabled, onSelect }: {
   const [busy, setBusy] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setQuery(value); }, [value]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setResults([]); setQuery(""); }, [invType]);
 
   const doSearch = useCallback((q: string) => {

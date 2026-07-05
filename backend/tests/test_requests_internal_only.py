@@ -67,6 +67,43 @@ def test_vendor_purchase_also_stamps_from_department(client, session, admin_toke
     assert data["from_department"] == "PROD", f"Expected from_department=PROD, got {data.get('from_department')}"
 
 
+def test_purchase_request_requires_configured_department(client, session, admin_token, qa_dept):
+    """Non-admin users can create purchase requests only from configured departments."""
+    create_user_with_dept(session, "qa_worker", "worker", "QA")
+    qa_token = login(client, "qa_worker", "test123")
+
+    blocked = client.post(
+        "/api/v1/requests",
+        json={
+            "request_type": "vendor_purchase",
+            "items": [{"item_name": "Bearings", "quantity": 12}],
+        },
+        headers={"Authorization": f"Bearer {qa_token}"},
+    )
+    assert blocked.status_code == 403
+
+    configured = client.put(
+        "/api/v1/admin/departments/purchase-request-access",
+        json={"department_ids": [qa_dept.id]},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert configured.status_code == 200, configured.json()
+
+    allowed = client.post(
+        "/api/v1/requests",
+        json={
+            "request_type": "vendor_purchase",
+            "items": [{"item_name": "Bearings", "quantity": 12}],
+        },
+        headers={"Authorization": f"Bearer {qa_token}"},
+    )
+    assert allowed.status_code == 201, f"Create failed: {allowed.status_code} {allowed.json()}"
+    data = allowed.json()
+    assert data["from_department"] == "QA"
+    assert data.get("department") is None
+    assert data.get("from_whom") is None
+
+
 def test_customer_dispatch_does_not_stamp_from_department(client, session, admin_token, qa_dept):
     """customer_dispatch does NOT auto-stamp from_department (not applicable)."""
     # Make QA department handle customer dispatches

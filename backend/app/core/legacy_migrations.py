@@ -20,6 +20,7 @@ def run_all() -> None:
     _migrate_production_plan_v3()
     _migrate_departments_description()
     _migrate_departments_handles_dispatch()
+    _migrate_departments_purchase_request_access()
     _migrate_job_card_worker_id()
     _seed_customers_from_schedules()
     _migrate_spare_item_v2()
@@ -132,6 +133,18 @@ def _migrate_departments_handles_dispatch() -> None:
                     conn.execute(text(f"UPDATE {table} SET department = :code WHERE id = :rid"), {"code": code, "rid": row_id})
             if rows:
                 conn.commit()
+
+
+def _migrate_departments_purchase_request_access() -> None:
+    """Add purchase request access flag to departments if it doesn't exist."""
+    from app.core.database import engine
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        cols = [row[1] for row in conn.execute(text("PRAGMA table_info(departments)")).fetchall()]
+        if "can_create_purchase_request" not in cols:
+            conn.execute(text("ALTER TABLE departments ADD COLUMN can_create_purchase_request BOOLEAN DEFAULT 0 NOT NULL"))
+            conn.commit()
 
 
 def _migrate_job_card_worker_id() -> None:
@@ -1269,4 +1282,3 @@ def _migrate_receipts_into_requests() -> None:
         conn.execute(text("DROP TABLE IF EXISTS request_receipt"))
         conn.execute(text("DROP TABLE IF EXISTS receipt"))
         conn.commit()
-

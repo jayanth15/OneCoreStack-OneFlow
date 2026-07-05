@@ -43,6 +43,14 @@ class ReceiptRead(BaseModel):
     id: int
     receipt_number: str
     request_id: int
+    request_sn_no: Optional[str] = None
+    request_from_department: Optional[str] = None
+    request_from_department_label: Optional[str] = None
+    request_target_departments: List[str] = Field(default_factory=list)
+    request_target_department_labels: List[str] = Field(default_factory=list)
+    requested_by_username: Optional[str] = None
+    department: Optional[str] = None
+    department_label: Optional[str] = None
     created_by_user_id: Optional[int] = None
     created_by_username: Optional[str] = None
     created_at: datetime

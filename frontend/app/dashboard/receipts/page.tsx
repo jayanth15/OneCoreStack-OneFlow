@@ -1,17 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
 import { apiFetchJson } from "@/lib/api";
 import { receiptsApi, type Receipt } from "@/lib/receipts";
 import { getCurrentUser } from "@/lib/user";
-import { ScrollText, ClipboardCheck, AlertTriangle, CheckCircle2, Printer } from "lucide-react";
+import { ScrollText, ClipboardCheck, AlertTriangle, CheckCircle2, Printer, ExternalLink, Check, ChevronLeft, ChevronRight } from "lucide-react";
+
+const PAGE_SIZE = 10;
 
 const STATUS_BADGES: Record<string, string> = {
   created: "bg-purple-100 text-purple-700",
@@ -37,13 +38,52 @@ const STATUS_ICONS: Record<string, typeof ScrollText> = {
   disputed: AlertTriangle,
 };
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "unknown error";
+}
+
+function receiptSignoffSummary(r: Receipt) {
+  const signedItems = r.items.filter((item) => item.quantity_signed_off != null);
+  const signedQty = signedItems.reduce((sum, item) => sum + (item.quantity_signed_off ?? 0), 0);
+  const deliveredQty = r.items.reduce((sum, item) => sum + item.quantity_delivered, 0);
+  const requestedQty = r.items.reduce((sum, item) => sum + item.quantity_requested, 0);
+  const shortageQty = r.items.reduce((sum, item) => sum + Math.max(0, item.quantity_requested - item.quantity_delivered), 0);
+  return { signedItems: signedItems.length, totalItems: r.items.length, signedQty, deliveredQty, requestedQty, shortageQty };
+}
+
+function receiptDirectionForUser(receipt: Receipt, user: NonNullable<ReturnType<typeof getCurrentUser>>) {
+  const userDeptCodes = new Set(user.department_codes ?? []);
+  const targetDepartments = receipt.request_target_departments?.length
+    ? receipt.request_target_departments
+    : [receipt.department].filter((code): code is string => Boolean(code));
+  const isIncoming = targetDepartments.some((code) => userDeptCodes.has(code));
+  const isOutgoing = Boolean(
+    (receipt.request_from_department && userDeptCodes.has(receipt.request_from_department))
+    || receipt.requested_by_username === user.username,
+  );
+
+  if (isIncoming && isOutgoing) {
+    return { label: "In & out", className: "border-amber-200 bg-amber-50 text-amber-700" };
+  }
+  if (isIncoming) {
+    return { label: "To your dept", className: "border-emerald-200 bg-emerald-50 text-emerald-700" };
+  }
+  if (isOutgoing) {
+    return { label: "From your dept", className: "border-sky-200 bg-sky-50 text-sky-700" };
+  }
+  return { label: "Related", className: "border-border bg-muted text-muted-foreground" };
+}
+
 export default function ReceiptsPage() {
   const router = useRouter();
-  const [user, setUser] = useState(getCurrentUser());
+  const searchParams = useSearchParams();
+  const [user] = useState(getCurrentUser());
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Receipt | null>(null);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
+  const [signoffBusy, setSignoffBusy] = useState(false);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     if (!user) {
@@ -54,11 +94,44 @@ export default function ReceiptsPage() {
 
   useEffect(() => {
     apiFetchJson<CompanyInfo>("/api/v1/settings/company").then(setCompanyInfo).catch(() => {});
-    receiptsApi.list()
-      .then(setReceipts)
-      .catch(() => setReceipts([]))
-      .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    Promise.resolve().then(() => {
+      setLoading(true);
+      receiptsApi.list({ limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE })
+        .then((rows) => {
+          setReceipts(rows);
+          const receiptId = Number(searchParams.get("receipt"));
+          const requestId = Number(searchParams.get("request"));
+          const match = rows.find((r) => (
+            (!Number.isNaN(receiptId) && r.id === receiptId)
+            || (!Number.isNaN(requestId) && r.request_id === requestId)
+          ));
+          if (match) setSelected(match);
+        })
+        .catch(() => setReceipts([]))
+        .finally(() => setLoading(false));
+    });
+  }, [page, searchParams, user]);
+
+  async function signoffReceipt(r: Receipt) {
+    setSignoffBusy(true);
+    try {
+      const updated = await receiptsApi.signoff(r.id, "Accepted from receipt page");
+      setSelected(updated);
+      setReceipts((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+    } catch (e: unknown) {
+      console.error("Receipt accept failed:", e);
+      alert(`Accept failed: ${errorMessage(e)}`);
+    } finally {
+      setSignoffBusy(false);
+    }
+  }
+
+  const hasNextPage = receipts.length === PAGE_SIZE;
+  const hasPreviousPage = page > 1;
 
   function printReceipt(r: Receipt) {
     const co = companyInfo;
@@ -80,6 +153,7 @@ export default function ReceiptsPage() {
   table { width: 100%; border-collapse: collapse; margin-top: 12px; }
   th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
   th { background: #f5f5f5; font-weight: 600; }
+  .shortage { background: #fff1f2; color: #991b1b; }
   .row { display: flex; gap: 32px; margin-bottom: 8px; }
   .lbl { color: #666; font-size: 11px; }
   @media print { body { margin: 0; } }
@@ -89,13 +163,15 @@ ${coHtml}
 <p class="meta">Generated on ${new Date().toLocaleString("en-IN")}</p>
 <div class="row">
   <div><div class="lbl">Status</div><div>${r.status.replace(/_/g, " ")}</div></div>
+  ${r.department_label || r.department ? `<div><div class="lbl">Department</div><div>${r.department_label ?? r.department}</div></div>` : ""}
   ${r.created_by_username ? `<div><div class="lbl">Created By</div><div>${r.created_by_username}</div></div>` : ""}
   ${r.signed_off_at ? `<div><div class="lbl">Signed Off</div><div>${new Date(r.signed_off_at).toLocaleString()}</div></div>` : ""}
+  ${r.signed_off_by_username ? `<div><div class="lbl">Signed Off By</div><div>${r.signed_off_by_username}</div></div>` : ""}
 </div>
 <table>
   <thead><tr><th>#</th><th>Item</th><th>Requested</th><th>Delivered</th>${r.items.some(i => i.quantity_signed_off != null) ? '<th>Signed Off</th>' : ''}</tr></thead>
   <tbody>
-    ${r.items.map((it, i) => `<tr>
+    ${r.items.map((it, i) => `<tr class="${it.quantity_delivered < it.quantity_requested ? 'shortage' : ''}">
       <td>${i + 1}</td>
       <td>${it.item_name ?? "—"}</td>
       <td>${it.quantity_requested}</td>
@@ -137,6 +213,8 @@ ${r.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${r.notes}</p>` 
           <div className="space-y-3">
             {receipts.map((r) => {
               const Icon = STATUS_ICONS[r.status] ?? ScrollText;
+              const summary = receiptSignoffSummary(r);
+              const direction = user ? receiptDirectionForUser(r, user) : null;
               return (
                 <button
                   key={r.id}
@@ -147,15 +225,28 @@ ${r.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${r.notes}</p>` 
                     <Icon className="size-4" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="font-mono font-semibold text-sm">{r.receipt_number}</span>
+                      {direction && (
+                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider ${direction.className}`}>
+                          {direction.label}
+                        </span>
+                      )}
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_BADGES[r.status] ?? "bg-muted text-muted-foreground"}`}>
                         {r.status.replace(/_/g, " ")}
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {r.created_by_username && `By ${r.created_by_username}`}
+                      Request {r.request_sn_no ?? `#${r.request_id}`}
+                      {(r.request_from_department_label || r.request_from_department) && ` · from ${r.request_from_department_label ?? r.request_from_department}`}
+                      {r.request_target_department_labels?.length ? ` · to ${r.request_target_department_labels.join(", ")}` : (r.department_label || r.department) && ` · to ${r.department_label ?? r.department}`}
+                      {r.created_by_username && ` · By ${r.created_by_username}`}
                       {r.notes && ` · ${r.notes}`}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Signed off {summary.signedItems}/{summary.totalItems} items
+                      {summary.shortageQty > 0 && ` · Short ${summary.shortageQty}`}
+                      {r.signed_off_by_username && ` · by ${r.signed_off_by_username}`}
                     </p>
                     {r.items.length > 0 && (
                       <p className="text-xs text-muted-foreground mt-0.5">
@@ -167,6 +258,29 @@ ${r.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${r.notes}</p>` 
                 </button>
               );
             })}
+            <div className="flex items-center justify-between gap-3 rounded-md border bg-card px-3 py-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                disabled={!hasPreviousPage || loading}
+              >
+                <ChevronLeft className="size-3.5" />
+                Previous
+              </Button>
+              <span className="text-xs text-muted-foreground tabular-nums">Page {page}</span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((current) => current + 1)}
+                disabled={!hasNextPage || loading}
+              >
+                Next
+                <ChevronRight className="size-3.5" />
+              </Button>
+            </div>
           </div>
         )}
 
@@ -177,17 +291,75 @@ ${r.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${r.notes}</p>` 
               <ClipboardCheck className="size-4 text-purple-600" />
               {selected?.receipt_number}
               {selected && (
-                <Button size="sm" variant="outline" className="ml-auto h-7 text-xs" onClick={() => printReceipt(selected)}>
-                  <Printer className="size-3 mr-1" />Print
-                </Button>
+                <div className="ml-auto flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs"
+                    onClick={() => router.push(`/dashboard/requests?highlight=${selected.request_id}`)}
+                  >
+                    <ExternalLink className="size-3 mr-1" />Request
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => printReceipt(selected)}>
+                    <Printer className="size-3 mr-1" />Print
+                  </Button>
+                  {selected.status === "created" && (
+                    <Button
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => signoffReceipt(selected)}
+                      disabled={signoffBusy}
+                    >
+                      <Check className="size-3 mr-1" />{signoffBusy ? "Accepting" : "Accept"}
+                    </Button>
+                  )}
+                </div>
               )}
             </DialogTitle>
             {selected && (
               <div className="space-y-4 px-1 pb-2">
+                {(() => {
+                  const summary = receiptSignoffSummary(selected);
+                  return (
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      <div className="rounded-md border bg-muted/30 p-3">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Receipt dept</p>
+                        <p className="mt-1 truncate text-sm font-medium">{selected.department_label ?? selected.department ?? "—"}</p>
+                      </div>
+                      <div className="rounded-md border bg-muted/30 p-3">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">From</p>
+                        <p className="mt-1 truncate text-sm font-medium">{selected.request_from_department_label ?? selected.request_from_department ?? "—"}</p>
+                      </div>
+                      <div className="rounded-md border bg-muted/30 p-3">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">To</p>
+                        <p className="mt-1 truncate text-sm font-medium">{selected.request_target_department_labels?.join(", ") || selected.department_label || selected.department || "—"}</p>
+                      </div>
+                      <div className="rounded-md border bg-muted/30 p-3">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Signed items</p>
+                        <p className="mt-1 text-sm font-medium tabular-nums">{summary.signedItems}/{summary.totalItems}</p>
+                      </div>
+                      <div className="rounded-md border bg-muted/30 p-3">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Signed qty</p>
+                        <p className="mt-1 text-sm font-medium tabular-nums">{summary.signedQty}/{summary.deliveredQty}</p>
+                      </div>
+                      <div className={`rounded-md border p-3 ${summary.shortageQty > 0 ? "border-destructive/40 bg-destructive/5" : "bg-muted/30"}`}>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Shortage</p>
+                        <p className={`mt-1 text-sm font-medium tabular-nums ${summary.shortageQty > 0 ? "text-destructive" : ""}`}>
+                          {summary.shortageQty}/{summary.requestedQty}
+                        </p>
+                      </div>
+                      <div className="rounded-md border bg-muted/30 p-3">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Signed by</p>
+                        <p className="mt-1 truncate text-sm font-medium">{selected.signed_off_by_username ?? "—"}</p>
+                      </div>
+                    </div>
+                  );
+                })()}
                 <div className="flex items-center gap-2">
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_BADGES[selected.status] ?? ""}`}>
                     {selected.status.replace(/_/g, " ")}
                   </span>
+                  <span className="text-xs text-muted-foreground">request #{selected.request_id}</span>
                   {selected.created_by_username && (
                     <span className="text-xs text-muted-foreground">by {selected.created_by_username}</span>
                   )}
@@ -195,22 +367,33 @@ ${r.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${r.notes}</p>` 
                 {selected.items.length > 0 && (
                   <div className="space-y-2">
                     <p className="text-xs font-semibold uppercase text-muted-foreground">Items ({selected.items.length})</p>
-                    {selected.items.map((item) => (
-                      <div key={item.id} className="rounded-lg border bg-muted/40 p-3 space-y-1">
+                    {selected.items.map((item) => {
+                      const shortage = Math.max(0, item.quantity_requested - item.quantity_delivered);
+                      return (
+                      <div key={item.id} className={`rounded-lg border p-3 space-y-1 ${shortage > 0 ? "border-destructive/40 bg-destructive/5" : "bg-muted/40"}`}>
                         <p className="text-sm font-medium">{item.item_name ?? "—"}</p>
                         <div className="flex flex-wrap gap-x-4 text-xs text-muted-foreground">
                           <span>Requested: {item.quantity_requested}</span>
                           <span>Delivered: {item.quantity_delivered}</span>
+                          {shortage > 0 && <span className="font-medium text-destructive">Short: {shortage}</span>}
                           {item.quantity_signed_off != null && (
                             <span>Signed off: {item.quantity_signed_off}</span>
                           )}
                         </div>
                       </div>
-                    ))}
+                    );})}
                   </div>
                 )}
                 {selected.notes && (
                   <p className="text-sm text-muted-foreground bg-muted/30 rounded-md px-3 py-2">{selected.notes}</p>
+                )}
+                {selected.status === "created" && (
+                  <div className="rounded-md border border-primary/20 bg-primary/[0.04] p-3">
+                    <p className="text-sm font-medium">Accept this receipt to close the request.</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      This signs off the delivered quantities and moves request #{selected.request_id} to received.
+                    </p>
+                  </div>
                 )}
                 {selected.signed_off_at && (
                   <p className="text-xs text-muted-foreground">

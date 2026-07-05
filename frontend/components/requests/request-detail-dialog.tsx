@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { requestsApi, type UnifiedRequest, type RequestStatus } from "@/lib/requests";
+import { receiptsApi, type Receipt } from "@/lib/receipts";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -34,6 +37,9 @@ import {
   Ban,
   PackageCheck,
   ScrollText,
+  ExternalLink,
+  AlertTriangle,
+  ShoppingCart,
 } from "lucide-react";
 import { isAdmin } from "@/lib/user";
 
@@ -47,7 +53,7 @@ export interface RequestDetailDialogProps {
 const STATUS_META: Record<RequestStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" | "ghost"; tone: string }> = {
   pending:            { label: "Pending",            variant: "secondary",   tone: "bg-muted text-foreground ring-slate-200" },
   approved:           { label: "Approved",           variant: "default",      tone: "bg-primary/10 text-primary ring-primary/20" },
-  in_progress:        { label: "In progress",        variant: "secondary",   tone: "bg-warning/15 text-warning ring-warning/20" },
+  in_progress:        { label: "Acknowledged",       variant: "secondary",   tone: "bg-warning/15 text-warning ring-warning/20" },
   awaiting_signoff:   { label: "Awaiting signoff",   variant: "secondary",   tone: "bg-purple-100 text-purple-700 ring-purple-200" },
   received:           { label: "Received",           variant: "secondary",   tone: "bg-success/10 text-success ring-success/20" },
   not_approved:       { label: "Rejected",           variant: "destructive", tone: "bg-destructive/10 text-destructive ring-destructive/20" },
@@ -56,7 +62,7 @@ const STATUS_META: Record<RequestStatus, { label: string; variant: "default" | "
 
 const REQUEST_TYPE_META: Record<string, { label: string; icon: typeof Send }> = {
   internal_transfer:  { label: "Internal transfer",  icon: ClipboardList },
-  vendor_purchase:    { label: "Vendor purchase",    icon: Truck },
+  vendor_purchase:    { label: "Purchase request",   icon: Truck },
   customer_dispatch:  { label: "Customer dispatch",  icon: Send },
 };
 
@@ -89,7 +95,7 @@ const HISTORY_TONE: Record<string, string> = {
 const LIFECYCLE_STEPS: { key: RequestStatus; label: string }[] = [
   { key: "pending",          label: "Pending" },
   { key: "approved",         label: "Approved" },
-  { key: "in_progress",      label: "In progress" },
+  { key: "in_progress",      label: "Acknowledged" },
   { key: "awaiting_signoff", label: "Signoff" },
   { key: "received",         label: "Received" },
 ];
@@ -108,23 +114,53 @@ function formatDateTime(iso?: string | null): string {
   }
 }
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "unknown error";
+}
+
+function receiptSummary(receipt: Receipt) {
+  const deliveredQty = receipt.items.reduce((sum, item) => sum + item.quantity_delivered, 0);
+  const requestedQty = receipt.items.reduce((sum, item) => sum + item.quantity_requested, 0);
+  const signedQty = receipt.items.reduce((sum, item) => sum + (item.quantity_signed_off ?? 0), 0);
+  const shortageQty = receipt.items.reduce(
+    (sum, item) => sum + Math.max(0, item.quantity_requested - item.quantity_delivered),
+    0,
+  );
+  return { deliveredQty, requestedQty, signedQty, shortageQty };
+}
+
 export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser }: RequestDetailDialogProps) {
+  const router = useRouter();
   const [data, setData] = useState<UnifiedRequest | null>(null);
+  const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [loading, setLoading] = useState(false);
   const [deliverOpen, setDeliverOpen] = useState(false);
   const [deliverNote, setDeliverNote] = useState("");
-  const [ackOpen, setAckOpen] = useState(false);
-  const [ackNote, setAckNote] = useState("");
+  const [deliverQuantities, setDeliverQuantities] = useState<Record<number, number>>({});
   const [historyOpen, setHistoryOpen] = useState(false);
 
   useEffect(() => {
     if (!open || requestId == null) return;
     let cancelled = false;
-    setLoading(true);
-    setData(null);
-    requestsApi.get(requestId)
-      .then((d) => { if (!cancelled) setData(d); })
-      .finally(() => { if (!cancelled) setLoading(false); });
+    Promise.resolve().then(() => {
+      if (cancelled) return;
+      setLoading(true);
+      setData(null);
+      setReceipts([]);
+      requestsApi.get(requestId)
+        .then((d) => {
+          if (cancelled) return;
+          setData(d);
+          if (d.status === "awaiting_signoff" || d.status === "received") {
+            receiptsApi.listByRequest(d.id).then((r) => {
+              if (!cancelled) setReceipts(r);
+            }).catch(() => {
+              if (!cancelled) setReceipts([]);
+            });
+          }
+        })
+        .finally(() => { if (!cancelled) setLoading(false); });
+    });
     return () => { cancelled = true; };
   }, [open, requestId]);
 
@@ -135,9 +171,9 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
     try {
       const updated = await requestsApi.review(data.id, decision);
       setData(updated);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("Review failed:", e);
-      alert(`Review failed: ${e?.message ?? "unknown error"}`);
+      alert(`Review failed: ${errorMessage(e)}`);
     }
   };
 
@@ -146,35 +182,33 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
     try {
       const updated = await requestsApi.accept(data.id);
       setData(updated);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("Accept failed:", e);
-      alert(`Accept failed: ${e?.message ?? "unknown error"}`);
+      alert(`Accept failed: ${errorMessage(e)}`);
     }
   };
 
   const deliver = async () => {
     if (!data) return;
     try {
-      const updated = await requestsApi.deliver(data.id, deliverNote);
+      const updated = await requestsApi.deliver(data.id, {
+        delivery_note: deliverNote,
+        items: data.items
+          .filter((item) => item.id != null)
+          .map((item) => ({
+            request_item_id: item.id as number,
+            quantity_delivered: Math.max(0, Math.min(item.quantity, deliverQuantities[item.id as number] ?? item.quantity)),
+            condition: (deliverQuantities[item.id as number] ?? item.quantity) < item.quantity ? "partial" : "good",
+          })),
+      });
       setData(updated);
+      const linkedReceipts = await receiptsApi.listByRequest(data.id);
+      setReceipts(linkedReceipts);
       setDeliverOpen(false);
       setDeliverNote("");
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("Deliver failed:", e);
-      alert(`Deliver failed: ${e?.message ?? "unknown error"}`);
-    }
-  };
-
-  const acknowledgeDelivery = async () => {
-    if (!data) return;
-    try {
-      const updated = await requestsApi.acknowledgeDelivery(data.id, ackNote);
-      setData(updated);
-      setAckOpen(false);
-      setAckNote("");
-    } catch (e: any) {
-      console.error("Acknowledge failed:", e);
-      alert(`Confirm failed: ${e?.message ?? "unknown error"}`);
+      alert(`Deliver failed: ${errorMessage(e)}`);
     }
   };
 
@@ -183,9 +217,9 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
     try {
       await requestsApi.delete(data.id);
       onOpenChange(false);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("Cancel failed:", e);
-      alert(`Cancel failed: ${e?.message ?? "unknown error"}`);
+      alert(`Cancel failed: ${errorMessage(e)}`);
     }
   };
 
@@ -195,6 +229,24 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
   const statusMeta = data ? STATUS_META[data.status] : undefined;
   const stepIndex = data ? lifecycleIndex(data.status) : -1;
   const isTerminalNegative = data && (data.status === "not_approved" || data.status === "cancelled");
+  const pendingReceipts = receipts.filter((receipt) => receipt.status === "created");
+  const openReceipt = (receipt?: Receipt) => {
+    if (!data) return;
+    const target = receipt
+      ? `/dashboard/receipts?receipt=${receipt.id}`
+      : `/dashboard/receipts?request=${data.id}`;
+    onOpenChange(false);
+    router.push(target);
+  };
+  const openDeliverDialog = () => {
+    if (!data) return;
+    setDeliverQuantities(Object.fromEntries(
+      data.items
+        .filter((item) => item.id != null)
+        .map((item) => [item.id as number, item.quantity]),
+    ));
+    setDeliverOpen(true);
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
@@ -393,6 +445,81 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
                 </Card>
               )}
 
+              {(data.status === "awaiting_signoff" || receipts.length > 0) && (
+                <Card size="sm" className="ring-1 ring-foreground/5 bg-primary/[0.03]">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary">
+                        <ScrollText className="size-3.5" />
+                        Receipt signoff
+                      </div>
+                      {receipts.length > 0 && (
+                        <Badge variant={pendingReceipts.length > 0 ? "destructive" : "secondary"}>
+                          {pendingReceipts.length > 0 ? `${pendingReceipts.length} pending` : "All signed off"}
+                        </Badge>
+                      )}
+                    </div>
+                    {receipts.length === 0 ? (
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-sm text-muted-foreground">Open Receipts to review and accept this delivery.</p>
+                        <Button type="button" size="sm" onClick={() => openReceipt()} className="shrink-0">
+                          <ExternalLink className="size-3.5" />
+                          Open receipts
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {receipts.map((receipt) => {
+                          const summary = receiptSummary(receipt);
+                          const pending = receipt.status === "created";
+                          const hasShortage = summary.shortageQty > 0;
+                          return (
+                            <button
+                              key={receipt.id}
+                              type="button"
+                              onClick={() => openReceipt(receipt)}
+                              className={`w-full rounded-md border p-3 text-left transition-colors ${
+                                pending
+                                  ? "border-destructive/50 bg-destructive/5 hover:bg-destructive/10"
+                                  : "border-success/30 bg-success/5 hover:bg-success/10"
+                              }`}
+                            >
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="font-mono text-sm font-semibold">{receipt.receipt_number}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {receipt.department_label ?? receipt.department ?? "Department"} · {receipt.items.length} item{receipt.items.length !== 1 ? "s" : ""}
+                                  </p>
+                                </div>
+                                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                                  pending ? "bg-destructive/10 text-destructive" : "bg-success/10 text-success"
+                                }`}>
+                                  {pending ? "Pending signoff" : "Signed off"}
+                                </span>
+                              </div>
+                              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                                <span>Requested: {summary.requestedQty}</span>
+                                <span>Delivered: {summary.deliveredQty}</span>
+                                {receipt.status === "signed_off" && <span>Signed: {summary.signedQty}</span>}
+                                {hasShortage && (
+                                  <span className="inline-flex items-center gap-1 font-medium text-destructive">
+                                    <AlertTriangle className="size-3" />
+                                    Short: {summary.shortageQty}
+                                  </span>
+                                )}
+                                {receipt.signed_off_by_username && (
+                                  <span>by {receipt.signed_off_by_username}</span>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
               {data.acknowledged_by_username && (
                 <Card size="sm" className="ring-1 ring-foreground/5 bg-emerald-50/30">
                   <CardContent className="p-4 space-y-3">
@@ -508,22 +635,28 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
                     </Button>
                   </>
                 )}
-                {data.status === "approved" && (
+                {data.status === "approved" && (data.request_type !== "vendor_purchase" || reviewerIsAdmin) && (
                   <Button size="sm" onClick={accept}>
                     <Check className="size-3.5" />
-                    Accept fulfilment
+                    Acknowledge request
                   </Button>
                 )}
-                {data.status === "in_progress" && (
-                  <Button size="sm" onClick={() => setDeliverOpen(true)}>
+                {reviewerIsAdmin && data.request_type === "vendor_purchase" && data.status === "approved" && (
+                  <Button size="sm" variant="outline" onClick={() => router.push(`/dashboard/purchase-orders?from_pr=${data.id}`)}>
+                    <ShoppingCart className="size-3.5" />
+                    Create PO
+                  </Button>
+                )}
+                {data.status === "in_progress" && (data.request_type !== "vendor_purchase" || reviewerIsAdmin) && (
+                  <Button size="sm" onClick={openDeliverDialog}>
                     <Truck className="size-3.5" />
                     Mark Delivered
                   </Button>
                 )}
                 {data.status === "awaiting_signoff" && (
-                  <Button size="sm" onClick={() => setAckOpen(true)}>
-                    <PackageCheck className="size-3.5" />
-                    Confirm Receipt
+                  <Button size="sm" onClick={openReceipt}>
+                    <ScrollText className="size-3.5" />
+                    Open Receipt
                   </Button>
                 )}
                 {reviewerIsAdmin && data.status !== "received" && data.status !== "not_approved" && data.status !== "cancelled" && (
@@ -541,7 +674,7 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
         )}
 
         <Dialog open={deliverOpen} onOpenChange={setDeliverOpen}>
-          <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden" onInteractOutside={(e) => e.preventDefault()}>
+          <DialogContent className="max-w-[calc(100%-1rem)] sm:max-w-2xl p-0 gap-0 overflow-hidden" onInteractOutside={(e) => e.preventDefault()}>
             <div className="bg-gradient-to-b from-primary/[0.04] to-transparent px-6 pt-6 pb-4 border-b">
               <div className="flex items-center gap-3">
                 <div className="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary">
@@ -555,11 +688,60 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
                 </div>
               </div>
             </div>
-            <div className="px-6 py-5 space-y-3">
+            <div className="px-6 py-5 space-y-4 max-h-[65vh] overflow-y-auto">
               <p className="text-sm text-muted-foreground">
-                Confirm that all items for <strong className="text-foreground">{data?.sn_no}</strong> have been delivered to the requester.
-                The requester will be asked to confirm receipt.
+                Enter the quantity delivered for each item in <strong className="text-foreground">{data?.sn_no}</strong>.
+                Short delivered quantities will be recorded on the receipt.
               </p>
+              <div className="space-y-2">
+                {data?.items.map((item) => {
+                  if (item.id == null) return null;
+                  const delivered = deliverQuantities[item.id] ?? item.quantity;
+                  const shortage = Math.max(0, item.quantity - delivered);
+                  return (
+                    <div
+                      key={item.id}
+                      className={`grid gap-3 rounded-md border p-3 sm:grid-cols-[minmax(0,1fr)_140px] sm:items-end ${
+                        shortage > 0 ? "border-destructive/40 bg-destructive/5" : "bg-background"
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">
+                          {item.item_name}
+                          {item.item_code && <span className="font-mono text-xs text-muted-foreground"> · {item.item_code}</span>}
+                        </p>
+                        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                          <span>{item.department_label ?? item.department ?? "Department"}</span>
+                          <span>Requested: <span className="font-medium text-foreground">{item.quantity}</span></span>
+                          {shortage > 0 && (
+                            <span className="inline-flex items-center gap-1 font-medium text-destructive">
+                              <AlertTriangle className="size-3" />
+                              Short: {shortage}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                          Delivered
+                        </label>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={item.quantity}
+                          step={1}
+                          className="h-9 text-right tabular-nums"
+                          value={delivered}
+                          onChange={(e) => {
+                            const next = Math.max(0, Math.min(item.quantity, Number(e.target.value) || 0));
+                            setDeliverQuantities((prev) => ({ ...prev, [item.id as number]: next }));
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
               <div className="space-y-1.5">
                 <label htmlFor="deliver_note" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Delivery note (optional)
@@ -583,48 +765,6 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
           </DialogContent>
         </Dialog>
 
-        <Dialog open={ackOpen} onOpenChange={setAckOpen}>
-          <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden" onInteractOutside={(e) => e.preventDefault()}>
-            <div className="bg-gradient-to-b from-primary/[0.04] to-transparent px-6 pt-6 pb-4 border-b">
-              <div className="flex items-center gap-3">
-                <div className="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary">
-                  <PackageCheck className="size-4" />
-                </div>
-                <div>
-                  <DialogTitle className="font-heading text-base font-semibold tracking-wider uppercase normal-case">
-                    Confirm Receipt
-                  </DialogTitle>
-                  <p className="text-xs text-muted-foreground mt-0.5">Close the request as received.</p>
-                </div>
-              </div>
-            </div>
-            <div className="px-6 py-5 space-y-3">
-              <p className="text-sm text-muted-foreground">
-                Confirm that you have received all items for <strong className="text-foreground">{data?.sn_no}</strong>.
-                This will close the request as <strong className="text-foreground">received</strong>.
-              </p>
-              <div className="space-y-1.5">
-                <label htmlFor="ack_note" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Confirmation note (optional)
-                </label>
-                <textarea
-                  id="ack_note"
-                  value={ackNote}
-                  onChange={(e) => setAckNote(e.target.value)}
-                  placeholder="e.g. all items received in good condition"
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[80px] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 outline-none transition"
-                />
-              </div>
-            </div>
-            <DialogFooter className="px-6 py-3 border-t bg-muted/20 gap-2">
-              <Button variant="outline" size="sm" onClick={() => setAckOpen(false)}>Cancel</Button>
-              <Button size="sm" onClick={acknowledgeDelivery}>
-                <Check className="size-3.5" />
-                Confirm Receipt
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </DialogContent>
     </Dialog>
   );

@@ -104,8 +104,6 @@ class RequestCreate(BaseModel):
 
     @model_validator(mode="after")
     def _validate_type_specific(self):
-        if self.request_type == REQUEST_TYPE_VENDOR_PURCHASE and not self.from_whom:
-            raise ValueError("from_whom is required when request_type=vendor_purchase")
         if self.request_type == REQUEST_TYPE_CUSTOMER_DISPATCH:
             if not self.dispatch:
                 raise ValueError("dispatch is required when request_type=customer_dispatch")
@@ -169,8 +167,11 @@ class RequestListRead(BaseModel):
     sn_no: str
     request_type: str
     from_department: Optional[str] = None
+    from_department_label: Optional[str] = None
     department: Optional[str] = None
     department_label: Optional[str] = None
+    target_departments: List[str] = Field(default_factory=list)
+    target_department_labels: List[str] = Field(default_factory=list)
     from_whom: Optional[str] = None
     quantity: float
     status: str
@@ -201,8 +202,15 @@ class RequestStatusUpdate(BaseModel):
     note: Optional[str] = None
 
 
+class RequestDeliverItemAction(BaseModel):
+    request_item_id: int
+    quantity_delivered: float = Field(ge=0)
+    condition: Optional[str] = None
+
+
 class RequestDeliverAction(BaseModel):
     delivery_note: Optional[str] = None
+    items: List[RequestDeliverItemAction] = Field(default_factory=list)
 
 
 class RequestAcknowledgeDeliveryAction(BaseModel):

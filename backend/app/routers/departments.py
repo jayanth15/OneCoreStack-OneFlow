@@ -25,6 +25,7 @@ class DeptSimple(BaseModel):
     code: str
     name: str
     handles_customer_dispatch: bool = False
+    can_create_purchase_request: bool = False
 
 
 @public_router.get("", response_model=list[DeptSimple])
@@ -36,7 +37,16 @@ def list_departments_public(
     depts = session.exec(
         select(Department).where(Department.is_active == True).order_by(Department.code)  # noqa: E712
     ).all()
-    return [DeptSimple(id=d.id, code=d.code, name=d.name, handles_customer_dispatch=d.handles_customer_dispatch) for d in depts]  # type: ignore[arg-type]
+    return [
+        DeptSimple(
+            id=d.id,
+            code=d.code,
+            name=d.name,
+            handles_customer_dispatch=d.handles_customer_dispatch,
+            can_create_purchase_request=d.can_create_purchase_request,
+        )
+        for d in depts
+    ]  # type: ignore[arg-type]
 
 
 # ── Schemas ──────────────────────────────────────────────────────────────────
@@ -47,6 +57,7 @@ class DepartmentCreate(BaseModel):
     description: Optional[str] = None
     is_active: bool = True
     handles_customer_dispatch: bool = False
+    can_create_purchase_request: bool = False
 
 
 class DepartmentUpdate(BaseModel):
@@ -55,6 +66,7 @@ class DepartmentUpdate(BaseModel):
     description: Optional[str] = None
     is_active: Optional[bool] = None
     handles_customer_dispatch: Optional[bool] = None
+    can_create_purchase_request: Optional[bool] = None
 
 
 class DepartmentResponse(BaseModel):
@@ -64,9 +76,14 @@ class DepartmentResponse(BaseModel):
     description: Optional[str] = None
     is_active: bool
     handles_customer_dispatch: bool = False
+    can_create_purchase_request: bool = False
     user_count: int = 0
 
     model_config = {"from_attributes": True}
+
+
+class PurchaseRequestAccessUpdate(BaseModel):
+    department_ids: list[int] = []
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -96,6 +113,7 @@ def list_departments(
             description=d.description,
             is_active=d.is_active,
             handles_customer_dispatch=d.handles_customer_dispatch,
+            can_create_purchase_request=d.can_create_purchase_request,
             user_count=counts.get(d.id, 0),  # type: ignore[arg-type]
         )
         for d in depts
@@ -117,11 +135,31 @@ def create_department(
         description=body.description.strip() if body.description else None,
         is_active=body.is_active,
         handles_customer_dispatch=body.handles_customer_dispatch,
+        can_create_purchase_request=body.can_create_purchase_request,
     )
     session.add(dept)
     session.commit()
     session.refresh(dept)
     return dept
+
+
+@router.put("/purchase-request-access", response_model=list[DepartmentResponse])
+def update_purchase_request_access(
+    body: PurchaseRequestAccessUpdate,
+    session: Annotated[Session, Depends(get_session)],
+) -> list[DepartmentResponse]:
+    allowed_ids = set(body.department_ids)
+    depts = list(session.exec(select(Department)).all())
+    existing_ids = {d.id for d in depts}
+    missing = allowed_ids - existing_ids
+    if missing:
+        raise HTTPException(status_code=400, detail=f"Department IDs not found: {sorted(missing)}")
+
+    for dept in depts:
+        dept.can_create_purchase_request = dept.id in allowed_ids
+        session.add(dept)
+    session.commit()
+    return list_departments(session=session, include_inactive=False)
 
 
 @router.get("/{dept_id}", response_model=DepartmentResponse)
@@ -162,6 +200,8 @@ def update_department(
         dept.is_active = body.is_active
     if body.handles_customer_dispatch is not None:
         dept.handles_customer_dispatch = body.handles_customer_dispatch
+    if body.can_create_purchase_request is not None:
+        dept.can_create_purchase_request = body.can_create_purchase_request
 
     session.add(dept)
     session.commit()

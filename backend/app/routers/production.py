@@ -63,6 +63,25 @@ def _next_card_number(session: Session) -> str:
     return f"JC-{count + 1:04d}"
 
 
+def _calculated_hours_from_produced_qty(
+    session: Session,
+    order: ProductionOrder,
+    process_name: str | None,
+    qty_produced: float | None,
+) -> float | None:
+    if not process_name or qty_produced is None:
+        return None
+    process = session.exec(
+        select(ProductionProcess).where(
+            ProductionProcess.plan_id == order.production_plan_id,
+            ProductionProcess.name == process_name,
+        )
+    ).first()
+    if not process or not process.estimated_time_minutes or process.estimated_time_minutes <= 0:
+        return None
+    return round((max(0.0, float(qty_produced)) * process.estimated_time_minutes) / 60, 4)
+
+
 # ── Job Card history helpers ──────────────────────────────────────────────────
 
 _JOB_CARD_TRACKED_FIELDS = [
@@ -1287,6 +1306,14 @@ def create_job(
     elif not worker_names_list and body_dump.get("worker_name"):
         worker_names_list = [body_dump["worker_name"]]
     worker_names_json = json.dumps(worker_names_list) if worker_names_list else None
+    calculated_hours = _calculated_hours_from_produced_qty(
+        session,
+        order,
+        body_dump.get("process_name"),
+        body_dump.get("qty_produced"),
+    )
+    if calculated_hours is not None:
+        body_dump["hours_worked"] = calculated_hours
 
     job = JobCard(
         card_number=_next_card_number(session),
@@ -1407,6 +1434,17 @@ def update_job(
     # Track old qty_produced for BOM delta
     old_qty_produced = job.qty_produced
     old_status = job.status
+    order = session.get(ProductionOrder, job.production_order_id)
+    should_recalculate_hours = any(k in data for k in ("process_name", "qty_produced", "actual_qty"))
+    if order and should_recalculate_hours:
+        calculated_hours = _calculated_hours_from_produced_qty(
+            session,
+            order,
+            data.get("process_name", job.process_name),
+            data.get("qty_produced", data.get("actual_qty", job.qty_produced)),
+        )
+        if calculated_hours is not None:
+            data["hours_worked"] = calculated_hours
 
     for k, v in data.items():
         setattr(job, k, v)
@@ -1420,7 +1458,6 @@ def update_job(
             job.worker_id = matched_user.id
 
     # Auto-compute qty_pending and status from process-total produced
-    order = session.get(ProductionOrder, job.production_order_id)
     if order:
         plan = session.get(ProductionPlan, order.production_plan_id)
         if plan:
@@ -1868,4 +1905,3 @@ def worker_time_summary(
         ))
 
     return sorted(result, key=lambda x: x.total_hours, reverse=True)
-

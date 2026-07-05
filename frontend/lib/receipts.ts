@@ -22,6 +22,14 @@ export interface Receipt {
   id: number;
   receipt_number: string;
   request_id: number;
+  request_sn_no?: string | null;
+  request_from_department?: string | null;
+  request_from_department_label?: string | null;
+  request_target_departments?: string[];
+  request_target_department_labels?: string[];
+  requested_by_username?: string | null;
+  department?: string | null;
+  department_label?: string | null;
   created_by_user_id?: number | null;
   created_by_username?: string | null;
   created_at: string;
@@ -42,8 +50,13 @@ export interface CreateReceiptPayload {
 }
 
 export const receiptsApi = {
-  list: () =>
-    apiFetchJson<Receipt[]>(`/api/v1/receipts`),
+  list: (params?: { limit?: number; offset?: number }) => {
+    const search = new URLSearchParams();
+    if (params?.limit !== undefined) search.set("limit", String(params.limit));
+    if (params?.offset !== undefined) search.set("offset", String(params.offset));
+    const qs = search.toString();
+    return apiFetchJson<Receipt[]>(`/api/v1/receipts${qs ? `?${qs}` : ""}`);
+  },
 
   get: (id: number) =>
     apiFetchJson<Receipt>(`/api/v1/receipts/${id}`),

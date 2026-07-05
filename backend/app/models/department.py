@@ -15,4 +15,5 @@ class Department(SQLModel, table=True):
     # Whether this department handles customer_dispatch requests (fulfilment +
     # visibility). Replaces the old hardcoded "marketing"/"sales" check.
     handles_customer_dispatch: bool = Field(default=False)
+    can_create_purchase_request: bool = Field(default=False)
     created_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))

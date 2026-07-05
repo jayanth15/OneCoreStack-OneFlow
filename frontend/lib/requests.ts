@@ -51,8 +51,11 @@ export interface UnifiedRequest {
   sn_no: string;
   request_type: RequestType;
   from_department?: string | null;
+  from_department_label?: string | null;
   department?: string | null;
   department_label?: string | null;
+  target_departments?: string[];
+  target_department_labels?: string[];
   from_whom?: string | null;
   quantity: number;
   notes?: string | null;
@@ -111,13 +114,27 @@ export interface CreateRequestPayload {
   dispatch?: RequestCustomerDispatch;
 }
 
+export interface DeliverRequestPayload {
+  delivery_note?: string;
+  items?: { request_item_id: number; quantity_delivered: number; condition?: string }[];
+}
+
 export const requestsApi = {
-  list: (params?: { request_type?: RequestType; status?: RequestStatus; department?: string; only_active?: boolean }) => {
+  list: (params?: {
+    request_type?: RequestType;
+    status?: RequestStatus;
+    department?: string;
+    only_active?: boolean;
+    limit?: number;
+    offset?: number;
+  }) => {
     const search = new URLSearchParams();
     if (params?.request_type) search.set("request_type", params.request_type);
     if (params?.status) search.set("status", params.status);
     if (params?.department) search.set("department", params.department);
     if (params?.only_active !== undefined) search.set("only_active", String(params.only_active));
+    if (params?.limit !== undefined) search.set("limit", String(params.limit));
+    if (params?.offset !== undefined) search.set("offset", String(params.offset));
     const qs = search.toString();
     return apiFetchJson<RequestListItem[]>(`/api/v1/requests${qs ? `?${qs}` : ""}`);
   },
@@ -149,11 +166,18 @@ export const requestsApi = {
   history: (id: number) =>
     apiFetchJson<RequestHistory[]>(`/api/v1/requests/${id}/history`),
 
-  inbox: () =>
-    apiFetchJson<RequestListItem[]>(`/api/v1/requests/inbox`),
+  inbox: (params?: { limit?: number; offset?: number }) => {
+    const search = new URLSearchParams();
+    if (params?.limit !== undefined) search.set("limit", String(params.limit));
+    if (params?.offset !== undefined) search.set("offset", String(params.offset));
+    const qs = search.toString();
+    return apiFetchJson<RequestListItem[]>(`/api/v1/requests/inbox${qs ? `?${qs}` : ""}`);
+  },
 
-  deliver: (id: number, delivery_note?: string) =>
-    apiFetchJson<UnifiedRequest>(`/api/v1/requests/${id}/deliver`, { method: "POST", body: JSON.stringify({ delivery_note }) }),
+  deliver: (id: number, payload?: DeliverRequestPayload | string) => {
+    const body = typeof payload === "string" ? { delivery_note: payload } : (payload ?? {});
+    return apiFetchJson<UnifiedRequest>(`/api/v1/requests/${id}/deliver`, { method: "POST", body: JSON.stringify(body) });
+  },
 
   acknowledgeDelivery: (id: number, acknowledgment_note?: string) =>
     apiFetchJson<UnifiedRequest>(`/api/v1/requests/${id}/acknowledge-delivery`, { method: "POST", body: JSON.stringify({ acknowledgment_note }) }),

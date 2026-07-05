@@ -7,15 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SearchCombobox } from "@/components/ui/search-combobox";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { apiFetchJson } from "@/lib/api";
-import { getCurrentUser, isAdminOrAbove } from "@/lib/user";
-import { ShoppingCart, Plus, Eye, Trash2, PlusCircle, MoreVertical, CheckCircle2, Printer, Link2, ClipboardCopy } from "lucide-react";
+import { getAccessToken } from "@/lib/auth";
+import { getCurrentUser, isAdminOrAbove, setCurrentUser } from "@/lib/user";
+import { ShoppingCart, Plus, Trash2, PlusCircle, CheckCircle2, Printer, Link2, ClipboardCopy, Pencil } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -26,6 +25,8 @@ interface POItem {
   unit: string;
   rate: number;
   notes: string;
+  inventory_type?: string;
+  inventory_item_id?: number | null;
 }
 
 interface PurchaseOrder {
@@ -62,6 +63,20 @@ interface CompanyInfo {
 
 interface NameOption { id: number; name: string; }
 
+interface InventoryItem {
+  id: number;
+  code: string;
+  name: string;
+}
+
+type ApiRecord = Record<string, unknown>;
+
+interface PurchaseRequestDetail {
+  id: number;
+  sn_no: string;
+  items?: { item_name?: string | null; quantity: number; unit?: string | null }[];
+}
+
 const STATUS_COLORS: Record<string, string> = {
   draft:     "bg-muted text-muted-foreground",
   approved:  "bg-primary/10 text-primary",
@@ -70,8 +85,104 @@ const STATUS_COLORS: Record<string, string> = {
 };
 const STATUSES = ["draft", "approved", "received", "cancelled"];
 
-const BLANK_ITEM = (): POItem => ({ item_name: "", quantity: 1, unit: "", rate: 0, notes: "" });
+const INVENTORY_TYPES = [
+  "raw_material",
+  "finished_good",
+  "semi_finished",
+  "spare",
+  "consumable",
+  "attachment",
+  "weeder",
+] as const;
+
+const INVENTORY_LABELS: Record<string, string> = {
+  raw_material: "Raw materials",
+  finished_good: "Finished goods",
+  semi_finished: "Semi-finished",
+  spare: "Spares",
+  consumable: "Consumables",
+  attachment: "Attachments",
+  weeder: "Weeders",
+};
+
+function textValue(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function numberValue(value: unknown): number {
+  return typeof value === "number" ? value : Number(value) || 0;
+}
+
+function itemRows(data: unknown): ApiRecord[] {
+  if (!data || typeof data !== "object" || !("items" in data)) return [];
+  const rows = (data as { items?: unknown }).items;
+  return Array.isArray(rows) ? rows.filter((row): row is ApiRecord => !!row && typeof row === "object") : [];
+}
+
+function permittedInventoryTypes() {
+  const user = getCurrentUser();
+  if (!user || user.role === "admin" || user.role === "super_admin") return [...INVENTORY_TYPES];
+  if (!user.inventory_access || user.inventory_access.length === 0) return [...INVENTORY_TYPES];
+  return INVENTORY_TYPES.filter((type) => user.inventory_access.includes(type));
+}
+
+async function fetchInventoryItems(type: string, q: string): Promise<InventoryItem[]> {
+  const searchParam = q.trim() ? `&search=${encodeURIComponent(q.trim())}` : "";
+  const qParam = q.trim() ? `&q=${encodeURIComponent(q.trim())}` : "";
+
+  switch (type) {
+    case "raw_material":
+    case "finished_good":
+    case "semi_finished": {
+      const data = await apiFetchJson<unknown>(
+        `/api/v1/inventory?item_type=${type}&page_size=50&include_inactive=false${searchParam}`,
+      );
+      return itemRows(data).map((i) => ({ id: numberValue(i.id), code: textValue(i.code), name: textValue(i.name) }));
+    }
+    case "spare": {
+      const data = await apiFetchJson<ApiRecord[]>(`/api/v1/spares/variants/search?limit=50${qParam}`);
+      return (data || []).map((v) => ({
+        id: numberValue(v.variant_id),
+        code: textValue(v.part_number) || textValue(v.serial_number),
+        name: textValue(v.item_name),
+      }));
+    }
+    case "consumable": {
+      const data = await apiFetchJson<unknown>(`/api/v1/consumables?page_size=50${searchParam}`);
+      return itemRows(data).map((i) => ({ id: numberValue(i.id), code: textValue(i.code), name: textValue(i.name) }));
+    }
+    case "attachment": {
+      const data = await apiFetchJson<unknown>(`/api/v1/attachments?page_size=50${searchParam}`);
+      return itemRows(data).map((i) => ({
+        id: numberValue(i.id),
+        code: textValue(i.sn_no),
+        name: textValue(i.description) || textValue(i.sn_no),
+      }));
+    }
+    case "weeder": {
+      const data = await apiFetchJson<unknown>(`/api/v1/weeders?page_size=50${searchParam}`);
+      return itemRows(data).map((i) => ({
+        id: numberValue(i.id),
+        code: textValue(i.sn_no),
+        name: textValue(i.name) || textValue(i.sn_no),
+      }));
+    }
+    default:
+      return [];
+  }
+}
+
+const BLANK_ITEM = (): POItem => ({
+  item_name: "",
+  quantity: 1,
+  unit: "",
+  rate: 0,
+  notes: "",
+  inventory_type: permittedInventoryTypes()[0] ?? "raw_material",
+  inventory_item_id: null,
+});
 const BLANK_FORM = () => ({
+  po_number: "",
   party_type: "supplier" as "supplier" | "vendor",
   supplier_name: "", vendor_name: "",
   po_date: "", expected_delivery: "", notes: "", status: "draft",
@@ -87,9 +198,48 @@ export default function PurchaseOrdersPage() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    const user = getCurrentUser();
-    if (!user) { router.replace("/login"); return; }
-    if (!isAdminOrAbove() && !user.purchase_access) router.replace("/dashboard");
+    Promise.resolve().then(async () => {
+      const user = getCurrentUser();
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+      if (isAdminOrAbove() || user.purchase_access) return;
+
+      const token = getAccessToken();
+      if (!token) {
+        router.replace("/login");
+        return;
+      }
+      const meRes = await fetch("/api/v1/auth/me", {
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
+      });
+      if (!meRes.ok) {
+        router.replace("/dashboard");
+        return;
+      }
+      const me = await meRes.json();
+      setCurrentUser({
+        id: me.id,
+        username: me.username,
+        role: me.role,
+        inventory_access: me.inventory_access ?? [],
+        inventory_edit: me.inventory_edit ?? [],
+        request_departments: me.request_departments ?? [],
+        request_inventory: me.request_inventory ?? [],
+        grn_access: me.grn_access ?? false,
+        dispatch_access: me.dispatch_access ?? false,
+        gate_pass_access: me.gate_pass_access ?? false,
+        purchase_access: me.purchase_access ?? false,
+        photo_base64: me.photo_base64 ?? null,
+        department_codes: me.department_codes ?? [],
+        department_names: me.department_names ?? [],
+      });
+      if (me.role !== "admin" && me.role !== "super_admin" && !me.purchase_access) {
+        router.replace("/dashboard");
+      }
+    });
   }, [router]);
 
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
@@ -131,14 +281,16 @@ export default function PurchaseOrdersPage() {
       .finally(() => setLoading(false));
   }
 
-  useEffect(() => { load(); }, [statusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    Promise.resolve().then(() => load());
+  }, [statusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     apiFetchJson<CompanyInfo>("/api/v1/settings/company").then(setCompanyInfo).catch(() => {});
     apiFetchJson<NameOption[]>("/api/v1/suppliers/names").then(setSuppliers).catch(() => {});
     apiFetchJson<NameOption[]>("/api/v1/vendors/names").then(setVendors).catch(() => {});
     apiFetchJson<{ id: number; sn_no: string; item_name: string | null; items: { item_name: string | null; quantity: number }[] }[]>(
-      "/api/v1/purchase-requests?status=approved&page_size=100"
+      "/api/v1/requests?request_type=vendor_purchase&status=approved&limit=100"
     ).then(setPurchaseRequests).catch(() => {});
   }, []);
 
@@ -146,6 +298,7 @@ export default function PurchaseOrdersPage() {
     const supplier = suppliers.find(s => s.name === form.supplier_name);
     const vendor = vendors.find(v => v.name === form.vendor_name);
     return {
+      po_number: form.po_number || null,
       party_type: form.party_type,
       supplier_id: form.party_type === "supplier" ? (supplier?.id ?? null) : null,
       supplier_name: form.party_type === "supplier" ? form.supplier_name || null : null,
@@ -183,6 +336,7 @@ export default function PurchaseOrdersPage() {
   function openEdit(po: PurchaseOrder) {
     setEditTarget(po);
     setEditForm({
+      po_number: po.po_number ?? "",
       party_type: (po.party_type as "supplier" | "vendor") ?? (po.vendor_name ? "vendor" : "supplier"),
       supplier_name: po.supplier_name ?? "",
       vendor_name: po.vendor_name ?? "",
@@ -196,6 +350,8 @@ export default function PurchaseOrdersPage() {
         unit: i.unit ?? "",
         rate: i.rate ?? 0,
         notes: i.notes ?? "",
+        inventory_type: permittedInventoryTypes()[0] ?? "raw_material",
+        inventory_item_id: null,
       })) : [BLANK_ITEM()],
       purchase_request_id: po.purchase_request_id,
       purchase_request_number: po.purchase_request_number ?? "",
@@ -220,10 +376,11 @@ export default function PurchaseOrdersPage() {
   async function changeStatus(id: number, newStatus: string) {
     setStatusChangingId(id);
     try {
-      await apiFetchJson(`/api/v1/purchase-orders/${id}`, {
+      const updated = await apiFetchJson<PurchaseOrder>(`/api/v1/purchase-orders/${id}`, {
         method: "PUT",
         body: JSON.stringify({ status: newStatus }),
       });
+      setViewTarget((current) => (current?.id === id ? updated : current));
       load();
     } catch {
       // silent
@@ -233,13 +390,15 @@ export default function PurchaseOrdersPage() {
   async function seedFromPR(prId: number) {
     setLoadingPR(true);
     try {
-      const prDetail = await apiFetchJson<any>(`/api/v1/purchase-requests/${prId}`);
-      const prItems = (prDetail.items || []).map((i: any) => ({
+      const prDetail = await apiFetchJson<PurchaseRequestDetail>(`/api/v1/purchase-requests/${prId}`);
+      const prItems = (prDetail.items || []).map((i) => ({
         item_name: i.item_name ?? "",
         quantity: i.quantity,
         unit: i.unit ?? "",
         rate: 0,
         notes: "",
+        inventory_type: permittedInventoryTypes()[0] ?? "raw_material",
+        inventory_item_id: null,
       }));
       setCreateForm(f => ({
         ...f,
@@ -376,7 +535,9 @@ ${po.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${po.notes}</p>
           </div>
           <DialogFooter className="px-4 gap-2">
             <Button variant="outline" onClick={() => setShowFromRequest(false)}>Cancel</Button>
-            <Button disabled={!selectedPR} onClick={applyFromRequest}>Use Request</Button>
+            <Button disabled={!selectedPR || loadingPR} onClick={applyFromRequest}>
+              {loadingPR ? "Loading…" : "Use Request"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -386,7 +547,8 @@ ${po.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${po.notes}</p>
         <DialogContent className="w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>New Purchase Order</DialogTitle></DialogHeader>
           <POForm form={createForm} suppliers={suppliers} vendors={vendors} saving={createSaving} error={createError}
-            onChange={setCreateForm} onSubmit={handleCreate} isCreate purchaseRequests={purchaseRequests} />
+            onChange={setCreateForm} onSubmit={handleCreate} isCreate purchaseRequests={purchaseRequests}
+            onPurchaseRequestSelect={seedFromPR} />
           <DialogFooter className="px-4 gap-2">
             <Button variant="outline" onClick={() => setShowCreate(false)} disabled={createSaving}>Cancel</Button>
             <Button disabled={createSaving} onClick={handleCreate}>
@@ -445,10 +607,35 @@ ${po.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${po.notes}</p>
                   </div>
                 </div>
               )}
+              <div className="rounded-lg border bg-muted/30 p-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Update status</p>
+                <div className="flex flex-wrap gap-2">
+                  {STATUSES.map((status) => (
+                    <Button
+                      key={status}
+                      type="button"
+                      size="sm"
+                      variant={viewTarget.status === status ? "default" : "outline"}
+                      disabled={statusChangingId === viewTarget.id || viewTarget.status === status}
+                      onClick={() => changeStatus(viewTarget.id, status)}
+                    >
+                      <CheckCircle2 className="size-3.5 mr-1.5" />
+                      {status.charAt(0).toUpperCase() + status.slice(1)}
+                    </Button>
+                  ))}
+                </div>
+                {viewTarget.purchase_request_number && viewTarget.status === "received" && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Linked purchase request {viewTarget.purchase_request_number} is marked received when this PO is received.
+                  </p>
+                )}
+              </div>
             </div>
           )}
           <DialogFooter className="px-4 gap-2">
-            <Button variant="outline" onClick={() => { if (viewTarget) { openEdit(viewTarget); setViewTarget(null); } }}>Edit</Button>
+            <Button variant="outline" onClick={() => { if (viewTarget) { openEdit(viewTarget); setViewTarget(null); } }}>
+              <Pencil className="size-3.5 mr-1.5" />Edit
+            </Button>
             <Button variant="outline" onClick={() => viewTarget && printPurchaseOrder(viewTarget)}>
               <Printer className="size-3.5 mr-1.5" />Print
             </Button>
@@ -491,7 +678,12 @@ ${po.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${po.notes}</p>
         {!loading && orders.length > 0 && (
           <div className="space-y-3">
             {orders.map((po) => (
-              <div key={po.id} className="rounded-xl border bg-card p-4 flex items-start gap-4">
+              <button
+                key={po.id}
+                type="button"
+                onClick={() => setViewTarget(po)}
+                className="w-full rounded-xl border bg-card p-4 flex items-start gap-4 text-left transition-colors hover:bg-muted"
+              >
                 <div className="flex size-9 items-center justify-center rounded-lg bg-tone-violet/10 text-tone-violet shrink-0">
                   <ShoppingCart className="size-4" />
                 </div>
@@ -523,30 +715,7 @@ ${po.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${po.notes}</p>
                   )}
                   {po.notes && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{po.notes}</p>}
                 </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button size="icon" variant="ghost" className="size-8 shrink-0" disabled={statusChangingId === po.id}>
-                      <MoreVertical className="size-3.5" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => setViewTarget(po)}>
-                      <Eye className="size-3.5 mr-2" />View Details
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => printPurchaseOrder(po)}>
-                      <Printer className="size-3.5 mr-2" />Print
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <p className="text-xs text-muted-foreground px-2 py-1">Set Status</p>
-                    {STATUSES.filter(s => s !== po.status).map(s => (
-                      <DropdownMenuItem key={s} onClick={() => changeStatus(po.id, s)}>
-                        <CheckCircle2 className="size-3.5 mr-2" />
-                        {s.charAt(0).toUpperCase() + s.slice(1)}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+              </button>
             ))}
           </div>
         )}
@@ -557,7 +726,7 @@ ${po.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${po.notes}</p>
 
 // ── Form ──────────────────────────────────────────────────────────────────────
 
-function POForm({ form, suppliers, vendors, saving, error, onChange, onSubmit, isCreate, purchaseRequests }: {
+function POForm({ form, suppliers, vendors, saving, error, onChange, onSubmit, isCreate, purchaseRequests, onPurchaseRequestSelect }: {
   form: ReturnType<typeof BLANK_FORM>;
   suppliers: NameOption[];
   vendors: NameOption[];
@@ -567,11 +736,14 @@ function POForm({ form, suppliers, vendors, saving, error, onChange, onSubmit, i
   onSubmit: (e: React.FormEvent) => void;
   isCreate: boolean;
   purchaseRequests?: { id: number; sn_no: string; item_name: string | null }[];
+  onPurchaseRequestSelect?: (id: number) => Promise<void>;
 }) {
   function updateItem(idx: number, field: keyof POItem, value: string | number) {
     const newItems = form.items.map((it, i) => i === idx ? { ...it, [field]: value } : it);
     onChange({ ...form, items: newItems });
   }
+  const inventoryTypes = permittedInventoryTypes();
+  const itemsLockedByPurchaseRequest = Boolean(form.purchase_request_id);
   function addItem() { onChange({ ...form, items: [...form.items, BLANK_ITEM()] }); }
   function removeItem(idx: number) {
     if (form.items.length === 1) return;
@@ -620,6 +792,16 @@ function POForm({ form, suppliers, vendors, saving, error, onChange, onSubmit, i
           </select>
         </div>
       )}
+      <div className="space-y-1.5">
+        <Label htmlFor="po-number">PO Number <span className="text-xs text-muted-foreground">(optional)</span></Label>
+        <Input
+          id="po-number"
+          value={form.po_number}
+          placeholder="Leave blank to auto-generate"
+          onChange={(e) => onChange({ ...form, po_number: e.target.value })}
+          disabled={saving}
+        />
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <Label htmlFor="po-date">PO Date</Label>
@@ -660,20 +842,64 @@ function POForm({ form, suppliers, vendors, saving, error, onChange, onSubmit, i
             <div key={idx} className="rounded-lg border bg-muted/40 p-3 space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-medium text-muted-foreground">Item {idx + 1}</span>
-                {form.items.length > 1 && (
+                {form.items.length > 1 && !itemsLockedByPurchaseRequest && (
                   <button type="button" onClick={() => removeItem(idx)} disabled={saving}
                     className="text-destructive hover:text-destructive/80 disabled:opacity-50">
                     <Trash2 className="size-3.5" />
                   </button>
                 )}
               </div>
+              {!itemsLockedByPurchaseRequest && (
+                <div className="grid gap-2 sm:grid-cols-[160px_minmax(0,1fr)]">
+                  <select
+                    value={item.inventory_type ?? inventoryTypes[0] ?? "raw_material"}
+                    onChange={(e) => {
+                      const newItems = form.items.map((it, i) => (
+                        i === idx
+                          ? { ...it, inventory_type: e.target.value, inventory_item_id: null, item_name: "" }
+                          : it
+                      ));
+                      onChange({ ...form, items: newItems });
+                    }}
+                    disabled={saving}
+                    className="h-10 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+                  >
+                    {inventoryTypes.map((type) => (
+                      <option key={type} value={type}>{INVENTORY_LABELS[type]}</option>
+                    ))}
+                  </select>
+                  <SearchCombobox<InventoryItem>
+                    value={item.item_name}
+                    placeholder={`Search ${INVENTORY_LABELS[item.inventory_type ?? inventoryTypes[0] ?? "raw_material"].toLowerCase()}...`}
+                    fetcher={(q) => fetchInventoryItems(item.inventory_type ?? inventoryTypes[0] ?? "raw_material", q)}
+                    getItemKey={(inv) => inv.id}
+                    getItemLabel={(inv) => inv.name}
+                    onSelect={(inv) => {
+                      const newItems = form.items.map((it, i) => (
+                        i === idx
+                          ? { ...it, item_name: inv.name, inventory_item_id: inv.id, notes: it.notes || inv.code }
+                          : it
+                      ));
+                      onChange({ ...form, items: newItems });
+                    }}
+                    disabled={saving}
+                    emptyText="No matching inventory"
+                    renderItem={(inv) => (
+                      <div className="flex min-w-0 flex-col">
+                        <span className="truncate text-sm font-medium">{inv.name}</span>
+                        <span className="truncate font-mono text-xs text-muted-foreground">{inv.code || "No code"}</span>
+                      </div>
+                    )}
+                  />
+                </div>
+              )}
               <Input placeholder="Item name *" value={item.item_name}
-                onChange={(e) => updateItem(idx, "item_name", e.target.value)} disabled={saving} />
+                onChange={(e) => updateItem(idx, "item_name", e.target.value)} disabled={saving || itemsLockedByPurchaseRequest} />
               <div className="grid grid-cols-3 gap-2">
                 <Input placeholder="Qty" type="number" step="any" value={item.quantity}
-                  onChange={(e) => updateItem(idx, "quantity", e.target.value)} disabled={saving} />
+                  onChange={(e) => updateItem(idx, "quantity", e.target.value)} disabled={saving || itemsLockedByPurchaseRequest} />
                 <Input placeholder="Unit" value={item.unit}
-                  onChange={(e) => updateItem(idx, "unit", e.target.value)} disabled={saving} />
+                  onChange={(e) => updateItem(idx, "unit", e.target.value)} disabled={saving || itemsLockedByPurchaseRequest} />
                 <Input placeholder="Rate ₹" type="number" step="any" value={item.rate || ""}
                   onChange={(e) => updateItem(idx, "rate", e.target.value)} disabled={saving} />
               </div>
@@ -682,9 +908,16 @@ function POForm({ form, suppliers, vendors, saving, error, onChange, onSubmit, i
             </div>
           ))}
         </div>
-        <Button type="button" variant="outline" size="sm" className="mt-2 w-full" onClick={addItem} disabled={saving}>
-          <PlusCircle className="size-3.5 mr-1.5" />Add Item
-        </Button>
+        {!itemsLockedByPurchaseRequest && (
+          <Button type="button" variant="outline" size="sm" className="mt-2 w-full" onClick={addItem} disabled={saving}>
+            <PlusCircle className="size-3.5 mr-1.5" />Add Item
+          </Button>
+        )}
+        {itemsLockedByPurchaseRequest && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Items are locked because this PO is linked to purchase request {form.purchase_request_number}.
+          </p>
+        )}
       </div>
 
       <div className="space-y-1.5">
@@ -699,7 +932,16 @@ function POForm({ form, suppliers, vendors, saving, error, onChange, onSubmit, i
           <select id="po-pr" value={form.purchase_request_id ?? ""}
             onChange={(e) => {
               const pr = purchaseRequests.find(p => p.id === parseInt(e.target.value));
-              onChange({ ...form, purchase_request_id: pr?.id ?? null, purchase_request_number: pr?.sn_no ?? "" });
+              if (pr && onPurchaseRequestSelect) {
+                void onPurchaseRequestSelect(pr.id);
+                return;
+              }
+              onChange({
+                ...form,
+                purchase_request_id: null,
+                purchase_request_number: "",
+                items: [BLANK_ITEM()],
+              });
             }}
             disabled={saving}
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">

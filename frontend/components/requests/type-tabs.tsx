@@ -15,8 +15,6 @@ export interface TypeTabsProps {
 const TABS: Array<{ value: TypeTabsValue; label: string }> = [
   { value: "all", label: "All" },
   { value: "internal_transfer", label: "Internal" },
-  { value: "vendor_purchase", label: "Vendor" },
-  { value: "customer_dispatch", label: "Customer" },
   { value: "inbox", label: "Inbox" },
 ];
 

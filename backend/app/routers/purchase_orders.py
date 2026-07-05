@@ -16,8 +16,10 @@ from sqlmodel import Session, select
 from app.core.database import get_session
 from app.dependencies.auth import get_current_user
 from app.models.purchase_order import PurchaseOrder, PurchaseOrderItem
+from app.models.request import Request
 from app.models.unit import Unit
 from app.models.user import User
+from app.routers.requests_helpers import log_history
 
 router = APIRouter(prefix="/api/v1/purchase-orders", tags=["purchase-orders"])
 
@@ -25,6 +27,33 @@ router = APIRouter(prefix="/api/v1/purchase-orders", tags=["purchase-orders"])
 def _next_po_number(session: Session) -> str:
     count = session.exec(select(PurchaseOrder)).all()
     return f"PO-{(len(count) + 1):04d}"
+
+
+def _sync_linked_purchase_request(session: Session, po: PurchaseOrder, current_user: User, old_status: str | None = None) -> None:
+    if po.status != "received" or old_status == "received" or not po.purchase_request_id:
+        return
+    req = session.get(Request, po.purchase_request_id)
+    if not req:
+        return
+    old_req_status = req.status
+    req.status = "received"
+    req.acknowledged_by_user_id = current_user.id
+    req.acknowledged_by_username = current_user.username
+    req.acknowledged_at = datetime.now(tz=timezone.utc)
+    req.acknowledgment_note = f"Linked purchase order {po.po_number} received"
+    req.updated_at = datetime.now(tz=timezone.utc)
+    session.add(req)
+    log_history(
+        session,
+        req.id,
+        changed_by_user_id=current_user.id,
+        changed_by_username=current_user.username,
+        change_type="purchase_order_received",
+        field_name="status",
+        old_value=old_req_status,
+        new_value="received",
+        note=f"Linked purchase order {po.po_number} marked received",
+    )
 
 
 @router.get("")
@@ -93,8 +122,12 @@ def create_po(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, Any]:
     _require_access(current_user)
+    po_number = (body.get("po_number") or "").strip() or _next_po_number(session)
+    existing = session.exec(select(PurchaseOrder).where(PurchaseOrder.po_number == po_number)).first()
+    if existing:
+        raise HTTPException(status_code=400, detail=f"PO number '{po_number}' already exists")
     po = PurchaseOrder(
-        po_number=_next_po_number(session),
+        po_number=po_number,
         party_type=body.get("party_type") or "supplier",
         supplier_id=body.get("supplier_id"),
         supplier_name=(body.get("supplier_name") or "").strip() or None,
@@ -125,6 +158,7 @@ def create_po(
             notes=(item.get("notes") or "").strip() or None,
         ))
 
+    _sync_linked_purchase_request(session, po, current_user)
     session.commit()
     session.refresh(po)
     po_items = list(session.exec(
@@ -160,14 +194,23 @@ def update_po(
     po = session.get(PurchaseOrder, po_id)
     if not po:
         raise HTTPException(status_code=404, detail="Purchase order not found")
+    old_status = po.status
 
     for field in ("party_type", "supplier_id", "supplier_name", "vendor_id", "vendor_name",
-                  "po_date", "expected_delivery", "notes", "status",
+                  "po_number", "po_date", "expected_delivery", "notes", "status",
                   "purchase_request_id", "purchase_request_number"):
         if field in body:
             val = body[field]
             if isinstance(val, str):
                 val = val.strip() or None
+            if field == "po_number" and val:
+                conflict = session.exec(
+                    select(PurchaseOrder).where(PurchaseOrder.po_number == val, PurchaseOrder.id != po_id)
+                ).first()
+                if conflict:
+                    raise HTTPException(status_code=400, detail=f"PO number '{val}' already exists")
+            if field == "po_number" and not val:
+                continue
             setattr(po, field, val)
 
     # Replace items if provided
@@ -194,6 +237,7 @@ def update_po(
                 notes=(item.get("notes") or "").strip() or None,
             ))
 
+    _sync_linked_purchase_request(session, po, current_user, old_status=old_status)
     session.add(po)
     session.commit()
     session.refresh(po)

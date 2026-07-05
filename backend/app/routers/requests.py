@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import or_
 from sqlmodel import Session, select
 
 from app.core.database import get_session
@@ -23,6 +24,8 @@ from app.models.request import (
 from app.models.request_item import RequestItem
 from app.models.request_history import RequestHistory
 from app.models.request_customer_dispatch import RequestCustomerDispatch
+from app.models.receipt import Receipt
+from app.models.receipt_item import ReceiptItem
 from app.schemas.request import (
     RequestCreate, RequestUpdate, RequestRead, RequestListRead,
     RequestReviewAction, RequestItemAcceptAction, RequestStatusUpdate,
@@ -35,6 +38,7 @@ from app.routers.requests_helpers import (
     notify_department_users,
 )
 from app.routers.notifications import create_notification
+from app.routers.receipts import create_department_receipts_for_request
 
 router = APIRouter(prefix="/api/v1/requests", tags=["requests"])
 
@@ -50,7 +54,9 @@ def _user_can_see_type(user: User, request_type: str, user_depts: list) -> bool:
                         customer dispatches, or user is admin.
     """
     if request_type == REQUEST_TYPE_VENDOR_PURCHASE:
-        return user.role in ("admin", "super_admin")
+        if user.role in ("admin", "super_admin"):
+            return True
+        return any(d.can_create_purchase_request for d in user_depts)
     if request_type == REQUEST_TYPE_CUSTOMER_DISPATCH:
         if user.role in ("admin", "super_admin"):
             return True
@@ -58,10 +64,65 @@ def _user_can_see_type(user: User, request_type: str, user_depts: list) -> bool:
     return True  # internal_transfer: all users
 
 
+def _user_can_create_purchase_request(user: User, user_depts: list) -> bool:
+    if user.role in ("admin", "super_admin"):
+        return True
+    return any(d.can_create_purchase_request for d in user_depts)
+
+
 def _apply_visibility_filter(stmt, user: User, user_depts: list):
     """Restrict stmt to request types the user is allowed to see."""
     allowed = [rt for rt in REQUEST_TYPES if _user_can_see_type(user, rt, user_depts)]
     return stmt.where(Request.request_type.in_(allowed))
+
+
+def _apply_department_visibility_filter(stmt, user: User, user_depts: list):
+    if user.role in ("admin", "super_admin"):
+        return stmt
+
+    dept_codes = [d.code for d in user_depts]
+    visibility_conditions = [Request.requested_by_user_id == user.id]
+    if dept_codes:
+        item_request_ids = select(RequestItem.request_id).where(RequestItem.department.in_(dept_codes))  # type: ignore[arg-type]
+        visibility_conditions.extend([
+            Request.from_department.in_(dept_codes),  # type: ignore[arg-type]
+            Request.department.in_(dept_codes),  # type: ignore[arg-type]
+            Request.id.in_(item_request_ids),  # type: ignore[arg-type]
+        ])
+    return stmt.where(or_(*visibility_conditions))
+
+
+def _user_can_see_request(user: User, req: Request, session: Session, user_depts: list) -> bool:
+    if user.role in ("admin", "super_admin") or req.requested_by_user_id == user.id:
+        return True
+
+    dept_codes = {d.code for d in user_depts}
+    if not dept_codes:
+        return False
+    if req.from_department in dept_codes or req.department in dept_codes:
+        return True
+
+    item = session.exec(
+        select(RequestItem).where(
+            RequestItem.request_id == req.id,
+            RequestItem.department.in_(dept_codes),  # type: ignore[arg-type]
+        )
+    ).first()
+    return item is not None
+
+
+def _target_department_codes(req: Request, session: Session) -> list[str]:
+    codes: list[str] = []
+    seen: set[str] = set()
+    if req.department:
+        codes.append(req.department)
+        seen.add(req.department)
+    items = session.exec(select(RequestItem.department).where(RequestItem.request_id == req.id)).all()
+    for code in items:
+        if code and code not in seen:
+            codes.append(code)
+            seen.add(code)
+    return codes
 
 
 def _user_can_accept(user: User, req: Request, session: Session, user_depts: list) -> bool:
@@ -124,6 +185,7 @@ def list_requests(
         stmt = stmt.where(Request.department == department)
     user_depts = get_user_departments(session, current_user.id)  # type: ignore[arg-type]
     stmt = _apply_visibility_filter(stmt, current_user, user_depts)
+    stmt = _apply_department_visibility_filter(stmt, current_user, user_depts)
     stmt = stmt.order_by(Request.created_at.desc()).offset(offset).limit(limit)
     rows = session.exec(stmt).all()
     label_map = build_department_label_map(session)
@@ -131,8 +193,14 @@ def list_requests(
         RequestListRead(
             id=r.id, sn_no=r.sn_no, request_type=r.request_type,
             from_department=r.from_department,
+            from_department_label=label_for_code(r.from_department, label_map),
             department=r.department,
             department_label=label_for_code(r.department, label_map),
+            target_departments=_target_department_codes(r, session),
+            target_department_labels=[
+                label_for_code(code, label_map) or code
+                for code in _target_department_codes(r, session)
+            ],
             from_whom=r.from_whom, quantity=r.quantity, status=r.status,
             requested_by_username=r.requested_by_username, created_at=r.created_at,
             is_active=r.is_active,
@@ -149,6 +217,8 @@ def list_requests(
 
 @router.get("/inbox", response_model=List[RequestListRead])
 def list_inbox(
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
@@ -158,7 +228,16 @@ def list_inbox(
         Request.status.in_(["approved", "in_progress", "awaiting_signoff"]),
         Request.request_type != REQUEST_TYPE_CUSTOMER_DISPATCH,
     )
-    rows = session.exec(stmt.order_by(Request.created_at.desc())).all()
+    if current_user.role not in ("admin", "super_admin"):
+        dept_codes = [d.code for d in user_depts]
+        if not dept_codes:
+            return []
+        item_request_ids = select(RequestItem.request_id).where(RequestItem.department.in_(dept_codes))  # type: ignore[arg-type]
+        stmt = stmt.where(or_(
+            Request.department.in_(dept_codes),  # type: ignore[arg-type]
+            Request.id.in_(item_request_ids),  # type: ignore[arg-type]
+        ))
+    rows = session.exec(stmt.order_by(Request.created_at.desc()).offset(offset).limit(limit)).all()
     label_map = build_department_label_map(session)
     out = []
     for r in rows:
@@ -170,8 +249,14 @@ def list_inbox(
         out.append(RequestListRead(
             id=r.id, sn_no=r.sn_no, request_type=r.request_type,
             from_department=r.from_department,
+            from_department_label=label_for_code(r.from_department, label_map),
             department=r.department,
             department_label=label_for_code(r.department, label_map),
+            target_departments=_target_department_codes(r, session),
+            target_department_labels=[
+                label_for_code(code, label_map) or code
+                for code in _target_department_codes(r, session)
+            ],
             from_whom=r.from_whom, quantity=r.quantity, status=r.status,
             requested_by_username=r.requested_by_username, created_at=r.created_at,
             is_active=r.is_active,
@@ -193,12 +278,14 @@ def create_request(
 ):
     if not _user_can_see_type(current_user, payload.request_type, get_user_departments(session, current_user.id)):  # type: ignore[arg-type]
         raise HTTPException(status_code=403, detail=f"Not allowed to create {payload.request_type} requests")
+    user_departments = get_user_departments(session, current_user.id)  # type: ignore[arg-type]
+    if payload.request_type == REQUEST_TYPE_VENDOR_PURCHASE and not _user_can_create_purchase_request(current_user, user_departments):
+        raise HTTPException(status_code=403, detail="Your department is not configured for purchase requests")
 
     sn_no = generate_sn(session, payload.request_type)
     # Auto-stamp requester's home department (not for customer_dispatch)
     from_department: Optional[str] = None
     if payload.request_type != REQUEST_TYPE_CUSTOMER_DISPATCH:
-        user_departments = get_user_departments(session, current_user.id)  # type: ignore[arg-type]
         if user_departments:
             from_department = user_departments[0].code
 
@@ -268,7 +355,10 @@ def get_request(
     req = session.get(Request, request_id)
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
-    if not _user_can_see_type(current_user, req.request_type, get_user_departments(session, current_user.id)):  # type: ignore[arg-type]
+    user_depts = get_user_departments(session, current_user.id)  # type: ignore[arg-type]
+    if not _user_can_see_type(current_user, req.request_type, user_depts):
+        raise HTTPException(status_code=403, detail="Not allowed to view this request")
+    if not _user_can_see_request(current_user, req, session, user_depts):
         raise HTTPException(status_code=403, detail="Not allowed to view this request")
     return _build_read(req, session)
 
@@ -491,6 +581,18 @@ def deliver_request(
     if not _user_can_accept(current_user, req, session, get_user_departments(session, current_user.id)):  # type: ignore[arg-type]
         raise HTTPException(status_code=403, detail="Not allowed to deliver this request")
 
+    req_items = session.exec(select(RequestItem).where(RequestItem.request_id == req.id)).all()
+    req_item_map = {item.id: item for item in req_items}
+    for delivered in payload.items:
+        item = req_item_map.get(delivered.request_item_id)
+        if not item:
+            raise HTTPException(status_code=400, detail=f"Request item {delivered.request_item_id} not found for this request")
+        if delivered.quantity_delivered > item.quantity:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Delivered quantity for {item.item_name or delivered.request_item_id} cannot exceed requested quantity",
+            )
+
     old_status = req.status
     req.status = "awaiting_signoff"
     req.delivered_by_user_id = current_user.id
@@ -503,15 +605,13 @@ def deliver_request(
                 change_type="delivered", field_name="status", old_value=old_status, new_value="awaiting_signoff",
                 note=payload.delivery_note)
 
-    if req.requested_by_user_id:
-        create_notification(
-            session,
-            user_id=req.requested_by_user_id,
-            notif_type="request_delivered",
-            title=f"Request {req.sn_no} delivered",
-            body=f"Items for {req.sn_no} have been delivered by {current_user.username}. Please confirm receipt.",
-            request_id=req.id,
-        )
+    create_department_receipts_for_request(
+        session=session,
+        req=req,
+        current_user=current_user,
+        notes=payload.delivery_note,
+        delivered_items=payload.items,
+    )
 
     session.commit()
     session.refresh(req)
@@ -544,6 +644,22 @@ def acknowledge_delivery(
     req.acknowledged_at = datetime.now(tz=timezone.utc)
     req.acknowledgment_note = payload.acknowledgment_note
     req.updated_at = datetime.now(tz=timezone.utc)
+
+    receipts = session.exec(select(Receipt).where(Receipt.request_id == req.id)).all()
+    for receipt in receipts:
+        if receipt.status != "created":
+            continue
+        receipt.status = "signed_off"
+        receipt.signed_off_by_user_id = current_user.id
+        receipt.signed_off_by_username = current_user.username
+        receipt.signed_off_at = req.acknowledged_at
+        session.add(receipt)
+
+        receipt_items = session.exec(select(ReceiptItem).where(ReceiptItem.receipt_id == receipt.id)).all()
+        for item in receipt_items:
+            if item.quantity_signed_off is None:
+                item.quantity_signed_off = item.quantity_delivered
+            session.add(item)
 
     log_history(session, req.id, changed_by_user_id=current_user.id, changed_by_username=current_user.username,
                 change_type="delivery_acknowledged", field_name="status", old_value=old_status, new_value="received",

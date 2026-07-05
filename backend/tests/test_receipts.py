@@ -89,6 +89,198 @@ def test_create_receipt_transitions_request_to_awaiting_signoff(client, session,
     assert resp.json()["status"] == "awaiting_signoff"
 
 
+def test_deliver_request_creates_linked_receipt(client, session, admin_token, qa_dept):
+    """Marking a request delivered creates the receipt shown on the receipts page."""
+    prod_token, qa_token, req_id = setup_request(client, session, admin_token, qa_dept)
+
+    resp = client.post(
+        f"/api/v1/requests/{req_id}/deliver",
+        json={"delivery_note": "Ready at stores"},
+        headers={"Authorization": f"Bearer {qa_token}"},
+    )
+    assert resp.status_code == 200, f"Deliver failed: {resp.status_code} {resp.json()}"
+    assert resp.json()["status"] == "awaiting_signoff"
+
+    receipts = client.get(
+        f"/api/v1/receipts/by-request/{req_id}",
+        headers={"Authorization": f"Bearer {prod_token}"},
+    )
+    assert receipts.status_code == 200
+    data = receipts.json()
+    assert len(data) == 1
+    assert data[0]["request_id"] == req_id
+    assert data[0]["notes"] == "Ready at stores"
+    assert data[0]["items"][0]["item_name"] == "Steel"
+    assert data[0]["items"][0]["quantity_delivered"] == 10
+
+
+def test_receipt_list_includes_request_direction_context_for_source_department_user(client, session, admin_token, qa_dept):
+    """A user in the requester's department can identify receipt source/target context."""
+    prod_token, qa_token, req_id = setup_request(client, session, admin_token, qa_dept)
+
+    client.post(
+        f"/api/v1/requests/{req_id}/deliver",
+        json={"delivery_note": "Ready at stores"},
+        headers={"Authorization": f"Bearer {qa_token}"},
+    )
+
+    create_user_with_dept(session, "prod_viewer", "worker", "PROD")
+    viewer_token = login(client, "prod_viewer", "test123")
+    resp = client.get(
+        "/api/v1/receipts?limit=10&offset=0",
+        headers={"Authorization": f"Bearer {viewer_token}"},
+    )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 1
+    assert data[0]["request_id"] == req_id
+    assert data[0]["request_from_department"] == "PROD"
+    assert data[0]["request_target_departments"] == ["QA"]
+
+
+def test_signoff_auto_created_receipt_closes_request(client, session, admin_token, qa_dept):
+    """Accepting the auto-created receipt closes the linked request."""
+    prod_token, qa_token, req_id = setup_request(client, session, admin_token, qa_dept)
+
+    client.post(
+        f"/api/v1/requests/{req_id}/deliver",
+        json={"delivery_note": "Ready at stores"},
+        headers={"Authorization": f"Bearer {qa_token}"},
+    )
+
+    receipts = client.get(
+        f"/api/v1/receipts/by-request/{req_id}",
+        headers={"Authorization": f"Bearer {prod_token}"},
+    ).json()
+    receipt_id = receipts[0]["id"]
+
+    resp = client.post(
+        f"/api/v1/receipts/{receipt_id}/signoff",
+        json={"notes": "Received OK"},
+        headers={"Authorization": f"Bearer {prod_token}"},
+    )
+    assert resp.status_code == 200, f"Signoff failed: {resp.status_code} {resp.json()}"
+    assert resp.json()["status"] == "signed_off"
+    assert resp.json()["signed_off_by_username"] == "prod_worker"
+    assert resp.json()["items"][0]["quantity_signed_off"] == 10
+
+    request = client.get(
+        f"/api/v1/requests/{req_id}",
+        headers={"Authorization": f"Bearer {prod_token}"},
+    ).json()
+    assert request["status"] == "received"
+
+
+def test_partial_delivery_shortage_can_be_signed_off_and_close_request(client, session, admin_token, qa_dept):
+    """Short delivered quantities are recorded and still close the request once signed off."""
+    prod_token, qa_token, req_id = setup_request(client, session, admin_token, qa_dept)
+    req = client.get(
+        f"/api/v1/requests/{req_id}",
+        headers={"Authorization": f"Bearer {qa_token}"},
+    ).json()
+    req_item_id = req["items"][0]["id"]
+
+    client.post(
+        f"/api/v1/requests/{req_id}/deliver",
+        json={
+            "delivery_note": "Only ten available",
+            "items": [{"request_item_id": req_item_id, "quantity_delivered": 8, "condition": "partial"}],
+        },
+        headers={"Authorization": f"Bearer {qa_token}"},
+    )
+
+    receipt = client.get(
+        f"/api/v1/receipts/by-request/{req_id}",
+        headers={"Authorization": f"Bearer {prod_token}"},
+    ).json()[0]
+    assert receipt["items"][0]["quantity_requested"] == 10
+    assert receipt["items"][0]["quantity_delivered"] == 8
+    assert receipt["items"][0]["condition"] == "partial"
+
+    signed = client.post(
+        f"/api/v1/receipts/{receipt['id']}/signoff",
+        json={"notes": "Accepted shortage"},
+        headers={"Authorization": f"Bearer {prod_token}"},
+    ).json()
+    assert signed["items"][0]["quantity_signed_off"] == 8
+
+    request = client.get(
+        f"/api/v1/requests/{req_id}",
+        headers={"Authorization": f"Bearer {prod_token}"},
+    ).json()
+    assert request["status"] == "received"
+
+
+def test_multi_department_request_creates_department_receipts(client, session, admin_token, qa_dept):
+    """Delivery splits receipts by line-item department and closes only after all are signed off."""
+    create_dept(session, "PROD", "Production")
+    create_dept(session, "STORE", "Stores")
+    create_user_with_dept(session, "prod_worker", "worker", "PROD")
+    prod_token = login(client, "prod_worker", "test123")
+
+    resp = client.post(
+        "/api/v1/requests",
+        json={
+            "request_type": "internal_transfer",
+            "department": "QA",
+            "items": [
+                {"item_name": "Steel", "quantity": 10, "department": "QA"},
+                {"item_name": "Bolts", "quantity": 5, "department": "STORE"},
+            ],
+        },
+        headers={"Authorization": f"Bearer {prod_token}"},
+    )
+    req_id = resp.json()["id"]
+
+    client.post(
+        f"/api/v1/requests/{req_id}/review",
+        json={"decision": "approve"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    client.post(
+        f"/api/v1/requests/{req_id}/accept",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    client.post(
+        f"/api/v1/requests/{req_id}/deliver",
+        json={"delivery_note": "Ready by departments"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    receipts = client.get(
+        f"/api/v1/receipts/by-request/{req_id}",
+        headers={"Authorization": f"Bearer {prod_token}"},
+    ).json()
+    assert len(receipts) == 2
+    by_dept = {r["department"]: r for r in receipts}
+    assert set(by_dept) == {"QA", "STORE"}
+    assert [item["item_name"] for item in by_dept["QA"]["items"]] == ["Steel"]
+    assert [item["item_name"] for item in by_dept["STORE"]["items"]] == ["Bolts"]
+
+    client.post(
+        f"/api/v1/receipts/{by_dept['QA']['id']}/signoff",
+        json={"notes": "QA received"},
+        headers={"Authorization": f"Bearer {prod_token}"},
+    )
+    request = client.get(
+        f"/api/v1/requests/{req_id}",
+        headers={"Authorization": f"Bearer {prod_token}"},
+    ).json()
+    assert request["status"] == "awaiting_signoff"
+
+    client.post(
+        f"/api/v1/receipts/{by_dept['STORE']['id']}/signoff",
+        json={"notes": "Stores received"},
+        headers={"Authorization": f"Bearer {prod_token}"},
+    )
+    request = client.get(
+        f"/api/v1/requests/{req_id}",
+        headers={"Authorization": f"Bearer {prod_token}"},
+    ).json()
+    assert request["status"] == "received"
+
+
 def test_create_receipt_with_items(client, session, admin_token, qa_dept):
     """Receipt can be created with item-level quantity_delivered."""
     prod_token, qa_token, req_id = setup_request(client, session, admin_token, qa_dept)

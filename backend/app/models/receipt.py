@@ -14,6 +14,7 @@ class Receipt(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     receipt_number: str = Field(index=True, unique=True)
     request_id: int = Field(index=True)
+    department: Optional[str] = Field(default=None, index=True)
 
     created_by_user_id: Optional[int] = Field(default=None, foreign_key="users.id")
     created_by_username: Optional[str] = None

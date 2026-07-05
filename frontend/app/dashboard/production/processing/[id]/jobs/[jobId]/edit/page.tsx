@@ -69,8 +69,7 @@ export default function EditJobCardPage() {
   const [dateLocked, setDateLocked] = useState(false);
   const [jobType, setJobType] = useState<"internal" | "supplier">("internal");
   const [supplierId, setSupplierId] = useState<string>("");
-  const [hoursWorked, setHoursWorked] = useState("0");
-  const [actualQty, setActualQty] = useState("0");
+  const [producedQty, setProducedQty] = useState("0");
   const [workDate, setWorkDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [notes, setNotes] = useState("");
   const [isActive, setIsActive] = useState(true);
@@ -112,8 +111,7 @@ export default function EditJobCardPage() {
               .catch(() => setSelectedWorkers(saved.map((n: string) => ({ id: 0, username: n }))));
           }
         }
-        setHoursWorked(String(jc.hours_worked));
-        setActualQty(String(jc.actual_qty ?? 0));
+        setProducedQty(String(jc.actual_qty ?? jc.qty_produced ?? 0));
         // Lock date for non-admins — always today on edit too
         if (!isAdminOrAbove()) {
           setDateLocked(true);
@@ -128,15 +126,20 @@ export default function EditJobCardPage() {
       .finally(() => setLoading(false));
   }, [id, jobId]);
 
-  // Auto-compute qty_produced from hours_worked and process estimated time
+  // Auto-compute time from produced quantity and process estimated time.
   const selectedProcess = order?.processes.find((p) => p.name === processName) ?? null;
   const estimatedTimeMinutes = selectedProcess?.estimated_time_minutes ?? null;
-  const computedQty = estimatedTimeMinutes && parseFloat(hoursWorked) > 0
-    ? ((parseFloat(hoursWorked) * 60) / estimatedTimeMinutes).toFixed(2)
-    : "0";
+  const producedQtyNumber = parseFloat(producedQty) || 0;
+  const computedHours = estimatedTimeMinutes && producedQtyNumber > 0
+    ? (producedQtyNumber * estimatedTimeMinutes) / 60
+    : 0;
+  const computedHoursLabel = computedHours > 0 && computedHours < 0.1
+    ? computedHours.toFixed(3)
+    : computedHours.toFixed(2);
 
   // Debounced worker search
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!workerSearch.trim()) { setWorkerResults([]); setWorkerBusy(false); return; }
     const timer = setTimeout(() => {
       setWorkerBusy(true);
@@ -161,9 +164,9 @@ export default function EditJobCardPage() {
         machine_name: machine || null,
         worker_name: workerNames[0] ?? null,
         worker_names: workerNames,
-        hours_worked: parseFloat(hoursWorked) || 0,
-        qty_produced: parseFloat(computedQty) || 0,
-        actual_qty: parseFloat(actualQty) || 0,
+        hours_worked: computedHours,
+        qty_produced: producedQtyNumber,
+        actual_qty: producedQtyNumber,
         work_date: workDate || null,
         notes: notes || null,
         is_active: isActive,
@@ -334,19 +337,19 @@ export default function EditJobCardPage() {
               </div>
             )}
 
-            {/* Hours Worked — qty produced is auto-computed */}
+            {/* Products produced — hours are auto-computed */}
             <div className="space-y-1.5">
-              <Label htmlFor="hours">Hours Worked <span className="text-destructive">*</span></Label>
-              <Input id="hours" type="number" step="0.1" value={hoursWorked}
-                onChange={(e) => setHoursWorked(e.target.value)} disabled={saving} />
-              {estimatedTimeMinutes && parseFloat(hoursWorked) > 0 && (
+              <Label htmlFor="produced_qty">Products Produced <span className="text-destructive">*</span></Label>
+              <Input id="produced_qty" type="number" step="any" min="0" value={producedQty}
+                onChange={(e) => setProducedQty(e.target.value)} disabled={saving} />
+              {estimatedTimeMinutes && producedQtyNumber > 0 && (
                 <p className="text-xs text-muted-foreground">
-                  {computedQty} units produced ({hoursWorked}h × 60 ÷ {estimatedTimeMinutes} min/unit)
+                  Time calculated: {computedHoursLabel} h ({producedQtyNumber} × {estimatedTimeMinutes} min/unit ÷ 60)
                 </p>
               )}
               {estimatedTimeMinutes == null && (
                 <p className="text-xs text-amber-600">
-                  No estimated time set for this process. Qty produced will be 0.
+                  No estimated time set for this process. Hours will be saved as 0.
                 </p>
               )}
             </div>
@@ -355,20 +358,6 @@ export default function EditJobCardPage() {
                 Qty Pending is auto-computed: {order.planned_qty} (planned) − qty produced
               </p>
             )}
-
-            {/* Actual Qty */}
-            <div className="space-y-1.5">
-              <Label htmlFor="actual_qty">Actual Produced <span className="text-destructive">*</span></Label>
-              <Input id="actual_qty" type="number" step="any" value={actualQty}
-                onChange={(e) => setActualQty(e.target.value)} disabled={saving} />
-              {parseFloat(computedQty) > 0 && parseFloat(actualQty) > 0 && (
-                <p className={`text-xs ${parseFloat(actualQty) >= parseFloat(computedQty) ? "text-success" : "text-amber-600"}`}>
-                  {parseFloat(actualQty) >= parseFloat(computedQty)
-                    ? "Met or exceeded estimated qty"
-                    : `${((parseFloat(computedQty) - parseFloat(actualQty)) / parseFloat(computedQty) * 100).toFixed(0)}% less than estimated`}
-                </p>
-              )}
-            </div>
 
             {/* Work Date */}
             <div className="space-y-1.5">
