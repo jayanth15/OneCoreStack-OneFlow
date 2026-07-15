@@ -101,6 +101,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.info("No alembic_version table — running legacy catch-up migrations...")
         from app.core.legacy_migrations import run_all as run_legacy_migrations
         run_legacy_migrations()
+        # The legacy receipt cleanup can drop the old ``receipt`` table.
+        # Re-run metadata creation afterwards so the current receipt and
+        # receipt_item tables exist before this database is stamped at head.
+        init_db()
         stamp_alembic_head()
         logger.info("Legacy migrations complete — database stamped at Alembic baseline")
 
