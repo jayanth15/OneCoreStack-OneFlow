@@ -239,7 +239,11 @@ def test_multi_department_request_creates_department_receipts(client, session, a
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     client.post(
-        f"/api/v1/requests/{req_id}/accept",
+        f"/api/v1/requests/{req_id}/accept?department=QA",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    client.post(
+        f"/api/v1/requests/{req_id}/accept?department=STORE",
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     client.post(

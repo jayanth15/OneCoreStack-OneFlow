@@ -157,8 +157,13 @@ export const requestsApi = {
   review: (id: number, decision: "approve" | "reject", note?: string) =>
     apiFetchJson<UnifiedRequest>(`/api/v1/requests/${id}/review`, { method: "POST", body: JSON.stringify({ decision, note }) }),
 
-  accept: (id: number, note?: string) =>
-    apiFetchJson<UnifiedRequest>(`/api/v1/requests/${id}/accept?note=${encodeURIComponent(note ?? "")}`, { method: "POST" }),
+  accept: (id: number, department?: string, note?: string) => {
+    const search = new URLSearchParams();
+    if (department) search.set("department", department);
+    if (note) search.set("note", note);
+    const qs = search.toString();
+    return apiFetchJson<UnifiedRequest>(`/api/v1/requests/${id}/accept${qs ? `?${qs}` : ""}`, { method: "POST" });
+  },
 
   acceptItem: (id: number, item_id: number, decision: "accept" | "reject" = "accept", note?: string) =>
     apiFetchJson<UnifiedRequest>(`/api/v1/requests/${id}/items/accept`, { method: "POST", body: JSON.stringify({ item_id, decision, note }) }),

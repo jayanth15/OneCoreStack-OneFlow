@@ -437,7 +437,7 @@ export default function RequestsPage() {
         requestId={detailId}
         open={detailId != null}
         onOpenChange={(o) => !o && setDetailId(null)}
-        currentUser={{ id: user.id, role: user.role }}
+        currentUser={user}
       />
     </div>
     </>

@@ -530,6 +530,7 @@ def review_request(
 @router.post("/{request_id}/accept", response_model=RequestRead)
 def accept_fulfilment(
     request_id: int,
+    department: Optional[str] = None,
     note: Optional[str] = None,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
@@ -537,24 +538,92 @@ def accept_fulfilment(
     req = session.get(Request, request_id)
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
-    if req.status != "approved":
+    if req.status not in ("approved", "in_progress"):
         raise HTTPException(status_code=409, detail=f"Cannot accept a request in status '{req.status}'")
-    if not _user_can_accept(current_user, req, session, get_user_departments(session, current_user.id)):  # type: ignore[arg-type]
+
+    user_departments = get_user_departments(session, current_user.id)  # type: ignore[arg-type]
+    if not _user_can_accept(current_user, req, session, user_departments):
         raise HTTPException(status_code=403, detail="Not allowed to accept this request")
-    req.status = "in_progress"
-    req.fulfilled_by_user_id = current_user.id
-    req.fulfilled_by_username = current_user.username
-    req.fulfillment_accepted_at = datetime.now(tz=timezone.utc)
-    req.fulfillment_note = note
-    log_history(session, req.id, changed_by_user_id=current_user.id, changed_by_username=current_user.username,
-                change_type="responded", field_name="status", old_value="approved", new_value="in_progress", note=note)
+
+    target_departments = _target_department_codes(req, session)
+    allowed_departments = set(target_departments)
+    if current_user.role not in ("admin", "super_admin"):
+        allowed_departments &= {dept.code for dept in user_departments}
+
+    request_items = session.exec(
+        select(RequestItem).where(RequestItem.request_id == req.id)
+    ).all()
+
+    def items_for_department(code: str) -> list[RequestItem]:
+        return [item for item in request_items if (item.department or req.department) == code]
+
+    pending_departments = [
+        code for code in target_departments
+        if code in allowed_departments
+        and any(item.item_status != "in_progress" for item in items_for_department(code))
+    ]
+    # Requests without line items (for example customer dispatch) still use the
+    # request-level fulfilment fields and have one target department.
+    if not request_items and req.status == "approved":
+        pending_departments = [code for code in target_departments if code in allowed_departments]
+
+    if department is None:
+        if len(pending_departments) != 1:
+            if not pending_departments:
+                raise HTTPException(status_code=409, detail="Your department has already accepted this request")
+            raise HTTPException(status_code=400, detail="department is required when more than one department can accept")
+        department = pending_departments[0]
+    elif department not in target_departments:
+        raise HTTPException(status_code=400, detail="Department is not a target of this request")
+    elif department not in allowed_departments:
+        raise HTTPException(status_code=403, detail="Not allowed to accept for this department")
+
+    department_items = items_for_department(department)
+    if request_items and not department_items:
+        raise HTTPException(status_code=400, detail="No request items belong to this department")
+    if department_items and all(item.item_status == "in_progress" for item in department_items):
+        raise HTTPException(status_code=409, detail="This department has already accepted the request")
+
+    accepted_at = datetime.now(tz=timezone.utc)
+    for item in department_items:
+        item.item_status = "in_progress"
+        item.accepted_by_username = current_user.username
+        item.accepted_at = accepted_at
+        item.acceptance_note = note
+        session.add(item)
+
+    all_departments_accepted = not request_items or all(
+        item.item_status == "in_progress" for item in request_items
+    )
+    if all_departments_accepted:
+        req.status = "in_progress"
+        req.fulfilled_by_user_id = current_user.id
+        req.fulfilled_by_username = current_user.username
+        req.fulfillment_accepted_at = accepted_at
+        req.fulfillment_note = note
+    req.updated_at = accepted_at
+
+    log_history(
+        session, req.id,
+        changed_by_user_id=current_user.id,
+        changed_by_username=current_user.username,
+        change_type="responded",
+        field_name=f"department:{department}",
+        old_value="pending",
+        new_value="accepted",
+        note=note,
+    )
     if req.requested_by_user_id:
         create_notification(
             session,
             user_id=req.requested_by_user_id,
             notif_type="request_accepted",
-            title=f"Request {req.sn_no} accepted",
-            body=f"Your request {req.sn_no} was accepted by {current_user.username} and is now in progress.",
+            title=f"Request {req.sn_no} accepted by {department}",
+            body=(
+                f"Department {department} accepted your request {req.sn_no}."
+                + (" All target departments have now accepted it."
+                   if all_departments_accepted else " Other departments are still pending.")
+            ),
             request_id=req.id,
         )
     session.commit()

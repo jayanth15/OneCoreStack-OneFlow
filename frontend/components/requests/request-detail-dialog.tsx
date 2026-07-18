@@ -41,13 +41,13 @@ import {
   AlertTriangle,
   ShoppingCart,
 } from "lucide-react";
-import { isAdmin } from "@/lib/user";
+import { isAdmin, type CurrentUser } from "@/lib/user";
 
 export interface RequestDetailDialogProps {
   requestId: number | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  currentUser: { id: number; role: string } | null;
+  currentUser: CurrentUser | null;
 }
 
 const STATUS_META: Record<RequestStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" | "ghost"; tone: string }> = {
@@ -177,10 +177,10 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
     }
   };
 
-  const accept = async () => {
+  const accept = async (department: string) => {
     if (!data) return;
     try {
-      const updated = await requestsApi.accept(data.id);
+      const updated = await requestsApi.accept(data.id, department);
       setData(updated);
     } catch (e: unknown) {
       console.error("Accept failed:", e);
@@ -224,6 +224,22 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
   };
 
   const deptLabel = data?.department_label ?? data?.department;
+  const targetDepartments = data?.target_departments?.length
+    ? data.target_departments
+    : [data?.department].filter((code): code is string => Boolean(code));
+  const targetDepartmentLabels = new Map(
+    targetDepartments.map((code, index) => [code, data?.target_department_labels?.[index] ?? code]),
+  );
+  const userDepartmentCodes = new Set(currentUser?.department_codes ?? []);
+  const pendingAcceptanceDepartments = data && (data.status === "approved" || data.status === "in_progress")
+    ? targetDepartments.filter((code) => {
+        if (!reviewerIsAdmin && !userDepartmentCodes.has(code)) return false;
+        const departmentItems = data.items.filter((item) => (item.department ?? data.department) === code);
+        return departmentItems.length > 0
+          ? departmentItems.some((item) => item.item_status !== "in_progress")
+          : data.status === "approved";
+      })
+    : [];
   const typeMeta = data ? REQUEST_TYPE_META[data.request_type] : undefined;
   const TypeIcon = typeMeta?.icon ?? ClipboardList;
   const statusMeta = data ? STATUS_META[data.status] : undefined;
@@ -406,8 +422,11 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
                               <p className="text-xs text-muted-foreground">{it.department_label}</p>
                             )}
                           </div>
-                          <div className="shrink-0 text-xs text-muted-foreground">
-                            Qty <span className="text-foreground font-semibold">{it.quantity}</span>
+                          <div className="shrink-0 flex items-center gap-2 text-xs text-muted-foreground">
+                            <Badge variant={it.item_status === "in_progress" ? "secondary" : "outline"}>
+                              {it.item_status === "in_progress" ? "Accepted" : "Pending"}
+                            </Badge>
+                            <span>Qty <span className="text-foreground font-semibold">{it.quantity}</span></span>
                           </div>
                         </div>
                       ))}
@@ -635,12 +654,12 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
                     </Button>
                   </>
                 )}
-                {data.status === "approved" && (data.request_type !== "vendor_purchase" || reviewerIsAdmin) && (
-                  <Button size="sm" onClick={accept}>
+                {(data.request_type !== "vendor_purchase" || reviewerIsAdmin) && pendingAcceptanceDepartments.map((department) => (
+                  <Button key={department} size="sm" onClick={() => accept(department)}>
                     <Check className="size-3.5" />
-                    Acknowledge request
+                    Acknowledge {targetDepartmentLabels.get(department)}
                   </Button>
-                )}
+                ))}
                 {reviewerIsAdmin && data.request_type === "vendor_purchase" && data.status === "approved" && (
                   <Button size="sm" variant="outline" onClick={() => router.push(`/dashboard/purchase-orders?from_pr=${data.id}`)}>
                     <ShoppingCart className="size-3.5" />
