@@ -130,6 +130,9 @@ class RequestRead(BaseModel):
     from_department: Optional[str] = None
     department: Optional[str] = None
     department_label: Optional[str] = None
+    target_departments: List[str] = Field(default_factory=list)
+    target_department_labels: List[str] = Field(default_factory=list)
+    acceptance_departments: List[str] = Field(default_factory=list)
     from_whom: Optional[str] = None
     quantity: float
     notes: Optional[str] = None

@@ -11,7 +11,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { apiFetchJson } from "@/lib/api";
-import { getCurrentUser, isAdminOrAbove } from "@/lib/user";
+import { getCurrentUser, isAdminOrAbove, refreshCurrentUser } from "@/lib/user";
 import { PackageCheck, Plus, Search, Pencil, Minus, Printer, Trash2 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -126,9 +126,14 @@ export default function DispatchPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const user = getCurrentUser();
-    if (!user) { router.replace("/login"); return; }
-    if (!isAdminOrAbove() && !user.dispatch_access) router.replace("/dashboard");
+    async function verifyAccess() {
+      const cached = getCurrentUser();
+      if (!cached) { router.replace("/login"); return; }
+      const user = await refreshCurrentUser() ?? cached;
+      const admin = user.role === "admin" || user.role === "super_admin";
+      if (!admin && !user.dispatch_access) router.replace("/dashboard");
+    }
+    verifyAccess();
   }, [router]);
 
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
@@ -151,7 +156,7 @@ export default function DispatchPage() {
 
   const searchRef = useRef<HTMLInputElement>(null);
   const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
-  const [customerRequests, setCustomerRequests] = useState<{ id: number; sn_no: string; dispatch: { customer_name: string | null; inventory_type: string; item_sn_no: string | null; quantity: number } | null }[]>([]);
+  const [customerRequests, setCustomerRequests] = useState<{ id: number; sn_no: string; dispatch: { customer_name: string | null; inventory_type: string; item_id: number | null; item_sn_no: string | null; quantity: number } | null }[]>([]);
   const adminUser = isAdminOrAbove();
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
@@ -173,7 +178,7 @@ export default function DispatchPage() {
   useEffect(() => {
     apiFetchJson<CompanyInfo>("/api/v1/settings/company").then(setCompanyInfo).catch(() => {});
     apiFetchJson<NameOption[]>("/api/v1/vendors/names").then(setVendors).catch(() => {});
-    apiFetchJson<{ id: number; sn_no: string; dispatch: { customer_name: string | null; inventory_type: string; item_sn_no: string | null; quantity: number } | null }[]>(
+    apiFetchJson<{ id: number; sn_no: string; dispatch: { customer_name: string | null; inventory_type: string; item_id: number | null; item_sn_no: string | null; quantity: number } | null }[]>(
       "/api/v1/requests?request_type=customer_dispatch&status=approved"
     ).then(setCustomerRequests).catch(() => {});
   }, []);
@@ -531,7 +536,7 @@ function DispatchForm({
   onChange: (f: DispatchFormState) => void;
   onSubmit: (e: React.FormEvent) => void;
   isCreate: boolean;
-  customerRequests: { id: number; sn_no: string; dispatch: { customer_name: string | null; inventory_type: string; item_sn_no: string | null; quantity: number } | null }[];
+  customerRequests: { id: number; sn_no: string; dispatch: { customer_name: string | null; inventory_type: string; item_id: number | null; item_sn_no: string | null; quantity: number } | null }[];
 }) {
   function updateItem(key: string, patch: Partial<DispatchItemForm>) {
     onChange({ ...form, items: form.items.map(i => i._key === key ? { ...i, ...patch } : i) });
@@ -704,14 +709,14 @@ function DispatchForm({
             try {
               const req = await apiFetchJson<{
                 id: number; sn_no: string;
-                dispatch: { customer_name: string | null; inventory_type: string; item_sn_no: string | null; item_description: string | null; quantity: number } | null;
+                dispatch: { customer_name: string | null; inventory_type: string; item_id: number | null; item_sn_no: string | null; item_description: string | null; quantity: number } | null;
               }>(`/api/v1/requests/${reqId}`);
               const d = req.dispatch;
               if (d) {
                 const items: DispatchItemForm[] = [{
                   _key: Math.random().toString(36).slice(2),
                   inv_type: d.inventory_type,
-                  inv_item_id: null,
+                  inv_item_id: d.item_id,
                   item_name: d.item_description || d.item_sn_no || "",
                   quantity: String(d.quantity),
                   unit: "",

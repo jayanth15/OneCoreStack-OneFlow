@@ -1,0 +1,197 @@
+from sqlmodel import select
+
+from app.models.dispatch import Dispatch
+from app.models.inventory import InventoryItem
+from app.models.inventory_history import InventoryHistory
+from app.models.notification import Notification
+from app.models.request import Request
+from app.models.request_customer_dispatch import RequestCustomerDispatch
+from app.models.request_item import RequestItem
+from app.models.user import User
+from app.models.weeder_item import WeederItem
+
+
+def _headers(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _internal_request(session, stock: InventoryItem, quantity: float = 4) -> Request:
+    req = Request(
+        sn_no=f"REQ-STOCK-{stock.id}",
+        request_type="internal_transfer",
+        department="QA",
+        status="in_progress",
+        quantity=quantity,
+    )
+    session.add(req)
+    session.flush()
+    session.add(RequestItem(
+        request_id=req.id,
+        inventory_item_id=stock.id,
+        item_name=stock.name,
+        item_code=stock.code,
+        item_type=stock.item_type,
+        department="QA",
+        quantity=quantity,
+    ))
+    session.commit()
+    return req
+
+
+def test_request_delivery_deducts_inventory_and_writes_history(
+    client, session, admin_token, qa_dept,
+):
+    stock = InventoryItem(code="RM-STOCK", name="Stock steel", item_type="raw_material", quantity_on_hand=10)
+    session.add(stock)
+    session.commit()
+    req = _internal_request(session, stock, quantity=4)
+
+    response = client.post(
+        f"/api/v1/requests/{req.id}/deliver",
+        json={"delivery_note": "Issued from stores"},
+        headers=_headers(admin_token),
+    )
+
+    assert response.status_code == 200
+    session.refresh(stock)
+    assert stock.quantity_on_hand == 6
+    history = session.exec(
+        select(InventoryHistory).where(InventoryHistory.inventory_item_id == stock.id)
+    ).all()
+    assert history[-1].quantity_delta == -4
+    assert history[-1].notes == f"Fulfilled request {req.sn_no}"
+
+
+def test_request_delivery_is_blocked_without_enough_inventory(
+    client, session, admin_token, qa_dept,
+):
+    stock = InventoryItem(code="RM-SHORT", name="Short steel", item_type="raw_material", quantity_on_hand=2)
+    session.add(stock)
+    session.commit()
+    req = _internal_request(session, stock, quantity=4)
+
+    response = client.post(
+        f"/api/v1/requests/{req.id}/deliver",
+        json={"delivery_note": "Should fail"},
+        headers=_headers(admin_token),
+    )
+
+    assert response.status_code == 409
+    assert "requested 4, available 2" in response.json()["detail"]
+    session.refresh(stock)
+    session.refresh(req)
+    assert stock.quantity_on_hand == 2
+    assert req.status == "in_progress"
+
+
+def _customer_request(session, item: WeederItem, quantity: float) -> Request:
+    req = Request(
+        sn_no=f"REQ-DSP-{item.id}",
+        request_type="customer_dispatch",
+        status="approved",
+        quantity=quantity,
+    )
+    session.add(req)
+    session.flush()
+    session.add(RequestCustomerDispatch(
+        request_id=req.id,
+        customer_name="Test customer",
+        inventory_type="weeder",
+        item_id=item.id,
+        item_sn_no=item.sn_no,
+        item_description=item.name,
+        quantity=quantity,
+    ))
+    session.commit()
+    return req
+
+
+def test_linked_dispatch_reserves_then_fulfils_request_once(client, session, admin_token):
+    item = WeederItem(name="Power weeder", sn_no="WD-1", qty=5)
+    session.add(item)
+    session.commit()
+    req = _customer_request(session, item, quantity=2)
+
+    created = client.post(
+        "/api/v1/dispatch",
+        json={"request_id": req.id, "request_sn_no": req.sn_no, "status": "pending"},
+        headers=_headers(admin_token),
+    )
+    assert created.status_code == 201, created.json()
+    assert created.json()["items"][0]["inv_item_id"] == item.id
+    session.refresh(req)
+    session.refresh(item)
+    assert req.status == "in_progress"
+    assert item.qty == 5
+
+    fulfilled = client.put(
+        f"/api/v1/dispatch/{created.json()['id']}",
+        json={"status": "dispatched"},
+        headers=_headers(admin_token),
+    )
+    assert fulfilled.status_code == 200, fulfilled.json()
+    session.refresh(req)
+    session.refresh(item)
+    assert req.status == "received"
+    assert item.qty == 3
+
+    repeated = client.put(
+        f"/api/v1/dispatch/{created.json()['id']}",
+        json={"status": "delivered"},
+        headers=_headers(admin_token),
+    )
+    assert repeated.status_code == 200
+    session.refresh(item)
+    assert item.qty == 3
+
+
+def test_linked_dispatch_cannot_fulfil_more_than_inventory(client, session, admin_token):
+    item = WeederItem(name="Low-stock weeder", sn_no="WD-LOW", qty=1)
+    session.add(item)
+    session.commit()
+    req = _customer_request(session, item, quantity=2)
+    created = client.post(
+        "/api/v1/dispatch",
+        json={"request_id": req.id, "status": "pending"},
+        headers=_headers(admin_token),
+    )
+
+    response = client.put(
+        f"/api/v1/dispatch/{created.json()['id']}",
+        json={"status": "dispatched"},
+        headers=_headers(admin_token),
+    )
+
+    assert response.status_code == 409
+    session.refresh(item)
+    session.refresh(req)
+    dispatch = session.get(Dispatch, created.json()["id"])
+    assert item.qty == 1
+    assert req.status == "in_progress"
+    assert dispatch.status == "pending"
+
+
+def test_notifications_only_return_unread_active_links_and_clear_all(
+    client, session, admin_token,
+):
+    admin = session.exec(select(User).where(User.username == "admin")).one()
+    active = Request(sn_no="REQ-N-ACTIVE", request_type="internal_transfer", status="pending")
+    deleted = Request(
+        sn_no="REQ-N-DELETED", request_type="internal_transfer", status="cancelled", is_active=False
+    )
+    session.add(active)
+    session.add(deleted)
+    session.flush()
+    session.add(Notification(user_id=admin.id, type="test", title="Visible", request_id=active.id))
+    session.add(Notification(user_id=admin.id, type="test", title="Stale", request_id=deleted.id))
+    session.add(Notification(user_id=admin.id, type="test", title="Already read", is_read=True))
+    session.commit()
+
+    listed = client.get("/api/v1/notifications", headers=_headers(admin_token))
+    assert listed.status_code == 200
+    assert [notification["title"] for notification in listed.json()] == ["Visible"]
+
+    cleared = client.post("/api/v1/notifications/read-all", headers=_headers(admin_token))
+    assert cleared.status_code == 200
+    assert client.get("/api/v1/notifications", headers=_headers(admin_token)).json() == []
+    assert client.get("/api/v1/notifications/unread-count", headers=_headers(admin_token)).json() == {"count": 0}

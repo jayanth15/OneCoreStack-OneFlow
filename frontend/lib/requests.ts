@@ -56,6 +56,7 @@ export interface UnifiedRequest {
   department_label?: string | null;
   target_departments?: string[];
   target_department_labels?: string[];
+  acceptance_departments?: string[];
   from_whom?: string | null;
   quantity: number;
   notes?: string | null;

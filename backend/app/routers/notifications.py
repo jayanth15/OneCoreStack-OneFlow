@@ -4,11 +4,13 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import or_
 from sqlmodel import Session, select
 
 from app.core.database import get_session
 from app.dependencies.auth import get_current_user
 from app.models.notification import Notification
+from app.models.request import Request
 from app.models.user import User
 
 router = APIRouter(prefix="/api/v1/notifications", tags=["notifications"])
@@ -75,11 +77,16 @@ def list_notifications(
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
 ) -> list[NotificationOut]:
-    """Return last 50 notifications for the current user, unread first."""
+    """Return unread notifications whose linked request still exists."""
     stmt = (
         select(Notification)
-        .where(Notification.user_id == current_user.id)
-        .order_by(Notification.is_read, Notification.created_at.desc())  # type: ignore[union-attr]
+        .join(Request, Notification.request_id == Request.id, isouter=True)
+        .where(
+            Notification.user_id == current_user.id,
+            Notification.is_read == False,  # noqa: E712
+            or_(Notification.request_id == None, Request.is_active == True),  # noqa: E711,E712
+        )
+        .order_by(Notification.created_at.desc())  # type: ignore[union-attr]
         .limit(50)
     )
     notifications = session.exec(stmt).all()
@@ -93,9 +100,13 @@ def unread_count(
 ) -> UnreadCount:
     from sqlmodel import func
     count = session.exec(
-        select(func.count()).select_from(Notification).where(
+        select(func.count())
+        .select_from(Notification)
+        .join(Request, Notification.request_id == Request.id, isouter=True)
+        .where(
             Notification.user_id == current_user.id,
             Notification.is_read == False,  # noqa: E712
+            or_(Notification.request_id == None, Request.is_active == True),  # noqa: E711,E712
         )
     ).one()
     return UnreadCount(count=count)

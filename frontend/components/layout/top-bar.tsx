@@ -107,14 +107,16 @@ function NotificationBell() {
   async function markRead(id: number) {
     try {
       await apiFetchJson(`/api/v1/notifications/${id}/read`, { method: "POST" });
-      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+      window.dispatchEvent(new Event("notifications-updated"));
     } catch { /* ignore */ }
   }
 
   async function markAllRead() {
     try {
       await apiFetchJson("/api/v1/notifications/read-all", { method: "POST" });
-      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+      setNotifications([]);
+      window.dispatchEvent(new Event("notifications-updated"));
     } catch { /* ignore */ }
   }
 

@@ -36,6 +36,20 @@ def test_each_target_department_accepts_independently(client, session, admin_tok
     )
     assert approved.status_code == 200
 
+    qa_detail = client.get(
+        f"/api/v1/requests/{request_id}",
+        headers={"Authorization": f"Bearer {qa_token}"},
+    )
+    store_detail = client.get(
+        f"/api/v1/requests/{request_id}",
+        headers={"Authorization": f"Bearer {store_token}"},
+    )
+    assert qa_detail.status_code == 200
+    assert store_detail.status_code == 200
+    assert qa_detail.json()["target_departments"] == ["QA", "STORE"]
+    assert qa_detail.json()["acceptance_departments"] == ["QA"]
+    assert store_detail.json()["acceptance_departments"] == ["STORE"]
+
     qa_acceptance = client.post(
         f"/api/v1/requests/{request_id}/accept?department=QA",
         headers={"Authorization": f"Bearer {qa_token}"},
@@ -47,6 +61,14 @@ def test_each_target_department_accepts_independently(client, session, admin_tok
     assert items_after_qa["QA"]["item_status"] == "in_progress"
     assert items_after_qa["QA"]["accepted_by_username"] == "qa_worker"
     assert items_after_qa["STORE"]["item_status"] is None
+    assert after_qa["acceptance_departments"] == []
+
+    store_after_qa = client.get(
+        f"/api/v1/requests/{request_id}",
+        headers={"Authorization": f"Bearer {store_token}"},
+    )
+    assert store_after_qa.status_code == 200
+    assert store_after_qa.json()["acceptance_departments"] == ["STORE"]
 
     repeated = client.post(
         f"/api/v1/requests/{request_id}/accept?department=QA",

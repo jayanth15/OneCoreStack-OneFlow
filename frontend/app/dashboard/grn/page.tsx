@@ -14,7 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { apiFetchJson } from "@/lib/api";
-import { getCurrentUser, isAdminOrAbove } from "@/lib/user";
+import { getCurrentUser, refreshCurrentUser } from "@/lib/user";
 import {
   PlusIcon,
   Trash2,
@@ -293,10 +293,11 @@ export default function GRNPage() {
   const [returnErr, setReturnErr] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.resolve().then(() => {
-      const user = getCurrentUser();
+    Promise.resolve().then(async () => {
+      const cached = getCurrentUser();
+      const user = await refreshCurrentUser() ?? cached;
       if (user) {
-        const isAdmin = isAdminOrAbove();
+        const isAdmin = user.role === "admin" || user.role === "super_admin";
         setAdminUser(isAdmin);
         setCanManage(isAdmin || user.grn_access === true);
       }

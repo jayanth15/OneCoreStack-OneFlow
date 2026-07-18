@@ -18,8 +18,13 @@ from app.dependencies.auth import get_current_user
 from app.models.dispatch import Dispatch
 from app.models.dispatch_history import DispatchHistory
 from app.models.dispatch_item import DispatchItem
+from app.models.request import Request, REQUEST_TYPE_CUSTOMER_DISPATCH
+from app.models.request_customer_dispatch import RequestCustomerDispatch
 from app.models.unit import Unit
 from app.models.user import User
+from app.routers.notifications import create_notification
+from app.routers.requests_helpers import log_history
+from app.services.request_inventory import StockDeduction, deduct_request_stock
 
 router = APIRouter(prefix="/api/v1/dispatch", tags=["dispatch"])
 
@@ -78,6 +83,11 @@ def create_dispatch(
 ) -> dict[str, Any]:
     _require_dispatch_access(current_user)
     raw_items = body.get("items") or []
+    linked_request = _linked_request(session, body.get("request_id"))
+    if linked_request and linked_request.status == "in_progress":
+        raise HTTPException(status_code=409, detail=f"Request {linked_request.sn_no} is already linked to a dispatch")
+    if linked_request:
+        raw_items = _request_dispatch_items(session, linked_request)
     first_item_name = ""
     first_qty = 0.0
     first_unit_id = None
@@ -109,6 +119,7 @@ def create_dispatch(
         created_by=current_user.username,
         created_at=datetime.now(timezone.utc).isoformat(),
     )
+    _sync_linked_request(session, dispatch, linked_request, current_user)
     session.add(dispatch)
     session.flush()
 
@@ -161,24 +172,38 @@ def update_dispatch(
         raise HTTPException(status_code=404, detail="Dispatch not found")
 
     old_status = dispatch.status
+    old_request_id = dispatch.request_id
+    target_request_id = body.get("request_id", old_request_id)
+    target_status = body.get("status", old_status)
+    if isinstance(target_status, str):
+        target_status = target_status.strip() or old_status
+
+    linked_request = _linked_request(session, target_request_id)
+    raw_items = _request_dispatch_items(session, linked_request) if linked_request else body.get("items")
+
+    # Validate and deduct before mutating the dispatch, so a stock error leaves it untouched.
+    _sync_linked_request(
+        session, dispatch, linked_request, current_user, target_status=target_status
+    )
+    if old_request_id and old_request_id != target_request_id:
+        _release_linked_request(session, old_request_id)
 
     for field in ("party_type", "vendor_id", "vendor_name", "supplier_id", "supplier_name",
-                  "schedule_id", "schedule_number",
-                  "request_id", "request_sn_no",
+                  "schedule_id", "schedule_number", "request_sn_no",
                   "product_name", "quantity", "unit_id", "dispatch_date",
-                  "vehicle_number", "driver_name", "notes", "status"):
+                  "vehicle_number", "driver_name", "notes"):
         if field in body:
             val = body[field]
             if isinstance(val, str):
                 val = val.strip() or None
             setattr(dispatch, field, val)
+    dispatch.request_id = target_request_id
+    dispatch.status = target_status
 
-    # Replace items if provided
-    if "items" in body:
+    if raw_items is not None:
         old_items = list(session.exec(select(DispatchItem).where(DispatchItem.dispatch_id == dispatch.id)).all())
         for old in old_items:
             session.delete(old)
-        raw_items = body["items"] or []
         new_dis: list[DispatchItem] = []
         for item_data in raw_items:
             name = (item_data.get("item_name") or "").strip()
@@ -194,7 +219,6 @@ def update_dispatch(
             )
             session.add(di)
             new_dis.append(di)
-        # Update summary fields from first item
         if new_dis:
             first_data = raw_items[0]
             dispatch.product_name = (first_data.get("item_name") or "").strip()
@@ -202,30 +226,16 @@ def update_dispatch(
             dispatch.unit_id = first_data.get("unit_id") or None
 
     session.add(dispatch)
+    session.add(DispatchHistory(
+        dispatch_id=dispatch.id,  # type: ignore[arg-type]
+        changed_by_username=current_user.username,
+        change_type="status_change" if old_status != target_status else "updated",
+        old_status=old_status,
+        new_status=target_status,
+    ))
     session.commit()
     session.refresh(dispatch)
     saved_items = list(session.exec(select(DispatchItem).where(DispatchItem.dispatch_id == dispatch.id)).all())
-
-    # Record history if status changed
-    new_status = dispatch.status
-    if old_status != new_status:
-        session.add(DispatchHistory(
-            dispatch_id=dispatch.id,  # type: ignore[arg-type]
-            changed_by_username=current_user.username,
-            change_type="status_change",
-            old_status=old_status,
-            new_status=new_status,
-        ))
-    else:
-        session.add(DispatchHistory(
-            dispatch_id=dispatch.id,  # type: ignore[arg-type]
-            changed_by_username=current_user.username,
-            change_type="updated",
-            old_status=old_status,
-            new_status=new_status,
-        ))
-    session.commit()
-
     return _to_dict(dispatch, saved_items, session)
 
 
@@ -241,6 +251,7 @@ def delete_dispatch(
     if not dispatch or dispatch.status == "deleted":
         raise HTTPException(status_code=404, detail="Dispatch not found")
     old_status_del = dispatch.status
+    _release_linked_request(session, dispatch.request_id)
     dispatch.status = "deleted"
     session.add(dispatch)
     session.add(DispatchHistory(
@@ -297,6 +308,118 @@ def _require_dispatch_access(user: User) -> None:
     if getattr(user, "dispatch_access", False):
         return
     raise HTTPException(status_code=403, detail="Dispatch access required")
+
+
+def _linked_request(session: Session, request_id: int | None) -> Request | None:
+    if not request_id:
+        return None
+    req = session.get(Request, request_id)
+    if not req or not req.is_active or req.request_type != REQUEST_TYPE_CUSTOMER_DISPATCH:
+        raise HTTPException(status_code=404, detail="Customer dispatch request not found")
+    if req.status not in ("approved", "in_progress", "received"):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Request {req.sn_no} cannot be dispatched in status {req.status!r}",
+        )
+    return req
+
+
+def _request_dispatch_items(session: Session, req: Request) -> list[dict[str, Any]]:
+    detail = session.exec(
+        select(RequestCustomerDispatch).where(RequestCustomerDispatch.request_id == req.id)
+    ).one_or_none()
+    if not detail or detail.item_id is None:
+        raise HTTPException(status_code=409, detail=f"Request {req.sn_no} has no linked inventory item")
+    return [{
+        "item_name": detail.item_description or detail.item_sn_no or f"Item #{detail.item_id}",
+        "inv_type": detail.inventory_type,
+        "inv_item_id": detail.item_id,
+        "quantity": detail.quantity,
+    }]
+
+
+def _sync_linked_request(
+    session: Session,
+    dispatch: Dispatch,
+    req: Request | None,
+    current_user: User,
+    target_status: str | None = None,
+) -> None:
+    if not req:
+        return
+    now = datetime.now(tz=timezone.utc)
+    effective_status = target_status or dispatch.status
+    if effective_status in ("dispatched", "delivered") and req.status != "received":
+        detail = session.exec(
+            select(RequestCustomerDispatch).where(RequestCustomerDispatch.request_id == req.id)
+        ).one()
+        deduct_request_stock(
+            session,
+            [StockDeduction(
+                inventory_type=detail.inventory_type,
+                item_id=detail.item_id,  # type: ignore[arg-type]
+                quantity=detail.quantity,
+                label=detail.item_description or detail.item_sn_no or req.sn_no,
+            )],
+            current_user,
+            note=f"Customer dispatch for request {req.sn_no}",
+        )
+        old_status = req.status
+        req.status = "received"
+        req.delivered_by_user_id = current_user.id
+        req.delivered_by_username = current_user.username
+        req.delivered_at = now
+        req.updated_at = now
+        log_history(
+            session, req.id,
+            changed_by_user_id=current_user.id,
+            changed_by_username=current_user.username,
+            change_type="dispatched",
+            field_name="status",
+            old_value=old_status,
+            new_value="received",
+            note=f"Fulfilled by dispatch {dispatch.dispatch_number}",
+        )
+        if req.requested_by_user_id:
+            create_notification(
+                session,
+                user_id=req.requested_by_user_id,
+                notif_type="request_delivered",
+                title=f"Request {req.sn_no} dispatched",
+                body=f"Your request was fulfilled by dispatch {dispatch.dispatch_number}.",
+                request_id=req.id,
+            )
+    elif effective_status == "pending" and req.status == "approved":
+        req.status = "in_progress"
+        req.updated_at = now
+        log_history(
+            session, req.id,
+            changed_by_user_id=current_user.id,
+            changed_by_username=current_user.username,
+            change_type="dispatch_linked",
+            field_name="status",
+            old_value="approved",
+            new_value="in_progress",
+            note=f"Linked to dispatch {dispatch.dispatch_number}",
+        )
+    elif effective_status == "cancelled":
+        _release_linked_request(session, req.id)
+    session.add(req)
+
+
+def _release_linked_request(session: Session, request_id: int | None) -> None:
+    if not request_id:
+        return
+    req = session.get(Request, request_id)
+    if (
+        req
+        and req.is_active
+        and req.request_type == REQUEST_TYPE_CUSTOMER_DISPATCH
+        and req.status == "in_progress"
+    ):
+        req.status = "approved"
+        req.updated_at = datetime.now(tz=timezone.utc)
+        session.add(req)
 
 
 def _to_dict(d: Dispatch, items: list[DispatchItem] | None = None, session: Session | None = None) -> dict[str, Any]:

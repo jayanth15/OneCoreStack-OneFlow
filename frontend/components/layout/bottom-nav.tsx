@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import { usePwaInstall } from "@/hooks/use-pwa-install";
 import { cn } from "@/lib/utils";
-import { getCurrentUser, isAdminOrAbove, ALL_INVENTORY_TYPES } from "@/lib/user";
+import { getCurrentUser, ALL_INVENTORY_TYPES, refreshCurrentUser } from "@/lib/user";
 import type { CurrentUser } from "@/lib/user";
 import { apiLogout } from "@/lib/auth";
 import { requestsApi } from "@/lib/requests";
@@ -92,13 +92,16 @@ export function BottomNav() {
   }, []);
 
   useEffect(() => {
-    setIsAdmin(isAdminOrAbove());
-    const u = getCurrentUser();
-    setUser(u);
-    setGrnAccess(u?.grn_access ?? false);
-    setDispatchAccess(u?.dispatch_access ?? false);
-    setGatePassAccess(u?.gate_pass_access ?? false);
-    setPurchaseAccess(u?.purchase_access ?? false);
+    function applyUser(u: CurrentUser | null) {
+      setUser(u);
+      setIsAdmin(u?.role === "admin" || u?.role === "super_admin");
+      setGrnAccess(u?.grn_access ?? false);
+      setDispatchAccess(u?.dispatch_access ?? false);
+      setGatePassAccess(u?.gate_pass_access ?? false);
+      setPurchaseAccess(u?.purchase_access ?? false);
+    }
+    applyUser(getCurrentUser());
+    refreshCurrentUser().then(applyUser);
   }, [pathname]);
 
   // close more menu on route change

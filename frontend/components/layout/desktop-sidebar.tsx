@@ -23,7 +23,7 @@ import {
   ShoppingCart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getCurrentUser, isAdminOrAbove } from "@/lib/user";
+import { getCurrentUser, refreshCurrentUser } from "@/lib/user";
 import { apiFetchJson } from "@/lib/api";
 import { requestsApi } from "@/lib/requests";
 
@@ -67,14 +67,16 @@ export function DesktopSidebar() {
   const [requestCount, setRequestCount] = useState(0);
 
   useEffect(() => {
-    const user = getCurrentUser();
-    if (user) {
-      setIsAdmin(isAdminOrAbove());
+    function applyUser(user: ReturnType<typeof getCurrentUser>) {
+      if (!user) return;
+      setIsAdmin(user.role === "admin" || user.role === "super_admin");
       setGrnAccess(user.grn_access ?? false);
       setDispatchAccess(user.dispatch_access ?? false);
       setGatePassAccess(user.gate_pass_access ?? false);
       setPurchaseAccess(user.purchase_access ?? false);
     }
+    applyUser(getCurrentUser());
+    refreshCurrentUser().then(applyUser);
   }, [pathname]);
 
   useEffect(() => {
@@ -90,7 +92,11 @@ export function DesktopSidebar() {
     }
     fetchCounts();
     const interval = setInterval(fetchCounts, 30_000);
-    return () => clearInterval(interval);
+    window.addEventListener("notifications-updated", fetchCounts);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("notifications-updated", fetchCounts);
+    };
   }, []);
 
   function isActive(href: string) {

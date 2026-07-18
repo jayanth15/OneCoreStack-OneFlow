@@ -460,19 +460,19 @@
     "semantic_hash": "d7f33f3d6301dd362bf3b1002ca7adf9"
   },
   "backend/app/routers/dispatch.py": {
-    "mtime": 1782744027.4865942,
-    "ast_hash": "5b98d5fe573f5ff1036424ef14eea102",
-    "semantic_hash": "5b98d5fe573f5ff1036424ef14eea102"
+    "mtime": 1784363693.8587565,
+    "ast_hash": "01c0d31900538dfed1f015fa96b9e53c",
+    "semantic_hash": ""
   },
   "backend/app/routers/gate_passes.py": {
-    "mtime": 1782744027.4865942,
-    "ast_hash": "ae5cd187f96bd96f386706cc8947a361",
-    "semantic_hash": "ae5cd187f96bd96f386706cc8947a361"
+    "mtime": 1784363693.8590055,
+    "ast_hash": "987602cb0f8296ac2ba64f71eaea926e",
+    "semantic_hash": ""
   },
   "backend/app/routers/grn.py": {
-    "mtime": 1782744027.4875944,
-    "ast_hash": "b2a3bbb6fedeedb8fe4057e4279c82bc",
-    "semantic_hash": "b2a3bbb6fedeedb8fe4057e4279c82bc"
+    "mtime": 1784363499.217586,
+    "ast_hash": "f7173d93a39195cb5173ada5389256f0",
+    "semantic_hash": ""
   },
   "backend/app/routers/history.py": {
     "mtime": 1782744027.4885943,
@@ -500,9 +500,9 @@
     "semantic_hash": "148351d76595df3164fc13037c20cf3b"
   },
   "backend/app/routers/purchase_orders.py": {
-    "mtime": 1783248158.3686152,
-    "ast_hash": "770c7b4b1702328cb565ca3c90e685b8",
-    "semantic_hash": "770c7b4b1702328cb565ca3c90e685b8"
+    "mtime": 1784363693.8594043,
+    "ast_hash": "070203cb54b0fa3b656c0cb708567fab",
+    "semantic_hash": ""
   },
   "backend/app/routers/purchase_requests.py": {
     "mtime": 1781779175.7852416,
@@ -515,8 +515,8 @@
     "semantic_hash": "9cceb9f5a0b8f74db2bcaba42c03bc9f"
   },
   "backend/app/routers/requests.py": {
-    "mtime": 1784361385.2516665,
-    "ast_hash": "ef8d624a72754c1ea191272f1bcb0b50",
+    "mtime": 1784367599.7705083,
+    "ast_hash": "6345428307a63b845298ef4a019db847",
     "semantic_hash": ""
   },
   "backend/app/routers/requests_helpers.py": {
@@ -535,9 +535,9 @@
     "semantic_hash": "db2b4c0d2a5a12df074cad4c41a8ab7b"
   },
   "backend/app/routers/spares.py": {
-    "mtime": 1782744027.4945943,
-    "ast_hash": "350ebbde6d9e1bf5dbd803fdbcd15351",
-    "semantic_hash": "350ebbde6d9e1bf5dbd803fdbcd15351"
+    "mtime": 1784364094.5893402,
+    "ast_hash": "bd2ae23c0e3f81ef61b86332bf52ed45",
+    "semantic_hash": ""
   },
   "backend/app/routers/suppliers.py": {
     "mtime": 1782744027.4955943,
@@ -580,9 +580,9 @@
     "semantic_hash": "6aea327d1580b1cf63ca762186185981"
   },
   "backend/app/schemas/request.py": {
-    "mtime": 1783245602.650355,
-    "ast_hash": "5cc76330b787cc1f1c214fe2a426a256",
-    "semantic_hash": "5cc76330b787cc1f1c214fe2a426a256"
+    "mtime": 1784367679.885514,
+    "ast_hash": "56cf0cbeb79102e3a36171354d96c7a4",
+    "semantic_hash": ""
   },
   "backend/pyproject.toml": {
     "mtime": 1772088979.4583628,
@@ -690,19 +690,19 @@
     "semantic_hash": "3592c31fbed8519c57a1dcbfa3bf31cd"
   },
   "frontend/app/dashboard/dispatch/page.tsx": {
-    "mtime": 1782744027.515594,
-    "ast_hash": "f6e2dee1f7beae58a474eef2eaae7487",
-    "semantic_hash": "f6e2dee1f7beae58a474eef2eaae7487"
+    "mtime": 1784363651.0339062,
+    "ast_hash": "3fcb201eb531603242e34cab5316b275",
+    "semantic_hash": ""
   },
   "frontend/app/dashboard/gate-passes/page.tsx": {
-    "mtime": 1783248995.734324,
-    "ast_hash": "2f04ad5b4159a142744be425d6c04fa6",
-    "semantic_hash": "2f04ad5b4159a142744be425d6c04fa6"
+    "mtime": 1784363888.8507159,
+    "ast_hash": "11a4f9e2bb95f9a7b5c9a16f61775af4",
+    "semantic_hash": ""
   },
   "frontend/app/dashboard/grn/page.tsx": {
-    "mtime": 1782744027.517594,
-    "ast_hash": "800867424e17559ffc0eb3c7e2ae014d",
-    "semantic_hash": "800867424e17559ffc0eb3c7e2ae014d"
+    "mtime": 1784363965.0490746,
+    "ast_hash": "8709fb369485c9c6dc883c91000448ec",
+    "semantic_hash": ""
   },
   "frontend/app/dashboard/history/page.tsx": {
     "mtime": 1782744027.518594,
@@ -865,9 +865,9 @@
     "semantic_hash": "8b34651363aefc1243b63eb260569f88"
   },
   "frontend/app/dashboard/purchase-orders/page.tsx": {
-    "mtime": 1783248208.606857,
-    "ast_hash": "7482d183354347d932a7ab22c4a9ffcc",
-    "semantic_hash": "7482d183354347d932a7ab22c4a9ffcc"
+    "mtime": 1784363651.0366235,
+    "ast_hash": "29cf3b68bac7eae0dcf0b1f9c4f65d54",
+    "semantic_hash": ""
   },
   "frontend/app/dashboard/purchase-requests/page.tsx": {
     "mtime": 1782050393.2205935,
@@ -1005,8 +1005,8 @@
     "semantic_hash": "37ffa7e07678c9522b1bbf58bc34f081"
   },
   "frontend/components/requests/request-detail-dialog.tsx": {
-    "mtime": 1784361470.8432436,
-    "ast_hash": "81b6f938bd94ab65c48a69acc4b63c95",
+    "mtime": 1784367599.771002,
+    "ast_hash": "d1893689cd3dad1247a345a88560f064",
     "semantic_hash": ""
   },
   "frontend/components/requests/request-form.tsx": {
@@ -1190,8 +1190,8 @@
     "semantic_hash": "df45b7a508a00dd7711b2cb388f5b2ef"
   },
   "frontend/lib/requests.ts": {
-    "mtime": 1784361385.2538025,
-    "ast_hash": "ddcbe321e8ca3ed61c5a6291c43dc71a",
+    "mtime": 1784367599.7706735,
+    "ast_hash": "ed89968d27882e0c2318b104aba1bce9",
     "semantic_hash": ""
   },
   "frontend/lib/theme.ts": {
@@ -1515,8 +1515,23 @@
     "semantic_hash": "a2760511c65806022ad20adf74370ff3"
   },
   "backend/tests/test_request_department_acceptance.py": {
-    "mtime": 1784361470.8454697,
-    "ast_hash": "054089ddcdf9dac764e33742bc311c67",
+    "mtime": 1784367622.2121718,
+    "ast_hash": "7147d618d245e8eafaaefef67492f271",
+    "semantic_hash": ""
+  },
+  "backend/tests/test_admin_document_deletion.py": {
+    "mtime": 1784363819.4219298,
+    "ast_hash": "da0af781528aa75f3944f1c10f7be7f2",
+    "semantic_hash": ""
+  },
+  "backend/tests/test_admin_request_quantities.py": {
+    "mtime": 1784363746.2773483,
+    "ast_hash": "5b6314f15ca6478814dcba898d0a9dd9",
+    "semantic_hash": ""
+  },
+  "backend/tests/test_spares_stock_adjustment.py": {
+    "mtime": 1784364109.080661,
+    "ast_hash": "cb94012af797a4218517f079c18f60c2",
     "semantic_hash": ""
   }
 }

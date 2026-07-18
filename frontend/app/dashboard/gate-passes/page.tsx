@@ -14,7 +14,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { apiFetchJson } from "@/lib/api";
-import { getCurrentUser, isAdminOrAbove } from "@/lib/user";
+import { getCurrentUser, isAdminOrAbove, refreshCurrentUser } from "@/lib/user";
 import { ClipboardList, Plus, Search, Eye, MoreVertical, X, Minus, Printer, Link2, Pencil, Trash2 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -139,9 +139,14 @@ export default function GatePassesPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const user = getCurrentUser();
-    if (!user) { router.replace("/login"); return; }
-    if (!isAdminOrAbove() && !user.gate_pass_access) router.replace("/dashboard");
+    async function verifyAccess() {
+      const cached = getCurrentUser();
+      if (!cached) { router.replace("/login"); return; }
+      const user = await refreshCurrentUser() ?? cached;
+      const admin = user.role === "admin" || user.role === "super_admin";
+      if (!admin && !user.gate_pass_access) router.replace("/dashboard");
+    }
+    verifyAccess();
   }, [router]);
 
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);

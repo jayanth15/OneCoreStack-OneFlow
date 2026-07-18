@@ -1,3 +1,5 @@
+import { apiFetchJson } from "./api";
+
 const USER_KEY = "oneflow_user";
 
 export const ALL_INVENTORY_TYPES = [
@@ -51,6 +53,30 @@ export function getCurrentUser(): CurrentUser | null {
     return JSON.parse(raw) as CurrentUser;
   } catch {
     return null;
+  }
+}
+
+export async function refreshCurrentUser(): Promise<CurrentUser | null> {
+  if (typeof window === "undefined" || !getCurrentUser()) return null;
+  try {
+    const me = await apiFetchJson<CurrentUser>("/api/v1/auth/me");
+    const user: CurrentUser = {
+      ...me,
+      inventory_access: me.inventory_access ?? [],
+      inventory_edit: me.inventory_edit ?? [],
+      request_departments: me.request_departments ?? [],
+      request_inventory: me.request_inventory ?? [],
+      grn_access: me.grn_access ?? false,
+      dispatch_access: me.dispatch_access ?? false,
+      gate_pass_access: me.gate_pass_access ?? false,
+      purchase_access: me.purchase_access ?? false,
+      department_codes: me.department_codes ?? [],
+      department_names: me.department_names ?? [],
+    };
+    setCurrentUser(user);
+    return user;
+  } catch {
+    return getCurrentUser();
   }
 }
 

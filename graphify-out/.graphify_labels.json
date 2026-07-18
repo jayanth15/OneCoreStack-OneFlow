@@ -223,8 +223,6 @@
   "221": "_migrate_grn_v2",
   "222": "_migrate_job_card_worker_id",
   "223": "_migrate_po_vendor_fields",
-  "224": "_migrate_production_plan_v2",
-  "225": "_migrate_purchase_request_items",
   "230": "index.md",
   "231": "index.md",
   "232": "index.md"

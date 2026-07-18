@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import or_
+from sqlalchemy import delete as sqlalchemy_delete, or_
 from sqlmodel import Session, select
 
 from app.core.database import get_session
@@ -24,6 +24,7 @@ from app.models.request import (
 from app.models.request_item import RequestItem
 from app.models.request_history import RequestHistory
 from app.models.request_customer_dispatch import RequestCustomerDispatch
+from app.models.notification import Notification
 from app.models.receipt import Receipt
 from app.models.receipt_item import ReceiptItem
 from app.schemas.request import (
@@ -39,6 +40,7 @@ from app.routers.requests_helpers import (
 )
 from app.routers.notifications import create_notification
 from app.routers.receipts import create_department_receipts_for_request
+from app.services.request_inventory import StockDeduction, deduct_request_stock
 
 router = APIRouter(prefix="/api/v1/requests", tags=["requests"])
 
@@ -123,6 +125,38 @@ def _target_department_codes(req: Request, session: Session) -> list[str]:
             codes.append(code)
             seen.add(code)
     return codes
+
+
+def _acceptance_departments(
+    user: User,
+    req: Request,
+    session: Session,
+    user_depts: list,
+) -> list[str]:
+    """Return target departments this user can still accept from live DB data."""
+    if req.status not in ("approved", "in_progress"):
+        return []
+
+    targets = _target_department_codes(req, session)
+    allowed = set(targets)
+    if user.role not in ("admin", "super_admin"):
+        allowed &= {dept.code for dept in user_depts}
+
+    items = session.exec(
+        select(RequestItem).where(RequestItem.request_id == req.id)
+    ).all()
+    if not items:
+        return [code for code in targets if code in allowed and req.status == "approved"]
+
+    return [
+        code for code in targets
+        if code in allowed
+        and any(
+            item.item_status != "in_progress"
+            for item in items
+            if (item.department or req.department) == code
+        )
+    ]
 
 
 def _user_can_accept(user: User, req: Request, session: Session, user_depts: list) -> bool:
@@ -341,7 +375,7 @@ def create_request(
                 change_type="created", note=f"Created {payload.request_type} request {sn_no}")
     session.commit()
     session.refresh(new_req)
-    return _build_read(new_req, session)
+    return _build_read(new_req, session, current_user)
 
 
 # --- read one ---
@@ -360,7 +394,7 @@ def get_request(
         raise HTTPException(status_code=403, detail="Not allowed to view this request")
     if not _user_can_see_request(current_user, req, session, user_depts):
         raise HTTPException(status_code=403, detail="Not allowed to view this request")
-    return _build_read(req, session)
+    return _build_read(req, session, current_user)
 
 
 # --- update ---
@@ -423,7 +457,7 @@ def update_request(
 
     session.commit()
     session.refresh(req)
-    return _build_read(req, session)
+    return _build_read(req, session, current_user)
 
 
 # --- delete (soft) ---
@@ -441,6 +475,7 @@ def delete_request(
         raise HTTPException(status_code=403, detail="Only admins can cancel requests")
     req.is_active = False
     req.status = "cancelled"
+    session.exec(sqlalchemy_delete(Notification).where(Notification.request_id == req.id))
     log_history(session, req.id, changed_by_user_id=current_user.id, changed_by_username=current_user.username,
                 change_type="cancelled", note="Soft-deleted")
     if req.requested_by_user_id:
@@ -450,7 +485,7 @@ def delete_request(
             notif_type="request_cancelled",
             title=f"Request {req.sn_no} cancelled",
             body=f"Request {req.sn_no} was cancelled by {current_user.username}.",
-            request_id=req.id,
+            request_id=None,
         )
     if req.department:
         notify_department_users(
@@ -459,7 +494,7 @@ def delete_request(
             notif_type="request_cancelled",
             title=f"Request {req.sn_no} cancelled",
             body=f"Request {req.sn_no} targeting your department was cancelled by {current_user.username}.",
-            request_id=req.id,
+            request_id=None,
         )
     session.commit()
     return None
@@ -573,7 +608,7 @@ def review_request(
         )
     session.commit()
     session.refresh(req)
-    return _build_read(req, session)
+    return _build_read(req, session, current_user)
 
 
 # --- fulfilment (target dept accepts) ---
@@ -679,7 +714,7 @@ def accept_fulfilment(
         )
     session.commit()
     session.refresh(req)
-    return _build_read(req, session)
+    return _build_read(req, session, current_user)
 
 
 # --- deliver (fulfilling dept marks delivered → awaiting_signoff) ---
@@ -713,6 +748,33 @@ def deliver_request(
                 detail=f"Delivered quantity for {item.item_name or delivered.request_item_id} cannot exceed requested quantity",
             )
 
+    delivered_quantities = (
+        {delivered.request_item_id: delivered.quantity_delivered for delivered in payload.items}
+        if payload.items
+        else {item.id: item.quantity for item in req_items}
+    )
+    deductions = [
+        StockDeduction(
+            inventory_type=item.item_type,
+            item_id=item.inventory_item_id,
+            quantity=delivered_quantities[item.id],
+            label=item.item_name or item.item_code or f"Request item {item.id}",
+        )
+        for item in req_items
+        if (
+            req.request_type == REQUEST_TYPE_INTERNAL_TRANSFER
+            and item.id in delivered_quantities
+            and item.inventory_item_id is not None
+            and item.item_type
+        )
+    ]
+    deduct_request_stock(
+        session,
+        deductions,
+        current_user,
+        note=f"Fulfilled request {req.sn_no}",
+    )
+
     old_status = req.status
     req.status = "awaiting_signoff"
     req.delivered_by_user_id = current_user.id
@@ -735,7 +797,7 @@ def deliver_request(
 
     session.commit()
     session.refresh(req)
-    return _build_read(req, session)
+    return _build_read(req, session, current_user)
 
 
 # --- acknowledge delivery (requester confirms receipt → received) ---
@@ -797,7 +859,7 @@ def acknowledge_delivery(
 
     session.commit()
     session.refresh(req)
-    return _build_read(req, session)
+    return _build_read(req, session, current_user)
 
 
 # --- per-item acceptance (dept marks item received) ---
@@ -832,7 +894,7 @@ def accept_item(
                 old_value=old_item_status, new_value=item.item_status, note=payload.note)
     session.commit()
     session.refresh(req)
-    return _build_read(req, session)
+    return _build_read(req, session, current_user)
 
 
 # --- manual status update (admin) ---
@@ -856,7 +918,7 @@ def set_status(
                 change_type="status_change", field_name="status", old_value=old_status, new_value=payload.new_status, note=payload.note)
     session.commit()
     session.refresh(req)
-    return _build_read(req, session)
+    return _build_read(req, session, current_user)
 
 
 # --- history ---
@@ -879,7 +941,11 @@ def get_history(
 
 # --- build read ---
 
-def _build_read(req: Request, session: Session) -> RequestRead:
+def _build_read(
+    req: Request,
+    session: Session,
+    current_user: Optional[User] = None,
+) -> RequestRead:
     items = session.exec(select(RequestItem).where(RequestItem.request_id == req.id)).all()
     dispatch = session.exec(select(RequestCustomerDispatch).where(RequestCustomerDispatch.request_id == req.id)).one_or_none()
     history = session.exec(
@@ -891,6 +957,20 @@ def _build_read(req: Request, session: Session) -> RequestRead:
         from_department=req.from_department,
         department=req.department,
         department_label=label_for_code(req.department, label_map),
+        target_departments=_target_department_codes(req, session),
+        target_department_labels=[
+            label_for_code(code, label_map) or code
+            for code in _target_department_codes(req, session)
+        ],
+        acceptance_departments=(
+            _acceptance_departments(
+                current_user,
+                req,
+                session,
+                get_user_departments(session, current_user.id),
+            )
+            if current_user is not None else []
+        ),
         from_whom=req.from_whom, quantity=req.quantity, notes=req.notes, status=req.status,
         requested_by_user_id=req.requested_by_user_id, requested_by_username=req.requested_by_username,
         created_at=req.created_at, updated_at=req.updated_at,

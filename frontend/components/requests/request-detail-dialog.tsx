@@ -277,16 +277,7 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
   const targetDepartmentLabels = new Map(
     targetDepartments.map((code, index) => [code, data?.target_department_labels?.[index] ?? code]),
   );
-  const userDepartmentCodes = new Set(currentUser?.department_codes ?? []);
-  const pendingAcceptanceDepartments = data && (data.status === "approved" || data.status === "in_progress")
-    ? targetDepartments.filter((code) => {
-        if (!reviewerIsAdmin && !userDepartmentCodes.has(code)) return false;
-        const departmentItems = data.items.filter((item) => (item.department ?? data.department) === code);
-        return departmentItems.length > 0
-          ? departmentItems.some((item) => item.item_status !== "in_progress")
-          : data.status === "approved";
-      })
-    : [];
+  const pendingAcceptanceDepartments = data?.acceptance_departments ?? [];
   const typeMeta = data ? REQUEST_TYPE_META[data.request_type] : undefined;
   const TypeIcon = typeMeta?.icon ?? ClipboardList;
   const statusMeta = data ? STATUS_META[data.status] : undefined;
