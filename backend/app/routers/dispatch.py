@@ -44,7 +44,7 @@ def list_dispatches(
 ) -> dict[str, Any]:
     """List dispatches. Accessible to users with dispatch_access or admin."""
     _require_dispatch_access(current_user)
-    q = select(Dispatch).order_by(Dispatch.id.desc())  # type: ignore[union-attr]
+    q = select(Dispatch).where(Dispatch.status != "deleted").order_by(Dispatch.id.desc())  # type: ignore[union-attr]
     dispatches = list(session.exec(q).all())
 
     if status_filter:
@@ -142,7 +142,7 @@ def get_dispatch(
 ) -> dict[str, Any]:
     _require_dispatch_access(current_user)
     dispatch = session.get(Dispatch, dispatch_id)
-    if not dispatch:
+    if not dispatch or dispatch.status == "deleted":
         raise HTTPException(status_code=404, detail="Dispatch not found")
     d_items = list(session.exec(select(DispatchItem).where(DispatchItem.dispatch_id == dispatch_id)).all())
     return _to_dict(dispatch, d_items, session)
@@ -157,7 +157,7 @@ def update_dispatch(
 ) -> dict[str, Any]:
     _require_dispatch_access(current_user)
     dispatch = session.get(Dispatch, dispatch_id)
-    if not dispatch:
+    if not dispatch or dispatch.status == "deleted":
         raise HTTPException(status_code=404, detail="Dispatch not found")
 
     old_status = dispatch.status
@@ -235,20 +235,21 @@ def delete_dispatch(
     session: Annotated[Session, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> None:
-    _require_dispatch_access(current_user)
+    if current_user.role not in ("admin", "super_admin"):
+        raise HTTPException(status_code=403, detail="Only admins can delete dispatches")
     dispatch = session.get(Dispatch, dispatch_id)
-    if not dispatch:
+    if not dispatch or dispatch.status == "deleted":
         raise HTTPException(status_code=404, detail="Dispatch not found")
     old_status_del = dispatch.status
-    dispatch.status = "cancelled"
+    dispatch.status = "deleted"
     session.add(dispatch)
     session.add(DispatchHistory(
         dispatch_id=dispatch.id,  # type: ignore[arg-type]
         changed_by_username=current_user.username,
         change_type="status_change",
         old_status=old_status_del,
-        new_status="cancelled",
-        notes="Dispatch cancelled",
+        new_status="deleted",
+        notes="Dispatch deleted by admin",
     ))
     session.commit()
 

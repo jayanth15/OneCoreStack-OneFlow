@@ -482,6 +482,57 @@ def review_request(
     if req.status != "pending":
         raise HTTPException(status_code=409, detail=f"Cannot review a request in status '{req.status}'")
 
+    if payload.decision == "approve":
+        request_items = session.exec(
+            select(RequestItem).where(RequestItem.request_id == req.id)
+        ).all()
+        items_by_id = {item.id: item for item in request_items}
+        supplied_ids = [entry.item_id for entry in payload.item_quantities]
+        if len(supplied_ids) != len(set(supplied_ids)):
+            raise HTTPException(status_code=422, detail="Each request item quantity may only be supplied once")
+        for entry in payload.item_quantities:
+            item = items_by_id.get(entry.item_id)
+            if not item:
+                raise HTTPException(status_code=422, detail=f"Request item {entry.item_id} does not belong to this request")
+            old_quantity = item.quantity
+            item.quantity = entry.quantity
+            session.add(item)
+            if old_quantity != entry.quantity:
+                log_history(
+                    session, req.id,
+                    changed_by_user_id=current_user.id,
+                    changed_by_username=current_user.username,
+                    change_type="edited",
+                    field_name=f"item_quantity:{item.item_name or item.id}",
+                    old_value=str(old_quantity),
+                    new_value=str(entry.quantity),
+                    note="Quantity adjusted during approval",
+                )
+        if request_items:
+            req.quantity = sum(item.quantity for item in request_items)
+
+        if payload.dispatch_quantity is not None:
+            dispatch = session.exec(
+                select(RequestCustomerDispatch).where(RequestCustomerDispatch.request_id == req.id)
+            ).one_or_none()
+            if not dispatch:
+                raise HTTPException(status_code=422, detail="Dispatch quantity is only valid for customer dispatch requests")
+            old_dispatch_quantity = dispatch.quantity
+            dispatch.quantity = payload.dispatch_quantity
+            req.quantity = payload.dispatch_quantity
+            session.add(dispatch)
+            if old_dispatch_quantity != payload.dispatch_quantity:
+                log_history(
+                    session, req.id,
+                    changed_by_user_id=current_user.id,
+                    changed_by_username=current_user.username,
+                    change_type="edited",
+                    field_name="dispatch_quantity",
+                    old_value=str(old_dispatch_quantity),
+                    new_value=str(payload.dispatch_quantity),
+                    note="Quantity adjusted during approval",
+                )
+
     old_status = req.status
     req.status = "approved" if payload.decision == "approve" else "not_approved"
     req.reviewed_by_user_id = current_user.id

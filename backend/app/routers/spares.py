@@ -668,7 +668,20 @@ def adjust_item_stock(
     item_id: int, body: AdjustRequest, session: SessionDep, current_user: CurrentUser,
 ) -> ItemOut:
     item = _item_or_404(session, item_id)
-    qty_before = item.recorded_qty
+    if body.quantity < 0:
+        raise HTTPException(status_code=422, detail="Adjustment quantity cannot be negative")
+    if body.adjustment_type in ("add", "subtract") and body.quantity == 0:
+        raise HTTPException(status_code=422, detail="Adjustment quantity must be greater than zero")
+    active_variants = session.exec(
+        select(SpareItemVariant).where(
+            SpareItemVariant.spare_item_id == item_id,
+            SpareItemVariant.is_active == True,  # noqa: E712
+        )
+    ).all()
+    # Active variants are the source of truth. Start from their current sum so
+    # a previously stale parent aggregate cannot swallow a stock reduction.
+    qty_before = sum(variant.qty for variant in active_variants) if active_variants else item.recorded_qty
+    item.recorded_qty = qty_before
     if body.adjustment_type == "add":
         item.recorded_qty += body.quantity
     elif body.adjustment_type == "subtract":
@@ -682,12 +695,6 @@ def adjust_item_stock(
     session.add(item)
     # If variants exist, propagate the adjustment proportionally so individual
     # variant cards stay in sync with the new total.
-    active_variants = session.exec(
-        select(SpareItemVariant).where(
-            SpareItemVariant.spare_item_id == item_id,
-            SpareItemVariant.is_active == True,  # noqa: E712
-        )
-    ).all()
     if active_variants:
         if len(active_variants) == 1:
             # Single variant — just set its qty to the new total directly.
@@ -721,7 +728,11 @@ def adjust_item_stock(
         note=body.note or None,
     )
     session.add(hist)
-    session.commit(); session.refresh(item)
+    session.commit()
+    if active_variants:
+        _sync_item_from_variants(session, item)
+    else:
+        session.refresh(item)
     return _item_out(item, has_variants=len(active_variants) > 0, session=session)
 
 
@@ -942,6 +953,10 @@ def adjust_variant_stock(
     if not v or not v.is_active:
         raise HTTPException(status_code=404, detail="Variant not found")
     parent = _item_or_404(session, v.spare_item_id)
+    if body.quantity < 0:
+        raise HTTPException(status_code=422, detail="Adjustment quantity cannot be negative")
+    if body.adjustment_type in ("add", "subtract") and body.quantity == 0:
+        raise HTTPException(status_code=422, detail="Adjustment quantity must be greater than zero")
     parent_qty_before = parent.recorded_qty
     if body.adjustment_type == "add":
         v.qty = v.qty + body.quantity

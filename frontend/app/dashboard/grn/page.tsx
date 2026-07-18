@@ -14,7 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { apiFetchJson } from "@/lib/api";
-import { getCurrentUser } from "@/lib/user";
+import { getCurrentUser, isAdminOrAbove } from "@/lib/user";
 import {
   PlusIcon,
   Trash2,
@@ -254,6 +254,8 @@ export default function GRNPage() {
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [canManage, setCanManage] = useState(false);
+  const [adminUser, setAdminUser] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   // ── Add / Edit dialog (shared form state) ─────────────────────────────────
   const [formOpen, setFormOpen] = useState(false);
@@ -291,8 +293,14 @@ export default function GRNPage() {
   const [returnErr, setReturnErr] = useState<string | null>(null);
 
   useEffect(() => {
-    const user = getCurrentUser();
-    if (user) setCanManage(user.grn_access === true);
+    Promise.resolve().then(() => {
+      const user = getCurrentUser();
+      if (user) {
+        const isAdmin = isAdminOrAbove();
+        setAdminUser(isAdmin);
+        setCanManage(isAdmin || user.grn_access === true);
+      }
+    });
     apiFetchJson<CompanyInfo>("/api/v1/settings/company").then(setCompanyInfo).catch(() => {});
   }, []);
 
@@ -308,6 +316,20 @@ export default function GRNPage() {
   }, [page, statusFilter]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  async function deleteGrn(grn: GRNRecord) {
+    if (!window.confirm(`Delete GRN ${grn.grn_number}? The document will be hidden but stock history will remain.`)) return;
+    setDeletingId(grn.id);
+    try {
+      await apiFetchJson(`/api/v1/grn/${grn.id}`, { method: "DELETE" });
+      setViewGrn(null);
+      fetchData();
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : "Failed to delete GRN");
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   function resetForm() {
     setTransportType("own");
@@ -994,6 +1016,18 @@ ${grn.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${grn.notes}</
                       <Pencil className="size-3.5" />
                     </Button>
                   )}
+                  {adminUser && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 text-destructive hover:text-destructive"
+                      onClick={() => deleteGrn(g)}
+                      disabled={deletingId === g.id}
+                      aria-label={`Delete GRN ${g.grn_number}`}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  )}
                   {canManage && g.status !== "stock_filled" && (
                     <Button variant="ghost" size="sm" className="h-8 text-xs text-success hover:text-green-900"
                       onClick={() => { setFillGrn(g); initFillQtys(g); }}>
@@ -1092,6 +1126,18 @@ ${grn.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${grn.notes}</
                             {canManage && (
                               <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(g)} title="Edit">
                                 <Pencil className="size-3.5" />
+                              </Button>
+                            )}
+                            {adminUser && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-8 text-destructive hover:text-destructive"
+                                onClick={() => deleteGrn(g)}
+                                disabled={deletingId === g.id}
+                                aria-label={`Delete GRN ${g.grn_number}`}
+                              >
+                                <Trash2 className="size-3.5" />
                               </Button>
                             )}
                             {canManage && g.status !== "stock_filled" && (

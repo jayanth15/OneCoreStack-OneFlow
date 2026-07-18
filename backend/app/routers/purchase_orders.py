@@ -67,7 +67,9 @@ def list_pos(
     page_size: int = 50,
 ) -> dict[str, Any]:
     _require_access(current_user)
-    pos = list(session.exec(select(PurchaseOrder).order_by(PurchaseOrder.id.desc())).all())  # type: ignore[union-attr]
+    pos = list(session.exec(
+        select(PurchaseOrder).where(PurchaseOrder.status != "deleted").order_by(PurchaseOrder.id.desc())
+    ).all())  # type: ignore[union-attr]
 
     if status_filter:
         pos = [p for p in pos if p.status == status_filter]
@@ -175,7 +177,7 @@ def get_po(
 ) -> dict[str, Any]:
     _require_access(current_user)
     po = session.get(PurchaseOrder, po_id)
-    if not po:
+    if not po or po.status == "deleted":
         raise HTTPException(status_code=404, detail="Purchase order not found")
     po_items = list(session.exec(
         select(PurchaseOrderItem).where(PurchaseOrderItem.purchase_order_id == po_id)
@@ -192,7 +194,7 @@ def update_po(
 ) -> dict[str, Any]:
     _require_access(current_user)
     po = session.get(PurchaseOrder, po_id)
-    if not po:
+    if not po or po.status == "deleted":
         raise HTTPException(status_code=404, detail="Purchase order not found")
     old_status = po.status
 
@@ -253,11 +255,12 @@ def cancel_po(
     session: Annotated[Session, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> None:
-    _require_access(current_user)
+    if current_user.role not in ("admin", "super_admin"):
+        raise HTTPException(status_code=403, detail="Only admins can delete purchase orders")
     po = session.get(PurchaseOrder, po_id)
-    if not po:
+    if not po or po.status == "deleted":
         raise HTTPException(status_code=404, detail="Purchase order not found")
-    po.status = "cancelled"
+    po.status = "deleted"
     session.add(po)
     session.commit()
 

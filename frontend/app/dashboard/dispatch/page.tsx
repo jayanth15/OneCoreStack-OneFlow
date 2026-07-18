@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { apiFetchJson } from "@/lib/api";
 import { getCurrentUser, isAdminOrAbove } from "@/lib/user";
-import { PackageCheck, Plus, Search, Pencil, Minus, Printer } from "lucide-react";
+import { PackageCheck, Plus, Search, Pencil, Minus, Printer, Trash2 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -152,6 +152,8 @@ export default function DispatchPage() {
   const searchRef = useRef<HTMLInputElement>(null);
   const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
   const [customerRequests, setCustomerRequests] = useState<{ id: number; sn_no: string; dispatch: { customer_name: string | null; inventory_type: string; item_sn_no: string | null; quantity: number } | null }[]>([]);
+  const adminUser = isAdminOrAbove();
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   function load() {
     setLoading(true);
@@ -285,6 +287,19 @@ export default function DispatchPage() {
       load();
     } finally {
       setStatusUpdatingId(null);
+    }
+  }
+
+  async function deleteDispatch(dispatch: Dispatch) {
+    if (!window.confirm(`Delete dispatch ${dispatch.dispatch_number}? This action is restricted to admins.`)) return;
+    setDeletingId(dispatch.id);
+    try {
+      await apiFetchJson(`/api/v1/dispatch/${dispatch.id}`, { method: "DELETE" });
+      load();
+    } catch (error: unknown) {
+      alert(error instanceof Error ? error.message : "Failed to delete dispatch");
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -481,6 +496,18 @@ ${d.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${d.notes}</p>` 
                     <Button size="icon" variant="ghost" className="size-8" onClick={() => openEdit(d)}>
                       <Pencil className="size-3.5" />
                     </Button>
+                    {adminUser && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-8 text-destructive hover:text-destructive"
+                        aria-label={`Delete dispatch ${d.dispatch_number}`}
+                        disabled={deletingId === d.id}
+                        onClick={() => deleteDispatch(d)}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               );

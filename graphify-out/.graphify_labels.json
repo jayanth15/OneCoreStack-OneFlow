@@ -225,10 +225,6 @@
   "223": "_migrate_po_vendor_fields",
   "224": "_migrate_production_plan_v2",
   "225": "_migrate_purchase_request_items",
-  "226": "_migrate_purchase_request_tables",
-  "227": "_migrate_spare_item_v2",
-  "228": "_seed_customers_from_schedules",
-  "229": "test_receipt_list_includes_request_direction_context_for_source_department_user",
   "230": "index.md",
   "231": "index.md",
   "232": "index.md"

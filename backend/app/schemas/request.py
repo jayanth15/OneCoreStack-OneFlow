@@ -186,9 +186,16 @@ class RequestListRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class RequestReviewItemQuantity(BaseModel):
+    item_id: int
+    quantity: float = Field(gt=0)
+
+
 class RequestReviewAction(BaseModel):
     decision: Literal["approve", "reject"]
     note: Optional[str] = None
+    item_quantities: List[RequestReviewItemQuantity] = Field(default_factory=list)
+    dispatch_quantity: Optional[float] = Field(default=None, gt=0)
 
 
 class RequestItemAcceptAction(BaseModel):

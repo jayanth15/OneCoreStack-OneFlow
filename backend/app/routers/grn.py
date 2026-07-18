@@ -414,6 +414,23 @@ def update_grn(
     return _build_grn_out(session, grn)
 
 
+@router.delete("/{grn_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_grn(
+    grn_id: int,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> None:
+    if current_user.role not in ("admin", "super_admin"):
+        raise HTTPException(status_code=403, detail="Only admins can delete GRNs")
+    grn = session.get(GRNRecord, grn_id)
+    if not grn or not grn.is_active:
+        raise HTTPException(status_code=404, detail="GRN not found")
+    grn.is_active = False
+    grn.updated_at = datetime.now(tz=timezone.utc)
+    session.add(grn)
+    session.commit()
+
+
 @router.post("/{grn_id}/fill-items", response_model=GRNOut)
 def fill_items(
     grn_id: int,

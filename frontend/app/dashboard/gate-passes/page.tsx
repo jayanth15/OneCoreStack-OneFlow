@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { apiFetchJson } from "@/lib/api";
 import { getCurrentUser, isAdminOrAbove } from "@/lib/user";
-import { ClipboardList, Plus, Search, Eye, MoreVertical, X, Minus, Printer, Link2, Pencil } from "lucide-react";
+import { ClipboardList, Plus, Search, Eye, MoreVertical, X, Minus, Printer, Link2, Pencil, Trash2 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -299,6 +299,20 @@ export default function GatePassesPage() {
     } finally { setEditSaving(false); }
   }
 
+  async function deleteGatePass(gatePass: GatePass) {
+    if (!window.confirm(`Delete gate pass ${gatePass.gate_pass_number}? This action is restricted to admins.`)) return;
+    setClosingId(gatePass.id);
+    try {
+      await apiFetchJson(`/api/v1/gate-passes/${gatePass.id}`, { method: "DELETE" });
+      setViewTarget(null);
+      load();
+    } catch (error: unknown) {
+      alert(error instanceof Error ? error.message : "Failed to delete gate pass");
+    } finally {
+      setClosingId(null);
+    }
+  }
+
   async function closeGatePass(id: number) {
     setClosingId(id);
     try {
@@ -578,6 +592,15 @@ ${coHtml}
             )}
             {adminUser && (
               <Button variant="outline" onClick={() => viewTarget && openEdit(viewTarget)}>Edit</Button>
+            )}
+            {adminUser && viewTarget && (
+              <Button
+                variant="destructive"
+                onClick={() => deleteGatePass(viewTarget)}
+                disabled={closingId === viewTarget.id}
+              >
+                <Trash2 className="size-3.5 mr-1.5" />Delete
+              </Button>
             )}
             <Button variant="outline" onClick={() => viewTarget && printGatePass(viewTarget)}>
               <Printer className="size-3.5 mr-1.5" />Print

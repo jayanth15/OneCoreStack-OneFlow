@@ -138,6 +138,10 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
   const [deliverNote, setDeliverNote] = useState("");
   const [deliverQuantities, setDeliverQuantities] = useState<Record<number, number>>({});
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [approvalOpen, setApprovalOpen] = useState(false);
+  const [approvalQuantities, setApprovalQuantities] = useState<Record<number, number>>({});
+  const [approvalDispatchQuantity, setApprovalDispatchQuantity] = useState<number>(1);
+  const [approvalBusy, setApprovalBusy] = useState(false);
 
   useEffect(() => {
     if (!open || requestId == null) return;
@@ -166,7 +170,7 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
 
   const reviewerIsAdmin = currentUser?.role === "admin" || currentUser?.role === "super_admin" || isAdmin();
 
-  const review = async (decision: "approve" | "reject") => {
+  const review = async (decision: "reject") => {
     if (!data) return;
     try {
       const updated = await requestsApi.review(data.id, decision);
@@ -174,6 +178,49 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
     } catch (e: unknown) {
       console.error("Review failed:", e);
       alert(`Review failed: ${errorMessage(e)}`);
+    }
+  };
+
+  const openApproval = () => {
+    if (!data) return;
+    setApprovalQuantities(Object.fromEntries(
+      data.items
+        .filter((item) => item.id != null)
+        .map((item) => [item.id as number, item.quantity]),
+    ));
+    setApprovalDispatchQuantity(data.dispatch?.quantity ?? 1);
+    setApprovalOpen(true);
+  };
+
+  const approve = async () => {
+    if (!data) return;
+    const itemQuantities = data.items
+      .filter((item) => item.id != null)
+      .map((item) => ({
+        item_id: item.id as number,
+        quantity: approvalQuantities[item.id as number] ?? item.quantity,
+      }));
+    if (itemQuantities.some((item) => !Number.isFinite(item.quantity) || item.quantity <= 0)) {
+      alert("Every approved quantity must be greater than zero.");
+      return;
+    }
+    if (data.dispatch && (!Number.isFinite(approvalDispatchQuantity) || approvalDispatchQuantity <= 0)) {
+      alert("The approved dispatch quantity must be greater than zero.");
+      return;
+    }
+    setApprovalBusy(true);
+    try {
+      const updated = await requestsApi.review(data.id, "approve", {
+        item_quantities: itemQuantities,
+        dispatch_quantity: data.dispatch ? approvalDispatchQuantity : undefined,
+      });
+      setData(updated);
+      setApprovalOpen(false);
+    } catch (e: unknown) {
+      console.error("Approval failed:", e);
+      alert(`Approval failed: ${errorMessage(e)}`);
+    } finally {
+      setApprovalBusy(false);
     }
   };
 
@@ -213,13 +260,13 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
   };
 
   const cancelRequest = async () => {
-    if (!data) return;
+    if (!data || !window.confirm(`Delete request ${data.sn_no}? This will hide it from active requests.`)) return;
     try {
       await requestsApi.delete(data.id);
       onOpenChange(false);
     } catch (e: unknown) {
-      console.error("Cancel failed:", e);
-      alert(`Cancel failed: ${errorMessage(e)}`);
+      console.error("Delete failed:", e);
+      alert(`Delete failed: ${errorMessage(e)}`);
     }
   };
 
@@ -648,9 +695,9 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
                       <X className="size-3.5" />
                       Reject
                     </Button>
-                    <Button size="sm" onClick={() => review("approve")}>
+                    <Button size="sm" onClick={openApproval}>
                       <Check className="size-3.5" />
-                      Approve
+                      Review quantities & approve
                     </Button>
                   </>
                 )}
@@ -678,10 +725,10 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
                     Open Receipt
                   </Button>
                 )}
-                {reviewerIsAdmin && data.status !== "received" && data.status !== "not_approved" && data.status !== "cancelled" && (
+                {reviewerIsAdmin && data.status !== "cancelled" && (
                   <Button variant="ghost" size="sm" onClick={cancelRequest}>
                     <Ban className="size-3.5" />
-                    Cancel
+                    Delete request
                   </Button>
                 )}
                 <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
@@ -691,6 +738,69 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
             </div>
           </>
         )}
+
+        <Dialog open={approvalOpen} onOpenChange={(next) => !approvalBusy && setApprovalOpen(next)}>
+          <DialogContent className="max-w-[calc(100%-1rem)] sm:max-w-lg">
+            <DialogTitle>Review quantities before approval</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              Adjust the approved quantity for each requested item. The requester and target departments will see these values.
+            </p>
+            <div className="space-y-3 max-h-[55vh] overflow-y-auto">
+              {data?.items.map((item) => item.id != null && (
+                <div key={item.id} className="grid grid-cols-[minmax(0,1fr)_120px] items-end gap-3 rounded-md border p-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{item.item_name ?? "Request item"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {item.department_label ?? item.department ?? "Department"} · Requested {item.quantity}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <label htmlFor={`approve-qty-${item.id}`} className="text-xs font-medium">Approved qty</label>
+                    <Input
+                      id={`approve-qty-${item.id}`}
+                      type="number"
+                      min={0.001}
+                      step="any"
+                      value={approvalQuantities[item.id] ?? item.quantity}
+                      onChange={(event) => setApprovalQuantities((current) => ({
+                        ...current,
+                        [item.id as number]: Number(event.target.value),
+                      }))}
+                      disabled={approvalBusy}
+                    />
+                  </div>
+                </div>
+              ))}
+              {data?.dispatch && (
+                <div className="grid grid-cols-[minmax(0,1fr)_120px] items-end gap-3 rounded-md border p-3">
+                  <div>
+                    <p className="text-sm font-medium">{data.dispatch.item_description ?? data.dispatch.item_sn_no ?? "Dispatch item"}</p>
+                    <p className="text-xs text-muted-foreground">Requested {data.dispatch.quantity}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <label htmlFor="approve-dispatch-qty" className="text-xs font-medium">Approved qty</label>
+                    <Input
+                      id="approve-dispatch-qty"
+                      type="number"
+                      min={0.001}
+                      step="any"
+                      value={approvalDispatchQuantity}
+                      onChange={(event) => setApprovalDispatchQuantity(Number(event.target.value))}
+                      disabled={approvalBusy}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setApprovalOpen(false)} disabled={approvalBusy}>Cancel</Button>
+              <Button onClick={approve} disabled={approvalBusy}>
+                <Check className="size-3.5" />
+                {approvalBusy ? "Approving…" : "Approve request"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={deliverOpen} onOpenChange={setDeliverOpen}>
           <DialogContent className="max-w-[calc(100%-1rem)] sm:max-w-2xl p-0 gap-0 overflow-hidden" onInteractOutside={(e) => e.preventDefault()}>

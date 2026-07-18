@@ -261,6 +261,8 @@ export default function PurchaseOrdersPage() {
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [statusChangingId, setStatusChangingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const adminUser = isAdminOrAbove();
 
   const [purchaseRequests, setPurchaseRequests] = useState<{
     id: number; sn_no: string; item_name: string | null;
@@ -435,6 +437,20 @@ export default function PurchaseOrdersPage() {
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
+
+  async function deletePurchaseOrder(po: PurchaseOrder) {
+    if (!window.confirm(`Delete purchase order ${po.po_number}? This action is restricted to admins.`)) return;
+    setDeletingId(po.id);
+    try {
+      await apiFetchJson(`/api/v1/purchase-orders/${po.id}`, { method: "DELETE" });
+      setViewTarget(null);
+      load();
+    } catch (error: unknown) {
+      alert(error instanceof Error ? error.message : "Failed to delete purchase order");
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   function printPurchaseOrder(po: PurchaseOrder) {
     const partyName = po.party_type === "vendor" ? po.vendor_name : po.supplier_name;
@@ -639,6 +655,15 @@ ${po.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${po.notes}</p>
             <Button variant="outline" onClick={() => viewTarget && printPurchaseOrder(viewTarget)}>
               <Printer className="size-3.5 mr-1.5" />Print
             </Button>
+            {adminUser && viewTarget && (
+              <Button
+                variant="destructive"
+                onClick={() => deletePurchaseOrder(viewTarget)}
+                disabled={deletingId === viewTarget.id}
+              >
+                <Trash2 className="size-3.5 mr-1.5" />Delete
+              </Button>
+            )}
             <Button onClick={() => setViewTarget(null)}>Done</Button>
           </DialogFooter>
         </DialogContent>

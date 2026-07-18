@@ -39,7 +39,9 @@ def list_gate_passes(
     page_size: int = 50,
 ) -> dict[str, Any]:
     _require_access(current_user)
-    items = list(session.exec(select(GatePass).order_by(GatePass.id.desc())).all())  # type: ignore[union-attr]
+    items = list(session.exec(
+        select(GatePass).where(GatePass.status != "deleted").order_by(GatePass.id.desc())
+    ).all())  # type: ignore[union-attr]
 
     if pass_type:
         items = [g for g in items if g.pass_type == pass_type]
@@ -139,7 +141,7 @@ def get_gate_pass(
 ) -> dict[str, Any]:
     _require_access(current_user)
     gp = session.get(GatePass, gp_id)
-    if not gp:
+    if not gp or gp.status == "deleted":
         raise HTTPException(status_code=404, detail="Gate pass not found")
     gp_items = list(session.exec(select(GatePassItem).where(GatePassItem.gate_pass_id == gp_id)).all())
     return _to_dict(gp, gp_items, session)
@@ -154,7 +156,7 @@ def update_gate_pass(
 ) -> dict[str, Any]:
     _require_access(current_user)
     gp = session.get(GatePass, gp_id)
-    if not gp:
+    if not gp or gp.status == "deleted":
         raise HTTPException(status_code=404, detail="Gate pass not found")
 
     old_status = gp.status
@@ -217,11 +219,12 @@ def delete_gate_pass(
     session: Annotated[Session, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> None:
-    _require_access(current_user)
+    if current_user.role not in ("admin", "super_admin"):
+        raise HTTPException(status_code=403, detail="Only admins can delete gate passes")
     gp = session.get(GatePass, gp_id)
-    if not gp:
+    if not gp or gp.status == "deleted":
         raise HTTPException(status_code=404, detail="Gate pass not found")
-    gp.status = "closed"
+    gp.status = "deleted"
     session.add(gp)
     session.commit()
 

@@ -154,8 +154,19 @@ export const requestsApi = {
   delete: (id: number) =>
     apiFetchJson<void>(`/api/v1/requests/${id}`, { method: "DELETE" }),
 
-  review: (id: number, decision: "approve" | "reject", note?: string) =>
-    apiFetchJson<UnifiedRequest>(`/api/v1/requests/${id}/review`, { method: "POST", body: JSON.stringify({ decision, note }) }),
+  review: (
+    id: number,
+    decision: "approve" | "reject",
+    options?: {
+      note?: string;
+      item_quantities?: { item_id: number; quantity: number }[];
+      dispatch_quantity?: number;
+    },
+  ) =>
+    apiFetchJson<UnifiedRequest>(`/api/v1/requests/${id}/review`, {
+      method: "POST",
+      body: JSON.stringify({ decision, ...options }),
+    }),
 
   accept: (id: number, department?: string, note?: string) => {
     const search = new URLSearchParams();
