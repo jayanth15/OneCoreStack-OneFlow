@@ -515,8 +515,8 @@
     "semantic_hash": "9cceb9f5a0b8f74db2bcaba42c03bc9f"
   },
   "backend/app/routers/requests.py": {
-    "mtime": 1784369467.180571,
-    "ast_hash": "8085a1f99032a6e8bab6114c281ac5ab",
+    "mtime": 1784373895.1273737,
+    "ast_hash": "b8209c8d740ae3426941e43a5184b4bb",
     "semantic_hash": ""
   },
   "backend/app/routers/requests_helpers.py": {
@@ -625,8 +625,8 @@
     "semantic_hash": "358858ce9ec1a02f12111b38d391bdc6"
   },
   "backend/tests/test_receipts.py": {
-    "mtime": 1784361470.8449585,
-    "ast_hash": "773b97646fd44b53e006ded8c26b9a09",
+    "mtime": 1784374128.5099285,
+    "ast_hash": "82feceb5dafbe143d3414eeee0bb1e8b",
     "semantic_hash": ""
   },
   "backend/tests/test_requests_internal_only.py": {
@@ -1005,8 +1005,8 @@
     "semantic_hash": "37ffa7e07678c9522b1bbf58bc34f081"
   },
   "frontend/components/requests/request-detail-dialog.tsx": {
-    "mtime": 1784367599.771002,
-    "ast_hash": "d1893689cd3dad1247a345a88560f064",
+    "mtime": 1784373985.2722795,
+    "ast_hash": "21cbedf3966ddedaf44e04e5645b2050",
     "semantic_hash": ""
   },
   "frontend/components/requests/request-form.tsx": {
@@ -1225,7 +1225,7 @@
     "semantic_hash": "239f3ebf717465dc636818a1a619398d"
   },
   "frontend/public/swe-worker-5c72df51bb1f6ee0.js": {
-    "mtime": 1784369551.2786922,
+    "mtime": 1784374233.8244407,
     "ast_hash": "76fdd3369f623a3edcf74ce2200bfdd0",
     "semantic_hash": "76fdd3369f623a3edcf74ce2200bfdd0"
   },
@@ -1515,8 +1515,8 @@
     "semantic_hash": "a2760511c65806022ad20adf74370ff3"
   },
   "backend/tests/test_request_department_acceptance.py": {
-    "mtime": 1784367622.2121718,
-    "ast_hash": "7147d618d245e8eafaaefef67492f271",
+    "mtime": 1784374050.0037315,
+    "ast_hash": "5c387f1108b3dde6e0f87f55ef22fe52",
     "semantic_hash": ""
   },
   "backend/tests/test_admin_document_deletion.py": {

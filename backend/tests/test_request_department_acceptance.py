@@ -35,6 +35,9 @@ def test_each_target_department_accepts_independently(client, session, admin_tok
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert approved.status_code == 200
+    approved_items = {item["department"]: item for item in approved.json()["items"]}
+    qa_item_id = approved_items["QA"]["id"]
+    store_item_id = approved_items["STORE"]["id"]
 
     qa_detail = client.get(
         f"/api/v1/requests/{request_id}",
@@ -51,7 +54,8 @@ def test_each_target_department_accepts_independently(client, session, admin_tok
     assert store_detail.json()["acceptance_departments"] == ["STORE"]
 
     qa_acceptance = client.post(
-        f"/api/v1/requests/{request_id}/accept?department=QA",
+        f"/api/v1/requests/{request_id}/items/accept",
+        json={"item_id": qa_item_id, "decision": "accept"},
         headers={"Authorization": f"Bearer {qa_token}"},
     )
     assert qa_acceptance.status_code == 200
@@ -71,13 +75,15 @@ def test_each_target_department_accepts_independently(client, session, admin_tok
     assert store_after_qa.json()["acceptance_departments"] == ["STORE"]
 
     repeated = client.post(
-        f"/api/v1/requests/{request_id}/accept?department=QA",
+        f"/api/v1/requests/{request_id}/items/accept",
+        json={"item_id": qa_item_id, "decision": "accept"},
         headers={"Authorization": f"Bearer {qa_token}"},
     )
     assert repeated.status_code == 409
 
     store_acceptance = client.post(
-        f"/api/v1/requests/{request_id}/accept?department=STORE",
+        f"/api/v1/requests/{request_id}/items/accept",
+        json={"item_id": store_item_id, "decision": "accept"},
         headers={"Authorization": f"Bearer {store_token}"},
     )
     assert store_acceptance.status_code == 200
@@ -109,14 +115,73 @@ def test_department_cannot_accept_for_another_target(client, session, admin_toke
         headers={"Authorization": f"Bearer {requester_token}"},
     )
     request_id = created.json()["id"]
-    client.post(
+    approved = client.post(
         f"/api/v1/requests/{request_id}/review",
         json={"decision": "approve"},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
+    store_item_id = next(
+        item["id"] for item in approved.json()["items"] if item["department"] == "STORE"
+    )
 
     response = client.post(
-        f"/api/v1/requests/{request_id}/accept?department=STORE",
+        f"/api/v1/requests/{request_id}/items/accept",
+        json={"item_id": store_item_id, "decision": "accept"},
         headers={"Authorization": f"Bearer {qa_token}"},
     )
     assert response.status_code == 403
+
+
+def test_same_department_accepts_each_item_separately(client, session, admin_token):
+    create_dept(session, "PROD", "Production")
+    create_dept(session, "QA", "Quality Assurance")
+    create_user_with_dept(session, "same_dept_requester", "worker", "PROD")
+    create_user_with_dept(session, "same_dept_qa", "worker", "QA")
+
+    requester_token = login(client, "same_dept_requester", "test123")
+    qa_token = login(client, "same_dept_qa", "test123")
+    created = client.post(
+        "/api/v1/requests",
+        json={
+            "request_type": "internal_transfer",
+            "items": [
+                {"item_name": "Steel", "quantity": 2, "department": "QA"},
+                {"item_name": "Bolts", "quantity": 3, "department": "QA"},
+            ],
+        },
+        headers={"Authorization": f"Bearer {requester_token}"},
+    )
+    request_id = created.json()["id"]
+    approved = client.post(
+        f"/api/v1/requests/{request_id}/review",
+        json={"decision": "approve"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    first_item, second_item = approved.json()["items"]
+
+    bulk = client.post(
+        f"/api/v1/requests/{request_id}/accept?department=QA",
+        headers={"Authorization": f"Bearer {qa_token}"},
+    )
+    assert bulk.status_code == 400
+
+    first = client.post(
+        f"/api/v1/requests/{request_id}/items/accept",
+        json={"item_id": first_item["id"], "decision": "accept"},
+        headers={"Authorization": f"Bearer {qa_token}"},
+    )
+    assert first.status_code == 200
+    assert first.json()["status"] == "approved"
+    assert first.json()["items"][0]["item_status"] == "in_progress"
+    assert first.json()["items"][1]["item_status"] is None
+    assert first.json()["acceptance_departments"] == ["QA"]
+
+    second = client.post(
+        f"/api/v1/requests/{request_id}/items/accept",
+        json={"item_id": second_item["id"], "decision": "accept"},
+        headers={"Authorization": f"Bearer {qa_token}"},
+    )
+    assert second.status_code == 200
+    assert second.json()["status"] == "in_progress"
+    assert all(item["item_status"] == "in_progress" for item in second.json()["items"])
+    assert second.json()["acceptance_departments"] == []

@@ -639,6 +639,11 @@ def accept_fulfilment(
     request_items = session.exec(
         select(RequestItem).where(RequestItem.request_id == req.id)
     ).all()
+    if request_items:
+        raise HTTPException(
+            status_code=400,
+            detail="Requests with line items must be accepted one item at a time",
+        )
 
     def items_for_department(code: str) -> list[RequestItem]:
         return [item for item in request_items if (item.department or req.department) == code]
@@ -874,24 +879,74 @@ def accept_item(
     req = session.get(Request, request_id)
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
-    if req.status not in ("approved", "in_progress", "awaiting_signoff"):
+    if req.status not in ("approved", "in_progress"):
         raise HTTPException(
             status_code=409,
-            detail=f"Cannot accept items on a request in status '{req.status}'"
+            detail=f"Cannot accept items on a request in status {req.status!r}",
         )
-    if not _user_can_accept(current_user, req, session, get_user_departments(session, current_user.id)):  # type: ignore[arg-type]
-        raise HTTPException(status_code=403, detail="Not allowed to accept this request")
+
     item = session.get(RequestItem, payload.item_id)
     if not item or item.request_id != req.id:
         raise HTTPException(status_code=404, detail="Item not found")
+
+    user_departments = get_user_departments(session, current_user.id)  # type: ignore[arg-type]
+    if not _user_can_accept(current_user, req, session, user_departments):
+        raise HTTPException(status_code=403, detail="Not allowed to accept this request")
+    item_department = item.department or req.department
+    if (
+        current_user.role not in ("admin", "super_admin")
+        and item_department not in {department.code for department in user_departments}
+    ):
+        raise HTTPException(status_code=403, detail="Not allowed to accept this item for another department")
+    if item.item_status == "in_progress":
+        raise HTTPException(status_code=409, detail="This item has already been accepted")
+
+    accepted_at = datetime.now(tz=timezone.utc)
     old_item_status = item.item_status
     item.item_status = "in_progress" if payload.decision == "accept" else "rejected"
     item.accepted_by_username = current_user.username
-    item.accepted_at = datetime.now(tz=timezone.utc)
+    item.accepted_at = accepted_at
     item.acceptance_note = payload.note
-    log_history(session, req.id, changed_by_user_id=current_user.id, changed_by_username=current_user.username,
-                change_type="responded", field_name=f"item:{item.item_name}",
-                old_value=old_item_status, new_value=item.item_status, note=payload.note)
+    session.add(item)
+
+    request_items = session.exec(select(RequestItem).where(RequestItem.request_id == req.id)).all()
+    all_items_accepted = payload.decision == "accept" and all(
+        request_item.id == item.id or request_item.item_status == "in_progress"
+        for request_item in request_items
+    )
+    if all_items_accepted:
+        req.status = "in_progress"
+        req.fulfilled_by_user_id = current_user.id
+        req.fulfilled_by_username = current_user.username
+        req.fulfillment_accepted_at = accepted_at
+        req.fulfillment_note = payload.note
+    req.updated_at = accepted_at
+    session.add(req)
+
+    log_history(
+        session, req.id,
+        changed_by_user_id=current_user.id,
+        changed_by_username=current_user.username,
+        change_type="responded",
+        field_name=f"item:{item.id}",
+        old_value=old_item_status,
+        new_value=item.item_status,
+        note=payload.note,
+    )
+    if req.requested_by_user_id:
+        item_label = item.item_name or item.item_code or f"Item #{item.id}"
+        create_notification(
+            session,
+            user_id=req.requested_by_user_id,
+            notif_type="request_item_accepted",
+            title=f"Item accepted on {req.sn_no}",
+            body=(
+                f"{item_label} was accepted"
+                + (f" by {item_department}." if item_department else ".")
+                + (" All request items have now been accepted." if all_items_accepted else "")
+            ),
+            request_id=req.id,
+        )
     session.commit()
     session.refresh(req)
     return _build_read(req, session, current_user)

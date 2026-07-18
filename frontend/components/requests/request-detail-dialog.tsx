@@ -142,6 +142,7 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
   const [approvalQuantities, setApprovalQuantities] = useState<Record<number, number>>({});
   const [approvalDispatchQuantity, setApprovalDispatchQuantity] = useState<number>(1);
   const [approvalBusy, setApprovalBusy] = useState(false);
+  const [acceptingItemId, setAcceptingItemId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!open || requestId == null) return;
@@ -224,14 +225,17 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
     }
   };
 
-  const accept = async (department: string) => {
+  const acceptItem = async (itemId: number) => {
     if (!data) return;
+    setAcceptingItemId(itemId);
     try {
-      const updated = await requestsApi.accept(data.id, department);
+      const updated = await requestsApi.acceptItem(data.id, itemId);
       setData(updated);
     } catch (e: unknown) {
-      console.error("Accept failed:", e);
-      alert(`Accept failed: ${errorMessage(e)}`);
+      console.error("Item acceptance failed:", e);
+      alert(`Item acceptance failed: ${errorMessage(e)}`);
+    } finally {
+      setAcceptingItemId(null);
     }
   };
 
@@ -447,27 +451,53 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
                       <Badge variant="secondary">{data.items.length}</Badge>
                     </div>
                     <div className="space-y-1.5">
-                      {data.items.map((it) => (
-                        <div key={it.id} className="flex items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2">
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium truncate">
-                              {it.item_name}
-                              {it.item_code && (
-                                <span className="text-muted-foreground font-mono text-xs"> · {it.item_code}</span>
+                      {data.items.map((it) => {
+                        const itemDepartment = it.department ?? data.department;
+                        const canAcceptItem = Boolean(
+                          it.id != null
+                          && it.item_status !== "in_progress"
+                          && it.item_status !== "rejected"
+                          && (data.status === "approved" || data.status === "in_progress")
+                          && itemDepartment
+                          && pendingAcceptanceDepartments.includes(itemDepartment)
+                          && (data.request_type !== "vendor_purchase" || reviewerIsAdmin),
+                        );
+                        return (
+                          <div key={it.id} className="flex items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2">
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium truncate">
+                                {it.item_name}
+                                {it.item_code && (
+                                  <span className="text-muted-foreground font-mono text-xs"> · {it.item_code}</span>
+                                )}
+                              </p>
+                              {it.department_label && (
+                                <p className="text-xs text-muted-foreground">{it.department_label}</p>
                               )}
-                            </p>
-                            {it.department_label && (
-                              <p className="text-xs text-muted-foreground">{it.department_label}</p>
-                            )}
+                            </div>
+                            <div className="shrink-0 flex items-center gap-2 text-xs text-muted-foreground">
+                              <span>Qty <span className="text-foreground font-semibold">{it.quantity}</span></span>
+                              {canAcceptItem && it.id != null ? (
+                                <Button
+                                  size="sm"
+                                  className="h-7 px-2.5"
+                                  disabled={acceptingItemId !== null}
+                                  onClick={() => acceptItem(it.id as number)}
+                                >
+                                  <Check className="size-3.5" />
+                                  {acceptingItemId === it.id ? "Accepting…" : "Accept"}
+                                </Button>
+                              ) : it.item_status === "in_progress" ? (
+                                <Badge variant="secondary">Accepted</Badge>
+                              ) : it.item_status === "rejected" ? (
+                                <Badge variant="destructive">Rejected</Badge>
+                              ) : (
+                                <Badge variant="outline">Pending</Badge>
+                              )}
+                            </div>
                           </div>
-                          <div className="shrink-0 flex items-center gap-2 text-xs text-muted-foreground">
-                            <Badge variant={it.item_status === "in_progress" ? "secondary" : "outline"}>
-                              {it.item_status === "in_progress" ? "Accepted" : "Pending"}
-                            </Badge>
-                            <span>Qty <span className="text-foreground font-semibold">{it.quantity}</span></span>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </CardContent>
                 </Card>
@@ -692,8 +722,8 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
                     </Button>
                   </>
                 )}
-                {(data.request_type !== "vendor_purchase" || reviewerIsAdmin) && pendingAcceptanceDepartments.map((department) => (
-                  <Button key={department} size="sm" onClick={() => accept(department)}>
+                {data.items.length === 0 && (data.request_type !== "vendor_purchase" || reviewerIsAdmin) && pendingAcceptanceDepartments.map((department) => (
+                  <Button key={department} size="sm" onClick={() => requestsApi.accept(data.id, department).then(setData).catch((e: unknown) => alert(`Accept failed: ${errorMessage(e)}`))}>
                     <Check className="size-3.5" />
                     Acknowledge {targetDepartmentLabels.get(department)}
                   </Button>

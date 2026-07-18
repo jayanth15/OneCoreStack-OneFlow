@@ -25,17 +25,19 @@ def setup_request(client, session, admin_token, qa_dept):
     req_id = resp.json()["id"]
 
     # Admin approve
-    client.post(
+    approved = client.post(
         f"/api/v1/requests/{req_id}/review",
         json={"decision": "approve"},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
+    item_id = approved.json()["items"][0]["id"]
 
     # QA user accepts
     create_user_with_dept(session, "qa_worker", "worker", "QA")
     qa_token = login(client, "qa_worker", "test123")
     client.post(
-        f"/api/v1/requests/{req_id}/accept",
+        f"/api/v1/requests/{req_id}/items/accept",
+        json={"item_id": item_id, "decision": "accept"},
         headers={"Authorization": f"Bearer {qa_token}"},
     )
 
@@ -233,19 +235,17 @@ def test_multi_department_request_creates_department_receipts(client, session, a
     )
     req_id = resp.json()["id"]
 
-    client.post(
+    approved = client.post(
         f"/api/v1/requests/{req_id}/review",
         json={"decision": "approve"},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
-    client.post(
-        f"/api/v1/requests/{req_id}/accept?department=QA",
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
-    client.post(
-        f"/api/v1/requests/{req_id}/accept?department=STORE",
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
+    for item in approved.json()["items"]:
+        client.post(
+            f"/api/v1/requests/{req_id}/items/accept",
+            json={"item_id": item["id"], "decision": "accept"},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
     client.post(
         f"/api/v1/requests/{req_id}/deliver",
         json={"delivery_note": "Ready by departments"},
