@@ -152,7 +152,7 @@ def _acceptance_departments(
         code for code in targets
         if code in allowed
         and any(
-            item.item_status != "in_progress"
+            item.item_status is None
             for item in items
             if (item.department or req.department) == code
         )
@@ -651,7 +651,7 @@ def accept_fulfilment(
     pending_departments = [
         code for code in target_departments
         if code in allowed_departments
-        and any(item.item_status != "in_progress" for item in items_for_department(code))
+        and any(item.item_status is None for item in items_for_department(code))
     ]
     # Requests without line items (for example customer dispatch) still use the
     # request-level fulfilment fields and have one target department.
@@ -672,11 +672,13 @@ def accept_fulfilment(
     department_items = items_for_department(department)
     if request_items and not department_items:
         raise HTTPException(status_code=400, detail="No request items belong to this department")
-    if department_items and all(item.item_status == "in_progress" for item in department_items):
+    if department_items and all(item.item_status is not None for item in department_items):
         raise HTTPException(status_code=409, detail="This department has already accepted the request")
 
     accepted_at = datetime.now(tz=timezone.utc)
     for item in department_items:
+        if item.item_status is not None:
+            continue
         item.item_status = "in_progress"
         item.accepted_by_username = current_user.username
         item.accepted_at = accepted_at
@@ -684,7 +686,7 @@ def accept_fulfilment(
         session.add(item)
 
     all_departments_accepted = not request_items or all(
-        item.item_status == "in_progress" for item in request_items
+        item.item_status in ("in_progress", "delivered") for item in request_items
     )
     if all_departments_accepted:
         req.status = "in_progress"
@@ -943,8 +945,13 @@ def accept_item(
         and item_department not in {department.code for department in user_departments}
     ):
         raise HTTPException(status_code=403, detail="Not allowed to accept this item for another department")
-    if item.item_status == "in_progress":
-        raise HTTPException(status_code=409, detail="This item has already been accepted")
+    if item.item_status is not None:
+        state_label = {
+            "in_progress": "already been accepted",
+            "delivered": "already been delivered",
+            "rejected": "already been rejected",
+        }.get(item.item_status, f"already reached status {item.item_status!r}")
+        raise HTTPException(status_code=409, detail=f"This item has {state_label}")
 
     accepted_at = datetime.now(tz=timezone.utc)
     old_item_status = item.item_status
@@ -956,7 +963,7 @@ def accept_item(
 
     request_items = session.exec(select(RequestItem).where(RequestItem.request_id == req.id)).all()
     all_items_accepted = payload.decision == "accept" and all(
-        request_item.id == item.id or request_item.item_status == "in_progress"
+        request_item.id == item.id or request_item.item_status in ("in_progress", "delivered")
         for request_item in request_items
     )
     if all_items_accepted:

@@ -459,8 +459,7 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
                         const itemDepartment = it.department ?? data.department;
                         const canAcceptItem = Boolean(
                           it.id != null
-                          && it.item_status !== "in_progress"
-                          && it.item_status !== "rejected"
+                          && it.item_status == null
                           && (data.status === "approved" || data.status === "in_progress")
                           && itemDepartment
                           && pendingAcceptanceDepartments.includes(itemDepartment)

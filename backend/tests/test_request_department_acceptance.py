@@ -238,6 +238,15 @@ def test_each_department_delivers_only_its_own_items(client, session, admin_toke
     assert qa_delivery.json()["status"] == "in_progress"
     assert after_qa["QA"]["item_status"] == "delivered"
     assert after_qa["STORE"]["item_status"] == "in_progress"
+    assert qa_delivery.json()["acceptance_departments"] == []
+
+    repeated_acceptance = client.post(
+        f"/api/v1/requests/{request_id}/items/accept",
+        json={"item_id": item_ids["QA"], "decision": "accept"},
+        headers={"Authorization": f"Bearer {qa_token}"},
+    )
+    assert repeated_acceptance.status_code == 409
+    assert "already been delivered" in repeated_acceptance.json()["detail"]
 
     receipts = client.get(
         f"/api/v1/receipts/by-request/{request_id}",

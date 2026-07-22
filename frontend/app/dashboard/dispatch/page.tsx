@@ -545,6 +545,8 @@ function DispatchForm({
   isCreate: boolean;
   availableRequests: AvailableRequest[];
 }) {
+  const requestItemsLocked = form.request_id !== null;
+
   function updateItem(key: string, patch: Partial<DispatchItemForm>) {
     onChange({ ...form, items: form.items.map(i => i._key === key ? { ...i, ...patch } : i) });
   }
@@ -617,15 +619,20 @@ function DispatchForm({
         <div className="flex items-center justify-between">
           <Label>Items <span className="text-destructive">*</span></Label>
           <Button type="button" size="sm" variant="outline" className="h-7 text-xs gap-1"
-            onClick={addItem} disabled={saving}>
+            onClick={addItem} disabled={saving || requestItemsLocked}>
             <Plus className="size-3" /> Add Item
           </Button>
         </div>
+        {requestItemsLocked && (
+          <p className="text-xs text-muted-foreground">
+            Items are filled from the selected request and cannot be changed in dispatch.
+          </p>
+        )}
         {form.items.map((item, idx) => (
           <div key={item._key} className="rounded-lg border p-3 space-y-2 bg-muted/20">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-muted-foreground">Item {idx + 1}</span>
-              {form.items.length > 1 && (
+              {form.items.length > 1 && !requestItemsLocked && (
                 <Button type="button" size="icon" variant="ghost"
                   className="size-6 text-destructive hover:text-destructive"
                   onClick={() => removeItem(item._key)} disabled={saving}>
@@ -637,7 +644,7 @@ function DispatchForm({
               <Label className="text-xs">Inventory Type <span className="text-destructive">*</span></Label>
               <select value={item.inv_type}
                 onChange={(e) => updateItem(item._key, { inv_type: e.target.value, inv_item_id: null, item_name: "" })}
-                disabled={saving}
+                disabled={saving || requestItemsLocked}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
                 <option value="">— Select type —</option>
                 {DISPATCH_INV_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -649,7 +656,7 @@ function DispatchForm({
                 <DispatchInvCombobox
                   invType={item.inv_type}
                   value={item.item_name}
-                  disabled={saving}
+                  disabled={saving || requestItemsLocked}
                   onSelect={(name, id) => updateItem(item._key, { item_name: name, inv_item_id: id })}
                 />
               </div>
@@ -657,19 +664,19 @@ function DispatchForm({
               <div className="space-y-1.5">
                 <Label className="text-xs">Item name</Label>
                 <Input placeholder="Select type above to search items" value={item.item_name}
-                  onChange={(e) => updateItem(item._key, { item_name: e.target.value })} disabled={saving} />
+                  onChange={(e) => updateItem(item._key, { item_name: e.target.value })} disabled={saving || requestItemsLocked} />
               </div>
             )}
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1.5">
                 <Label className="text-xs">Quantity</Label>
                 <Input type="number" step="any" placeholder="0" value={item.quantity}
-                  onChange={(e) => updateItem(item._key, { quantity: e.target.value })} disabled={saving} />
+                  onChange={(e) => updateItem(item._key, { quantity: e.target.value })} disabled={saving || requestItemsLocked} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Unit</Label>
                 <Input placeholder="pcs / kg" value={item.unit}
-                  onChange={(e) => updateItem(item._key, { unit: e.target.value })} disabled={saving} />
+                  onChange={(e) => updateItem(item._key, { unit: e.target.value })} disabled={saving || requestItemsLocked} />
               </div>
             </div>
           </div>
