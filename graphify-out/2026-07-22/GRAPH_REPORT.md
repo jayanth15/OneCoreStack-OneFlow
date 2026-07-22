@@ -1,7 +1,7 @@
 # Graph Report - OneFlow  (2026-07-22)
 
 ## Corpus Check
-- 299 files · ~238,509 words
+- 299 files · ~238,559 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -426,8 +426,8 @@ Cohesion: 0.17
 Nodes (19): CompanySettings, SQLModel, Key-value store for company-wide settings., CompanyInfoResponse, CompanyInfoUpdate, create_backup(), _db_file_path(), get_company_info() (+11 more)
 
 ### Community 40 - "Community 40"
-Cohesion: 0.29
-Nodes (16): get_current_active_user(), is_admin_or_above(), Depends, User, Require purchase_access flag on the user (or admin/super_admin)., Require admin or super_admin role., Require super_admin role only., Require grn_access flag on the user (or admin/super_admin). (+8 more)
+Cohesion: 0.32
+Nodes (14): get_current_active_user(), is_admin_or_above(), Depends, User, Require purchase_access flag on the user (or admin/super_admin)., Require super_admin role only., Require grn_access flag on the user (or admin/super_admin)., Require dispatch_access flag on the user (or admin/super_admin). (+6 more)
 
 ### Community 41 - "Community 41"
 Cohesion: 0.16
@@ -459,7 +459,7 @@ Nodes (18): BaseModel, Pydantic schemas for the unified Request API., RequestAck
 
 ### Community 48 - "Community 48"
 Cohesion: 0.11
-Nodes (19): @base-ui/react, class-variance-authority, clsx, dependencies, @base-ui/react, class-variance-authority, clsx, next (+11 more)
+Nodes (19): @base-ui/react, class-variance-authority, dependencies, @base-ui/react, class-variance-authority, next, radix-ui, react-dom (+11 more)
 
 ### Community 49 - "Community 49"
 Cohesion: 0.23
@@ -714,8 +714,8 @@ Cohesion: 0.17
 Nodes (10): BomRequirement, BomUsage, fmt(), InventoryDetailPage(), ItemDetail, ScheduleEntry, STATUS_BADGE, STATUS_LABEL (+2 more)
 
 ### Community 194 - "get_linkable_pr_items"
-Cohesion: 0.34
-Nodes (13): create_unit(), delete_unit(), get_unit_usage_count(), list_units(), BaseModel, Depends, Session, User (+5 more)
+Cohesion: 0.30
+Nodes (15): Require admin or super_admin role., require_admin(), create_unit(), delete_unit(), get_unit_usage_count(), list_units(), BaseModel, Depends (+7 more)
 
 ### Community 195 - "card.tsx"
 Cohesion: 0.83

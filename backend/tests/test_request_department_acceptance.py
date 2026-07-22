@@ -60,7 +60,7 @@ def test_each_target_department_accepts_independently(client, session, admin_tok
     )
     assert qa_acceptance.status_code == 200
     after_qa = qa_acceptance.json()
-    assert after_qa["status"] == "approved"
+    assert after_qa["status"] == "in_progress"
     items_after_qa = {item["department"]: item for item in after_qa["items"]}
     assert items_after_qa["QA"]["item_status"] == "in_progress"
     assert items_after_qa["QA"]["accepted_by_username"] == "qa_worker"
@@ -171,7 +171,7 @@ def test_same_department_accepts_each_item_separately(client, session, admin_tok
         headers={"Authorization": f"Bearer {qa_token}"},
     )
     assert first.status_code == 200
-    assert first.json()["status"] == "approved"
+    assert first.json()["status"] == "in_progress"
     assert first.json()["items"][0]["item_status"] == "in_progress"
     assert first.json()["items"][1]["item_status"] is None
     assert first.json()["acceptance_departments"] == ["QA"]
@@ -217,13 +217,13 @@ def test_each_department_delivers_only_its_own_items(client, session, admin_toke
     ).json()
     item_ids = {item["department"]: item["id"] for item in approved["items"]}
 
-    for token, department in ((qa_token, "QA"), (store_token, "STORE")):
-        accepted = client.post(
-            f"/api/v1/requests/{request_id}/items/accept",
-            json={"item_id": item_ids[department], "decision": "accept"},
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert accepted.status_code == 200
+    qa_acceptance = client.post(
+        f"/api/v1/requests/{request_id}/items/accept",
+        json={"item_id": item_ids["QA"], "decision": "accept"},
+        headers={"Authorization": f"Bearer {qa_token}"},
+    )
+    assert qa_acceptance.status_code == 200
+    assert qa_acceptance.json()["status"] == "in_progress"
 
     qa_delivery = client.post(
         f"/api/v1/requests/{request_id}/deliver",
@@ -237,7 +237,7 @@ def test_each_department_delivers_only_its_own_items(client, session, admin_toke
     after_qa = {item["department"]: item for item in qa_delivery.json()["items"]}
     assert qa_delivery.json()["status"] == "in_progress"
     assert after_qa["QA"]["item_status"] == "delivered"
-    assert after_qa["STORE"]["item_status"] == "in_progress"
+    assert after_qa["STORE"]["item_status"] is None
     assert qa_delivery.json()["acceptance_departments"] == []
 
     repeated_acceptance = client.post(
@@ -273,6 +273,23 @@ def test_each_department_delivers_only_its_own_items(client, session, admin_toke
         headers={"Authorization": f"Bearer {qa_token}"},
     )
     assert cross_department.status_code == 403
+
+    store_pending = client.get(
+        f"/api/v1/requests/{request_id}",
+        headers={"Authorization": f"Bearer {store_token}"},
+    )
+    assert store_pending.status_code == 200
+    assert store_pending.json()["acceptance_departments"] == ["STORE"]
+
+    store_acceptance = client.post(
+        f"/api/v1/requests/{request_id}/items/accept",
+        json={"item_id": item_ids["STORE"], "decision": "accept"},
+        headers={"Authorization": f"Bearer {store_token}"},
+    )
+    assert store_acceptance.status_code == 200
+    store_items = {item["department"]: item for item in store_acceptance.json()["items"]}
+    assert store_items["QA"]["item_status"] == "delivered"
+    assert store_items["STORE"]["item_status"] == "in_progress"
 
     store_delivery = client.post(
         f"/api/v1/requests/{request_id}/deliver",

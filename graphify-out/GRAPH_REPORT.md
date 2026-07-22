@@ -1,7 +1,7 @@
 # Graph Report - OneFlow  (2026-07-22)
 
 ## Corpus Check
-- 299 files · ~238,559 words
+- 299 files · ~238,625 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `45c341e7`
+- Built from commit: `5f8ed3bf`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -315,7 +315,7 @@ Nodes (23): AttachmentItem, AttachmentHistory, SQLModel, Audit trail for every s
 
 ### Community 11 - "Layout and Empty State Components"
 Cohesion: 0.07
-Nodes (39): EmptyState(), EmptyStateProps, PageShell(), PageShellProps, AlertDialogMedia(), AlertDialogOverlay(), Breadcrumb(), BreadcrumbEllipsis() (+31 more)
+Nodes (34): EmptyState(), EmptyStateProps, PageShell(), PageShellProps, AlertDialogMedia(), AlertDialogOverlay(), Breadcrumb(), BreadcrumbEllipsis() (+26 more)
 
 ### Community 12 - "Auth and Inventory Module"
 Cohesion: 0.14
@@ -386,8 +386,8 @@ Cohesion: 0.19
 Nodes (29): Dispatch, DispatchHistory, SQLModel, DispatchItem, SQLModel, SQLModel, create_dispatch(), delete_dispatch() (+21 more)
 
 ### Community 30 - "Community 30"
-Cohesion: 0.18
-Nodes (7): Sheet(), SheetContent(), SheetDescription(), SheetFooter(), SheetHeader(), SheetOverlay(), SheetTitle()
+Cohesion: 0.16
+Nodes (12): Field(), FieldContent(), FieldDescription(), FieldError(), FieldGroup(), FieldLabel(), FieldLegend(), FieldSeparator() (+4 more)
 
 ### Community 31 - "Community 31"
 Cohesion: 0.14
@@ -459,7 +459,7 @@ Nodes (18): BaseModel, Pydantic schemas for the unified Request API., RequestAck
 
 ### Community 48 - "Community 48"
 Cohesion: 0.11
-Nodes (19): @base-ui/react, class-variance-authority, dependencies, @base-ui/react, class-variance-authority, next, radix-ui, react-dom (+11 more)
+Nodes (19): @base-ui/react, class-variance-authority, dependencies, @base-ui/react, class-variance-authority, lucide-react, next, radix-ui (+11 more)
 
 ### Community 49 - "Community 49"
 Cohesion: 0.23

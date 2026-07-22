@@ -966,8 +966,11 @@ def accept_item(
         request_item.id == item.id or request_item.item_status in ("in_progress", "delivered")
         for request_item in request_items
     )
-    if all_items_accepted:
+    if payload.decision == "accept":
+        # Each accepted line can be processed immediately; other departments
+        # remain independently pending on their own items.
         req.status = "in_progress"
+    if all_items_accepted:
         req.fulfilled_by_user_id = current_user.id
         req.fulfilled_by_username = current_user.username
         req.fulfillment_accepted_at = accepted_at
