@@ -135,6 +135,7 @@ def _deduct(
         variant_parts = [part for part in (item.variant_color, item.serial_number) if part]
         history = SpareItemHistory(
             spare_item_id=parent.id,
+            spare_item_variant_id=item.id,
             changed_by_user_id=current_user.id,
             changed_by_username=current_user.username,
             changed_at=now,

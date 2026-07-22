@@ -20,6 +20,7 @@ from app.models.dispatch_history import DispatchHistory
 from app.models.dispatch_item import DispatchItem
 from app.models.request import Request, REQUEST_TYPE_CUSTOMER_DISPATCH
 from app.models.request_customer_dispatch import RequestCustomerDispatch
+from app.models.request_item import RequestItem
 from app.models.unit import Unit
 from app.models.user import User
 from app.routers.notifications import create_notification
@@ -84,8 +85,6 @@ def create_dispatch(
     _require_dispatch_access(current_user)
     raw_items = body.get("items") or []
     linked_request = _linked_request(session, body.get("request_id"))
-    if linked_request and linked_request.status == "in_progress":
-        raise HTTPException(status_code=409, detail=f"Request {linked_request.sn_no} is already linked to a dispatch")
     if linked_request:
         raw_items = _request_dispatch_items(session, linked_request)
     first_item_name = ""
@@ -107,7 +106,7 @@ def create_dispatch(
         schedule_id=body.get("schedule_id"),
         schedule_number=(body.get("schedule_number") or "").strip() or None,
         request_id=body.get("request_id"),
-        request_sn_no=(body.get("request_sn_no") or "").strip() or None,
+        request_sn_no=linked_request.sn_no if linked_request else None,
         product_name=first_item_name or (body.get("product_name") or "").strip(),
         quantity=first_qty or float(body.get("quantity") or 0),
         unit_id=first_unit_id or body.get("unit_id") or None,
@@ -145,6 +144,42 @@ def create_dispatch(
     return _to_dict(dispatch, saved_items, session)
 
 
+@router.get("/available-requests")
+def list_available_requests(
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    exclude_dispatch_id: int | None = None,
+) -> list[dict[str, Any]]:
+    """Return every active, dispatchable request not reserved by another dispatch."""
+    _require_dispatch_access(current_user)
+    dispatch_stmt = select(Dispatch.request_id).where(
+        Dispatch.request_id.is_not(None),  # type: ignore[union-attr]
+    )
+    if exclude_dispatch_id:
+        dispatch_stmt = dispatch_stmt.where(Dispatch.id != exclude_dispatch_id)
+    linked_ids = {
+        request_id for request_id in session.exec(dispatch_stmt).all()
+        if request_id is not None
+    }
+    requests = session.exec(
+        select(Request).where(
+            Request.is_active == True,  # noqa: E712
+            Request.status.in_(["approved", "in_progress", "awaiting_signoff"]),  # type: ignore[union-attr]
+        ).order_by(Request.id.desc())  # type: ignore[union-attr]
+    ).all()
+    return [
+        {
+            "id": req.id,
+            "sn_no": req.sn_no,
+            "request_type": req.request_type,
+            "status": req.status,
+            "requested_by_username": req.requested_by_username,
+        }
+        for req in requests
+        if req.id not in linked_ids
+    ]
+
+
 @router.get("/{dispatch_id}")
 def get_dispatch(
     dispatch_id: int,
@@ -178,7 +213,7 @@ def update_dispatch(
     if isinstance(target_status, str):
         target_status = target_status.strip() or old_status
 
-    linked_request = _linked_request(session, target_request_id)
+    linked_request = _linked_request(session, target_request_id, exclude_dispatch_id=dispatch.id)
     raw_items = _request_dispatch_items(session, linked_request) if linked_request else body.get("items")
 
     # Validate and deduct before mutating the dispatch, so a stock error leaves it untouched.
@@ -198,6 +233,7 @@ def update_dispatch(
                 val = val.strip() or None
             setattr(dispatch, field, val)
     dispatch.request_id = target_request_id
+    dispatch.request_sn_no = linked_request.sn_no if linked_request else None
     dispatch.status = target_status
 
     if raw_items is not None:
@@ -310,21 +346,44 @@ def _require_dispatch_access(user: User) -> None:
     raise HTTPException(status_code=403, detail="Dispatch access required")
 
 
-def _linked_request(session: Session, request_id: int | None) -> Request | None:
+def _linked_request(
+    session: Session,
+    request_id: int | None,
+    *,
+    exclude_dispatch_id: int | None = None,
+) -> Request | None:
     if not request_id:
         return None
     req = session.get(Request, request_id)
-    if not req or not req.is_active or req.request_type != REQUEST_TYPE_CUSTOMER_DISPATCH:
-        raise HTTPException(status_code=404, detail="Customer dispatch request not found")
-    if req.status not in ("approved", "in_progress", "received"):
+    if not req or not req.is_active:
+        raise HTTPException(status_code=404, detail="Request not found")
+    if req.status not in ("approved", "in_progress", "awaiting_signoff", "received"):
         raise HTTPException(
             status_code=409,
             detail=f"Request {req.sn_no} cannot be dispatched in status {req.status!r}",
         )
+    dispatch_stmt = select(Dispatch).where(
+        Dispatch.request_id == request_id,
+    )
+    if exclude_dispatch_id:
+        dispatch_stmt = dispatch_stmt.where(Dispatch.id != exclude_dispatch_id)
+    existing = session.exec(dispatch_stmt).first()
+    if existing:
+        raise HTTPException(status_code=409, detail=f"Request {req.sn_no} is already linked to dispatch {existing.dispatch_number}")
     return req
 
 
 def _request_dispatch_items(session: Session, req: Request) -> list[dict[str, Any]]:
+    if req.request_type != REQUEST_TYPE_CUSTOMER_DISPATCH:
+        items = session.exec(select(RequestItem).where(RequestItem.request_id == req.id)).all()
+        if not items:
+            raise HTTPException(status_code=409, detail=f"Request {req.sn_no} has no line items")
+        return [{
+            "item_name": item.item_name or item.item_code or f"Item #{item.id}",
+            "inv_type": item.item_type,
+            "inv_item_id": item.inventory_item_id,
+            "quantity": item.quantity,
+        } for item in items]
     detail = session.exec(
         select(RequestCustomerDispatch).where(RequestCustomerDispatch.request_id == req.id)
     ).one_or_none()
@@ -345,7 +404,7 @@ def _sync_linked_request(
     current_user: User,
     target_status: str | None = None,
 ) -> None:
-    if not req:
+    if not req or req.request_type != REQUEST_TYPE_CUSTOMER_DISPATCH:
         return
     now = datetime.now(tz=timezone.utc)
     effective_status = target_status or dispatch.status

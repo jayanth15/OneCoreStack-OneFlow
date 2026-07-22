@@ -163,6 +163,7 @@ class AdjustRequest(BaseModel):
 class ItemHistoryOut(BaseModel):
     id: int
     spare_item_id: int
+    spare_item_variant_id: Optional[int] = None
     changed_by_username: Optional[str]
     changed_at: str
     change_type: str
@@ -757,6 +758,7 @@ def get_item_history(
         ItemHistoryOut(
             id=r.id,  # type: ignore[arg-type]
             spare_item_id=r.spare_item_id,
+            spare_item_variant_id=getattr(r, "spare_item_variant_id", None),
             changed_by_username=r.changed_by_username,
             changed_at=_dt(r.changed_at),
             change_type=r.change_type,
@@ -764,7 +766,7 @@ def get_item_history(
             qty_after=r.qty_after,
             qty_delta=r.qty_delta,
             note=r.note,
-            variant_label=getattr(r, 'variant_label', None),
+            variant_label=getattr(r, "variant_label", None),
         )
         for r in rows
     ]
@@ -835,6 +837,39 @@ def list_variants(
     return [_variant_out(v) for v in session.exec(stmt).all()]
 
 
+@router.get("/variants/{variant_id}/history")
+def get_variant_history(
+    variant_id: int, session: SessionDep, _: AdminUser,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+) -> list[ItemHistoryOut]:
+    variant = session.get(SpareItemVariant, variant_id)
+    if not variant:
+        raise HTTPException(status_code=404, detail="Variant not found")
+    rows = session.exec(
+        select(SpareItemHistory)
+        .where(SpareItemHistory.spare_item_variant_id == variant_id)
+        .order_by(SpareItemHistory.changed_at.desc())  # type: ignore[union-attr]
+        .offset(offset).limit(limit)
+    ).all()
+    return [
+        ItemHistoryOut(
+            id=row.id,  # type: ignore[arg-type]
+            spare_item_id=row.spare_item_id,
+            spare_item_variant_id=row.spare_item_variant_id,
+            changed_by_username=row.changed_by_username,
+            changed_at=row.changed_at.isoformat() if not isinstance(row.changed_at, str) else row.changed_at,
+            change_type=row.change_type,
+            qty_before=row.qty_before,
+            qty_after=row.qty_after,
+            qty_delta=row.qty_delta,
+            note=row.note,
+            variant_label=row.variant_label,
+        )
+        for row in rows
+    ]
+
+
 @router.post("/items/{item_id}/variants", status_code=status.HTTP_201_CREATED)
 def create_variant(
     item_id: int, body: VariantCreate, session: SessionDep, current_user: AdminUser,
@@ -863,13 +898,14 @@ def create_variant(
     v_label = " / ".join(v_parts) if v_parts else f"Variant #{v.id}"
     hist = SpareItemHistory(
         spare_item_id=item_id,
+        spare_item_variant_id=v.id,
         changed_by_user_id=current_user.id,  # type: ignore[arg-type]
         changed_by_username=current_user.username,
         changed_at=now,
         change_type="add_variant",
-        qty_before=qty_before,
-        qty_after=qty_after,
-        qty_delta=qty_after - qty_before,
+        qty_before=0,
+        qty_after=v.qty,
+        qty_delta=v.qty,
         note=None,
         variant_label=v_label,
     )
@@ -887,6 +923,7 @@ def update_variant(
     parent_item_id = v.spare_item_id
     parent = _item_or_404(session, parent_item_id)
     qty_before = parent.recorded_qty
+    variant_qty_before = v.qty
     # Build variant label BEFORE updating (use existing values)
     v_parts = [p for p in [v.variant_color, v.serial_number] if p]
     v_label = " / ".join(v_parts) if v_parts else f"Variant #{v.id}"
@@ -896,16 +933,17 @@ def update_variant(
     session.add(v); session.commit(); session.refresh(v)
     _sync_item_from_variants(session, parent)
     qty_after = parent.recorded_qty
-    if qty_after != qty_before:
+    if v.qty != variant_qty_before:
         hist = SpareItemHistory(
             spare_item_id=parent_item_id,
+            spare_item_variant_id=v.id,
             changed_by_user_id=current_user.id,  # type: ignore[arg-type]
             changed_by_username=current_user.username,
             changed_at=datetime.now(tz=timezone.utc),
             change_type="edit",
-            qty_before=qty_before,
-            qty_after=qty_after,
-            qty_delta=qty_after - qty_before,
+            qty_before=variant_qty_before,
+            qty_after=v.qty,
+            qty_delta=v.qty - variant_qty_before,
             note=None,
             variant_label=v_label,
         )
@@ -922,6 +960,7 @@ def delete_variant(variant_id: int, session: SessionDep, current_user: AdminUser
     parent_item_id = v.spare_item_id
     parent = _item_or_404(session, parent_item_id)
     qty_before = parent.recorded_qty
+    variant_qty_before = v.qty
     v_parts = [p for p in [v.variant_color, v.serial_number] if p]
     v_label = " / ".join(v_parts) if v_parts else f"Variant #{v.id}"
     v.is_active = False
@@ -930,13 +969,14 @@ def delete_variant(variant_id: int, session: SessionDep, current_user: AdminUser
     qty_after = parent.recorded_qty
     hist = SpareItemHistory(
         spare_item_id=parent_item_id,
+        spare_item_variant_id=v.id,
         changed_by_user_id=current_user.id,  # type: ignore[arg-type]
         changed_by_username=current_user.username,
         changed_at=datetime.now(tz=timezone.utc),
         change_type="remove_variant",
-        qty_before=qty_before,
-        qty_after=qty_after,
-        qty_delta=qty_after - qty_before,
+        qty_before=variant_qty_before,
+        qty_after=0,
+        qty_delta=-variant_qty_before,
         note=None,
         variant_label=v_label,
     )
@@ -958,6 +998,7 @@ def adjust_variant_stock(
     if body.adjustment_type in ("add", "subtract") and body.quantity == 0:
         raise HTTPException(status_code=422, detail="Adjustment quantity must be greater than zero")
     parent_qty_before = parent.recorded_qty
+    variant_qty_before = v.qty
     if body.adjustment_type == "add":
         v.qty = v.qty + body.quantity
     elif body.adjustment_type == "subtract":
@@ -976,13 +1017,14 @@ def adjust_variant_stock(
     v_label = " / ".join(v_parts) if v_parts else f"Variant #{v.id}"
     hist = SpareItemHistory(
         spare_item_id=v.spare_item_id,
+        spare_item_variant_id=v.id,
         changed_by_user_id=current_user.id,  # type: ignore[arg-type]
         changed_by_username=current_user.username,
         changed_at=v.updated_at,
         change_type=body.adjustment_type,
-        qty_before=parent_qty_before,
-        qty_after=parent_qty_after,
-        qty_delta=parent_qty_after - parent_qty_before,
+        qty_before=variant_qty_before,
+        qty_after=v.qty,
+        qty_delta=v.qty - variant_qty_before,
         note=body.note or None,
         variant_label=v_label,
     )

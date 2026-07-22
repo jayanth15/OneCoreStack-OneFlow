@@ -48,7 +48,7 @@ interface SpareItem {
   variant_matched?: boolean;  // true when item was found via a variant search match
 }
 interface SpareItemHistoryEntry {
-  id: number; spare_item_id: number; changed_by_username: string | null;
+  id: number; spare_item_id: number; spare_item_variant_id: number | null; changed_by_username: string | null;
   changed_at: string; change_type: string;
   qty_before: number; qty_after: number; qty_delta: number; note: string | null;
   variant_label: string | null;
@@ -153,6 +153,7 @@ export default function SparesPage() {
 
   // history (admin-only)
   const [historyItem, setHistoryItem] = useState<SpareItem | null>(null);
+  const [historyVariant, setHistoryVariant] = useState<SpareVariant | null>(null);
   const [historyRows, setHistoryRows] = useState<SpareItemHistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyPage, setHistoryPage] = useState(1);
@@ -566,9 +567,19 @@ export default function SparesPage() {
   // ── History / Variants helpers ───────────────────────────────────────────────
 
   async function openHistory(item: SpareItem) {
-    setHistoryItem(item); setHistoryRows([]); setHistoryPage(1); setHistoryHasMore(false); setHistoryLoading(true);
+    setHistoryVariant(null); setHistoryItem(item); setHistoryRows([]); setHistoryPage(1); setHistoryHasMore(false); setHistoryLoading(true);
     try {
       const rows = await apiFetchJson<SpareItemHistoryEntry[]>(`/api/v1/spares/items/${item.id}/history?limit=10&offset=0`);
+      setHistoryRows(rows);
+      setHistoryHasMore(rows.length === 10);
+    } catch { /* ignore */ }
+    finally { setHistoryLoading(false); }
+  }
+
+  async function openVariantHistory(item: SpareItem, variant: SpareVariant) {
+    setHistoryItem(item); setHistoryVariant(variant); setHistoryRows([]); setHistoryPage(1); setHistoryHasMore(false); setHistoryLoading(true);
+    try {
+      const rows = await apiFetchJson<SpareItemHistoryEntry[]>("/api/v1/spares/variants/" + variant.id + "/history?limit=10&offset=0");
       setHistoryRows(rows);
       setHistoryHasMore(rows.length === 10);
     } catch { /* ignore */ }
@@ -579,7 +590,10 @@ export default function SparesPage() {
     if (!historyItem) return;
     setHistoryRows([]); setHistoryLoading(true);
     try {
-      const rows = await apiFetchJson<SpareItemHistoryEntry[]>(`/api/v1/spares/items/${historyItem.id}/history?limit=10&offset=${(newPage - 1) * 10}`);
+      const historyUrl = historyVariant
+        ? "/api/v1/spares/variants/" + historyVariant.id + "/history?limit=10&offset=" + ((newPage - 1) * 10)
+        : "/api/v1/spares/items/" + historyItem.id + "/history?limit=10&offset=" + ((newPage - 1) * 10);
+      const rows = await apiFetchJson<SpareItemHistoryEntry[]>(historyUrl);
       setHistoryRows(rows);
       setHistoryPage(newPage);
       setHistoryHasMore(rows.length === 10);
@@ -1071,6 +1085,7 @@ export default function SparesPage() {
                                                               </div>
                                                               <span className="flex gap-0.5 shrink-0 -mt-0.5">
                                                                 <Button variant="ghost" size="icon" className="size-6" title="View variant details" onClick={()=>{ setViewVariant(v); setViewVariantParent(item); }}><Eye className="size-3 text-primary" /></Button>
+                                                                {admin && <Button variant="ghost" size="icon" className="size-6" title="Variant stock history" onClick={()=>openVariantHistory(item, v)}><History className="size-3 text-muted-foreground" /></Button>}
                                                                 {admin && <>
                                                                   <Button variant="ghost" size="icon" className="size-6" title="Edit variant" onClick={()=>startEditVariant(v)}><Pencil className="size-3" /></Button>
                                                                   <Button variant="ghost" size="icon" className="size-6 text-destructive hover:text-destructive" onClick={()=>deleteVariant(v.id)}><Trash2 className="size-3" /></Button>
@@ -1473,9 +1488,9 @@ export default function SparesPage() {
       </Dialog>
 
       {/* ── History Dialog (admin-only) ───────────────────────────────── */}
-      <Dialog open={historyItem !== null} onOpenChange={o=>!o&&setHistoryItem(null)}>
+      <Dialog open={historyItem !== null} onOpenChange={o=>{ if (!o) { setHistoryItem(null); setHistoryVariant(null); } }}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Stock History — {historyItem?.name}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Stock History — {historyItem?.name}{historyVariant ? " · " + (historyVariant.variant_color || historyVariant.serial_number || "Variant #" + historyVariant.id) : ""}</DialogTitle></DialogHeader>
           {historyLoading ? (
             <div className="space-y-2 mt-2">{[1,2,3].map(i=><div key={i} className="h-10 rounded bg-muted animate-pulse" />)}</div>
           ) : historyRows.length === 0 ? (

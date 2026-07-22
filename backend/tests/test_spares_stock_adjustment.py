@@ -66,3 +66,40 @@ def test_negative_spare_reduction_is_rejected(client, session, admin_token):
     assert response.status_code == 422
     session.refresh(item)
     assert item.recorded_qty == 5
+
+
+def test_variant_history_is_scoped_to_each_individual_part(client, session, admin_token):
+    category = SpareCategory(name="Scoped Spares")
+    session.add(category)
+    session.commit()
+    session.refresh(category)
+    item = SpareItem(category_id=category.id, name="Drive Belt", recorded_qty=0)
+    session.add(item)
+    session.commit()
+    session.refresh(item)
+    first = SpareItemVariant(spare_item_id=item.id, serial_number="BELT-1", qty=4)
+    second = SpareItemVariant(spare_item_id=item.id, serial_number="BELT-2", qty=6)
+    session.add(first)
+    session.add(second)
+    session.commit()
+    session.refresh(first)
+    session.refresh(second)
+
+    for variant in (first, second):
+        adjusted = client.post(
+            f"/api/v1/spares/variants/{variant.id}/adjust",
+            json={"adjustment_type": "add", "quantity": 1, "note": variant.serial_number},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert adjusted.status_code == 200
+
+    history = client.get(
+        f"/api/v1/spares/variants/{first.id}/history",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert history.status_code == 200
+    assert len(history.json()) == 1
+    assert history.json()[0]["spare_item_variant_id"] == first.id
+    assert history.json()[0]["qty_before"] == 4
+    assert history.json()[0]["qty_after"] == 5
+    assert history.json()[0]["note"] == "BELT-1"

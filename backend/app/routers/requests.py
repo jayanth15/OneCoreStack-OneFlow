@@ -31,7 +31,7 @@ from app.schemas.request import (
     RequestCreate, RequestUpdate, RequestRead, RequestListRead,
     RequestReviewAction, RequestItemAcceptAction, RequestStatusUpdate,
     RequestItemRead, RequestCustomerDispatchRead, RequestHistoryRead,
-    RequestDeliverAction, RequestAcknowledgeDeliveryAction,
+    RequestDeliverAction, RequestDeliverItemAction, RequestAcknowledgeDeliveryAction,
 )
 from app.routers.requests_helpers import (
     generate_sn, log_history, get_user_departments,
@@ -738,26 +738,50 @@ def deliver_request(
         raise HTTPException(status_code=400, detail="deliver is not applicable to customer_dispatch requests")
     if req.status != "in_progress":
         raise HTTPException(status_code=409, detail=f"Cannot deliver a request in status '{req.status}'")
-    if not _user_can_accept(current_user, req, session, get_user_departments(session, current_user.id)):  # type: ignore[arg-type]
+
+    user_departments = get_user_departments(session, current_user.id)  # type: ignore[arg-type]
+    if not _user_can_accept(current_user, req, session, user_departments):
         raise HTTPException(status_code=403, detail="Not allowed to deliver this request")
 
     req_items = session.exec(select(RequestItem).where(RequestItem.request_id == req.id)).all()
-    req_item_map = {item.id: item for item in req_items}
-    for delivered in payload.items:
-        item = req_item_map.get(delivered.request_item_id)
+    user_department_codes = {department.code for department in user_departments}
+    eligible_items = [
+        item for item in req_items
+        if (item.item_status == "in_progress" or (current_user.role in ("admin", "super_admin") and item.item_status is None))
+        and (
+            current_user.role in ("admin", "super_admin")
+            or (item.department or req.department) in user_department_codes
+        )
+    ]
+    eligible_item_map = {item.id: item for item in eligible_items}
+    delivered_payload = payload.items or [
+        RequestDeliverItemAction(
+            request_item_id=item.id,  # type: ignore[arg-type]
+            quantity_delivered=item.quantity,
+            condition="good",
+        )
+        for item in eligible_items
+    ]
+    if not delivered_payload:
+        raise HTTPException(status_code=409, detail="There are no accepted items for your department to deliver")
+
+    delivered_ids: set[int] = set()
+    for delivered in delivered_payload:
+        item = eligible_item_map.get(delivered.request_item_id)
         if not item:
-            raise HTTPException(status_code=400, detail=f"Request item {delivered.request_item_id} not found for this request")
+            raise HTTPException(status_code=403, detail=f"Request item {delivered.request_item_id} is not deliverable by your department")
+        if delivered.request_item_id in delivered_ids:
+            raise HTTPException(status_code=400, detail=f"Request item {delivered.request_item_id} was included more than once")
+        delivered_ids.add(delivered.request_item_id)
         if delivered.quantity_delivered > item.quantity:
             raise HTTPException(
                 status_code=400,
                 detail=f"Delivered quantity for {item.item_name or delivered.request_item_id} cannot exceed requested quantity",
             )
 
-    delivered_quantities = (
-        {delivered.request_item_id: delivered.quantity_delivered for delivered in payload.items}
-        if payload.items
-        else {item.id: item.quantity for item in req_items}
-    )
+    delivered_quantities = {
+        delivered.request_item_id: delivered.quantity_delivered for delivered in delivered_payload
+    }
     deductions = [
         StockDeduction(
             inventory_type=item.item_type,
@@ -765,10 +789,10 @@ def deliver_request(
             quantity=delivered_quantities[item.id],
             label=item.item_name or item.item_code or f"Request item {item.id}",
         )
-        for item in req_items
+        for item in eligible_items
         if (
-            req.request_type == REQUEST_TYPE_INTERNAL_TRANSFER
-            and item.id in delivered_quantities
+            item.id in delivered_ids
+            and req.request_type == REQUEST_TYPE_INTERNAL_TRANSFER
             and item.inventory_item_id is not None
             and item.item_type
         )
@@ -780,25 +804,46 @@ def deliver_request(
         note=f"Fulfilled request {req.sn_no}",
     )
 
+    for item in eligible_items:
+        if item.id in delivered_ids:
+            item.item_status = "delivered"
+            session.add(item)
+
     old_status = req.status
-    req.status = "awaiting_signoff"
+    all_items_delivered = all(
+        item.item_status in ("delivered", "rejected") for item in req_items
+    )
+    now = datetime.now(tz=timezone.utc)
+    req.status = "awaiting_signoff" if all_items_delivered else "in_progress"
     req.delivered_by_user_id = current_user.id
     req.delivered_by_username = current_user.username
-    req.delivered_at = datetime.now(tz=timezone.utc)
+    req.delivered_at = now
     req.delivery_note = payload.delivery_note
-    req.updated_at = datetime.now(tz=timezone.utc)
+    req.updated_at = now
 
-    log_history(session, req.id, changed_by_user_id=current_user.id, changed_by_username=current_user.username,
-                change_type="delivered", field_name="status", old_value=old_status, new_value="awaiting_signoff",
-                note=payload.delivery_note)
+    log_history(
+        session, req.id,
+        changed_by_user_id=current_user.id,
+        changed_by_username=current_user.username,
+        change_type="delivered",
+        field_name="status",
+        old_value=old_status,
+        new_value=req.status,
+        note=payload.delivery_note,
+    )
 
     create_department_receipts_for_request(
         session=session,
         req=req,
         current_user=current_user,
         notes=payload.delivery_note,
-        delivered_items=payload.items,
+        delivered_items=delivered_payload,
     )
+    # Receipt creation marks the request awaiting signoff for the legacy
+    # single-department flow. Keep multi-department requests in progress until
+    # every accepted line item has independently been delivered.
+    req.status = "awaiting_signoff" if all_items_delivered else "in_progress"
+    session.add(req)
 
     session.commit()
     session.refresh(req)

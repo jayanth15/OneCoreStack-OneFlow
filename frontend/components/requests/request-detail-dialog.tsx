@@ -156,13 +156,11 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
         .then((d) => {
           if (cancelled) return;
           setData(d);
-          if (d.status === "awaiting_signoff" || d.status === "received") {
-            receiptsApi.listByRequest(d.id).then((r) => {
-              if (!cancelled) setReceipts(r);
-            }).catch(() => {
-              if (!cancelled) setReceipts([]);
-            });
-          }
+          receiptsApi.listByRequest(d.id).then((r) => {
+            if (!cancelled) setReceipts(r);
+          }).catch(() => {
+            if (!cancelled) setReceipts([]);
+          });
         })
         .finally(() => { if (!cancelled) setLoading(false); });
     });
@@ -170,6 +168,12 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
   }, [open, requestId]);
 
   const reviewerIsAdmin = currentUser?.role === "admin" || currentUser?.role === "super_admin" || isAdmin();
+  const userDepartmentCodes = new Set(currentUser?.department_codes ?? []);
+  const deliverableItems = data?.items.filter((item) => {
+    const department = item.department ?? data.department;
+    return (item.item_status === "in_progress" || (reviewerIsAdmin && item.item_status == null))
+      && (reviewerIsAdmin || Boolean(department && userDepartmentCodes.has(department)));
+  }) ?? [];
 
   const review = async (decision: "reject") => {
     if (!data) return;
@@ -244,7 +248,7 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
     try {
       const updated = await requestsApi.deliver(data.id, {
         delivery_note: deliverNote,
-        items: data.items
+        items: deliverableItems
           .filter((item) => item.id != null)
           .map((item) => ({
             request_item_id: item.id as number,
@@ -299,7 +303,7 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
   const openDeliverDialog = () => {
     if (!data) return;
     setDeliverQuantities(Object.fromEntries(
-      data.items
+      deliverableItems
         .filter((item) => item.id != null)
         .map((item) => [item.id as number, item.quantity]),
     ));
@@ -487,6 +491,8 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
                                   <Check className="size-3.5" />
                                   {acceptingItemId === it.id ? "Accepting…" : "Accept"}
                                 </Button>
+                              ) : it.item_status === "delivered" ? (
+                                <Badge className="bg-success/10 text-success">Delivered</Badge>
                               ) : it.item_status === "in_progress" ? (
                                 <Badge variant="secondary">Accepted</Badge>
                               ) : it.item_status === "rejected" ? (
@@ -734,7 +740,7 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
                     Create PO
                   </Button>
                 )}
-                {data.status === "in_progress" && (data.request_type !== "vendor_purchase" || reviewerIsAdmin) && (
+                {data.status === "in_progress" && deliverableItems.length > 0 && (data.request_type !== "vendor_purchase" || reviewerIsAdmin) && (
                   <Button size="sm" onClick={openDeliverDialog}>
                     <Truck className="size-3.5" />
                     Mark Delivered
@@ -844,7 +850,7 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
                 Short delivered quantities will be recorded on the receipt.
               </p>
               <div className="space-y-2">
-                {data?.items.map((item) => {
+                {deliverableItems.map((item) => {
                   if (item.id == null) return null;
                   const delivered = deliverQuantities[item.id] ?? item.quantity;
                   const shortage = Math.max(0, item.quantity - delivered);

@@ -257,15 +257,17 @@ def create_department_receipts_for_request(
     delivered_items: Optional[list[Any]] = None,
 ) -> list[Receipt]:
     req_items = session.exec(select(RequestItem).where(RequestItem.request_id == req.id)).all()
-    by_department: dict[Optional[str], list[RequestItem]] = {}
-    for item in req_items:
-        dept = item.department or req.department
-        by_department.setdefault(dept, []).append(item)
-
     delivered_map: dict[int, Any] = {}
     for delivered in delivered_items or []:
         request_item_id = delivered["request_item_id"] if isinstance(delivered, dict) else delivered.request_item_id
         delivered_map[request_item_id] = delivered
+
+    by_department: dict[Optional[str], list[RequestItem]] = {}
+    for item in req_items:
+        if delivered_items is not None and item.id not in delivered_map:
+            continue
+        dept = item.department or req.department
+        by_department.setdefault(dept, []).append(item)
 
     receipts: list[Receipt] = []
     for department, items_for_department in by_department.items():
@@ -417,7 +419,7 @@ def signoff_receipt(
         r.status == "signed_off" or r.id == receipt.id
         for r in all_receipts
     )
-    if all_signed_off:
+    if all_signed_off and req.status == "awaiting_signoff":
         old_status = req.status
         req.status = "received"
         req.acknowledged_by_user_id = current_user.id

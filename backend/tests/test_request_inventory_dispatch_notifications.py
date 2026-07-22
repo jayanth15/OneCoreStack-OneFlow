@@ -195,3 +195,50 @@ def test_notifications_only_return_unread_active_links_and_clear_all(
     assert cleared.status_code == 200
     assert client.get("/api/v1/notifications", headers=_headers(admin_token)).json() == []
     assert client.get("/api/v1/notifications/unread-count", headers=_headers(admin_token)).json() == {"count": 0}
+
+
+def test_any_request_can_be_selected_only_once_for_dispatch(client, session, admin_token):
+    req = Request(
+        sn_no="REQ-ANY-0001",
+        request_type="internal_transfer",
+        status="approved",
+        quantity=3,
+    )
+    session.add(req)
+    session.flush()
+    session.add(RequestItem(
+        request_id=req.id,
+        item_name="Packing crate",
+        item_type="finished_good",
+        quantity=3,
+    ))
+    session.commit()
+
+    available = client.get(
+        "/api/v1/dispatch/available-requests",
+        headers=_headers(admin_token),
+    )
+    assert available.status_code == 200
+    assert req.id in {item["id"] for item in available.json()}
+
+    first = client.post(
+        "/api/v1/dispatch",
+        json={"request_id": req.id, "status": "pending"},
+        headers=_headers(admin_token),
+    )
+    assert first.status_code == 201, first.json()
+    assert first.json()["request_sn_no"] == req.sn_no
+    assert first.json()["items"][0]["item_name"] == "Packing crate"
+
+    repeated = client.post(
+        "/api/v1/dispatch",
+        json={"request_id": req.id, "status": "pending"},
+        headers=_headers(admin_token),
+    )
+    assert repeated.status_code == 409
+
+    available_after = client.get(
+        "/api/v1/dispatch/available-requests",
+        headers=_headers(admin_token),
+    )
+    assert req.id not in {item["id"] for item in available_after.json()}

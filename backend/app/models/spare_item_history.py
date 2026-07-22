@@ -10,6 +10,7 @@ class SpareItemHistory(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     spare_item_id: int = Field(foreign_key="spare_item.id", index=True)
+    spare_item_variant_id: Optional[int] = Field(default=None, foreign_key="spare_item_variant.id", index=True)
     changed_by_user_id: Optional[int] = Field(default=None, foreign_key="users.id")
     changed_by_username: Optional[str] = None   # denormalised for fast display
     changed_at: datetime = Field(

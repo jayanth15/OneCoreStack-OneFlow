@@ -84,6 +84,7 @@ interface CompanyInfo {
 }
 
 interface NameOption { id: number; name: string; }
+interface AvailableRequest { id: number; sn_no: string; request_type: string; status: string; requested_by_username: string | null; }
 
 const STATUS_COLORS: Record<string, string> = {
   pending:    "bg-warning/15 text-warning",
@@ -156,7 +157,7 @@ export default function DispatchPage() {
 
   const searchRef = useRef<HTMLInputElement>(null);
   const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
-  const [customerRequests, setCustomerRequests] = useState<{ id: number; sn_no: string; dispatch: { customer_name: string | null; inventory_type: string; item_id: number | null; item_sn_no: string | null; quantity: number } | null }[]>([]);
+  const [availableRequests, setAvailableRequests] = useState<AvailableRequest[]>([]);
   const adminUser = isAdminOrAbove();
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
@@ -172,15 +173,20 @@ export default function DispatchPage() {
       .finally(() => setLoading(false));
   }
 
+  function loadAvailableRequests(excludeDispatchId?: number) {
+    const query = excludeDispatchId ? "?exclude_dispatch_id=" + excludeDispatchId : "";
+    apiFetchJson<AvailableRequest[]>("/api/v1/dispatch/available-requests" + query)
+      .then(setAvailableRequests)
+      .catch(() => setAvailableRequests([]));
+  }
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, [search, statusFilter]);
 
   useEffect(() => {
     apiFetchJson<CompanyInfo>("/api/v1/settings/company").then(setCompanyInfo).catch(() => {});
     apiFetchJson<NameOption[]>("/api/v1/vendors/names").then(setVendors).catch(() => {});
-    apiFetchJson<{ id: number; sn_no: string; dispatch: { customer_name: string | null; inventory_type: string; item_id: number | null; item_sn_no: string | null; quantity: number } | null }[]>(
-      "/api/v1/requests?request_type=customer_dispatch&status=approved"
-    ).then(setCustomerRequests).catch(() => {});
+    loadAvailableRequests();
   }, []);
 
   function buildPayload(form: DispatchFormState) {
@@ -225,13 +231,14 @@ export default function DispatchPage() {
         method: "POST",
         body: JSON.stringify(buildPayload(createForm)),
       });
-      setShowCreate(false); setCreateForm(BLANK_FORM()); load();
+      setShowCreate(false); setCreateForm(BLANK_FORM()); load(); loadAvailableRequests();
     } catch (err: unknown) {
       setCreateError(err instanceof Error ? err.message : "Failed to create");
     } finally { setCreateSaving(false); }
   }
 
   function openEdit(d: Dispatch) {
+    loadAvailableRequests(d.id);
     setEditTarget(d);
     const partyType = (d.party_type as "vendor" | "supplier") ?? (d.supplier_name ? "supplier" : "vendor");
     const formItems: DispatchItemForm[] =
@@ -272,7 +279,7 @@ export default function DispatchPage() {
         method: "PUT",
         body: JSON.stringify(buildPayload(editForm)),
       });
-      setEditTarget(null); load();
+      setEditTarget(null); load(); loadAvailableRequests();
     } catch (err: unknown) {
       setEditError(err instanceof Error ? err.message : "Failed to update");
     } finally { setEditSaving(false); }
@@ -381,7 +388,7 @@ ${d.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${d.notes}</p>` 
               <option value="">All statuses</option>
               {STATUSES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
             </select>
-            <Button size="sm" onClick={() => { setCreateForm(BLANK_FORM()); setCreateError(null); setShowCreate(true); }}>
+            <Button size="sm" onClick={() => { loadAvailableRequests(); setCreateForm(BLANK_FORM()); setCreateError(null); setShowCreate(true); }}>
               <Plus className="size-4 mr-1.5" />New Dispatch
             </Button>
           </>
@@ -394,7 +401,7 @@ ${d.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${d.notes}</p>` 
           <DialogHeader><DialogTitle>New Dispatch</DialogTitle></DialogHeader>
           <DispatchForm form={createForm} vendors={vendors} saving={createSaving}
             error={createError} onChange={setCreateForm} onSubmit={handleCreate} isCreate
-            customerRequests={customerRequests} />
+            availableRequests={availableRequests} />
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowCreate(false)} disabled={createSaving}>Cancel</Button>
             <Button disabled={createSaving} onClick={handleCreate}>
@@ -410,7 +417,7 @@ ${d.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${d.notes}</p>` 
           <DialogHeader><DialogTitle>Edit Dispatch</DialogTitle></DialogHeader>
           <DispatchForm form={editForm} vendors={vendors} saving={editSaving}
             error={editError} onChange={setEditForm} onSubmit={handleEdit} isCreate={false}
-            customerRequests={customerRequests} />
+            availableRequests={availableRequests} />
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setEditTarget(null)} disabled={editSaving}>Cancel</Button>
             <Button disabled={editSaving} onClick={handleEdit}>
@@ -527,7 +534,7 @@ ${d.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${d.notes}</p>` 
 // ── Form ──────────────────────────────────────────────────────────────────────
 
 function DispatchForm({
-  form, vendors, saving, error, onChange, onSubmit, isCreate, customerRequests,
+  form, vendors, saving, error, onChange, onSubmit, isCreate, availableRequests,
 }: {
   form: DispatchFormState;
   vendors: NameOption[];
@@ -536,7 +543,7 @@ function DispatchForm({
   onChange: (f: DispatchFormState) => void;
   onSubmit: (e: React.FormEvent) => void;
   isCreate: boolean;
-  customerRequests: { id: number; sn_no: string; dispatch: { customer_name: string | null; inventory_type: string; item_id: number | null; item_sn_no: string | null; quantity: number } | null }[];
+  availableRequests: AvailableRequest[];
 }) {
   function updateItem(key: string, patch: Partial<DispatchItemForm>) {
     onChange({ ...form, items: form.items.map(i => i._key === key ? { ...i, ...patch } : i) });
@@ -698,7 +705,7 @@ function DispatchForm({
         </div>
       )}
       <div className="space-y-1.5">
-        <Label htmlFor="d-request">Customer Dispatch Request <span className="text-xs text-muted-foreground">(optional)</span></Label>
+        <Label htmlFor="d-request">Request <span className="text-xs text-muted-foreground">(optional)</span></Label>
         <select id="d-request" value={form.request_id ?? ""}
           onChange={async (e) => {
             const reqId = parseInt(e.target.value);
@@ -708,7 +715,8 @@ function DispatchForm({
             }
             try {
               const req = await apiFetchJson<{
-                id: number; sn_no: string;
+                id: number; sn_no: string; request_type: string;
+                items: { id: number; inventory_item_id: number | null; item_name: string | null; item_code: string | null; item_type: string | null; quantity: number }[];
                 dispatch: { customer_name: string | null; inventory_type: string; item_id: number | null; item_sn_no: string | null; item_description: string | null; quantity: number } | null;
               }>(`/api/v1/requests/${reqId}`);
               const d = req.dispatch;
@@ -729,8 +737,17 @@ function DispatchForm({
                   request_sn_no: req.sn_no,
                 });
               } else {
+                const items: DispatchItemForm[] = req.items.map((item) => ({
+                  _key: Math.random().toString(36).slice(2),
+                  inv_type: item.item_type || "",
+                  inv_item_id: item.inventory_item_id,
+                  item_name: item.item_name || item.item_code || "",
+                  quantity: String(item.quantity),
+                  unit: "",
+                }));
                 onChange({
                   ...form,
+                  items: items.length > 0 ? items : form.items,
                   request_id: req.id,
                   request_sn_no: req.sn_no,
                 });
@@ -740,9 +757,9 @@ function DispatchForm({
           disabled={saving}
           className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
           <option value="">— None —</option>
-          {customerRequests.map(r => (
+          {availableRequests.map(r => (
             <option key={r.id} value={r.id}>
-              {r.sn_no}{r.dispatch?.customer_name ? ` — ${r.dispatch.customer_name}` : ""}
+              {r.sn_no} — {r.request_type.replaceAll("_", " ")} · {r.status.replaceAll("_", " ")}
             </option>
           ))}
         </select>

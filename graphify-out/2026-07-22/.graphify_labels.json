@@ -224,10 +224,6 @@
   "222": "_migrate_job_card_worker_id",
   "223": "_migrate_po_vendor_fields",
   "224": "tabs.tsx",
-  "225": "_migrate_production_plan_v2",
-  "226": "_migrate_purchase_request_items",
-  "227": "_migrate_purchase_request_tables",
-  "228": "_migrate_spare_item_v2",
   "230": "index.md",
   "231": "index.md",
   "232": "index.md"
