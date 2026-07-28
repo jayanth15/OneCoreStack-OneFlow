@@ -13,6 +13,7 @@ import {
 import { apiFetchJson } from "@/lib/api";
 import { getCurrentUser, isAdminOrAbove, refreshCurrentUser } from "@/lib/user";
 import { PackageCheck, Plus, Search, Pencil, Minus, Printer, Trash2 } from "lucide-react";
+import { openPrintWindow } from "@/lib/print-report";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -35,6 +36,8 @@ interface Dispatch {
   schedule_number: string | null;
   request_id: number | null;
   request_sn_no: string | null;
+  receipt_id: number | null;
+  receipt_number: string | null;
   product_name: string;
   quantity: number;
   unit: string | null;
@@ -69,6 +72,7 @@ interface DispatchFormState {
   status: string;
   request_id: number | null;
   request_sn_no: string;
+  receipt_id: number | null;
 }
 
 interface CompanyInfo {
@@ -85,6 +89,7 @@ interface CompanyInfo {
 
 interface NameOption { id: number; name: string; }
 interface AvailableRequest { id: number; sn_no: string; request_type: string; status: string; requested_by_username: string | null; }
+interface ReceiptOption { id: number; receipt_number: string; request_id: number; request_sn_no: string | null; status: string; }
 
 const STATUS_COLORS: Record<string, string> = {
   pending:    "bg-warning/15 text-warning",
@@ -118,6 +123,7 @@ function BLANK_FORM(): DispatchFormState {
     vehicle_number: "", driver_name: "", notes: "", status: "pending",
     request_id: null,
     request_sn_no: "",
+    receipt_id: null,
   };
 }
 
@@ -144,6 +150,7 @@ export default function DispatchPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [vendors, setVendors] = useState<NameOption[]>([]);
+  const [receipts, setReceipts] = useState<ReceiptOption[]>([]);
 
   const [showCreate, setShowCreate] = useState(false);
   const [createForm, setCreateForm] = useState<DispatchFormState>(BLANK_FORM());
@@ -186,6 +193,7 @@ export default function DispatchPage() {
   useEffect(() => {
     apiFetchJson<CompanyInfo>("/api/v1/settings/company").then(setCompanyInfo).catch(() => {});
     apiFetchJson<NameOption[]>("/api/v1/vendors/names").then(setVendors).catch(() => {});
+    apiFetchJson<ReceiptOption[]>("/api/v1/receipts?limit=500").then(setReceipts).catch(() => setReceipts([]));
     loadAvailableRequests();
   }, []);
 
@@ -203,6 +211,7 @@ export default function DispatchPage() {
       schedule_number: null,
       request_id: form.request_id,
       request_sn_no: form.request_sn_no || null,
+      receipt_id: form.party_type === "supplier" ? form.receipt_id : null,
       product_name: first?.item_name ?? "",
       quantity: parseFloat(first?.quantity ?? "0") || 0,
       unit: first?.unit || null,
@@ -264,6 +273,7 @@ export default function DispatchPage() {
       status: d.status,
       request_id: d.request_id,
       request_sn_no: d.request_sn_no ?? "",
+      receipt_id: d.receipt_id,
     });
     setEditError(null);
   }
@@ -321,54 +331,24 @@ export default function DispatchPage() {
       : [{ item_name: d.product_name, quantity: d.quantity, unit: d.unit, inv_type: null }];
     const partyName = d.party_type === "supplier" ? d.supplier_name : d.vendor_name;
     const partyLabel = d.party_type === "vendor" ? "Vendor" : "Supplier";
-    const win = window.open("", "_blank", "width=800,height=600");
-    if (!win) return;
-    const co = companyInfo;
-    const coHtml = (co && co.company_name) ? `
-      <div style="text-align:center;margin-bottom:20px;padding-bottom:10px;border-bottom:2px solid #333;">
-        <h1 style="margin:0;font-size:20px;font-weight:bold;">${co.company_name}</h1>
-        <p style="margin:4px 0;">${[co.company_address, co.company_city, co.company_state].filter(Boolean).join(', ')}${co.company_pincode ? ' - ' + co.company_pincode : ''}</p>
-        <p style="margin:2px 0;font-size:12px;">
-          ${[co.company_phone ? `Phone: ${co.company_phone}` : '', co.company_email ? `Email: ${co.company_email}` : '', co.company_gstin ? `GST: ${co.company_gstin}` : ''].filter(Boolean).join(' | ')}
-        </p>
-      </div>` : '';
-    win.document.write(`<!DOCTYPE html><html><head><title>Dispatch &mdash; ${d.dispatch_number}</title>
-<style>
-  body { font-family: Arial, sans-serif; font-size: 13px; margin: 24px; color: #111; }
-  h2 { margin: 0 0 4px; font-size: 18px; }
-  .meta { color: #555; font-size: 12px; margin-bottom: 16px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-  th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
-  th { background: #f5f5f5; font-weight: 600; }
-  .row { display: flex; gap: 32px; margin-bottom: 8px; }
-  .lbl { color: #666; font-size: 11px; }
-  @media print { body { margin: 0; } }
-</style></head><body>
-${coHtml}
-<h2>Dispatch &mdash; ${d.dispatch_number}</h2>
-<p class="meta">Generated on ${new Date().toLocaleString("en-IN")}</p>
-<div class="row">
-  <div><div class="lbl">Party</div><div>${partyLabel}: ${partyName ?? "&mdash;"}</div></div>
-  <div><div class="lbl">Status</div><div>${d.status}</div></div>
-  ${d.dispatch_date ? `<div><div class="lbl">Date</div><div>${d.dispatch_date}</div></div>` : ""}
-</div>
-<div class="row">
-  ${d.vehicle_number ? `<div><div class="lbl">Vehicle</div><div>${d.vehicle_number}</div></div>` : ""}
-  ${d.driver_name ? `<div><div class="lbl">Driver</div><div>${d.driver_name}</div></div>` : ""}
-  ${d.schedule_number ? `<div><div class="lbl">Schedule</div><div>${d.schedule_number}</div></div>` : ""}
-</div>
-<table>
-  <thead><tr><th>#</th><th>Item</th><th>Type</th><th>Quantity</th><th>Unit</th></tr></thead>
-  <tbody>
-    ${items.map((it, i) => `<tr><td>${i + 1}</td><td>${it.item_name ?? ""}</td><td>${it.inv_type ?? "&mdash;"}</td><td>${it.quantity}</td><td>${it.unit ?? ""}</td></tr>`).join("")}
-  </tbody>
-</table>
-${d.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${d.notes}</p>` : ""}
-<p style="margin-top:16px;font-size:11px;color:#666">Created by: ${d.created_by ?? "&mdash;"} | Printed: ${new Date().toLocaleString("en-IN")}</p>
-</body></html>`);
-    win.document.close();
-    win.focus();
-    win.print();
+    const receiptRef = d.receipt_number ? `Receipt: ${d.receipt_number}` : "";
+    const extraRefs = [receiptRef].filter(Boolean).join(" | ");
+    openPrintWindow({
+      title: `Dispatch — ${d.dispatch_number}`,
+      subtitle: `${partyLabel}: ${partyName ?? "—"}`,
+      companyName: companyInfo?.company_name,
+      companyAddress: [companyInfo?.company_address, companyInfo?.company_city, companyInfo?.company_state].filter(Boolean).join(", "),
+      mode: "audit-snapshot",
+      columns: ["#", "Item", "Type", "Qty", "Unit"],
+      rows: items.map((it, i) => ({
+        "#": String(i + 1),
+        "Item": it.item_name ?? "",
+        "Type": it.inv_type ?? "—",
+        "Qty": String(it.quantity),
+        "Unit": it.unit ?? "",
+      })),
+      extraHeader: extraRefs || undefined,
+    });
   }
 
   return (
@@ -399,7 +379,7 @@ ${d.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${d.notes}</p>` 
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>New Dispatch</DialogTitle></DialogHeader>
-          <DispatchForm form={createForm} vendors={vendors} saving={createSaving}
+          <DispatchForm form={createForm} vendors={vendors} receipts={receipts} saving={createSaving}
             error={createError} onChange={setCreateForm} onSubmit={handleCreate} isCreate
             availableRequests={availableRequests} />
           <DialogFooter className="gap-2">
@@ -415,7 +395,7 @@ ${d.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${d.notes}</p>` 
       <Dialog open={!!editTarget} onOpenChange={(o) => { if (!o) setEditTarget(null); }}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Edit Dispatch</DialogTitle></DialogHeader>
-          <DispatchForm form={editForm} vendors={vendors} saving={editSaving}
+          <DispatchForm form={editForm} vendors={vendors} receipts={receipts} saving={editSaving}
             error={editError} onChange={setEditForm} onSubmit={handleEdit} isCreate={false}
             availableRequests={availableRequests} />
           <DialogFooter className="gap-2">
@@ -497,7 +477,8 @@ ${d.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${d.notes}</p>` 
                       {d.vehicle_number && <span>Vehicle: {d.vehicle_number}</span>}
                       {d.driver_name && <span>Driver: {d.driver_name}</span>}
                       {d.schedule_number && <span>Schedule: {d.schedule_number}</span>}
-                      {d.request_sn_no && <span>Request: {d.request_sn_no}</span>}
+                      {d.party_type === "vendor" && d.request_sn_no && <span>Request: {d.request_sn_no}</span>}
+                      {d.party_type === "supplier" && d.receipt_number && <span>Receipt: {d.receipt_number}</span>}
                     </div>
                     {d.notes && <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{d.notes}</p>}
                   </div>
@@ -534,10 +515,11 @@ ${d.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${d.notes}</p>` 
 // ── Form ──────────────────────────────────────────────────────────────────────
 
 function DispatchForm({
-  form, vendors, saving, error, onChange, onSubmit, isCreate, availableRequests,
+  form, vendors, receipts, saving, error, onChange, onSubmit, isCreate, availableRequests,
 }: {
   form: DispatchFormState;
   vendors: NameOption[];
+  receipts: ReceiptOption[];
   saving: boolean;
   error: string | null;
   onChange: (f: DispatchFormState) => void;
@@ -570,7 +552,7 @@ function DispatchForm({
                 ? "bg-primary text-primary-foreground border-primary"
                 : "bg-background text-foreground border-input hover:bg-muted"
             }`}
-            onClick={() => onChange({ ...form, party_type: "vendor", supplier_name: "" })}
+            onClick={() => onChange({ ...form, party_type: "vendor", supplier_name: "", receipt_id: null })}
             disabled={saving}>
             Vendor (OEM)
           </button>
@@ -711,7 +693,22 @@ function DispatchForm({
           </select>
         </div>
       )}
-      <div className="space-y-1.5">
+      {form.party_type === "supplier" && (
+        <div className="space-y-1.5">
+          <Label htmlFor="d-receipt">Receipt Number <span className="text-xs text-muted-foreground">(required to complete)</span></Label>
+          <select id="d-receipt" value={form.receipt_id ?? ""}
+            onChange={(e) => {
+              const receipt = receipts.find(r => r.id === Number(e.target.value));
+              onChange({ ...form, receipt_id: receipt?.id ?? null, request_id: receipt?.request_id ?? form.request_id, request_sn_no: receipt?.request_sn_no ?? form.request_sn_no });
+            }}
+            disabled={saving}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
+            <option value="">— Select receipt —</option>
+            {receipts.map(r => <option key={r.id} value={r.id}>{r.receipt_number}{r.request_sn_no ? ` — ` : ""}</option>)}
+          </select>
+        </div>
+      )}
+            <div className="space-y-1.5">
         <Label htmlFor="d-request">Request <span className="text-xs text-muted-foreground">(optional)</span></Label>
         <select id="d-request" value={form.request_id ?? ""}
           onChange={async (e) => {

@@ -15,6 +15,7 @@ import {
   RotateCcw, Box, PackageCheck, Layers, Recycle, PackageSearch, Truck,
   LayoutGrid, Rows3, ArrowRight, User, Printer,
 } from "lucide-react";
+import { fetchAllPages, openPrintWindow } from "@/lib/print-report";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -407,44 +408,41 @@ export default function HistoryPage() {
     debounceRef.current = setTimeout(applyFilters, 0);
   }
 
-  function printHistory() {
-    const win = window.open("", "_blank");
-    if (!win) return;
+  async function printHistory() {
     const label = TABS.find(t => t.key === activeTab)?.label ?? activeTab;
-    const thead = headers.map(h => `<th>${h}</th>`).join("");
-
-    function cellValues(item: HistoryItem): string[] {
-      const inventory = ["raw-materials", "finished-goods", "semi-finished", "scraps"];
-      const requests = ["purchase-requests", "marketing-requests", "job-cards"];
-      const status = ["schedules", "dispatches", "gate-passes"];
-      const qty = ["consumables", "weeders", "attachments"];
-      if (inventory.includes(activeTab)) {
-        return [item.entity_name ?? "—", item.changed_by_username ?? "—", item.change_type, String(item.qty_before ?? "—"), String(item.qty_after ?? "—"), String(item.qty_delta ?? "—"), item.note ?? "—", fmtDate(item.changed_at)];
-      }
-      if (requests.includes(activeTab)) {
-        return [item.entity_name ?? "—", item.changed_by_username ?? "—", item.change_type, item.field_name ?? "—", item.old_value ?? "—", item.new_value ?? "—", item.note ?? "—", fmtDate(item.changed_at)];
-      }
-      if (status.includes(activeTab)) {
-        return [item.entity_name ?? "—", item.changed_by_username ?? "—", item.change_type, item.old_value ?? "—", item.new_value ?? "—", item.note ?? "—", fmtDate(item.changed_at)];
-      }
-      if (activeTab === "spares") {
-        return [item.entity_name ?? "—", item.changed_by_username ?? "—", item.variant_label ?? "—", item.change_type, String(item.qty_before ?? "—"), String(item.qty_after ?? "—"), String(item.qty_delta ?? "—"), item.note ?? "—", fmtDate(item.changed_at)];
-      }
-      if (qty.includes(activeTab)) {
-        return [item.entity_name ?? "—", item.changed_by_username ?? "—", item.change_type, String(item.qty_before ?? "—"), String(item.qty_after ?? "—"), String(item.qty_delta ?? "—"), item.note ?? "—", fmtDate(item.changed_at)];
-      }
-      return [];
-    }
-
-    const tbody = st.items.map(item => `<tr>${cellValues(item).map(v => `<td>${v}</td>`).join("")}</tr>`).join("");
-    win.document.write(`<html><head><title>History - ${label}</title>
-<style>table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px;text-align:left}th{background:#f5f5f5}body{padding:20px;font-family:Arial,sans-serif}h2{margin-top:0}</style>
-</head><body>
-<h2>History - ${label}</h2>
-<table><thead>${thead}</thead><tbody>${tbody}</tbody></table>
-</body></html>`);
-    win.document.close();
-    win.print();
+    const allItems = await fetchAllPages(async (page, pageSize) => {
+      const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
+      if (startDate) params.set("start_date", startDate);
+      if (endDate) params.set("end_date", endDate);
+      if (changedBy) params.set("changed_by", changedBy);
+      if (entityName) params.set("entity_name", entityName);
+      const data = await apiFetchJson<HistoryPage>(`/api/v1/history/${activeTab}?${params}`);
+      return { items: data.items, total: data.total, page: data.page, page_size: data.page_size, pages: data.total_pages };
+    });
+    openPrintWindow({
+      title: `History — ${label}`,
+      subtitle: `${allItems.length} record${allItems.length !== 1 ? "s" : ""}`,
+      mode: "audit-snapshot",
+      columns: HEADERS[activeTab],
+      rows: allItems.map(h => {
+        const inventory = ["raw-materials", "finished-goods", "semi-finished", "scraps", "consumables", "weeders", "attachments"];
+        const requests = ["purchase-requests", "marketing-requests", "job-cards"];
+        const status = ["schedules", "dispatches", "gate-passes"];
+        if (inventory.includes(activeTab)) {
+          return { "Item": h.entity_name ?? "—", "By": h.changed_by_username ?? "—", "Type": h.change_type, "Qty Before": h.qty_before ?? "—", "Qty After": h.qty_after ?? "—", "Delta": h.qty_delta ?? "—", "Note": h.note ?? "—", "Date": fmtDate(h.changed_at) };
+        }
+        if (requests.includes(activeTab)) {
+          return { "Request": h.entity_name ?? "—", "By": h.changed_by_username ?? "—", "Type": h.change_type, "Field": h.field_name ?? "—", "Before": h.old_value ?? "—", "After": h.new_value ?? "—", "Note": h.note ?? "—", "Date": fmtDate(h.changed_at) };
+        }
+        if (status.includes(activeTab)) {
+          return { "Entity": h.entity_name ?? "—", "By": h.changed_by_username ?? "—", "Type": h.change_type, "Old": h.old_value ?? "—", "New": h.new_value ?? "—", "Note": h.note ?? "—", "Date": fmtDate(h.changed_at) };
+        }
+        if (activeTab === "spares") {
+          return { "Item": h.entity_name ?? "—", "By": h.changed_by_username ?? "—", "Variant": h.variant_label ?? "—", "Type": h.change_type, "Qty Before": h.qty_before ?? "—", "Qty After": h.qty_after ?? "—", "Delta": h.qty_delta ?? "—", "Note": h.note ?? "—", "Date": fmtDate(h.changed_at) };
+        }
+        return {};
+      }),
+    });
   }
 
   const st = tabState[activeTab];

@@ -19,8 +19,9 @@ import { apiFetchJson } from "@/lib/api";
 import { isAdminOrAbove, canAccessInventory, canEditInventory } from "@/lib/user";
 import {
   PlusIcon, Pencil, Trash2, Search, ImageIcon, ChevronDown, ChevronRight,
-  PackagePlus, PackageMinus, History, Eye, AlertTriangle, Scissors, Folder,
+  PackagePlus, PackageMinus, History, Eye, AlertTriangle, Scissors, Folder, Printer,
 } from "lucide-react";
+import { fetchAllPages, openPrintWindow } from "@/lib/print-report";
 
 // Types
 
@@ -321,6 +322,32 @@ export default function WeedersPage() {
     finally { setHistoryLoading(false); }
   }
 
+  async function printInventory() {
+    const all = await fetchAllPages(async (printPage, pageSize) => {
+      const params = new URLSearchParams({ page: String(printPage), page_size: String(pageSize), include_inactive: "false" });
+      if (search) params.set("search", search);
+      return apiFetchJson<{ items: WeederItem[]; total: number; page: number; page_size: number; pages: number }>("/api/v1/weeders?" + params);
+    });
+    openPrintWindow({
+      title: "Weeder Inventory Cycle Count", mode: "cycle-count",
+      columns: ["SN No.", "Name", "Description", "System Qty", "Physical Count", "Variance", "Location", "Counter Initials", "Notes"],
+      rows: all.map(item => ({ "SN No.": item.sn_no ?? "", "Name": item.name ?? "", "Description": item.description ?? "", "System Qty": String(item.qty), "Physical Count": "", "Variance": "", "Location": item.storage_location ?? "", "Counter Initials": "", "Notes": "" })),
+    });
+  }
+
+  async function printHistory() {
+    if (!historyItem) return;
+    const all = await fetchAllPages(async (printPage, pageSize) => {
+      const rows = await apiFetchJson<HistoryEntry[]>("/api/v1/weeders/" + historyItem.id + "/history?limit=" + pageSize + "&offset=" + ((printPage - 1) * pageSize));
+      return { items: rows, total: 0, page: printPage, page_size: pageSize, pages: 0 };
+    });
+    openPrintWindow({
+      title: "Weeder History — " + displayName(historyItem), mode: "audit-history",
+      columns: ["Date", "Action", "Before", "Change", "After", "User", "Note"],
+      rows: all.map(row => ({ "Date": new Date(row.changed_at).toLocaleString(), "Action": row.change_type, "Before": String(row.qty_before), "Change": String(row.qty_delta), "After": String(row.qty_after), "User": row.changed_by_username ?? "System", "Note": row.note ?? "" })),
+    });
+  }
+
   function renderItemRow(item: WeederItem, idx: number) {
     const isLow = item.reorder_level > 0 && item.qty <= item.reorder_level;
     return (
@@ -432,11 +459,10 @@ export default function WeedersPage() {
           { label: "Inventory", href: "/dashboard/inventory" },
           { label: "Weeders" },
         ]}
-        actions={admin ? (
-          <Button size="sm" onClick={openCreateCat}>
-            <PlusIcon className="size-4 mr-1" /> New Category
-          </Button>
-        ) : undefined}
+        actions={<>
+          <Button size="sm" variant="outline" onClick={printInventory}><Printer className="size-4 mr-1" />Print</Button>
+          {admin && <Button size="sm" onClick={openCreateCat}><PlusIcon className="size-4 mr-1" /> New Category</Button>}
+        </>}
       />
 
       <div className="p-4 md:p-6 space-y-4">
@@ -864,8 +890,9 @@ export default function WeedersPage() {
       <Dialog open={historyItem !== null} onOpenChange={o => !o && setHistoryItem(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader className="mb-2">
-            <DialogTitle className="flex items-center gap-2">
-              <History className="size-4" /> Stock History \u2014 {historyItem ? displayName(historyItem) : ""}
+            <DialogTitle className="flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2"><History className="size-4" /> Stock History — {historyItem ? displayName(historyItem) : ""}</span>
+              <Button size="sm" variant="outline" onClick={printHistory} disabled={!historyItem}><Printer className="size-3.5 mr-1" />Print</Button>
             </DialogTitle>
           </DialogHeader>
           {historyLoading ? (

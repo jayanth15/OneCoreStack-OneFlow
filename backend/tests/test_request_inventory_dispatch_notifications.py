@@ -5,6 +5,7 @@ from app.models.inventory import InventoryItem
 from app.models.inventory_history import InventoryHistory
 from app.models.notification import Notification
 from app.models.request import Request
+from app.models.receipt import Receipt
 from app.models.request_customer_dispatch import RequestCustomerDispatch
 from app.models.request_item import RequestItem
 from app.models.user import User
@@ -242,3 +243,80 @@ def test_any_request_can_be_selected_only_once_for_dispatch(client, session, adm
         headers=_headers(admin_token),
     )
     assert req.id not in {item["id"] for item in available_after.json()}
+
+
+def test_standalone_oem_dispatch_deducts_only_on_first_completion(client, session, admin_token):
+    item = WeederItem(name="Standalone OEM item", sn_no="WD-OEM", qty=8)
+    session.add(item)
+    session.commit()
+    session.refresh(item)
+
+    created = client.post(
+        "/api/v1/dispatch",
+        json={
+            "party_type": "vendor",
+            "vendor_name": "OEM Customer",
+            "status": "pending",
+            "items": [{"item_name": item.name, "inv_type": "weeder", "inv_item_id": item.id, "quantity": 3}],
+        },
+        headers=_headers(admin_token),
+    )
+    assert created.status_code == 201, created.json()
+    session.refresh(item)
+    assert item.qty == 8
+
+    completed = client.put(
+        f"/api/v1/dispatch/{created.json()['id']}",
+        json={"status": "dispatched"},
+        headers=_headers(admin_token),
+    )
+    assert completed.status_code == 200, completed.json()
+    session.refresh(item)
+    assert item.qty == 5
+    assert completed.json()["inventory_deducted_at"] is not None
+
+    repeated = client.put(
+        f"/api/v1/dispatch/{created.json()['id']}",
+        json={"status": "delivered"},
+        headers=_headers(admin_token),
+    )
+    assert repeated.status_code == 200
+    session.refresh(item)
+    assert item.qty == 5
+
+
+def test_supplier_dispatch_requires_receipt_and_never_deducts_again(client, session, admin_token):
+    item = WeederItem(name="Supplier-reserved item", sn_no="WD-SUP", qty=4)
+    request = Request(sn_no="REQ-SUP-RCP", request_type="internal_transfer", status="received", quantity=2)
+    session.add(item)
+    session.add(request)
+    session.flush()
+    receipt = Receipt(receipt_number="RCP-SUP-0001", request_id=request.id, status="signed_off")
+    session.add(receipt)
+    session.commit()
+    session.refresh(item)
+    session.refresh(receipt)
+
+    created = client.post(
+        "/api/v1/dispatch",
+        json={
+            "party_type": "supplier",
+            "supplier_name": "Dealer",
+            "receipt_id": receipt.id,
+            "status": "pending",
+            "items": [{"item_name": item.name, "inv_type": "weeder", "inv_item_id": item.id, "quantity": 2}],
+        },
+        headers=_headers(admin_token),
+    )
+    assert created.status_code == 201, created.json()
+    assert created.json()["receipt_number"] == receipt.receipt_number
+
+    completed = client.put(
+        f"/api/v1/dispatch/{created.json()['id']}",
+        json={"status": "dispatched"},
+        headers=_headers(admin_token),
+    )
+    assert completed.status_code == 200, completed.json()
+    session.refresh(item)
+    assert item.qty == 4
+    assert completed.json()["inventory_deducted_at"] is None

@@ -15,12 +15,13 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { apiFetchJson } from "@/lib/api";
+import { apiFetch, apiFetchJson } from "@/lib/api";
 import { isAdminOrAbove, canAccessInventory } from "@/lib/user";
 import {
   PlusIcon, Pencil, Trash2, Search, ImageIcon, ChevronLeft, ChevronRight,
-  PackagePlus, PackageMinus, History, Eye, AlertTriangle, Paperclip,
+  PackagePlus, PackageMinus, History, Eye, AlertTriangle, Paperclip, Printer, FileText, Upload, Download,
 } from "lucide-react";
+import { fetchAllPages, openPrintWindow } from "@/lib/print-report";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -46,6 +47,16 @@ interface Paginated {
   page: number;
   page_size: number;
   pages: number;
+}
+
+interface AttachmentDocument {
+  id: number;
+  filename: string;
+  content_type: string;
+  size_bytes: number;
+  sha256: string | null;
+  uploaded_by_username: string | null;
+  uploaded_at: string | null;
 }
 
 interface HistoryEntry {
@@ -113,6 +124,11 @@ export default function AttachmentsPage() {
 
   // view detail
   const [viewItem, setViewItem] = useState<AttachmentItem | null>(null);
+  const [documents, setDocuments] = useState<AttachmentDocument[]>([]);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
+  const [documentBusy, setDocumentBusy] = useState(false);
+  const [documentError, setDocumentError] = useState<string | null>(null);
+  const documentRef = useRef<HTMLInputElement>(null);
 
   // history
   const [historyItem, setHistoryItem] = useState<AttachmentItem | null>(null);
@@ -236,7 +252,132 @@ export default function AttachmentsPage() {
     finally { setAdjusting(false); }
   }
 
-  // ── History ───────────────────────────────────────────────────────────────────
+  async function printInventory() {
+    const all = await fetchAllPages(async (printPage, pageSize) => {
+      const params = new URLSearchParams({ page: String(printPage), page_size: String(pageSize), include_inactive: "false" });
+      if (search) params.set("search", search);
+      return apiFetchJson<Paginated>("/api/v1/attachments?" + params);
+    });
+    openPrintWindow({
+      title: "Attachment Inventory",
+      subtitle: all.length + " items",
+      mode: "cycle-count",
+      columns: ["SN No.", "Description", "System Qty", "Physical Count", "Variance", "Location", "Counter Initials", "Notes"],
+      rows: all.map(item => ({
+        "SN No.": item.sn_no ?? "",
+        "Description": item.description ?? "",
+        "System Qty": String(item.qty),
+        "Physical Count": "",
+        "Variance": "",
+        "Location": item.storage_location ?? "",
+        "Counter Initials": "",
+        "Notes": "",
+      })),
+    });
+  }
+
+  async function printHistory() {
+    if (!historyItem) return;
+    const all = await fetchAllPages(async (page, pageSize) => {
+      const rows = await apiFetchJson<HistoryEntry[]>(`/api/v1/attachments/${historyItem.id}/history?limit=${pageSize}&offset=${(page - 1) * pageSize}`);
+      return { items: rows, total: 0, page, page_size: pageSize, pages: 0 };
+    });
+    openPrintWindow({
+      title: `Stock History — ${displayName(historyItem)}`,
+      mode: "audit-snapshot",
+      columns: ["Date", "Type", "Before", "Change", "After", "By", "Note"],
+      rows: all.map(r => ({
+        Date: fmtDate(r.changed_at),
+        Type: r.change_type,
+        Before: String(r.qty_before),
+        Change: `${r.qty_delta > 0 ? "+" : ""}${r.qty_delta}`,
+        After: String(r.qty_after),
+        By: r.changed_by_username ?? "—",
+        Note: r.note ?? "—",
+      })),
+    });
+  }
+
+  async function loadDocuments(itemId: number) {
+    setDocumentsLoading(true);
+    setDocumentError(null);
+    try {
+      setDocuments(await apiFetchJson<AttachmentDocument[]>("/api/v1/attachments/" + itemId + "/documents"));
+    } catch (e: unknown) {
+      setDocuments([]);
+      setDocumentError(e instanceof Error ? e.message : "Failed to load documents");
+    } finally {
+      setDocumentsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (viewItem) loadDocuments(viewItem.id);
+    else setDocuments([]);
+  }, [viewItem?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function uploadDocument(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!viewItem || !file) return;
+    if (file.type !== "application/pdf" || !file.name.toLowerCase().endsWith(".pdf")) {
+      setDocumentError("Only PDF files are allowed");
+      e.target.value = "";
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setDocumentError("File too large (max 10 MB)");
+      e.target.value = "";
+      return;
+    }
+    setDocumentBusy(true);
+    setDocumentError(null);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const response = await apiFetch("/api/v1/attachments/" + viewItem.id + "/documents", { method: "POST", body });
+      if (!response.ok) {
+        const detail = await response.json().catch(() => ({}));
+        throw new Error(detail.detail || "Upload failed");
+      }
+      await loadDocuments(viewItem.id);
+      fetchItems(page);
+    } catch (err: unknown) {
+      setDocumentError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setDocumentBusy(false);
+      e.target.value = "";
+    }
+  }
+
+  async function openDocument(document: AttachmentDocument) {
+    if (!viewItem) return;
+    setDocumentError(null);
+    try {
+      const response = await apiFetch("/api/v1/attachments/" + viewItem.id + "/documents/" + document.id + "/content");
+      if (!response.ok) throw new Error("Unable to open document");
+      const url = URL.createObjectURL(await response.blob());
+      window.open(url, "_blank", "noopener,noreferrer");
+      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (err: unknown) {
+      setDocumentError(err instanceof Error ? err.message : "Unable to open document");
+    }
+  }
+
+  async function deleteDocument(document: AttachmentDocument) {
+    if (!viewItem || !window.confirm("Delete " + document.filename + "?")) return;
+    setDocumentBusy(true);
+    try {
+      await apiFetchJson("/api/v1/attachments/" + viewItem.id + "/documents/" + document.id, { method: "DELETE" });
+      await loadDocuments(viewItem.id);
+      fetchItems(page);
+    } catch (err: unknown) {
+      setDocumentError(err instanceof Error ? err.message : "Delete failed");
+    } finally {
+      setDocumentBusy(false);
+    }
+  }
+
+  // ── History ───────────────────────────────────────────────────────────
 
   async function openHistory(item: AttachmentItem) {
     setHistoryItem(item); setHistoryRows([]); setHistoryPage(1); setHistoryHasMore(false); setHistoryLoading(true);
@@ -271,11 +412,12 @@ export default function AttachmentsPage() {
           { label: "Inventory", href: "/dashboard/inventory" },
           { label: "Attachments" },
         ]}
-        actions={admin ? (
-          <Button size="sm" onClick={openCreate}>
-            <PlusIcon className="size-4 mr-1" /> New Attachment
-          </Button>
-        ) : undefined}
+        actions={
+          <>
+            <Button size="sm" variant="outline" onClick={printInventory}><Printer className="size-4 mr-1" />Print</Button>
+            {admin && <Button size="sm" onClick={openCreate}><PlusIcon className="size-4 mr-1" /> New Attachment</Button>}
+          </>
+        }
       />
 
       <div className="p-4 md:p-6 space-y-4">
@@ -650,6 +792,38 @@ export default function AttachmentsPage() {
                 </div>
               </div>
 
+              <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">PDF Attachments</p>
+                  {admin && (
+                    <>
+                      <input ref={documentRef} type="file" accept="application/pdf,.pdf" className="hidden" onChange={uploadDocument} />
+                      <Button size="sm" variant="outline" disabled={documentBusy} onClick={() => documentRef.current?.click()}>
+                        <Upload className="size-3.5 mr-1" />{documentBusy ? "Working…" : "Upload PDF"}
+                      </Button>
+                    </>
+                  )}
+                </div>
+                {documentError && <p className="text-xs text-destructive">{documentError}</p>}
+                {documentsLoading ? <Skeleton className="h-12 w-full" /> : documents.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No PDF documents uploaded.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {documents.map(document => (
+                      <div key={document.id} className="flex items-center gap-2 rounded-md border bg-background p-2">
+                        <FileText className="size-4 text-destructive shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium">{document.filename}</p>
+                          <p className="text-xs text-muted-foreground">{(document.size_bytes / 1024).toFixed(1)} KB{document.uploaded_by_username ? " · " + document.uploaded_by_username : ""}{document.uploaded_at ? " · " + fmtDate(document.uploaded_at) : ""}</p>
+                        </div>
+                        <Button size="icon" variant="ghost" className="size-8" title="Open PDF" onClick={() => openDocument(document)}><Download className="size-3.5" /></Button>
+                        {admin && <Button size="icon" variant="ghost" className="size-8 text-destructive" title="Delete PDF" disabled={documentBusy} onClick={() => deleteDocument(document)}><Trash2 className="size-3.5" /></Button>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* Stock overview */}
               <div className="rounded-lg border bg-muted/20 p-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Stock Overview</p>
@@ -706,8 +880,9 @@ export default function AttachmentsPage() {
       <Dialog open={historyItem !== null} onOpenChange={o => !o && setHistoryItem(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader className="mb-2">
-            <DialogTitle className="flex items-center gap-2">
-              <History className="size-4" /> Stock History — {historyItem ? displayName(historyItem) : ""}
+            <DialogTitle className="flex items-center gap-2 justify-between">
+              <span className="flex items-center gap-2"><History className="size-4" /> Stock History — {historyItem ? displayName(historyItem) : ""}</span>
+              <Button size="sm" variant="outline" onClick={printHistory}><Printer className="size-3.5 mr-1" />Print</Button>
             </DialogTitle>
           </DialogHeader>
           {historyLoading ? (

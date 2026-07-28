@@ -12,7 +12,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { apiFetchJson } from "@/lib/api";
 import { isAdminOrAbove } from "@/lib/user";
-import { PlusIcon, Pencil, Trash2, AlertTriangle, ChevronLeft, ChevronRight, Search, History, Truck } from "lucide-react";
+import { PlusIcon, Pencil, Trash2, AlertTriangle, ChevronLeft, ChevronRight, Search, History, Truck, Printer } from "lucide-react";
+import { openPrintWindow } from "@/lib/print-report";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -182,6 +183,15 @@ function SchedulePageInner() {
       setDeleting(false);
       setLoading(false);
     }
+  }
+
+  function printHistory() {
+    if (!historySchedule) return;
+    openPrintWindow({
+      title: "Schedule History - " + historySchedule.schedule_number, mode: "audit-history",
+      columns: ["Timestamp", "User", "Previous Status", "New Status", "Note"],
+      rows: historyRows.map(row => ({ "Timestamp": fmtDateTime(row.changed_at), "User": row.changed_by_username ?? "System", "Previous Status": row.old_status ? (STATUS_LABELS[row.old_status] ?? row.old_status) : "", "New Status": STATUS_LABELS[row.new_status] ?? row.new_status, "Note": row.note ?? "" })),
+    });
   }
 
   // ── History ─────────────────────────────────────────────────────────────────
@@ -577,9 +587,7 @@ function SchedulePageInner() {
       <Dialog open={historySchedule !== null} onOpenChange={(o) => !o && setHistorySchedule(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>
-              History — {historySchedule?.schedule_number}
-            </DialogTitle>
+            <DialogTitle className="flex items-center justify-between gap-2"><span>History — {historySchedule?.schedule_number}</span><Button size="sm" variant="outline" onClick={printHistory} disabled={historyRows.length === 0}><Printer className="size-3.5 mr-1" />Print</Button></DialogTitle>
           </DialogHeader>
           <div className="max-h-80 overflow-y-auto space-y-2 text-sm">
             {historyLoading ? (

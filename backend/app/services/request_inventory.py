@@ -63,6 +63,10 @@ def deduct_request_stock(
     now = datetime.now(tz=timezone.utc)
     for key, required in totals.items():
         _deduct(session, key[0], resolved[key], required, current_user, note, now)
+    session.flush()
+
+
+from typing import Optional
 
 
 def _resolve(session: Session, inventory_type: str, item_id: int):
@@ -71,8 +75,15 @@ def _resolve(session: Session, inventory_type: str, item_id: int):
         if not item or not item.is_active or item.item_type != inventory_type:
             raise HTTPException(status_code=404, detail=f"Inventory item {item_id} not found")
         return item
+    if inventory_type == "spare":
+        variant = session.get(SpareItemVariant, item_id)
+        if not variant or not variant.is_active:
+            raise HTTPException(status_code=404, detail=f"Spare variant {item_id} not found")
+        parent = session.get(SpareItem, variant.spare_item_id)
+        if not parent or not parent.is_active:
+            raise HTTPException(status_code=404, detail=f"Spare item parent {variant.spare_item_id} not found")
+        return variant
     model = {
-        "spare": SpareItemVariant,
         "consumable": Consumable,
         "weeder": WeederItem,
         "attachment": AttachmentItem,

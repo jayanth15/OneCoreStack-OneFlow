@@ -19,8 +19,9 @@ import { apiFetchJson } from "@/lib/api";
 import { isAdminOrAbove, canAccessInventory } from "@/lib/user";
 import {
   PlusIcon, Pencil, Trash2, Search, FlaskConical, ImageIcon, ChevronLeft, ChevronRight,
-  PackagePlus, PackageMinus, History, Eye, AlertTriangle,
+  PackagePlus, PackageMinus, History, Eye, AlertTriangle, Printer,
 } from "lucide-react";
+import { fetchAllPages, openPrintWindow } from "@/lib/print-report";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -272,6 +273,32 @@ export default function ConsumablesPage() {
     finally { setHistoryLoading(false); }
   }
 
+  async function printInventory() {
+    const all = await fetchAllPages(async (printPage, pageSize) => {
+      const params = new URLSearchParams({ page: String(printPage), page_size: String(pageSize), include_inactive: "false" });
+      if (search) params.set("search", search);
+      return apiFetchJson<Paginated>("/api/v1/consumables?" + params);
+    });
+    openPrintWindow({
+      title: "Consumables Cycle Count", mode: "cycle-count",
+      columns: ["Code", "Name", "System Qty", "Physical Count", "Variance", "Storage", "Counter Initials", "Notes"],
+      rows: all.map(item => ({ "Code": item.code ?? "", "Name": item.name, "System Qty": String(item.qty), "Physical Count": "", "Variance": "", "Storage": [item.storage_type, item.storage_location].filter(Boolean).join(" · "), "Counter Initials": "", "Notes": "" })),
+    });
+  }
+
+  async function printHistory() {
+    if (!historyItem) return;
+    const all = await fetchAllPages(async (printPage, pageSize) => {
+      const rows = await apiFetchJson<ConsumableHistoryEntry[]>("/api/v1/consumables/" + historyItem.id + "/history?limit=" + pageSize + "&offset=" + ((printPage - 1) * pageSize));
+      return { items: rows, total: 0, page: printPage, page_size: pageSize, pages: 0 };
+    });
+    openPrintWindow({
+      title: "Consumable History — " + historyItem.name, mode: "audit-history",
+      columns: ["Date", "Action", "Before", "Change", "After", "User", "Note"],
+      rows: all.map(row => ({ "Date": new Date(row.changed_at).toLocaleString(), "Action": row.change_type, "Before": String(row.qty_before), "Change": String(row.qty_delta), "After": String(row.qty_after), "User": row.changed_by_username ?? "System", "Note": row.note ?? "" })),
+    });
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
@@ -284,11 +311,10 @@ export default function ConsumablesPage() {
           { label: "Inventory", href: "/dashboard/inventory" },
           { label: "Consumables" },
         ]}
-        actions={admin ? (
-          <Button size="sm" onClick={openCreate}>
-            <PlusIcon className="size-4 mr-1" /> New Consumable
-          </Button>
-        ) : undefined}
+        actions={<>
+          <Button size="sm" variant="outline" onClick={printInventory}><Printer className="size-4 mr-1" />Print</Button>
+          {admin && <Button size="sm" onClick={openCreate}><PlusIcon className="size-4 mr-1" /> New Consumable</Button>}
+        </>}
       />
 
       <div className="p-4 md:p-6 space-y-4">
@@ -753,8 +779,9 @@ export default function ConsumablesPage() {
       <Dialog open={historyItem !== null} onOpenChange={o => !o && setHistoryItem(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader className="mb-2">
-            <DialogTitle className="flex items-center gap-2">
-              <History className="size-4" /> Stock History — {historyItem?.name}
+            <DialogTitle className="flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2"><History className="size-4" /> Stock History — {historyItem?.name}</span>
+              <Button size="sm" variant="outline" onClick={printHistory} disabled={!historyItem}><Printer className="size-3.5 mr-1" />Print</Button>
             </DialogTitle>
           </DialogHeader>
           {historyLoading ? (

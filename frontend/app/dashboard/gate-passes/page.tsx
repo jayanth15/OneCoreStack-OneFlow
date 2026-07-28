@@ -16,6 +16,7 @@ import {
 import { apiFetchJson } from "@/lib/api";
 import { getCurrentUser, isAdminOrAbove, refreshCurrentUser } from "@/lib/user";
 import { ClipboardList, Plus, Search, Eye, MoreVertical, X, Minus, Printer, Link2, Pencil, Trash2 } from "lucide-react";
+import { fetchAllPages, openPrintWindow } from "@/lib/print-report";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -32,6 +33,7 @@ interface GatePass {
   id: number;
   gate_pass_number: string;
   pass_type: string;
+  party_type: "vendor" | "supplier";
   vendor_name: string | null;
   supplier_name: string | null;
   material: string;
@@ -49,6 +51,16 @@ interface GatePass {
   purchase_request_number: string | null;
   purchase_order_id: number | null;
   purchase_order_number: string | null;
+}
+
+interface GatePassHistoryEntry {
+  id: number;
+  change_type: string;
+  changed_by_username: string | null;
+  changed_at: string;
+  old_status: string | null;
+  new_status: string | null;
+  details?: string[] | string | Record<string, unknown>;
 }
 
 interface GPItemForm {
@@ -169,9 +181,10 @@ export default function GatePassesPage() {
   const [editError, setEditError] = useState<string | null>(null);
 
   const [viewTarget, setViewTarget] = useState<GatePass | null>(null);
+  const [historyTarget, setHistoryTarget] = useState<GatePass | null>(null);
+  const [historyRows, setHistoryRows] = useState<GatePassHistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [closingId, setClosingId] = useState<number | null>(null);
-
-  const [purchaseRequests, setPurchaseRequests] = useState<{ id: number; sn_no: string; item_name: string | null }[]>([]);
 
   const [purchaseOrders, setPurchaseOrders] = useState<{ id: number; po_number: string; supplier_name: string | null; vendor_name: string | null; party_type: string }[]>([]);
 
@@ -196,9 +209,6 @@ export default function GatePassesPage() {
     apiFetchJson<CompanyInfo>("/api/v1/settings/company").then(setCompanyInfo).catch(() => {});
     apiFetchJson<NameOption[]>("/api/v1/vendors/names").then(setVendors).catch(() => {});
     apiFetchJson<NameOption[]>("/api/v1/suppliers/names").then(setSuppliers).catch(() => {});
-    apiFetchJson<{ items?: { id: number; sn_no: string; item_name: string | null }[] } | { id: number; sn_no: string; item_name: string | null }[]>(
-      "/api/v1/purchase-requests?status_filter=approved&page_size=100"
-    ).then(r => setPurchaseRequests(Array.isArray(r) ? r : Array.isArray(r.items) ? r.items : [])).catch(() => setPurchaseRequests([]));
     apiFetchJson<{ id: number; po_number: string; supplier_name: string | null; vendor_name: string | null; party_type: string }[]>(
       "/api/v1/purchase-orders/linkable"
     ).then(r => setPurchaseOrders(Array.isArray(r) ? r : [])).catch(() => setPurchaseOrders([]));
@@ -223,8 +233,8 @@ export default function GatePassesPage() {
       date: form.date || null,
       notes: form.notes || null,
       status: form.status,
-      purchase_request_id: form.purchase_request_id,
-      purchase_request_number: form.purchase_request_number || null,
+      purchase_request_id: null,
+      purchase_request_number: null,
       purchase_order_id: form.purchase_order_id,
       purchase_order_number: form.purchase_order_number || null,
       items: validItems.map(it => ({
@@ -330,110 +340,90 @@ export default function GatePassesPage() {
     } catch { /* ignore */ } finally { setClosingId(null); }
   }
 
+  async function openHistory(gp: GatePass) {
+    setHistoryTarget(gp);
+    setHistoryLoading(true);
+    try {
+      const rows = await apiFetchJson<GatePassHistoryEntry[]>("/api/v1/gate-passes/" + gp.id + "/history?limit=200");
+      setHistoryRows(rows);
+    } catch {
+      setHistoryRows([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }
+
+  function printGatePassHistory() {
+    if (!historyTarget) return;
+    openPrintWindow({
+      title: "Gate Pass History — " + historyTarget.gate_pass_number,
+      subtitle: historyRows.length + " audit events",
+      companyName: companyInfo?.company_name,
+      mode: "audit-history",
+      columns: ["Action", "Timestamp", "User", "Status Change", "Details"],
+      rows: historyRows.map(row => ({
+        "Action": row.change_type.replaceAll("_", " "),
+        "Timestamp": new Date(row.changed_at).toLocaleString(),
+        "User": row.changed_by_username ?? "System",
+        "Status Change": row.old_status || row.new_status ? (row.old_status ?? "—") + " → " + (row.new_status ?? "—") : "",
+        "Details": row.details ? (typeof row.details === "string" ? row.details : JSON.stringify(row.details)) : "",
+      })),
+    });
+  }
+
   function printGatePass(gp: GatePass) {
     const items = gp.items && gp.items.length > 0 ? gp.items : [{ item_name: gp.material, quantity: gp.quantity, unit: gp.unit, inv_type: null }];
     const partyName = gp.vendor_name ?? gp.supplier_name ?? "—";
     const partyLabel = gp.supplier_name ? "Supplier" : "Vendor";
-    const win = window.open("", "_blank", "width=800,height=600");
-    if (!win) return;
-    const co = companyInfo;
-    const coHtml = (co && co.company_name) ? `
-      <div style="text-align:center;margin-bottom:20px;padding-bottom:10px;border-bottom:2px solid #333;">
-        <h1 style="margin:0;font-size:20px;font-weight:bold;">${co.company_name}</h1>
-        <p style="margin:4px 0;">${[co.company_address, co.company_city, co.company_state].filter(Boolean).join(', ')}${co.company_pincode ? ' - ' + co.company_pincode : ''}</p>
-        <p style="margin:2px 0;font-size:12px;">
-          ${[co.company_phone ? `Phone: ${co.company_phone}` : '', co.company_email ? `Email: ${co.company_email}` : '', co.company_gstin ? `GST: ${co.company_gstin}` : ''].filter(Boolean).join(' | ')}
-        </p>
-      </div>` : '';
-    win.document.write(`<!DOCTYPE html><html><head><title>Gate Pass — ${gp.gate_pass_number}</title>
-<style>
-  body { font-family: Arial, sans-serif; font-size: 13px; margin: 24px; color: #111; }
-  h2 { margin: 0 0 4px; font-size: 18px; }
-  .meta { color: #555; font-size: 12px; margin-bottom: 16px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-  th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
-  th { background: #f5f5f5; font-weight: 600; }
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
-  .row { display: flex; gap: 32px; margin-bottom: 8px; }
-  .lbl { color: #666; font-size: 11px; }
-  @media print { body { margin: 0; } }
-</style></head><body>
-${coHtml}
-<h2>Gate Pass — ${gp.gate_pass_number}</h2>
-<p class="meta">Generated on ${new Date().toLocaleString("en-IN")}</p>
-<div class="row">
-  <div><div class="lbl">Type</div><div>${gp.pass_type === "out" ? "Outward" : "Inward"}</div></div>
-  <div><div class="lbl">Status</div><div>${gp.status}</div></div>
-  ${gp.date ? `<div><div class="lbl">Date</div><div>${gp.date}</div></div>` : ""}
-</div>
-<div class="row">
-  <div><div class="lbl">${partyLabel}</div><div>${partyName}</div></div>
-  ${gp.purpose ? `<div><div class="lbl">Purpose</div><div>${gp.purpose}</div></div>` : ""}
-  ${gp.vehicle_number ? `<div><div class="lbl">Vehicle</div><div>${gp.vehicle_number}</div></div>` : ""}
-  ${gp.purchase_request_number ? `<div><div class="lbl">Linked PR</div><div>${gp.purchase_request_number}</div></div>` : ""}
-</div>
-<table>
-  <thead><tr><th>#</th><th>Item</th><th>Quantity</th><th>Unit</th></tr></thead>
-  <tbody>
-    ${items.map((it, i) => `<tr><td>${i + 1}</td><td>${it.item_name ?? ""}</td><td>${it.quantity}</td><td>${it.unit ?? ""}</td></tr>`).join("")}
-  </tbody>
-</table>
-${gp.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${gp.notes}</p>` : ""}
-<p style="margin-top:16px;font-size:11px;color:#666">Created by: ${gp.created_by ?? "—"}</p>
-</body></html>`);
-    win.document.close();
-    win.focus();
-    win.print();
+    openPrintWindow({
+      title: `Gate Pass — ${gp.gate_pass_number}`,
+      subtitle: `${partyLabel}: ${partyName}`,
+      companyName: companyInfo?.company_name,
+      companyAddress: [companyInfo?.company_address, companyInfo?.company_city, companyInfo?.company_state].filter(Boolean).join(", "),
+      mode: "audit-snapshot",
+      columns: ["#", "Item", "Qty", "Unit"],
+      rows: items.map((it, i) => ({
+        "#": String(i + 1),
+        "Item": it.item_name ?? "",
+        "Qty": String(it.quantity),
+        "Unit": it.unit ?? "",
+      })),
+      extraHeader: [
+        gp.purpose ? `Purpose: ${gp.purpose}` : "",
+        gp.vehicle_number ? `Vehicle: ${gp.vehicle_number}` : "",
+        gp.party_type === "vendor" && gp.purchase_order_number ? "Purchase: " + gp.purchase_order_number : "",
+      ].filter(Boolean).join(" | ") || undefined,
+    });
   }
 
-  function printAllGatePasses() {
-    const win = window.open("", "_blank", "width=900,height=700");
-    if (!win) return;
-    const co = companyInfo;
-    const coHtml = (co && co.company_name) ? `
-      <div style="text-align:center;margin-bottom:20px;padding-bottom:10px;border-bottom:2px solid #333;">
-        <h1 style="margin:0;font-size:20px;font-weight:bold;">${co.company_name}</h1>
-        <p style="margin:4px 0;">${[co.company_address, co.company_city, co.company_state].filter(Boolean).join(', ')}${co.company_pincode ? ' - ' + co.company_pincode : ''}</p>
-        <p style="margin:2px 0;font-size:12px;">
-          ${[co.company_phone ? `Phone: ${co.company_phone}` : '', co.company_email ? `Email: ${co.company_email}` : '', co.company_gstin ? `GST: ${co.company_gstin}` : ''].filter(Boolean).join(' | ')}
-        </p>
-      </div>` : '';
-    win.document.write(`<!DOCTYPE html><html><head><title>Gate Passes History</title>
-<style>
-  body { font-family: Arial, sans-serif; font-size: 12px; margin: 24px; }
-  h2 { margin: 0 0 4px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-  th, td { border: 1px solid #ccc; padding: 5px 8px; text-align: left; }
-  th { background: #f5f5f5; font-weight: 600; }
-  @media print { body { margin: 0; } }
-</style></head><body>
-${coHtml}
-<h2>Gate Passes History</h2>
-<p style="color:#666;font-size:11px">Printed on ${new Date().toLocaleString("en-IN")} &mdash; ${passes.length} record${passes.length !== 1 ? "s" : ""}</p>
-<table>
-  <thead><tr><th>GP No.</th><th>Type</th><th>Party</th><th>Items</th><th>Date</th><th>Vehicle</th><th>Purpose</th><th>Status</th><th>Linked PR</th></tr></thead>
-  <tbody>
-    ${passes.map(gp => {
-      const partyName = gp.vendor_name ?? gp.supplier_name ?? "—";
-      const itemSummary = gp.items && gp.items.length > 0 ? (gp.items.length === 1 ? gp.items[0].item_name : `${gp.items.length} items`) : gp.material;
-      return `<tr>
-        <td>${gp.gate_pass_number}</td>
-        <td>${gp.pass_type === "out" ? "Outward" : "Inward"}</td>
-        <td>${partyName}</td>
-        <td>${itemSummary}</td>
-        <td>${gp.date ?? ""}</td>
-        <td>${gp.vehicle_number ?? ""}</td>
-        <td>${gp.purpose ?? ""}</td>
-        <td>${gp.status}</td>
-        <td>${gp.purchase_request_number ?? ""}</td>
-      </tr>`;
-    }).join("")}
-  </tbody>
-</table>
-</body></html>`);
-    win.document.close();
-    win.focus();
-    win.print();
+  async function printAllGatePasses() {
+    const all = await fetchAllPages(async (page, pageSize) => {
+      const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
+      if (search) params.set("search", search);
+      if (passTypeFilter) params.set("pass_type", passTypeFilter);
+      const data = await apiFetchJson<{ items: GatePass[]; total: number }>(`/api/v1/gate-passes?${params}`);
+      return { items: data.items, total: data.total, page, page_size: pageSize, pages: Math.ceil(data.total / pageSize) };
+    });
+    openPrintWindow({
+      title: "Gate Passes History",
+      subtitle: `${all.length} record${all.length !== 1 ? "s" : ""}`,
+      companyName: companyInfo?.company_name,
+      mode: "audit-snapshot",
+      columns: ["GP No.", "Type", "Party", "Items", "Date", "Vehicle", "Purpose", "Status", "Purchase Number"],
+      rows: all.map(gp => ({
+        "GP No.": gp.gate_pass_number,
+        "Type": gp.pass_type === "out" ? "Outward" : "Inward",
+        "Party": gp.vendor_name ?? gp.supplier_name ?? "—",
+        "Items": gp.items && gp.items.length > 0
+          ? (gp.items.length === 1 ? gp.items[0].item_name : `${gp.items.length} items`)
+          : gp.material,
+        "Date": gp.date ?? "",
+        "Vehicle": gp.vehicle_number ?? "",
+        "Purpose": gp.purpose ?? "",
+        "Status": gp.status,
+        "Purchase Number": gp.party_type === "vendor" ? (gp.purchase_order_number ?? "") : "",
+      })),
+    });
   }
 
   const adminUser = isAdminOrAbove();
@@ -472,8 +462,7 @@ ${coHtml}
           <DialogHeader><DialogTitle>New Gate Pass</DialogTitle></DialogHeader>
           <GPForm form={createForm} vendors={vendors} suppliers={suppliers}
             saving={createSaving} error={createError} onChange={setCreateForm}
-            onSubmit={handleCreate} isCreate purchaseRequests={purchaseRequests}
-            purchaseOrders={purchaseOrders} />
+            onSubmit={handleCreate} isCreate purchaseOrders={purchaseOrders} />
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowCreate(false)} disabled={createSaving}>Cancel</Button>
             <Button disabled={createSaving} onClick={handleCreate}>
@@ -531,18 +520,10 @@ ${coHtml}
                     <p className="font-medium">{viewTarget.vehicle_number}</p>
                   </div>
                 )}
-                {viewTarget.purchase_request_number && (
+                {viewTarget.party_type === "vendor" && viewTarget.purchase_order_number && (
                   <div>
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Link2 className="size-3" />Linked Purchase Request
-                    </p>
-                    <p className="font-medium text-primary">{viewTarget.purchase_request_number}</p>
-                  </div>
-                )}
-                {viewTarget.purchase_order_number && (
-                  <div>
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Link2 className="size-3" />Linked Purchase Order
+                      <Link2 className="size-3" />Purchase Number
                     </p>
                     <p className="font-medium text-primary">{viewTarget.purchase_order_number}</p>
                   </div>
@@ -615,14 +596,38 @@ ${coHtml}
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!historyTarget} onOpenChange={(open) => { if (!open) setHistoryTarget(null); }}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>History — {historyTarget?.gate_pass_number}</DialogTitle></DialogHeader>
+          <div className="px-4 space-y-3">
+            {historyLoading ? <Skeleton className="h-24 w-full" /> : historyRows.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">No history recorded.</p>
+            ) : historyRows.map(row => (
+              <div key={row.id} className="rounded-lg border p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-sm font-medium capitalize">{row.change_type.replaceAll("_", " ")}</p>
+                  <time className="text-xs text-muted-foreground">{new Date(row.changed_at).toLocaleString()}</time>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">By {row.changed_by_username ?? "System"}</p>
+                {(row.old_status || row.new_status) && <p className="text-xs mt-1">Status: {row.old_status ?? "—"} → {row.new_status ?? "—"}</p>}
+                {row.details && <p className="text-xs mt-1 break-words">{typeof row.details === "string" ? row.details : JSON.stringify(row.details)}</p>}
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={printGatePassHistory} disabled={historyRows.length === 0}><Printer className="size-3.5 mr-1.5" />Print</Button>
+            <Button onClick={() => setHistoryTarget(null)}>Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* ── Edit Dialog ── */}
       <Dialog open={!!editTarget} onOpenChange={(o) => { if (!o) setEditTarget(null); }}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Edit Gate Pass</DialogTitle></DialogHeader>
           <GPForm form={editForm} vendors={vendors} suppliers={suppliers}
             saving={editSaving} error={editError} onChange={setEditForm}
-            onSubmit={handleEdit} isCreate={false} purchaseRequests={purchaseRequests}
-            purchaseOrders={purchaseOrders} />
+            onSubmit={handleEdit} isCreate={false} purchaseOrders={purchaseOrders} />
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setEditTarget(null)} disabled={editSaving}>Cancel</Button>
             <Button disabled={editSaving} onClick={handleEdit}>
@@ -726,6 +731,9 @@ ${coHtml}
                         <DropdownMenuItem onClick={() => setViewTarget(gp)}>
                           <Eye className="size-3.5 mr-2" />View Details
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openHistory(gp)}>
+                          <ClipboardList className="size-3.5 mr-2" />History
+                        </DropdownMenuItem>
                         {adminUser && (
                           <DropdownMenuItem onClick={() => openEdit(gp)}>
                             <Pencil className="size-3.5 mr-2" />Edit
@@ -748,7 +756,7 @@ ${coHtml}
 
 function GPForm({
   form, vendors, suppliers, saving, error, onChange, onSubmit, isCreate,
-  purchaseRequests = [], purchaseOrders = [],
+  purchaseOrders = [],
 }: {
   form: GPFormState;
   vendors: NameOption[];
@@ -758,7 +766,6 @@ function GPForm({
   onChange: (f: GPFormState) => void;
   onSubmit: (e: React.FormEvent) => void;
   isCreate: boolean;
-  purchaseRequests?: { id: number; sn_no: string; item_name: string | null }[];
   purchaseOrders?: { id: number; po_number: string; supplier_name: string | null; vendor_name: string | null; party_type: string }[];
 }) {
   function updateItem(key: string, patch: Partial<GPItemForm>) {
@@ -819,7 +826,7 @@ function GPForm({
                 ? "bg-primary text-primary-foreground border-primary"
                 : "bg-background text-foreground border-input hover:bg-muted"
             }`}
-            onClick={() => onChange({ ...form, party_type: "supplier", vendor_name: "" })}
+            onClick={() => onChange({ ...form, party_type: "supplier", vendor_name: "", purchase_order_id: null, purchase_order_number: "" })}
             disabled={saving}>
             Supplier
           </button>
@@ -950,25 +957,9 @@ function GPForm({
           onChange={(e) => onChange({ ...form, notes: e.target.value })} disabled={saving}
           className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 resize-none" />
       </div>
+      {form.party_type === "vendor" && (
       <div className="space-y-1.5">
-        <Label htmlFor="gp-pr">Linked Purchase Request <span className="text-xs text-muted-foreground">(optional)</span></Label>
-        <select id="gp-pr" value={form.purchase_request_id ?? ""}
-          onChange={(e) => {
-            const pr = purchaseRequests.find(p => p.id === parseInt(e.target.value));
-            onChange({ ...form, purchase_request_id: pr?.id ?? null, purchase_request_number: pr?.sn_no ?? "" });
-          }}
-          disabled={saving}
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
-          <option value="">— None —</option>
-          {purchaseRequests.map(pr => (
-            <option key={pr.id} value={pr.id}>
-              {pr.sn_no}{pr.item_name ? ` — ${pr.item_name}` : ""}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="gp-po">Linked Purchase Order <span className="text-xs text-muted-foreground">(optional)</span></Label>
+        <Label htmlFor="gp-po">Purchase Number <span className="text-xs text-muted-foreground">(optional)</span></Label>
         <select id="gp-po" value={form.purchase_order_id ?? ""}
           onChange={async (e) => {
             const poId = parseInt(e.target.value);
@@ -992,7 +983,7 @@ function GPForm({
                     unit: it.unit ?? "",
                   }))
                 : [blankGPItem()];
-              const partyType = po.party_type === "supplier" ? "supplier" as const : "vendor" as const;
+              const partyType = "vendor" as const;
               onChange({
                 ...form,
                 party_type: partyType,
@@ -1008,13 +999,14 @@ function GPForm({
           disabled={saving}
           className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
           <option value="">— None —</option>
-          {purchaseOrders.map(po => (
+          {purchaseOrders.filter(po => po.party_type === "vendor").map(po => (
             <option key={po.id} value={po.id}>
               {po.po_number}{po.supplier_name ? ` — ${po.supplier_name}` : po.vendor_name ? ` — ${po.vendor_name}` : ""}
             </option>
           ))}
         </select>
       </div>
+      )}
       {error && <p className="text-sm text-destructive">{error}</p>}
     </form>
   );

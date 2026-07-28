@@ -18,6 +18,7 @@ from app.dependencies.auth import get_current_user
 from app.models.dispatch import Dispatch
 from app.models.dispatch_history import DispatchHistory
 from app.models.dispatch_item import DispatchItem
+from app.models.receipt import Receipt
 from app.models.request import Request, REQUEST_TYPE_CUSTOMER_DISPATCH
 from app.models.request_customer_dispatch import RequestCustomerDispatch
 from app.models.request_item import RequestItem
@@ -83,6 +84,12 @@ def create_dispatch(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, Any]:
     _require_dispatch_access(current_user)
+    requested_status = (body.get("status") or "pending").strip()
+    if requested_status != "pending":
+        raise HTTPException(status_code=422, detail="Dispatches must be created as pending")
+    party_type = body.get("party_type") or "vendor"
+    if party_type not in ("vendor", "supplier"):
+        raise HTTPException(status_code=422, detail="party_type must be vendor or supplier")
     raw_items = body.get("items") or []
     linked_request = _linked_request(session, body.get("request_id"))
     if linked_request:
@@ -98,7 +105,7 @@ def create_dispatch(
 
     dispatch = Dispatch(
         dispatch_number=_next_dispatch_number(session),
-        party_type=body.get("party_type") or "vendor",
+        party_type=party_type,
         vendor_id=body.get("vendor_id"),
         vendor_name=(body.get("vendor_name") or "").strip() or None,
         supplier_id=body.get("supplier_id"),
@@ -107,6 +114,8 @@ def create_dispatch(
         schedule_number=(body.get("schedule_number") or "").strip() or None,
         request_id=body.get("request_id"),
         request_sn_no=linked_request.sn_no if linked_request else None,
+        receipt_id=None,
+        receipt_number=None,
         product_name=first_item_name or (body.get("product_name") or "").strip(),
         quantity=first_qty or float(body.get("quantity") or 0),
         unit_id=first_unit_id or body.get("unit_id") or None,
@@ -114,10 +123,14 @@ def create_dispatch(
         vehicle_number=(body.get("vehicle_number") or "").strip() or None,
         driver_name=(body.get("driver_name") or "").strip() or None,
         notes=(body.get("notes") or "").strip() or None,
-        status=body.get("status") or "pending",
+        status="pending",
         created_by=current_user.username,
         created_at=datetime.now(timezone.utc).isoformat(),
     )
+    if party_type == "supplier" and body.get("receipt_id"):
+        receipt = _get_dispatch_receipt(session, body["receipt_id"])
+        dispatch.receipt_id = receipt.id
+        dispatch.receipt_number = receipt.receipt_number
     _sync_linked_request(session, dispatch, linked_request, current_user)
     session.add(dispatch)
     session.flush()
@@ -202,21 +215,56 @@ def update_dispatch(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, Any]:
     _require_dispatch_access(current_user)
-    dispatch = session.get(Dispatch, dispatch_id)
+    dispatch = session.exec(
+        select(Dispatch).where(Dispatch.id == dispatch_id).with_for_update()
+    ).one_or_none()
     if not dispatch or dispatch.status == "deleted":
         raise HTTPException(status_code=404, detail="Dispatch not found")
 
     old_status = dispatch.status
     old_request_id = dispatch.request_id
     target_request_id = body.get("request_id", old_request_id)
+    target_party_type = body.get("party_type", dispatch.party_type)
+    if target_party_type not in ("vendor", "supplier"):
+        raise HTTPException(status_code=422, detail="party_type must be vendor or supplier")
     target_status = body.get("status", old_status)
     if isinstance(target_status, str):
         target_status = target_status.strip() or old_status
 
     linked_request = _linked_request(session, target_request_id, exclude_dispatch_id=dispatch.id)
     raw_items = _request_dispatch_items(session, linked_request) if linked_request else body.get("items")
+    if raw_items is None:
+        existing_items = session.exec(
+            select(DispatchItem).where(DispatchItem.dispatch_id == dispatch.id)
+        ).all()
+        raw_items = [{
+            "item_name": item.item_name,
+            "inv_type": item.inv_type,
+            "inv_item_id": item.inv_item_id,
+            "quantity": item.quantity,
+            "unit_id": item.unit_id,
+        } for item in existing_items]
+
+    # Validate receipt reference for supplier dispatches before completing
+    if target_party_type == "supplier" and target_status in ("dispatched", "delivered"):
+        receipt_id = body.get("receipt_id") or dispatch.receipt_id
+        if not receipt_id:
+            raise HTTPException(status_code=409, detail="Supplier dispatch requires a receipt reference")
+        receipt = _get_dispatch_receipt(session, receipt_id, require_completable=True)
+        dispatch.receipt_number = receipt.receipt_number
+        dispatch.receipt_id = receipt_id
+
+    # For OEM/vendor dispatches, clear receipt reference
+    if target_party_type == "vendor":
+        dispatch.receipt_id = None
+        dispatch.receipt_number = None
 
     # Validate and deduct before mutating the dispatch, so a stock error leaves it untouched.
+    _deduct_oem_dispatch_stock(
+        session, dispatch, raw_items, current_user,
+        target_party_type=target_party_type,
+        old_status=old_status, target_status=target_status,
+    )
     _sync_linked_request(
         session, dispatch, linked_request, current_user, target_status=target_status
     )
@@ -235,6 +283,13 @@ def update_dispatch(
     dispatch.request_id = target_request_id
     dispatch.request_sn_no = linked_request.sn_no if linked_request else None
     dispatch.status = target_status
+    dispatch.party_type = target_party_type
+    if target_party_type == "vendor":
+        dispatch.supplier_id = None
+        dispatch.supplier_name = None
+    else:
+        dispatch.vendor_id = None
+        dispatch.vendor_name = None
 
     if raw_items is not None:
         old_items = list(session.exec(select(DispatchItem).where(DispatchItem.dispatch_id == dispatch.id)).all())
@@ -408,21 +463,8 @@ def _sync_linked_request(
         return
     now = datetime.now(tz=timezone.utc)
     effective_status = target_status or dispatch.status
+
     if effective_status in ("dispatched", "delivered") and req.status != "received":
-        detail = session.exec(
-            select(RequestCustomerDispatch).where(RequestCustomerDispatch.request_id == req.id)
-        ).one()
-        deduct_request_stock(
-            session,
-            [StockDeduction(
-                inventory_type=detail.inventory_type,
-                item_id=detail.item_id,  # type: ignore[arg-type]
-                quantity=detail.quantity,
-                label=detail.item_description or detail.item_sn_no or req.sn_no,
-            )],
-            current_user,
-            note=f"Customer dispatch for request {req.sn_no}",
-        )
         old_status = req.status
         req.status = "received"
         req.delivered_by_user_id = current_user.id
@@ -464,6 +506,53 @@ def _sync_linked_request(
     elif effective_status == "cancelled":
         _release_linked_request(session, req.id)
     session.add(req)
+
+
+def _get_dispatch_receipt(
+    session: Session, receipt_id: int, *, require_completable: bool = False,
+) -> Receipt:
+    receipt = session.get(Receipt, receipt_id)
+    if not receipt:
+        raise HTTPException(status_code=404, detail="Receipt not found")
+    if require_completable and receipt.status not in ("created", "signed_off"):
+        raise HTTPException(status_code=409, detail="Receipt is not in a dispatchable state")
+    return receipt
+
+
+def _deduct_oem_dispatch_stock(
+    session: Session,
+    dispatch: Dispatch,
+    raw_items: list[dict[str, Any]],
+    current_user: User,
+    *,
+    target_party_type: str,
+    old_status: str,
+    target_status: str,
+) -> None:
+    completed_statuses = {"dispatched", "delivered"}
+    if target_party_type != "vendor" or target_status not in completed_statuses:
+        return
+    if old_status in completed_statuses or dispatch.inventory_deducted_at is not None:
+        return
+    deductions = [
+        StockDeduction(
+            inventory_type=item["inv_type"],
+            item_id=item["inv_item_id"],
+            quantity=float(item.get("quantity") or 0),
+            label=item.get("item_name") or "dispatch item",
+        )
+        for item in raw_items
+        if item.get("inv_type") and item.get("inv_item_id") is not None
+    ]
+    deduct_request_stock(
+        session, deductions, current_user,
+        note=f"OEM dispatch {dispatch.dispatch_number}",
+    )
+    now = datetime.now(tz=timezone.utc)
+    dispatch.inventory_deducted_at = now
+    dispatch.inventory_deducted_by_user_id = current_user.id
+    dispatch.inventory_deducted_by_username = current_user.username
+    session.add(dispatch)
 
 
 def _release_linked_request(session: Session, request_id: int | None) -> None:
@@ -514,6 +603,8 @@ def _to_dict(d: Dispatch, items: list[DispatchItem] | None = None, session: Sess
         "schedule_number": d.schedule_number,
         "request_id": d.request_id,
         "request_sn_no": d.request_sn_no,
+        "receipt_id": d.receipt_id,
+        "receipt_number": d.receipt_number,
         "product_name": d.product_name,
         "quantity": d.quantity,
         "unit_id": d.unit_id,
@@ -525,5 +616,8 @@ def _to_dict(d: Dispatch, items: list[DispatchItem] | None = None, session: Sess
         "status": d.status,
         "created_by": d.created_by,
         "created_at": d.created_at,
+        "inventory_deducted_at": d.inventory_deducted_at,
+        "inventory_deducted_by_user_id": d.inventory_deducted_by_user_id,
+        "inventory_deducted_by_username": d.inventory_deducted_by_username,
         "items": item_list,
     }

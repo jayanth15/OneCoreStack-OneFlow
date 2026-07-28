@@ -694,29 +694,32 @@ def adjust_item_stock(
     qty_after = item.recorded_qty
     item.updated_at = datetime.now(tz=timezone.utc)
     session.add(item)
-    # If variants exist, propagate the adjustment proportionally so individual
-    # variant cards stay in sync with the new total.
+    # Keep the parent aggregate and its own leaf variants consistent. A parent-level
+    # adjustment is scoped to this item only; sibling items and sub-categories are
+    # never touched. Variant-specific workflows should use the variant endpoint.
     if active_variants:
-        if len(active_variants) == 1:
-            # Single variant — just set its qty to the new total directly.
+        if body.adjustment_type == "subtract":
+            remaining = qty_before - qty_after
+            for variant in active_variants:
+                taken = min(variant.qty, remaining)
+                variant.qty -= taken
+                remaining -= taken
+                variant.updated_at = item.updated_at
+                session.add(variant)
+                if remaining <= 0:
+                    break
+        elif body.adjustment_type == "add":
+            active_variants[0].qty += body.quantity
+            active_variants[0].updated_at = item.updated_at
+            session.add(active_variants[0])
+        else:  # set
             active_variants[0].qty = qty_after
             active_variants[0].updated_at = item.updated_at
             session.add(active_variants[0])
-        else:
-            # Multiple variants — distribute the delta proportionally by qty.
-            delta = qty_after - qty_before
-            if qty_before > 0:
-                for v in active_variants:
-                    v.qty = max(0.0, round(v.qty + delta * (v.qty / qty_before), 4))
-                    v.updated_at = item.updated_at
-                    session.add(v)
-            else:
-                # All variants were 0; spread equally.
-                share = qty_after / len(active_variants)
-                for v in active_variants:
-                    v.qty = round(share, 4)
-                    v.updated_at = item.updated_at
-                    session.add(v)
+            for variant in active_variants[1:]:
+                variant.qty = 0
+                variant.updated_at = item.updated_at
+                session.add(variant)
     hist = SpareItemHistory(
         spare_item_id=item_id,
         changed_by_user_id=current_user.id,  # type: ignore[arg-type]

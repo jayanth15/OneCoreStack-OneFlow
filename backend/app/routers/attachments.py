@@ -8,17 +8,23 @@ Endpoints:
   DELETE /api/v1/attachments/{id}     — soft-delete (set is_active=False)
   POST   /api/v1/attachments/{id}/adjust — stock adjustment
   GET    /api/v1/attachments/{id}/history — change history
+  POST   /api/v1/attachments/{id}/document — upload PDF document
+  GET    /api/v1/attachments/{id}/document — download PDF document
+  DELETE /api/v1/attachments/{id}/document — delete PDF document
 """
 from datetime import datetime, timezone
-from typing import Annotated, Optional
+from pathlib import Path
+import re
+from typing import Annotated, Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File
 from pydantic import BaseModel
 from sqlalchemy import or_
 from sqlmodel import Session, func, select
 
 from app.core.database import get_session
 from app.dependencies.auth import get_current_user, require_admin
+from app.models.attachment_document import AttachmentDocument
 from app.models.attachment_item import AttachmentItem
 from app.models.attachment_history import AttachmentHistory
 from app.models.user import User
@@ -84,6 +90,7 @@ class AttachmentOut(BaseModel):
     storage_location: Optional[str]
     timeline_days: Optional[int]
     image_base64: Optional[str]
+    has_document: bool
     is_active: bool
     created_at: str
     updated_at: str
@@ -109,6 +116,7 @@ def _out(a: AttachmentItem) -> AttachmentOut:
         storage_location=a.storage_location,
         timeline_days=getattr(a, 'timeline_days', None),
         image_base64=a.image_base64,
+        has_document=getattr(a, 'has_document', False),
         is_active=a.is_active,
         created_at=_dt(a.created_at),
         updated_at=_dt(a.updated_at),
@@ -282,3 +290,149 @@ def get_attachment_history(
         )
         for r in rows
     ]
+
+
+MAX_DOC_SIZE = 10 * 1024 * 1024  # 10 MB
+ALLOWED_PDF_TYPES = {"application/pdf"}
+PDF_SIGNATURE = b"%PDF-"
+
+
+def _compute_sha256(data: bytes) -> str:
+    import hashlib
+
+    return hashlib.sha256(data).hexdigest()
+
+
+def _validate_pdf_signature(content: bytes) -> None:
+    if not content.startswith(PDF_SIGNATURE):
+        raise HTTPException(status_code=400, detail="File does not start with PDF signature (must begin with %PDF-)")
+
+
+@router.post("/{item_id}/documents")
+def upload_attachment_document(
+    item_id: int,
+    session: SessionDep,
+    current_user: AdminUser,
+    file: UploadFile = File(...),
+) -> dict[str, Any]:
+    a = session.get(AttachmentItem, item_id)
+    if not a:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are allowed")
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = file.file.read(1024 * 1024)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > MAX_DOC_SIZE:
+            raise HTTPException(status_code=413, detail="File too large (max 10 MB)")
+        chunks.append(chunk)
+    content = b"".join(chunks)
+    _validate_pdf_signature(content)
+    content_type = file.content_type or "application/pdf"
+    if content_type not in ALLOWED_PDF_TYPES:
+        raise HTTPException(status_code=400, detail="Only PDF files are allowed")
+    sha256 = _compute_sha256(content)
+    safe_name = Path(file.filename).name
+    safe_name = re.sub(r"[\x00-\x1f\x7f]", "", safe_name).strip() or "document.pdf"
+    doc = AttachmentDocument(
+        attachment_item_id=item_id,
+        filename=safe_name,
+        content_type=content_type,
+        document_data=content,
+        sha256=sha256,
+        size_bytes=len(content),
+        uploaded_by_user_id=current_user.id,  # type: ignore[arg-type]
+        uploaded_by_username=current_user.username,
+    )
+    a.has_document = True
+    session.add(doc)
+    session.add(a)
+    session.commit()
+    session.refresh(doc)
+    return {"id": doc.id, "filename": doc.filename, "content_type": doc.content_type, "size": doc.size_bytes, "sha256": doc.sha256}
+
+
+@router.get("/{item_id}/documents")
+def list_attachment_documents(
+    item_id: int, session: SessionDep, _: CurrentUser,
+) -> list[dict[str, Any]]:
+    a = session.get(AttachmentItem, item_id)
+    if not a:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+    docs = session.exec(
+        select(AttachmentDocument)
+        .where(AttachmentDocument.attachment_item_id == item_id, AttachmentDocument.is_active == True)
+        .order_by(AttachmentDocument.uploaded_at.desc())
+    ).all()
+    return [
+        {
+            "id": d.id,  # type: ignore[arg-type]
+            "filename": d.filename,
+            "content_type": d.content_type,
+            "size_bytes": d.size_bytes,
+            "sha256": d.sha256,
+            "uploaded_by_username": d.uploaded_by_username,
+            "uploaded_at": d.uploaded_at.isoformat() if d.uploaded_at else None,
+        }
+        for d in docs
+    ]
+
+
+@router.get("/{item_id}/documents/{document_id}/content")
+def download_attachment_document(
+    item_id: int, document_id: int, session: SessionDep, _: CurrentUser,
+):
+    a = session.get(AttachmentItem, item_id)
+    if not a:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+    query = select(AttachmentDocument).where(
+        AttachmentDocument.attachment_item_id == item_id,
+        AttachmentDocument.id == document_id,
+        AttachmentDocument.is_active == True,
+    )
+    doc = session.exec(query).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="No document attached")
+    from fastapi.responses import Response
+
+    safe_filename = doc.filename.split("/")[-1].split("\\")[-1] if doc.filename else "document.pdf"
+    return Response(
+        content=doc.document_data,
+        media_type=doc.content_type or "application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{safe_filename}"',
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+@router.delete("/{item_id}/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_attachment_document(
+    item_id: int, document_id: int, session: SessionDep, _: AdminUser,
+) -> None:
+    a = session.get(AttachmentItem, item_id)
+    if not a:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+    doc = session.exec(
+        select(AttachmentDocument).where(
+            AttachmentDocument.attachment_item_id == item_id,
+            AttachmentDocument.id == document_id,
+            AttachmentDocument.is_active == True,
+        )
+    ).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="No document attached")
+    doc.is_active = False
+    session.add(doc)
+    session.flush()
+    remaining = session.exec(select(func.count()).select_from(AttachmentDocument).where(
+        AttachmentDocument.attachment_item_id == item_id,
+        AttachmentDocument.is_active == True,
+    )).one()
+    a.has_document = remaining > 0
+    session.add(a)
+    session.commit()

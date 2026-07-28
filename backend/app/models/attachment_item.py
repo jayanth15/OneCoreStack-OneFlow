@@ -19,6 +19,7 @@ class AttachmentItem(SQLModel, table=True):
     timeline_days: Optional[int] = None                              # expected fulfillment / lead time in days
 
     image_base64: Optional[str] = None
+    has_document: bool = Field(default=False)
 
     is_active: bool = Field(default=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))

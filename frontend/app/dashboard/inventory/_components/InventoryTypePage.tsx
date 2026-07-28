@@ -19,7 +19,7 @@ import { apiFetchJson } from "@/lib/api";
 import { isAdminOrAbove, canAccessInventory } from "@/lib/user";
 import {
   PlusIcon, Pencil, Trash2, AlertTriangle, PackagePlus,
-  PackageMinus, History, TrendingDown, Eye, Search, ChevronLeft, ChevronRight,
+  PackageMinus, History, TrendingDown, Eye, Search, ChevronLeft, ChevronRight, Printer,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -324,6 +324,33 @@ export default function InventoryTypePage({ itemType, label, description, basePa
   // Items after vendor filter are now returned server-side; alias for clarity
   const filteredItems = items;
 
+  async function printInventory() {
+    const { fetchAllPages, openPrintWindow } = await import("@/lib/print-report");
+    const all = await fetchAllPages(async (page, pageSize) => {
+      const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
+      if (search) params.set("search", search);
+      const data = await apiFetchJson<PaginatedInventory>(`/api/v1/inventory?item_type=&`);
+      return { items: data.items, total: data.total, page: data.page, page_size: data.page_size, pages: data.pages };
+    });
+    openPrintWindow({
+      title: `${label} Inventory`,
+      companyName: "OneFlow",
+      mode: "cycle-count",
+      columns: ["Code", "Name", "Unit", "System Qty", "Physical Count", "Variance", "Location", "Counter Initials", "Notes"],
+      rows: all.map(item => ({
+        Code: item.code ?? "—",
+        Name: item.name ?? "—",
+        Unit: item.unit_name ?? "—",
+        "System Qty": item.quantity_on_hand,
+        "Physical Count": "",
+        Variance: "",
+        Location: item.storage_location ?? "—",
+        "Counter Initials": "",
+        Notes: "",
+      })),
+    });
+  }
+
   return (
     <>
       {/* Header */}
@@ -334,6 +361,11 @@ export default function InventoryTypePage({ itemType, label, description, basePa
           { label: "Inventory", href: "/dashboard/inventory" },
           { label },
         ]}
+        actions={
+          <Button size="sm" variant="outline" onClick={printInventory}>
+            <Printer className="size-3.5 mr-1.5" />Print
+          </Button>
+        }
       />
 
       <div className="p-4 md:p-6 space-y-4">

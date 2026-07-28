@@ -21,6 +21,7 @@ import {
   PlusIcon, Pencil, Trash2, AlertTriangle, Wrench, ChevronRight, ChevronDown,
   Search, Printer, PackagePlus, PackageMinus, ImageIcon, Layers, Eye, History, ChevronsDown,
 } from "lucide-react";
+import { fetchAllPages, openPrintWindow } from "@/lib/print-report";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -599,6 +600,20 @@ export default function SparesPage() {
       setHistoryHasMore(rows.length === 10);
     } catch { /* ignore */ }
     finally { setHistoryLoading(false); }
+  }
+
+  async function printHistory() {
+    if (!historyItem) return;
+    const all = await fetchAllPages(async (printPage, pageSize) => {
+      const base = historyVariant ? "/api/v1/spares/variants/" + historyVariant.id : "/api/v1/spares/items/" + historyItem.id;
+      const rows = await apiFetchJson<SpareItemHistoryEntry[]>(base + "/history?limit=" + pageSize + "&offset=" + ((printPage - 1) * pageSize));
+      return { items: rows, total: 0, page: printPage, page_size: pageSize, pages: 0 };
+    });
+    openPrintWindow({
+      title: "Spare Stock History - " + historyItem.name, mode: "audit-history",
+      columns: ["Date", "Action", "Variant", "Before", "Change", "After", "User", "Note"],
+      rows: all.map(row => ({ "Date": new Date(row.changed_at).toLocaleString(), "Action": row.change_type, "Variant": row.variant_label ?? "", "Before": String(row.qty_before), "Change": String(row.qty_delta), "After": String(row.qty_after), "User": row.changed_by_username ?? "System", "Note": row.note ?? "" })),
+    });
   }
 
   function resetVariantForm() {
@@ -1490,7 +1505,7 @@ export default function SparesPage() {
       {/* ── History Dialog (admin-only) ───────────────────────────────── */}
       <Dialog open={historyItem !== null} onOpenChange={o=>{ if (!o) { setHistoryItem(null); setHistoryVariant(null); } }}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Stock History — {historyItem?.name}{historyVariant ? " · " + (historyVariant.variant_color || historyVariant.serial_number || "Variant #" + historyVariant.id) : ""}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="flex items-center justify-between gap-2"><span>Stock History - {historyItem?.name}</span><Button size="sm" variant="outline" onClick={printHistory}><Printer className="size-3.5 mr-1" />Print</Button></DialogTitle></DialogHeader>
           {historyLoading ? (
             <div className="space-y-2 mt-2">{[1,2,3].map(i=><div key={i} className="h-10 rounded bg-muted animate-pulse" />)}</div>
           ) : historyRows.length === 0 ? (

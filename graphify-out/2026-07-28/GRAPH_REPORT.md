@@ -1,11 +1,11 @@
 # Graph Report - OneFlow  (2026-07-28)
 
 ## Corpus Check
-- 307 files · ~249,784 words
+- 307 files · ~249,761 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 3096 nodes · 7785 edges · 229 communities (166 shown, 63 thin omitted)
+- 3096 nodes · 7785 edges · 228 communities (165 shown, 63 thin omitted)
 - Extraction: 79% EXTRACTED · 21% INFERRED · 0% AMBIGUOUS · INFERRED: 1614 edges (avg confidence: 0.62)
 - Token cost: 0 input · 0 output
 
@@ -220,7 +220,6 @@
 - _migrate_job_card_worker_id
 - _migrate_po_vendor_fields
 - tabs.tsx
-- notify_department_users
 - index.md
 - index.md
 - index.md
@@ -263,7 +262,7 @@
 - **Request Delivery Workflow (request -> procurement PO / logistics receipt -> inventory)** — okf_requests_request-system, okf_procurement_procurement-system, okf_logistics_logistics-system, okf_inventory_inventory-system [EXTRACTED 0.95]
 - **Production BOM consumes raw materials and credits finished goods to inventory** — okf_production_production-system, okf_inventory_inventory-system, okf_procurement_procurement-system [EXTRACTED 0.95]
 
-## Communities (229 total, 63 thin omitted)
+## Communities (228 total, 63 thin omitted)
 
 ### Community 0 - "Admin Dashboard Pages"
 Cohesion: 0.05
@@ -274,8 +273,8 @@ Cohesion: 0.06
 Nodes (124): SQLModel, SpareCategory, SQLModel, Audit trail for every stock change on a SpareItem., SpareItemHistory, SQLModel, SpareItem, SQLModel (+116 more)
 
 ### Community 2 - "Departments and Inventory History"
-Cohesion: 0.14
-Nodes (47): BomItem, SQLModel, Bill of Materials — maps a product name to required raw materials.      product_, JobCardHistory, SQLModel, Audit trail for every change on a JobCard.      One row per changed field per ed, JobCard, SQLModel (+39 more)
+Cohesion: 0.12
+Nodes (58): BomItem, SQLModel, Bill of Materials — maps a product name to required raw materials.      product_, JobCardHistory, SQLModel, Audit trail for every change on a JobCard.      One row per changed field per ed, JobCard, SQLModel (+50 more)
 
 ### Community 3 - "New BOM Creation UI"
 Cohesion: 0.05
@@ -294,8 +293,8 @@ Cohesion: 0.11
 Nodes (53): GRNRecord, GRNItem, SQLModel, Line item within a GRN — one row per inventory item received., SQLModel, Goods Received Note — records a delivery of goods into the company., InventoryHistory, SQLModel (+45 more)
 
 ### Community 7 - "Database Session and Auth Core"
-Cohesion: 0.10
-Nodes (66): get_session(), Session, get_current_user(), Session, add_process(), bom_preview(), _calculated_hours_from_produced_qty(), _check_backward_status() (+58 more)
+Cohesion: 0.11
+Nodes (57): get_session(), Session, get_current_user(), Session, add_process(), bom_preview(), _check_backward_status(), _consume_bom_materials() (+49 more)
 
 ### Community 8 - "Inventory Detail Pages"
 Cohesion: 0.17
@@ -343,11 +342,11 @@ Nodes (36): Require admin or super_admin role., require_admin(), SQLModel, Job /
 
 ### Community 19 - "Legacy Migrations and Scheduling"
 Cohesion: 0.17
-Nodes (27): SQLModel, Audit trail for schedule status changes., ScheduleHistory, SQLModel, Schedule, check_availability(), create_schedule(), delete_schedule() (+19 more)
+Nodes (25): SQLModel, Audit trail for schedule status changes., ScheduleHistory, check_availability(), create_schedule(), delete_schedule(), get_schedule(), get_schedule_history() (+17 more)
 
 ### Community 20 - "Request Items and Router"
-Cohesion: 0.16
-Nodes (39): SQLModel, Line item for a Request.      Used for internal_transfer and vendor_purchase typ, RequestItem, accept_fulfilment(), accept_item(), _acceptance_departments(), acknowledge_delivery(), _apply_department_visibility_filter() (+31 more)
+Cohesion: 0.12
+Nodes (48): SQLModel, Line item for a Request.      Used for internal_transfer and vendor_purchase typ, RequestItem, accept_fulfilment(), accept_item(), _acceptance_departments(), acknowledge_delivery(), _apply_department_visibility_filter() (+40 more)
 
 ### Community 21 - "Dashboard Layout and Auth Guard"
 Cohesion: 0.09
@@ -845,10 +844,6 @@ Nodes (4): Phase 8: Frontend — Redirects + Sidebar + Receipts, Task 27: Conver
 Cohesion: 0.50
 Nodes (3): Deploy on Vercel, Getting Started, Learn More
 
-### Community 225 - "notify_department_users"
-Cohesion: 0.27
-Nodes (9): build_department_label_map(), generate_sn(), notify_department_users(), _prefix_for(), Session, Helpers used by both the new /requests router and the legacy shims., Create a notification for every active user belonging to the department     whos, Return {code: "CODE — Name"} for all active departments. Used to attach     a hu (+1 more)
-
 ## Knowledge Gaps
 - **895 isolated node(s):** `$schema`, `.opencode/plugins/graphify.js`, `oneflow-backend`, `InventoryItem`, `PaginatedInventory` (+890 more)
   These have ≤1 connection - possible missing edges or undocumented components.
@@ -859,9 +854,9 @@ _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `get_session()` connect `Database Session and Auth Core` to `Spare Parts Data Model`, `Departments and Inventory History`, `Consumables Data Model`, `Auth and Inventory Module`, `Combobox UI Component`, `Units and Vendors Model`, `Supplier Job Model`, `Legacy Migrations and Scheduling`, `Receipts and Requests Model`, `Purchase Request Routes`, `Community 34`, `Community 39`, `Community 40`, `Community 42`, `Community 46`, `Community 49`, `Community 53`, `Community 60`, `get_linkable_pr_items`, `Community 112`?**
   _High betweenness centrality (0.036) - this node is a cross-community bridge._
-- **Why does `User` connect `Departments and Inventory History` to `Spare Parts Data Model`, `Community 34`, `notify_department_users`, `Consumables Data Model`, `get_linkable_pr_items`, `Linkable Purchase Requests`, `Database Session and Auth Core`, `BOM Edit Pages`, `Community 42`, `Auth and Inventory Module`, `Community 43`, `Community 46`, `Weeder Category Model`, `Combobox UI Component`, `Community 49`, `Legacy Migrations and Scheduling`, `Community 53`, `Community 60`?**
+- **Why does `User` connect `Departments and Inventory History` to `Spare Parts Data Model`, `Community 34`, `get_linkable_pr_items`, `Consumables Data Model`, `Linkable Purchase Requests`, `Database Session and Auth Core`, `BOM Edit Pages`, `Community 42`, `Auth and Inventory Module`, `Community 43`, `Community 46`, `Weeder Category Model`, `Combobox UI Component`, `Community 49`, `Legacy Migrations and Scheduling`, `Request Items and Router`, `Community 53`, `Community 60`?**
   _High betweenness centrality (0.033) - this node is a cross-community bridge._
-- **Why does `_seed_customers_from_schedules()` connect `Combobox UI Component` to `Community 56`, `Spare Parts Data Model`, `Legacy Migrations and Scheduling`, `Community 55`?**
+- **Why does `_seed_customers_from_schedules()` connect `Combobox UI Component` to `Community 56`, `Spare Parts Data Model`, `Departments and Inventory History`, `Community 55`?**
   _High betweenness centrality (0.026) - this node is a cross-community bridge._
 - **Are the 141 inferred relationships involving `User` (e.g. with `get_current_user()` and `_auto_seed_if_empty()`) actually correct?**
   _`User` has 141 INFERRED edges - model-reasoned connections that need verification._

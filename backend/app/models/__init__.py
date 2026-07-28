@@ -28,6 +28,7 @@ from app.models.spare_item_variant import SpareItemVariant  # noqa: F401
 from app.models.work_log import WorkLog  # noqa: F401
 from app.models.work_type import WorkType  # noqa: F401
 from app.models.attachment_item import AttachmentItem  # noqa: F401
+from app.models.attachment_document import AttachmentDocument  # noqa: F401
 from app.models.attachment_history import AttachmentHistory  # noqa: F401
 from app.models.weeder_category import WeederCategory  # noqa: F401  — must be before WeederItem
 from app.models.weeder_item import WeederItem  # noqa: F401

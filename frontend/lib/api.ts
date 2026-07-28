@@ -12,11 +12,12 @@ export async function apiFetch(url: string, options: FetchOptions = {}): Promise
   const { skipRefresh = false, ...fetchOptions } = options;
 
   const token = getAccessToken();
+  const isFormData = typeof FormData !== "undefined" && fetchOptions.body instanceof FormData;
   const res = await fetch(url, {
     ...fetchOptions,
     credentials: "include",
     headers: {
-      "Content-Type": "application/json",
+      ...(!isFormData ? { "Content-Type": "application/json" } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(fetchOptions.headers ?? {}),
     },

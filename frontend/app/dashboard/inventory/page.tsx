@@ -20,8 +20,9 @@ import { isAdminOrAbove, canAccessInventory } from "@/lib/user";
 import {
   PlusIcon, Pencil, Trash2, AlertTriangle, PackagePlus,
   PackageMinus, History, TrendingDown, Eye, Search, ChevronLeft, ChevronRight,
-  Package, Box, Layers, Wrench, FlaskConical, Paperclip, Scissors, Recycle,
+  Package, Box, Layers, Wrench, FlaskConical, Paperclip, Scissors, Recycle, Printer,
 } from "lucide-react";
+import { fetchAllPages, openPrintWindow } from "@/lib/print-report";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -459,6 +460,33 @@ function InventoryPageInner() {
     }
   }
 
+  async function printInventory() {
+    const all = await fetchAllPages(async (printPage, pageSize) => {
+      const params = new URLSearchParams({ page: String(printPage), page_size: String(pageSize), include_inactive: String(showInactive) });
+      if (tab !== "all") params.set("item_type", tab);
+      if (search) params.set("search", search);
+      return apiFetchJson<PaginatedInventory>("/api/v1/inventory?" + params);
+    });
+    openPrintWindow({
+      title: (TABS.find(t => t.id === tab)?.label ?? "Inventory") + " Cycle Count", mode: "cycle-count",
+      columns: ["Code", "Name", "Type", "Unit", "System Qty", "Physical Count", "Variance", "Location", "Counter Initials", "Notes"],
+      rows: all.map(item => ({ "Code": item.code, "Name": item.name, "Type": TYPE_LABELS[item.item_type] ?? item.item_type, "Unit": item.unit, "System Qty": String(item.quantity_on_hand), "Physical Count": "", "Variance": "", "Location": [item.storage_type, item.storage_location].filter(Boolean).join(" · "), "Counter Initials": "", "Notes": "" })),
+    });
+  }
+
+  async function printHistory() {
+    if (!historyItem) return;
+    const all = await fetchAllPages(async (printPage, pageSize) => {
+      const rows = await apiFetchJson<HistoryEntry[]>("/api/v1/inventory/" + historyItem.id + "/history?limit=" + pageSize + "&offset=" + ((printPage - 1) * pageSize));
+      return { items: rows, total: 0, page: printPage, page_size: pageSize, pages: 0 };
+    });
+    openPrintWindow({
+      title: "Inventory History - " + historyItem.name, mode: "audit-history",
+      columns: ["Date", "Action", "Before", "Change", "After", "User", "Schedule", "Notes"],
+      rows: all.map(row => ({ "Date": new Date(row.changed_at).toLocaleString(), "Action": CHANGE_LABELS[row.change_type] ?? row.change_type, "Before": row.quantity_before ?? "", "Change": row.quantity_delta ?? "", "After": row.quantity_after ?? "", "User": row.changed_by_username ?? "System", "Schedule": row.schedule_number ?? "", "Notes": row.notes ?? "" })),
+    });
+  }
+
   // ── Delete ─────────────────────────────────────────────────────────────────
   async function handleDelete() {
     if (deleteId === null) return;
@@ -501,6 +529,7 @@ function InventoryPageInner() {
           { label: "Inventory", href: "/dashboard/inventory" },
           { label: TABS.find((t) => t.id === tab)?.label ?? "Inventory" },
         ]}
+        actions={<Button size="sm" variant="outline" onClick={printInventory}><Printer className="size-4 mr-1" />Print</Button>}
       />
 
       <div className="p-4 md:p-6 space-y-4">
@@ -931,7 +960,7 @@ function InventoryPageInner() {
       <Sheet open={historyItem !== null} onOpenChange={(o) => !o && setHistoryItem(null)}>
         <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
           <SheetHeader className="mb-6">
-            <SheetTitle>History — {historyItem?.name}</SheetTitle>
+            <SheetTitle className="flex items-center justify-between gap-2"><span>History — {historyItem?.name}</span><Button size="sm" variant="outline" onClick={printHistory}><Printer className="size-3.5 mr-1" />Print</Button></SheetTitle>
             <p className="text-sm text-muted-foreground">{historyItem?.code}</p>
           </SheetHeader>
           {historyLoading ? (

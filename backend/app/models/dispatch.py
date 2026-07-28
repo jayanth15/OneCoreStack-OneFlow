@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional
 
 from sqlmodel import Field, SQLModel
@@ -22,11 +23,20 @@ class Dispatch(SQLModel, table=True):
 
     # Optional schedule reference
     schedule_id: Optional[int] = Field(default=None)
-    schedule_number: Optional[str] = None                   # denormalized
+    schedule_number: Optional[str] = None                     # denormalized
 
     # Linked customer dispatch request (optional)
     request_id: Optional[int] = Field(default=None)
-    request_sn_no: Optional[str] = None                     # denormalized
+    request_sn_no: Optional[str] = None                       # denormalized
+
+    # Receipt reference for dealer/supplier dispatches
+    receipt_id: Optional[int] = Field(default=None)
+    receipt_number: Optional[str] = None                      # denormalized immutable snapshot
+
+    # Stock deduction idempotency marker
+    inventory_deducted_at: Optional[datetime] = None
+    inventory_deducted_by_user_id: Optional[int] = Field(default=None)
+    inventory_deducted_by_username: Optional[str] = None
 
     # Product / goods
     product_name: str = ""
@@ -34,11 +44,11 @@ class Dispatch(SQLModel, table=True):
     unit_id: Optional[int] = Field(default=None, foreign_key="unit.id")
 
     # Logistics
-    dispatch_date: Optional[str] = None                     # ISO "YYYY-MM-DD"
+    dispatch_date: Optional[str] = None                       # ISO "YYYY-MM-DD"
     vehicle_number: Optional[str] = None
     driver_name: Optional[str] = None
 
     notes: Optional[str] = None
-    status: str = Field(default="pending")                  # pending | dispatched | delivered | cancelled
+    status: str = Field(default="pending")                    # pending | dispatched | delivered | cancelled
     created_by: Optional[str] = None
     created_at: Optional[str] = None
