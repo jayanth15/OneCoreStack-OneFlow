@@ -994,11 +994,11 @@ export default function AttachmentsPage() {
 
       {/* ── History Dialog ──────────────────────────────────────────── */}
       <Dialog open={historyItem !== null} onOpenChange={o => !o && setHistoryItem(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader className="mb-2">
-            <DialogTitle className="flex items-center gap-2 justify-between">
-              <span className="flex items-center gap-2"><History className="size-4" /> Stock History — {historyItem ? displayName(historyItem) : ""}</span>
-              <Button size="sm" variant="outline" onClick={printHistory}><Printer className="size-3.5 mr-1" />Print</Button>
+        <DialogContent className="sm:max-w-4xl max-h-[calc(100dvh-2rem)] overflow-y-auto overflow-x-hidden">
+          <DialogHeader className="mb-2 pr-10">
+            <DialogTitle className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <span className="flex min-w-0 items-center gap-2 break-words"><History className="size-4 shrink-0" /> Stock History — {historyItem ? displayName(historyItem) : ""}</span>
+              <Button size="sm" variant="outline" className="shrink-0" onClick={printHistory}><Printer className="size-3.5 mr-1" />Print</Button>
             </DialogTitle>
           </DialogHeader>
           {historyLoading ? (
@@ -1006,8 +1006,8 @@ export default function AttachmentsPage() {
           ) : historyRows.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-6">No history yet.</p>
           ) : (
-            <div className="overflow-x-auto max-h-[60vh] overflow-y-auto">
-              <table className="w-full text-sm">
+            <div className="max-h-[60vh] overflow-y-auto overflow-x-hidden">
+              <table className="hidden w-full table-fixed text-sm sm:table">
                 <thead className="sticky top-0 bg-background">
                   <tr className="border-b">
                     <th className="px-3 py-2 text-left font-medium text-muted-foreground">Date</th>
@@ -1044,6 +1044,32 @@ export default function AttachmentsPage() {
                   ))}
                 </tbody>
               </table>
+              <div className="space-y-3 sm:hidden">
+                {historyRows.map(r => (
+                  <div key={r.id} className="rounded-lg border bg-muted/20 p-3 text-sm">
+                    <div className="flex items-start justify-between gap-3 border-b pb-2">
+                      <span className="text-xs text-muted-foreground">{fmtDate(r.changed_at)}</span>
+                      <span className={`inline-flex items-center gap-1 text-xs font-medium ${
+                        r.change_type === "add" ? "text-success" :
+                        r.change_type === "subtract" ? "text-warning" : "text-primary"
+                      }`}>
+                        {r.change_type === "add" && <PackagePlus className="size-3" />}
+                        {r.change_type === "subtract" && <PackageMinus className="size-3" />}
+                        {r.change_type}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 py-3 text-center">
+                      <div><p className="text-[11px] text-muted-foreground">Before</p><p className="tabular-nums">{r.qty_before % 1 === 0 ? r.qty_before.toFixed(0) : r.qty_before.toFixed(2)}</p></div>
+                      <div><p className="text-[11px] text-muted-foreground">Change</p><p className={`tabular-nums font-medium ${r.qty_delta > 0 ? "text-success" : r.qty_delta < 0 ? "text-warning" : ""}`}>{r.qty_delta > 0 ? "+" : ""}{r.qty_delta % 1 === 0 ? r.qty_delta.toFixed(0) : r.qty_delta.toFixed(2)}</p></div>
+                      <div><p className="text-[11px] text-muted-foreground">After</p><p className="tabular-nums font-semibold">{r.qty_after % 1 === 0 ? r.qty_after.toFixed(0) : r.qty_after.toFixed(2)}</p></div>
+                    </div>
+                    <div className="space-y-1 border-t pt-2 text-xs">
+                      <p><span className="text-muted-foreground">By:</span> <span className="break-words">{r.changed_by_username ?? "—"}</span></p>
+                      <p><span className="text-muted-foreground">Note:</span> <span className="break-words">{r.note ?? "—"}</span></p>
+                    </div>
+                  </div>
+                ))}
+              </div>
               {(historyPage > 1 || historyHasMore) && (
                 <div className="flex items-center justify-between pt-3 pb-1">
                   <Button size="sm" variant="outline" disabled={historyPage <= 1 || historyLoading} onClick={() => changeHistoryPage(historyPage - 1)}>← Prev</Button>
