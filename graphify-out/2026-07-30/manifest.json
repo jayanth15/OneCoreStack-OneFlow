@@ -725,8 +725,8 @@
     "semantic_hash": ""
   },
   "frontend/app/dashboard/inventory/attachments/page.tsx": {
-    "mtime": 1785421534.7741094,
-    "ast_hash": "7a8343c91d7d009efce5dadaf38c65a4",
+    "mtime": 1785260176.782348,
+    "ast_hash": "15a1f7d2437a4d750297cc06330c0357",
     "semantic_hash": ""
   },
   "frontend/app/dashboard/inventory/consumables/page.tsx": {

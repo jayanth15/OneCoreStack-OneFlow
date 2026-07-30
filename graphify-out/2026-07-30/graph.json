@@ -10778,8 +10778,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_routers_requests_helpers",
-      "community": 20,
-      "community_name": "Request Items and Router",
+      "community": 225,
+      "community_name": "notify_department_users",
       "norm_label": "requests_helpers.py"
     },
     {
@@ -10789,8 +10789,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "backend_app_routers_requests_helpers_prefix_for",
-      "community": 20,
-      "community_name": "Request Items and Router",
+      "community": 225,
+      "community_name": "notify_department_users",
       "norm_label": "_prefix_for()"
     },
     {
@@ -10811,8 +10811,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_requests_helpers_py_session",
-      "community": 20,
-      "community_name": "Request Items and Router",
+      "community": 225,
+      "community_name": "notify_department_users",
       "norm_label": "session"
     },
     {
@@ -10833,8 +10833,8 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "backend_app_routers_requests_helpers_build_department_label_map",
-      "community": 20,
-      "community_name": "Request Items and Router",
+      "community": 225,
+      "community_name": "notify_department_users",
       "norm_label": "build_department_label_map()"
     },
     {
@@ -10855,8 +10855,8 @@
       "source_location": "L53",
       "_origin": "ast",
       "id": "backend_app_routers_requests_helpers_generate_sn",
-      "community": 20,
-      "community_name": "Request Items and Router",
+      "community": 225,
+      "community_name": "notify_department_users",
       "norm_label": "generate_sn()"
     },
     {
@@ -10888,8 +10888,8 @@
       "source_location": "L101",
       "_origin": "ast",
       "id": "backend_app_routers_requests_helpers_notify_department_users",
-      "community": 20,
-      "community_name": "Request Items and Router",
+      "community": 225,
+      "community_name": "notify_department_users",
       "norm_label": "notify_department_users()"
     },
     {
@@ -10899,8 +10899,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_routers_requests_helpers_rationale_1",
-      "community": 20,
-      "community_name": "Request Items and Router",
+      "community": 225,
+      "community_name": "notify_department_users",
       "norm_label": "helpers used by both the new /requests router and the legacy shims."
     },
     {
@@ -10921,8 +10921,8 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "backend_app_routers_requests_helpers_rationale_36",
-      "community": 20,
-      "community_name": "Request Items and Router",
+      "community": 225,
+      "community_name": "notify_department_users",
       "norm_label": "return {code: \"code \u2014 name\"} for all active departments. used to attach     a hu"
     },
     {
@@ -10943,8 +10943,8 @@
       "source_location": "L54",
       "_origin": "ast",
       "id": "backend_app_routers_requests_helpers_rationale_54",
-      "community": 20,
-      "community_name": "Request Items and Router",
+      "community": 225,
+      "community_name": "notify_department_users",
       "norm_label": "generate the next serial number, e.g. req-2026-0001 / mkt-2026-0001.      strate"
     },
     {
@@ -10954,8 +10954,8 @@
       "source_location": "L109",
       "_origin": "ast",
       "id": "backend_app_routers_requests_helpers_rationale_109",
-      "community": 20,
-      "community_name": "Request Items and Router",
+      "community": 225,
+      "community_name": "notify_department_users",
       "norm_label": "create a notification for every active user belonging to the department     whos"
     },
     {
@@ -96476,7 +96476,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/app/dashboard/inventory/attachments/page.tsx",
-      "source_location": "L565",
+      "source_location": "L496",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_app_dashboard_inventory_attachments_page_attachmentspage",
@@ -96488,7 +96488,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/app/dashboard/inventory/attachments/page.tsx",
-      "source_location": "L579",
+      "source_location": "L510",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_app_dashboard_inventory_attachments_page_attachmentspage",
@@ -96501,7 +96501,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "frontend/app/dashboard/inventory/attachments/page.tsx",
-      "source_location": "L162",
+      "source_location": "L156",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_app_dashboard_inventory_attachments_page_attachmentspage",
@@ -96513,7 +96513,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "frontend/app/dashboard/inventory/attachments/page.tsx",
-      "source_location": "L148",
+      "source_location": "L142",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_app_dashboard_inventory_attachments_page_attachmentspage",
@@ -96525,7 +96525,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "frontend/app/dashboard/inventory/attachments/page.tsx",
-      "source_location": "L147",
+      "source_location": "L141",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_app_dashboard_inventory_attachments_page_attachmentspage",
@@ -124518,5 +124518,5 @@
       "source_file": "okf/production/production-system.md"
     }
   ],
-  "built_at_commit": "952b03a9eba4995b880ca9c0ccdc20ab4bc81554"
+  "built_at_commit": "555c49edc44e372bb87dd8e80b131a54423bb3d4"
 }

@@ -19,7 +19,7 @@ import { apiFetch, apiFetchJson } from "@/lib/api";
 import { isAdminOrAbove, canAccessInventory } from "@/lib/user";
 import {
   PlusIcon, Pencil, Trash2, Search, ImageIcon, ChevronLeft, ChevronRight,
-  PackagePlus, PackageMinus, History, Eye, AlertTriangle, Paperclip, Printer, FileText, Upload, Download,
+  PackagePlus, PackageMinus, History, Eye, AlertTriangle, Paperclip, Printer, FileText, Upload,
 } from "lucide-react";
 import { fetchAllPages, openPrintWindow } from "@/lib/print-report";
 
@@ -109,6 +109,8 @@ export default function AttachmentsPage() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const imgRef = useRef<HTMLInputElement>(null);
+  const [formPdf, setFormPdf] = useState<File | null>(null);
+  const formPdfRef = useRef<HTMLInputElement>(null);
 
   // delete
   const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -129,6 +131,8 @@ export default function AttachmentsPage() {
   const [documentBusy, setDocumentBusy] = useState(false);
   const [documentError, setDocumentError] = useState<string | null>(null);
   const documentRef = useRef<HTMLInputElement>(null);
+  const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
+  const [previewPdfName, setPreviewPdfName] = useState<string | null>(null);
 
   // history
   const [historyItem, setHistoryItem] = useState<AttachmentItem | null>(null);
@@ -138,6 +142,8 @@ export default function AttachmentsPage() {
   const [historyHasMore, setHistoryHasMore] = useState(false);
 
   useEffect(() => {
+    // This client-only permission value comes from sessionStorage after hydration.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setAdmin(isAdminOrAbove());
     if (!canAccessInventory("attachment")) {
       router.replace("/dashboard/inventory");
@@ -167,6 +173,7 @@ export default function AttachmentsPage() {
     setEditing(null);
     setForm({ ...BLANK });
     setImgPreview(null); setImgB64(null);
+    setFormPdf(null);
     setFormError(null); setDialog("create");
   }
   function openEdit(item: AttachmentItem) {
@@ -182,6 +189,7 @@ export default function AttachmentsPage() {
     });
     setImgPreview(item.image_base64 ? `data:image/jpeg;base64,${item.image_base64}` : null);
     setImgB64(item.image_base64 ?? null);
+    setFormPdf(null);
     setFormError(null); setDialog("edit");
   }
 
@@ -190,6 +198,37 @@ export default function AttachmentsPage() {
     const r = new FileReader();
     r.onload = () => { const d = r.result as string; setImgPreview(d); setImgB64(d.split(",")[1] ?? null); };
     r.readAsDataURL(file);
+  }
+
+  function validatePdf(file: File): string | null {
+    if (file.type !== "application/pdf" || !file.name.toLowerCase().endsWith(".pdf")) {
+      return "Only PDF files are allowed";
+    }
+    if (file.size > 10 * 1024 * 1024) return "File too large (max 10 MB)";
+    return null;
+  }
+
+  function handleFormPdf(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const validationError = validatePdf(file);
+    if (validationError) {
+      setFormError(validationError);
+      e.target.value = "";
+      return;
+    }
+    setFormPdf(file);
+    setFormError(null);
+  }
+
+  async function uploadPdf(itemId: number, file: File) {
+    const body = new FormData();
+    body.append("file", file);
+    const response = await apiFetch("/api/v1/attachments/" + itemId + "/documents", { method: "POST", body });
+    if (!response.ok) {
+      const detail = await response.json().catch(() => ({}));
+      throw new Error(detail.detail || "PDF upload failed");
+    }
   }
 
   // ── Save ─────────────────────────────────────────────────────────────────────
@@ -208,10 +247,25 @@ export default function AttachmentsPage() {
       image_base64: imgB64,
     };
     try {
+      let savedItem: AttachmentItem;
       if (dialog === "create") {
-        await apiFetchJson("/api/v1/attachments", { method: "POST", body: JSON.stringify(body) });
+        savedItem = await apiFetchJson<AttachmentItem>("/api/v1/attachments", { method: "POST", body: JSON.stringify(body) });
       } else {
-        await apiFetchJson(`/api/v1/attachments/${editing!.id}`, { method: "PUT", body: JSON.stringify(body) });
+        savedItem = await apiFetchJson<AttachmentItem>(`/api/v1/attachments/${editing!.id}`, { method: "PUT", body: JSON.stringify(body) });
+      }
+      if (formPdf) {
+        try {
+          await uploadPdf(savedItem.id, formPdf);
+        } catch (uploadError: unknown) {
+          if (dialog === "create") {
+            setEditing(savedItem);
+            setDialog("edit");
+            setFormError(`Attachment created, but the PDF could not be uploaded. ${uploadError instanceof Error ? uploadError.message : "Please try again."}`);
+            fetchItems(1);
+            return;
+          }
+          throw uploadError;
+        }
       }
       setDialog(null); fetchItems(dialog === "create" ? 1 : page);
     } catch (e: unknown) { setFormError(e instanceof Error ? e.message : "Save failed"); }
@@ -311,34 +365,39 @@ export default function AttachmentsPage() {
     }
   }
 
-  useEffect(() => {
-    if (viewItem) loadDocuments(viewItem.id);
-    else setDocuments([]);
-  }, [viewItem?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  function clearPdfPreview() {
+    setPreviewPdfUrl(current => {
+      if (current) URL.revokeObjectURL(current);
+      return null;
+    });
+    setPreviewPdfName(null);
+  }
+
+  function openView(item: AttachmentItem) {
+    clearPdfPreview();
+    setViewItem(item);
+    loadDocuments(item.id);
+  }
+
+  function closeView() {
+    setViewItem(null);
+    setDocuments([]);
+    clearPdfPreview();
+  }
 
   async function uploadDocument(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!viewItem || !file) return;
-    if (file.type !== "application/pdf" || !file.name.toLowerCase().endsWith(".pdf")) {
-      setDocumentError("Only PDF files are allowed");
-      e.target.value = "";
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      setDocumentError("File too large (max 10 MB)");
+    const validationError = validatePdf(file);
+    if (validationError) {
+      setDocumentError(validationError);
       e.target.value = "";
       return;
     }
     setDocumentBusy(true);
     setDocumentError(null);
     try {
-      const body = new FormData();
-      body.append("file", file);
-      const response = await apiFetch("/api/v1/attachments/" + viewItem.id + "/documents", { method: "POST", body });
-      if (!response.ok) {
-        const detail = await response.json().catch(() => ({}));
-        throw new Error(detail.detail || "Upload failed");
-      }
+      await uploadPdf(viewItem.id, file);
       await loadDocuments(viewItem.id);
       fetchItems(page);
     } catch (err: unknown) {
@@ -356,8 +415,11 @@ export default function AttachmentsPage() {
       const response = await apiFetch("/api/v1/attachments/" + viewItem.id + "/documents/" + document.id + "/content");
       if (!response.ok) throw new Error("Unable to open document");
       const url = URL.createObjectURL(await response.blob());
-      window.open(url, "_blank", "noopener,noreferrer");
-      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+      setPreviewPdfUrl(current => {
+        if (current) URL.revokeObjectURL(current);
+        return url;
+      });
+      setPreviewPdfName(document.filename);
     } catch (err: unknown) {
       setDocumentError(err instanceof Error ? err.message : "Unable to open document");
     }
@@ -368,6 +430,13 @@ export default function AttachmentsPage() {
     setDocumentBusy(true);
     try {
       await apiFetchJson("/api/v1/attachments/" + viewItem.id + "/documents/" + document.id, { method: "DELETE" });
+      if (previewPdfName === document.filename) {
+        setPreviewPdfUrl(current => {
+          if (current) URL.revokeObjectURL(current);
+          return null;
+        });
+        setPreviewPdfName(null);
+      }
       await loadDocuments(viewItem.id);
       fetchItems(page);
     } catch (err: unknown) {
@@ -510,7 +579,7 @@ export default function AttachmentsPage() {
                         <td className="px-4 py-3 text-muted-foreground text-xs">{fmtDate(item.updated_at)}</td>
                         <td className="px-4 py-3 text-right">
                           <div className="inline-flex gap-1">
-                            <Button variant="ghost" size="icon" className="size-7" title="View details" onClick={() => setViewItem(item)}>
+                            <Button variant="ghost" size="icon" className="size-7" title="View details" onClick={() => openView(item)}>
                               <Eye className="size-3.5 text-primary" />
                             </Button>
                             <Button variant="ghost" size="icon" className="size-7" title="Add Stock" onClick={() => openAdjust(item, "add")}>
@@ -614,7 +683,7 @@ export default function AttachmentsPage() {
 
       {/* ── Create / Edit Dialog ────────────────────────────────────── */}
       <Dialog open={dialog !== null} onOpenChange={o => !o && setDialog(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overflow-x-hidden">
           <DialogHeader className="mb-2">
             <DialogTitle>{dialog === "create" ? "New Attachment" : `Edit — ${editing ? displayName(editing) : ""}`}</DialogTitle>
           </DialogHeader>
@@ -682,6 +751,27 @@ export default function AttachmentsPage() {
                 <input ref={imgRef} type="file" accept="image/*" className="hidden" onChange={handleImg} />
               </div>
             </div>
+            <div className="space-y-1.5">
+              <Label>PDF <span className="text-muted-foreground font-normal text-xs">(optional, max 10 MB)</span></Label>
+              <input ref={formPdfRef} type="file" accept="application/pdf,.pdf" className="hidden" onChange={handleFormPdf} />
+              <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-md border bg-muted/20 p-2">
+                <FileText className="size-4 shrink-0 text-destructive" />
+                <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+                  {formPdf?.name ?? (dialog === "edit" ? "Choose a PDF to add" : "No PDF selected")}
+                </span>
+                <Button type="button" size="sm" variant="outline" onClick={() => formPdfRef.current?.click()} disabled={saving}>
+                  <Upload className="mr-1 size-3.5" />{formPdf ? "Change" : "Upload PDF"}
+                </Button>
+                {formPdf && (
+                  <Button type="button" size="sm" variant="ghost" onClick={() => setFormPdf(null)} disabled={saving}>
+                    Remove
+                  </Button>
+                )}
+              </div>
+              {dialog === "create" && formPdf && (
+                <p className="text-xs text-muted-foreground">The PDF will upload after the attachment is created.</p>
+              )}
+            </div>
             {formError && <p className="text-sm text-destructive">{formError}</p>}
             <div className="flex gap-3 pt-1">
               <Button onClick={save} disabled={saving} className="flex-1">
@@ -745,8 +835,8 @@ export default function AttachmentsPage() {
       </Dialog>
 
       {/* ── View Detail Dialog ───────────────────────────────────────── */}
-      <Dialog open={viewItem !== null} onOpenChange={o => !o && setViewItem(null)}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden">
+      <Dialog open={viewItem !== null} onOpenChange={o => !o && closeView()}>
+        <DialogContent className="max-w-3xl max-h-[calc(100dvh-2rem)] overflow-y-auto overflow-x-hidden">
           <DialogHeader>
             <DialogTitle className="break-words pr-6">{viewItem ? displayName(viewItem) : ""}</DialogTitle>
           </DialogHeader>
@@ -816,10 +906,36 @@ export default function AttachmentsPage() {
                           <p className="truncate text-sm font-medium">{document.filename}</p>
                           <p className="text-xs text-muted-foreground">{(document.size_bytes / 1024).toFixed(1)} KB{document.uploaded_by_username ? " · " + document.uploaded_by_username : ""}{document.uploaded_at ? " · " + fmtDate(document.uploaded_at) : ""}</p>
                         </div>
-                        <Button size="icon" variant="ghost" className="size-8" title="Open PDF" onClick={() => openDocument(document)}><Download className="size-3.5" /></Button>
+                        <Button size="icon" variant="ghost" className="size-8" title="View PDF" onClick={() => openDocument(document)}><Eye className="size-3.5" /></Button>
                         {admin && <Button size="icon" variant="ghost" className="size-8 text-destructive" title="Delete PDF" disabled={documentBusy} onClick={() => deleteDocument(document)}><Trash2 className="size-3.5" /></Button>}
                       </div>
                     ))}
+                  </div>
+                )}
+                {previewPdfUrl && (
+                  <div className="space-y-2 border-t pt-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="min-w-0 truncate text-sm font-medium">{previewPdfName}</p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setPreviewPdfUrl(current => {
+                            if (current) URL.revokeObjectURL(current);
+                            return null;
+                          });
+                          setPreviewPdfName(null);
+                        }}
+                      >
+                        Close preview
+                      </Button>
+                    </div>
+                    <iframe
+                      src={previewPdfUrl}
+                      title={previewPdfName ? `PDF preview: ${previewPdfName}` : "PDF preview"}
+                      className="h-[min(60dvh,42rem)] w-full rounded-md border bg-white"
+                    />
                   </div>
                 )}
               </div>
