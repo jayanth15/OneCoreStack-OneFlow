@@ -836,7 +836,7 @@ export default function AttachmentsPage() {
 
       {/* ── View Detail Dialog ───────────────────────────────────────── */}
       <Dialog open={viewItem !== null} onOpenChange={o => !o && closeView()}>
-        <DialogContent className="max-w-3xl max-h-[calc(100dvh-2rem)] overflow-y-auto overflow-x-hidden">
+        <DialogContent className="sm:max-w-3xl max-h-[calc(100dvh-2rem)] overflow-y-auto overflow-x-hidden">
           <DialogHeader>
             <DialogTitle className="break-words pr-6">{viewItem ? displayName(viewItem) : ""}</DialogTitle>
           </DialogHeader>
