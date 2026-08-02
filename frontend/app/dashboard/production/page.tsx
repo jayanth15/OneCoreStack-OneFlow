@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/layout/page-header";
 import { CalendarClock, ClipboardList, Clock, ChevronRight } from "lucide-react";
@@ -35,15 +35,11 @@ const SECTIONS = [
 
 export default function ProductionPage() {
   const router = useRouter();
-  const [showTimeReport, setShowTimeReport] = useState(true);
-
-  useEffect(() => {
+  // Only admin, super_admin, and manager see the Worker Time Report
+  const [showTimeReport] = useState(() => {
     const u = getCurrentUser();
-    // Only admin, super_admin, and manager see the Worker Time Report
-    if (u && u.role === "worker") {
-      setShowTimeReport(false);
-    }
-  }, []);
+    return !(u && u.role === "worker");
+  });
 
   const visibleSections = showTimeReport
     ? SECTIONS

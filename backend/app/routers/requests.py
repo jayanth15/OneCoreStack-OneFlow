@@ -31,7 +31,7 @@ from app.schemas.request import (
     RequestCreate, RequestUpdate, RequestRead, RequestListRead,
     RequestReviewAction, RequestItemAcceptAction, RequestStatusUpdate,
     RequestItemRead, RequestCustomerDispatchRead, RequestHistoryRead,
-    RequestDeliverAction, RequestDeliverItemAction, RequestAcknowledgeDeliveryAction,
+    RequestDeliverAction, RequestDeliverItemAction,
 )
 from app.routers.requests_helpers import (
     generate_sn, log_history, get_user_departments,
@@ -56,7 +56,7 @@ def _user_can_see_type(user: User, request_type: str, user_depts: list) -> bool:
                         customer dispatches, or user is admin.
     """
     if request_type == REQUEST_TYPE_VENDOR_PURCHASE:
-        if user.role in ("admin", "super_admin"):
+        if user.role in ("admin", "super_admin") or user.purchase_access:
             return True
         return any(d.can_create_purchase_request for d in user_depts)
     if request_type == REQUEST_TYPE_CUSTOMER_DISPATCH:
@@ -67,7 +67,7 @@ def _user_can_see_type(user: User, request_type: str, user_depts: list) -> bool:
 
 
 def _user_can_create_purchase_request(user: User, user_depts: list) -> bool:
-    if user.role in ("admin", "super_admin"):
+    if user.role in ("admin", "super_admin") or user.purchase_access:
         return True
     return any(d.can_create_purchase_request for d in user_depts)
 
@@ -320,7 +320,19 @@ def create_request(
     # Auto-stamp requester's home department (not for customer_dispatch)
     from_department: Optional[str] = None
     if payload.request_type != REQUEST_TYPE_CUSTOMER_DISPATCH:
-        if user_departments:
+        if payload.from_department:
+            if current_user.role not in ("admin", "super_admin"):
+                dept = next((d for d in user_departments if d.code == payload.from_department), None)
+                if dept is None:
+                    raise HTTPException(status_code=400, detail="from_department is not one of your departments")
+                if (
+                    payload.request_type == REQUEST_TYPE_VENDOR_PURCHASE
+                    and not dept.can_create_purchase_request
+                    and not current_user.purchase_access
+                ):
+                    raise HTTPException(status_code=400, detail="Your department is not configured for purchase requests")
+            from_department = payload.from_department
+        elif user_departments:
             from_department = user_departments[0].code
 
     # Validate: internal_transfer cannot send to own department
@@ -852,68 +864,6 @@ def deliver_request(
     return _build_read(req, session, current_user)
 
 
-# --- acknowledge delivery (requester confirms receipt → received) ---
-
-@router.post("/{request_id}/acknowledge-delivery", response_model=RequestRead)
-def acknowledge_delivery(
-    request_id: int,
-    payload: RequestAcknowledgeDeliveryAction,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-):
-    req = session.get(Request, request_id)
-    if not req:
-        raise HTTPException(status_code=404, detail="Request not found")
-    if req.request_type == REQUEST_TYPE_CUSTOMER_DISPATCH:
-        raise HTTPException(status_code=400, detail="acknowledge-delivery is not applicable to customer_dispatch requests")
-    if req.status != "awaiting_signoff":
-        raise HTTPException(status_code=409, detail=f"Cannot acknowledge a request in status '{req.status}'")
-    if req.requested_by_user_id != current_user.id and current_user.role not in ("admin", "super_admin"):
-        raise HTTPException(status_code=403, detail="Only the requester or an admin can confirm receipt")
-
-    old_status = req.status
-    req.status = "received"
-    req.acknowledged_by_user_id = current_user.id
-    req.acknowledged_by_username = current_user.username
-    req.acknowledged_at = datetime.now(tz=timezone.utc)
-    req.acknowledgment_note = payload.acknowledgment_note
-    req.updated_at = datetime.now(tz=timezone.utc)
-
-    receipts = session.exec(select(Receipt).where(Receipt.request_id == req.id)).all()
-    for receipt in receipts:
-        if receipt.status != "created":
-            continue
-        receipt.status = "signed_off"
-        receipt.signed_off_by_user_id = current_user.id
-        receipt.signed_off_by_username = current_user.username
-        receipt.signed_off_at = req.acknowledged_at
-        session.add(receipt)
-
-        receipt_items = session.exec(select(ReceiptItem).where(ReceiptItem.receipt_id == receipt.id)).all()
-        for item in receipt_items:
-            if item.quantity_signed_off is None:
-                item.quantity_signed_off = item.quantity_delivered
-            session.add(item)
-
-    log_history(session, req.id, changed_by_user_id=current_user.id, changed_by_username=current_user.username,
-                change_type="delivery_acknowledged", field_name="status", old_value=old_status, new_value="received",
-                note=payload.acknowledgment_note)
-
-    if req.department:
-        notify_department_users(
-            session,
-            department_code=req.department,
-            notif_type="request_received",
-            title=f"Request {req.sn_no} confirmed",
-            body=f"Requester {current_user.username} confirmed receipt of {req.sn_no}.",
-            request_id=req.id,
-        )
-
-    session.commit()
-    session.refresh(req)
-    return _build_read(req, session, current_user)
-
-
 # --- per-item acceptance (dept marks item received) ---
 
 @router.post("/{request_id}/items/accept", response_model=RequestRead)
@@ -1009,6 +959,45 @@ def accept_item(
 
 # --- manual status update (admin) ---
 
+def _deduct_for_status_completion(
+    session: Session,
+    req: Request,
+    current_user: User,
+    note: str,
+) -> None:
+    """Deduct stock when an admin completes an internal_transfer request via the
+    manual status override. Mirrors the deliver flow so no path to `received`
+    skips inventory deduction. Items already marked delivered were deducted by
+    the deliver endpoint and are skipped to avoid double-deduction.
+    """
+    if req.request_type != REQUEST_TYPE_INTERNAL_TRANSFER:
+        return
+    req_items = session.exec(
+        select(RequestItem).where(RequestItem.request_id == req.id)
+    ).all()
+    pending_items = [
+        item for item in req_items
+        if item.inventory_item_id is not None
+        and item.item_type
+        and item.item_status not in ("delivered", "rejected")
+    ]
+    if not pending_items:
+        return
+    deductions = [
+        StockDeduction(
+            inventory_type=item.item_type,
+            item_id=item.inventory_item_id,
+            quantity=item.quantity,
+            label=item.item_name or item.item_code or f"Request item {item.id}",
+        )
+        for item in pending_items
+    ]
+    deduct_request_stock(session, deductions, current_user, note=note)
+    for item in pending_items:
+        item.item_status = "delivered"
+        session.add(item)
+
+
 @router.post("/{request_id}/status", response_model=RequestRead)
 def set_status(
     request_id: int,
@@ -1022,6 +1011,15 @@ def set_status(
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
     old_status = req.status
+
+    # Completing a request via the manual override must still deduct stock
+    # (internal_transfer only — vendor_purchase is inbound and GRN adds stock).
+    if payload.new_status in ("awaiting_signoff", "received", "delivered"):
+        _deduct_for_status_completion(
+            session, req, current_user,
+            note=f"Completed via manual status override ({old_status} → {payload.new_status})",
+        )
+
     req.status = payload.new_status
     req.updated_at = datetime.now(tz=timezone.utc)
     log_history(session, req.id, changed_by_user_id=current_user.id, changed_by_username=current_user.username,

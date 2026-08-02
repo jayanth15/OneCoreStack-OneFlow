@@ -105,7 +105,7 @@ export default function SparesPage() {
   const [loading, setLoading] = useState(true);
   const [catMeta, setCatMeta] = useState({ total: 0, page: 1, pages: 1 });
   const [error, setError] = useState<string | null>(null);
-  const [admin, setAdmin] = useState(false);
+  const [admin] = useState(() => isAdminOrAbove());
   const [canEdit, setCanEdit] = useState(false);
   const [units, setUnits] = useState<{id: number; name: string}[]>([]);
   const [search, setSearch] = useState("");
@@ -156,6 +156,7 @@ export default function SparesPage() {
   const [historyItem, setHistoryItem] = useState<SpareItem | null>(null);
   const [historyVariant, setHistoryVariant] = useState<SpareVariant | null>(null);
   const [historyRows, setHistoryRows] = useState<SpareItemHistoryEntry[]>([]);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyHasMore, setHistoryHasMore] = useState(false);
@@ -209,7 +210,7 @@ export default function SparesPage() {
   const [deleting, setDeleting]         = useState(false);
 
   useEffect(() => {
-    setAdmin(isAdminOrAbove());
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCanEdit(canEditInventory("spare"));
     if (!canAccessInventory("spare")) {
       router.replace("/dashboard/inventory");
@@ -568,12 +569,12 @@ export default function SparesPage() {
   // ── History / Variants helpers ───────────────────────────────────────────────
 
   async function openHistory(item: SpareItem) {
-    setHistoryVariant(null); setHistoryItem(item); setHistoryRows([]); setHistoryPage(1); setHistoryHasMore(false); setHistoryLoading(true);
+    setHistoryVariant(null); setHistoryItem(item); setHistoryRows([]); setHistoryPage(1); setHistoryHasMore(false); setHistoryLoading(true); setHistoryError(null);
     try {
       const rows = await apiFetchJson<SpareItemHistoryEntry[]>(`/api/v1/spares/items/${item.id}/history?limit=10&offset=0`);
-      setHistoryRows(rows);
+      setHistoryRows(rows); setHistoryError(null);
       setHistoryHasMore(rows.length === 10);
-    } catch { /* ignore */ }
+    } catch { setHistoryError("Failed to load history"); }
     finally { setHistoryLoading(false); }
   }
 
@@ -581,9 +582,9 @@ export default function SparesPage() {
     setHistoryItem(item); setHistoryVariant(variant); setHistoryRows([]); setHistoryPage(1); setHistoryHasMore(false); setHistoryLoading(true);
     try {
       const rows = await apiFetchJson<SpareItemHistoryEntry[]>("/api/v1/spares/variants/" + variant.id + "/history?limit=10&offset=0");
-      setHistoryRows(rows);
+      setHistoryRows(rows); setHistoryError(null);
       setHistoryHasMore(rows.length === 10);
-    } catch { /* ignore */ }
+    } catch { setHistoryError("Failed to load history"); }
     finally { setHistoryLoading(false); }
   }
 
@@ -595,10 +596,10 @@ export default function SparesPage() {
         ? "/api/v1/spares/variants/" + historyVariant.id + "/history?limit=10&offset=" + ((newPage - 1) * 10)
         : "/api/v1/spares/items/" + historyItem.id + "/history?limit=10&offset=" + ((newPage - 1) * 10);
       const rows = await apiFetchJson<SpareItemHistoryEntry[]>(historyUrl);
-      setHistoryRows(rows);
+      setHistoryRows(rows); setHistoryError(null);
       setHistoryPage(newPage);
       setHistoryHasMore(rows.length === 10);
-    } catch { /* ignore */ }
+    } catch { setHistoryError("Failed to load history"); }
     finally { setHistoryLoading(false); }
   }
 
@@ -766,18 +767,26 @@ export default function SparesPage() {
     if (!win) return;
 
     // Fetch all data from API for the print — don't rely on UI state
-    const allCats = await apiFetchJson<any>("/api/v1/spares/categories?page_size=200").catch(() => ({ items: [] }));
+    const allCats = await apiFetchJson<{ items: { id: number; name: string }[] }>(
+      "/api/v1/spares/categories?page_size=200"
+    ).catch(() => ({ items: [] }));
     const rows: string[] = [];
 
     for (const cat of (allCats.items || [])) {
-      const subs = await apiFetchJson<any[]>(`/api/v1/spares/categories/${cat.id}/sub-categories?page_size=200`).catch(() => []);
+      const subs = await apiFetchJson<{ id: number; name: string }[]>(
+        `/api/v1/spares/categories/${cat.id}/sub-categories?page_size=200`
+      ).catch(() => []);
       for (const sub of (Array.isArray(subs) ? subs : [])) {
-        const items = await apiFetchJson<any>(`/api/v1/spares/sub-categories/${sub.id}/items?page_size=200&include_inactive=false`).catch(() => ({ items: [] }));
+        const items = await apiFetchJson<{ items: { id: number; name: string; recorded_qty: number }[] }>(
+          `/api/v1/spares/sub-categories/${sub.id}/items?page_size=200&include_inactive=false`
+        ).catch(() => ({ items: [] }));
         for (const item of (items.items || [])) {
-          const variants = await apiFetchJson<any[]>(`/api/v1/spares/items/${item.id}/variants`).catch(() => []);
+          const variants = await apiFetchJson<{ variant_color: string | null; serial_number: string | null; qty: number }[]>(
+            `/api/v1/spares/items/${item.id}/variants`
+          ).catch(() => []);
           const variantList = Array.isArray(variants) ? variants : [];
           if (variantList.length > 0) {
-            variantList.forEach((v: any) => {
+            variantList.forEach((v: { variant_color: string | null; serial_number: string | null; qty: number }) => {
               rows.push(`<tr>
                 <td>${cat.name}</td>
                 <td>${sub.name}</td>
@@ -1508,6 +1517,8 @@ export default function SparesPage() {
           <DialogHeader><DialogTitle className="flex items-center justify-between gap-2"><span>Stock History - {historyItem?.name}</span><Button size="sm" variant="outline" onClick={printHistory}><Printer className="size-3.5 mr-1" />Print</Button></DialogTitle></DialogHeader>
           {historyLoading ? (
             <div className="space-y-2 mt-2">{[1,2,3].map(i=><div key={i} className="h-10 rounded bg-muted animate-pulse" />)}</div>
+          ) : historyError ? (
+            <p className="text-sm text-destructive text-center py-8">{historyError}</p>
           ) : historyRows.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">No stock changes recorded yet.</p>
           ) : (

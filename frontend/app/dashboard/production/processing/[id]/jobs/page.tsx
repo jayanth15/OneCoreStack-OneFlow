@@ -92,6 +92,7 @@ function JobCardsListInner() {
 
   useEffect(() => {
     if (!id) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     apiFetchJson<ProductionOrder>(`/api/v1/production/orders/${id}`)
       .then((o) => setOrder(o))

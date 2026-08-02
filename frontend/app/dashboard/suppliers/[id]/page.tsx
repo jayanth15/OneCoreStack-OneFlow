@@ -105,6 +105,7 @@ export default function SupplierDetailPage() {
       .finally(() => setLoading(false));
   }
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Job handlers ──────────────────────────────────────────────────────────
@@ -167,7 +168,9 @@ export default function SupplierDetailPage() {
     try {
       await apiFetchJson(`/api/v1/suppliers/${id}/jobs/${jobId}`, { method: "DELETE" });
       load();
-    } catch { /* ignore */ } finally {
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to delete job");
+    } finally {
       setDeletingJobId(null);
     }
   }

@@ -84,7 +84,7 @@ const CAT_BLANK = { name: "", description: "" };
 
 export default function WeedersPage() {
   const router = useRouter();
-  const [admin, setAdmin] = useState(false);
+  const [admin] = useState(() => isAdminOrAbove());
   const [canEdit, setCanEdit] = useState(false);
 
   const [categories, setCategories] = useState<WeederCategory[]>([]);
@@ -137,13 +137,14 @@ export default function WeedersPage() {
 
   const [historyItem, setHistoryItem] = useState<WeederItem | null>(null);
   const [historyRows, setHistoryRows] = useState<HistoryEntry[]>([]);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyHasMore, setHistoryHasMore] = useState(false);
 
   useEffect(() => {
     const a = isAdminOrAbove();
-    setAdmin(a);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCanEdit(a || canEditInventory("weeder"));
     if (!canAccessInventory("weeder")) router.replace("/dashboard/inventory");
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -165,7 +166,9 @@ export default function WeedersPage() {
         `/api/v1/weeders/categories/${catId}/items?include_inactive=false&page_size=500`
       );
       setItemsMap(prev => new Map(prev).set(catId, data.items));
-    } catch { /* ignore */ }
+    } catch (e: unknown) {
+      setCatsError(e instanceof Error ? e.message : "Failed to load items");
+    }
     finally { setItemsLoadingSet(prev => { const s = new Set(prev); s.delete(catId); return s; }); }
   };
 
@@ -305,11 +308,11 @@ export default function WeedersPage() {
   }
 
   async function openHistory(item: WeederItem) {
-    setHistoryItem(item); setHistoryRows([]); setHistoryPage(1); setHistoryHasMore(false); setHistoryLoading(true);
+    setHistoryItem(item); setHistoryRows([]); setHistoryPage(1); setHistoryHasMore(false); setHistoryLoading(true); setHistoryError(null);
     try {
       const rows = await apiFetchJson<HistoryEntry[]>(`/api/v1/weeders/${item.id}/history?limit=10&offset=0`);
-      setHistoryRows(rows); setHistoryHasMore(rows.length === 10);
-    } catch { /* ignore */ }
+      setHistoryRows(rows); setHistoryError(null); setHistoryHasMore(rows.length === 10);
+    } catch { setHistoryError("Failed to load history"); }
     finally { setHistoryLoading(false); }
   }
   async function changeHistoryPage(newPage: number) {
@@ -317,8 +320,8 @@ export default function WeedersPage() {
     setHistoryRows([]); setHistoryLoading(true);
     try {
       const rows = await apiFetchJson<HistoryEntry[]>(`/api/v1/weeders/${historyItem.id}/history?limit=10&offset=${(newPage - 1) * 10}`);
-      setHistoryRows(rows); setHistoryPage(newPage); setHistoryHasMore(rows.length === 10);
-    } catch { /* ignore */ }
+      setHistoryRows(rows); setHistoryError(null); setHistoryPage(newPage); setHistoryHasMore(rows.length === 10);
+    } catch { setHistoryError("Failed to load history"); }
     finally { setHistoryLoading(false); }
   }
 
@@ -897,6 +900,8 @@ export default function WeedersPage() {
           </DialogHeader>
           {historyLoading ? (
             <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div>
+          ) : historyError ? (
+            <p className="text-sm text-destructive text-center py-8">{historyError}</p>
           ) : historyRows.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-6">No history yet.</p>
           ) : (

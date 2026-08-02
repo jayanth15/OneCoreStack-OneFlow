@@ -119,13 +119,14 @@ function ProcessingPageInner() {
   const [searchDraft, setSearchDraft] = useState(search);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [admin, setAdmin] = useState(false);
+  const [admin] = useState(() => isAdminOrAbove());
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setSearchDraft(search); }, [search]);
   // Detect admin once on mount
-  useEffect(() => { setAdmin(isAdminOrAbove()); }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setError(null);
     const params = new URLSearchParams({

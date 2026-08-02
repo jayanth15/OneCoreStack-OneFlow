@@ -20,7 +20,7 @@ export default function PwaDebugPage() {
       "userAgent": navigator.userAgent,
       "serviceWorker supported": String("serviceWorker" in navigator),
     };
-    setInfo(data);
+    setInfo(data); // eslint-disable-line react-hooks/set-state-in-effect
 
     // Check SW state
     if ("serviceWorker" in navigator) {

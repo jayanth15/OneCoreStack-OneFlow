@@ -197,6 +197,7 @@ export default function EditPlanPage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchMaterials(selectedSched, form.planned_qty);
   }, [selectedSched, form.planned_qty, fetchMaterials]);
 

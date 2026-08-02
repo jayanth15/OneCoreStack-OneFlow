@@ -106,6 +106,7 @@ export function BottomNav() {
 
   // close more menu on route change
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMoreOpen(false);
   }, [pathname]);
 

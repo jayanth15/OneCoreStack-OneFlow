@@ -32,11 +32,6 @@ interface POItem {
 interface PurchaseOrder {
   id: number;
   po_number: string;
-  party_type: string;
-  supplier_id: number | null;
-  supplier_name: string | null;
-  vendor_id: number | null;
-  vendor_name: string | null;
   po_date: string | null;
   expected_delivery: string | null;
   notes: string | null;
@@ -60,8 +55,6 @@ interface CompanyInfo {
   company_email: string;
   company_gstin: string;
 }
-
-interface NameOption { id: number; name: string; }
 
 interface InventoryItem {
   id: number;
@@ -183,8 +176,6 @@ const BLANK_ITEM = (): POItem => ({
 });
 const BLANK_FORM = () => ({
   po_number: "",
-  party_type: "supplier" as "supplier" | "vendor",
-  supplier_name: "", vendor_name: "",
   po_date: "", expected_delivery: "", notes: "", status: "draft",
   items: [BLANK_ITEM()],
   purchase_request_id: null as number | null,
@@ -247,8 +238,6 @@ export default function PurchaseOrdersPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
-  const [suppliers, setSuppliers] = useState<NameOption[]>([]);
-  const [vendors, setVendors] = useState<NameOption[]>([]);
 
   const [showCreate, setShowCreate] = useState(false);
   const [createForm, setCreateForm] = useState(BLANK_FORM);
@@ -289,23 +278,14 @@ export default function PurchaseOrdersPage() {
 
   useEffect(() => {
     apiFetchJson<CompanyInfo>("/api/v1/settings/company").then(setCompanyInfo).catch(() => {});
-    apiFetchJson<NameOption[]>("/api/v1/suppliers/names").then(setSuppliers).catch(() => {});
-    apiFetchJson<NameOption[]>("/api/v1/vendors/names").then(setVendors).catch(() => {});
     apiFetchJson<{ id: number; sn_no: string; item_name: string | null; items: { item_name: string | null; quantity: number }[] }[]>(
       "/api/v1/requests?request_type=vendor_purchase&status=approved&limit=100"
     ).then(setPurchaseRequests).catch(() => {});
   }, []);
 
   function buildPayload(form: ReturnType<typeof BLANK_FORM>) {
-    const supplier = suppliers.find(s => s.name === form.supplier_name);
-    const vendor = vendors.find(v => v.name === form.vendor_name);
     return {
       po_number: form.po_number || null,
-      party_type: form.party_type,
-      supplier_id: form.party_type === "supplier" ? (supplier?.id ?? null) : null,
-      supplier_name: form.party_type === "supplier" ? form.supplier_name || null : null,
-      vendor_id: form.party_type === "vendor" ? (vendor?.id ?? null) : null,
-      vendor_name: form.party_type === "vendor" ? form.vendor_name || null : null,
       po_date: form.po_date || null,
       expected_delivery: form.expected_delivery || null,
       notes: form.notes || null,
@@ -339,9 +319,6 @@ export default function PurchaseOrdersPage() {
     setEditTarget(po);
     setEditForm({
       po_number: po.po_number ?? "",
-      party_type: (po.party_type as "supplier" | "vendor") ?? (po.vendor_name ? "vendor" : "supplier"),
-      supplier_name: po.supplier_name ?? "",
-      vendor_name: po.vendor_name ?? "",
       po_date: po.po_date ?? "",
       expected_delivery: po.expected_delivery ?? "",
       notes: po.notes ?? "",
@@ -453,8 +430,6 @@ export default function PurchaseOrdersPage() {
   }
 
   function printPurchaseOrder(po: PurchaseOrder) {
-    const partyName = po.party_type === "vendor" ? po.vendor_name : po.supplier_name;
-    const partyLabel = po.party_type === "vendor" ? "Vendor" : "Supplier";
     const win = window.open("", "_blank", "width=800,height=700");
     if (!win) return;
     const co = companyInfo;
@@ -482,7 +457,6 @@ ${coHtml}
 <h2>Purchase Order — ${po.po_number}</h2>
 <p style="color:#666;font-size:11px">Generated on ${new Date().toLocaleString("en-IN")}</p>
 <div class="row">
-  <div><div class="lbl">${partyLabel}</div><div>${partyName ?? "—"}</div></div>
   <div><div class="lbl">Status</div><div>${po.status}</div></div>
   ${po.po_date ? `<div><div class="lbl">PO Date</div><div>${po.po_date}</div></div>` : ""}
   ${po.expected_delivery ? `<div><div class="lbl">Expected Delivery</div><div>${po.expected_delivery}</div></div>` : ""}
@@ -562,7 +536,7 @@ ${po.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${po.notes}</p>
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>New Purchase Order</DialogTitle></DialogHeader>
-          <POForm form={createForm} suppliers={suppliers} vendors={vendors} saving={createSaving} error={createError}
+          <POForm form={createForm} saving={createSaving} error={createError}
             onChange={setCreateForm} onSubmit={handleCreate} isCreate purchaseRequests={purchaseRequests}
             onPurchaseRequestSelect={seedFromPR} />
           <DialogFooter className="px-4 gap-2">
@@ -589,11 +563,6 @@ ${po.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${po.notes}</p>
                 <div><p className="text-xs text-muted-foreground">Status</p>
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[viewTarget.status] ?? "bg-muted text-muted-foreground"}`}>{viewTarget.status}</span>
                 </div>
-                {(viewTarget.supplier_name || viewTarget.vendor_name) && (
-                  <div><p className="text-xs text-muted-foreground">{viewTarget.party_type === "vendor" ? "Vendor" : "Supplier"}</p>
-                    <p className="font-medium">{viewTarget.party_type === "vendor" ? viewTarget.vendor_name : viewTarget.supplier_name}</p>
-                  </div>
-                )}
                 {viewTarget.po_date && <div><p className="text-xs text-muted-foreground">PO Date</p><p className="font-medium">{viewTarget.po_date}</p></div>}
                 {viewTarget.expected_delivery && <div><p className="text-xs text-muted-foreground">Expected Delivery</p><p className="font-medium">{viewTarget.expected_delivery}</p></div>}
                 {viewTarget.total_value > 0 && <div><p className="text-xs text-muted-foreground">Total Value</p><p className="font-semibold text-tone-violet">₹{viewTarget.total_value.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p></div>}
@@ -673,7 +642,7 @@ ${po.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${po.notes}</p>
       <Dialog open={!!editTarget} onOpenChange={(o) => { if (!o) setEditTarget(null); }}>
         <DialogContent className="w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Edit Purchase Order</DialogTitle></DialogHeader>
-          <POForm form={editForm} suppliers={suppliers} vendors={vendors} saving={editSaving} error={editError}
+          <POForm form={editForm} saving={editSaving} error={editError}
             onChange={setEditForm} onSubmit={handleEdit} isCreate={false} purchaseRequests={purchaseRequests} />
           <DialogFooter className="px-4 gap-2">
             <Button variant="outline" onClick={() => setEditTarget(null)} disabled={editSaving}>Cancel</Button>
@@ -719,11 +688,6 @@ ${po.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${po.notes}</p>
                       {po.status}
                     </span>
                   </div>
-                  {(po.supplier_name || po.vendor_name) && (
-                    <p className="text-sm font-medium mt-0.5">
-                      {po.party_type === "vendor" ? `Vendor: ${po.vendor_name}` : `Supplier: ${po.supplier_name}`}
-                    </p>
-                  )}
                   <div className="flex flex-wrap gap-x-4 gap-y-0 text-xs text-muted-foreground mt-1">
                     <span>{po.items.length} item{po.items.length !== 1 ? "s" : ""}</span>
                     {po.total_value > 0 && <span>Total: ₹{po.total_value.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>}
@@ -751,10 +715,8 @@ ${po.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${po.notes}</p>
 
 // ── Form ──────────────────────────────────────────────────────────────────────
 
-function POForm({ form, suppliers, vendors, saving, error, onChange, onSubmit, isCreate, purchaseRequests, onPurchaseRequestSelect }: {
+function POForm({ form, saving, error, onChange, onSubmit, isCreate, purchaseRequests, onPurchaseRequestSelect }: {
   form: ReturnType<typeof BLANK_FORM>;
-  suppliers: NameOption[];
-  vendors: NameOption[];
   saving: boolean;
   error: string | null;
   onChange: (f: ReturnType<typeof BLANK_FORM>) => void;
@@ -779,44 +741,6 @@ function POForm({ form, suppliers, vendors, saving, error, onChange, onSubmit, i
 
   return (
     <form onSubmit={onSubmit} className="px-4 space-y-4">
-      <div className="space-y-1.5">
-        <Label>Party Type</Label>
-        <div className="flex gap-2">
-          <button type="button"
-            className={`flex-1 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${form.party_type === "supplier" ? "bg-primary text-primary-foreground border-primary" : "bg-background text-foreground border-input hover:bg-muted"}`}
-            onClick={() => onChange({ ...form, party_type: "supplier", vendor_name: "" })}
-            disabled={saving}>
-            Supplier
-          </button>
-          <button type="button"
-            className={`flex-1 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${form.party_type === "vendor" ? "bg-primary text-primary-foreground border-primary" : "bg-background text-foreground border-input hover:bg-muted"}`}
-            onClick={() => onChange({ ...form, party_type: "vendor", supplier_name: "" })}
-            disabled={saving}>
-            Vendor (OEM)
-          </button>
-        </div>
-      </div>
-      {form.party_type === "supplier" ? (
-        <div className="space-y-1.5">
-          <Label htmlFor="po-supplier">Supplier</Label>
-          <select id="po-supplier" value={form.supplier_name}
-            onChange={(e) => onChange({ ...form, supplier_name: e.target.value })} disabled={saving}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
-            <option value="">— Select supplier —</option>
-            {suppliers.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-          </select>
-        </div>
-      ) : (
-        <div className="space-y-1.5">
-          <Label htmlFor="po-vendor">Vendor (OEM)</Label>
-          <select id="po-vendor" value={form.vendor_name}
-            onChange={(e) => onChange({ ...form, vendor_name: e.target.value })} disabled={saving}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
-            <option value="">— Select vendor —</option>
-            {vendors.map(v => <option key={v.id} value={v.name}>{v.name}</option>)}
-          </select>
-        </div>
-      )}
       <div className="space-y-1.5">
         <Label htmlFor="po-number">PO Number <span className="text-xs text-muted-foreground">(optional)</span></Label>
         <Input

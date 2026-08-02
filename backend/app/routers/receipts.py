@@ -310,11 +310,19 @@ def create_department_receipts_for_request(
 def list_receipts(
     session: Annotated[Session, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)],
+    search: str = Query(default=""),
+    status: Optional[str] = Query(default=None),
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
 ) -> List[dict]:
-    """List receipts visible to the current user."""
+    """List receipts visible to the current user. `status` and `search`
+    (receipt number prefix/contains) filter server-side for searchable dropdowns."""
     stmt = select(Receipt).order_by(Receipt.created_at.desc())
+
+    if status:
+        stmt = stmt.where(Receipt.status == status)
+    if search and search.strip():
+        stmt = stmt.where(Receipt.receipt_number.ilike(f"%{search.strip()}%"))  # type: ignore[union-attr]
 
     if current_user.role not in ("admin", "super_admin"):
         user_depts = get_user_departments(session, current_user.id)  # type: ignore[arg-type]

@@ -85,6 +85,7 @@ export function openPrintWindow(options: PrintOptions): void {
     .print-header .mode-badge { display: inline-block; background: #1e40af; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 8px; }
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
     th { background: #f3f4f6; }
+    button { display: none; }
     @page { margin: 15mm; }
   }
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; color: #111; }
@@ -98,7 +99,6 @@ export function openPrintWindow(options: PrintOptions): void {
   td { padding: 6px 10px; border: 1px solid #ddd; }
   .extra-header { margin-bottom: 8px; font-size: 12px; }
   .footer { margin-top: 16px; font-size: 11px; color: #888; border-top: 1px solid #ddd; padding-top: 8px; }
-  button { margin: 10px 0; padding: 8px 16px; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -113,7 +113,6 @@ export function openPrintWindow(options: PrintOptions): void {
     <tbody>${rowsHtml}</tbody>
   </table>
   <div class="footer">Printed: ${printedAt}</div>
-  <button onclick="window.print()">Print</button>
   <script>window.onload = () => { window.print(); };</script>
 </body>
 </html>`;

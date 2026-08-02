@@ -101,6 +101,7 @@ export default function NewPlanPage() {
   useEffect(() => {
     const qty = parseFloat(form.planned_qty);
     if (!selectedSched || !qty || qty <= 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMaterials([]);
       setMatsError(null);
       return;
@@ -432,7 +433,7 @@ export default function NewPlanPage() {
               </div>
             ) : (
               <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-                No process steps yet. Add steps like "Blanking", "Numbering", "Assembly"…
+                No process steps yet. Add steps like &ldquo;Blanking&rdquo;, &ldquo;Numbering&rdquo;, &ldquo;Assembly&rdquo;…
               </div>
             )}
           </section>

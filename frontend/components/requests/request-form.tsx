@@ -36,6 +36,7 @@ interface DeptRef {
   code: string;
   name: string;
   handles_customer_dispatch?: boolean;
+  can_create_purchase_request?: boolean;
 }
 
 interface InventoryItem {
@@ -200,6 +201,19 @@ export function RequestForm({
 
   const [depts, setDepts] = useState<DeptRef[]>([]);
   const [deptsLoadFailed, setDeptsLoadFailed] = useState(false);
+  const [fromDept, setFromDept] = useState<string>(defaultValues?.from_department ?? "");
+
+  const fromDeptOptions = useMemo(() => {
+    const user = getCurrentUser();
+    if (!user) return [];
+    if (user.role === "admin" || user.role === "super_admin") return depts;
+    const userCodes = user.department_codes ?? [];
+    return depts.filter(
+      (d) => userCodes.includes(d.code) && (user.purchase_access || d.can_create_purchase_request),
+    );
+  }, [depts]);
+
+  const effectiveFromDept = fromDept || (fromDeptOptions.length > 0 ? fromDeptOptions[0].code : "");
 
   useEffect(() => {
     apiFetchJson<DeptRef[]>("/api/v1/departments")
@@ -241,6 +255,7 @@ export function RequestForm({
     try {
       const payload: CreateRequestPayload = {
         request_type: requestType,
+        from_department: isPurchaseRequest ? (effectiveFromDept || undefined) : undefined,
         notes: notes || undefined,
         items: requestItems,
       };
@@ -298,6 +313,37 @@ export function RequestForm({
   return (
     <form onSubmit={submit} className="flex flex-col">
       <div className="space-y-4 px-1">
+        {isPurchaseRequest && fromDeptOptions.length > 1 && (
+          <Card size="sm" className="ring-1 ring-foreground/5">
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-2">
+                <div className="grid size-7 place-items-center rounded-md bg-primary/10 text-primary">
+                  <Building2 className="size-3.5" />
+                </div>
+                <div>
+                  <CardTitle className="text-xs">Requesting department</CardTitle>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Select the department raising this purchase request.
+                  </p>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Select value={effectiveFromDept} onValueChange={setFromDept}>
+                <SelectTrigger className="h-9 w-full sm:max-w-xs">
+                  <SelectValue placeholder="Select department" />
+                </SelectTrigger>
+                <SelectContent>
+                  {fromDeptOptions.map((d) => (
+                    <SelectItem key={d.id} value={d.code}>
+                      {d.code} — {d.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </CardContent>
+          </Card>
+        )}
         <Card size="sm" className="ring-1 ring-foreground/5">
           <CardHeader className="pb-2">
             <div className="flex items-center gap-2">

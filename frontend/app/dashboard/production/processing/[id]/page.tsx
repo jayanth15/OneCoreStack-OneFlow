@@ -125,6 +125,7 @@ export default function ProductionOrderDetailPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { loadOrder(); }, [loadOrder]);
 
   async function changeStatus(newStatus: string) {

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Factory, AlertCircle, Loader2 } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -61,11 +61,8 @@ export default function LoginPage() {
     <div className="min-h-screen flex bg-background">
       {/* Left brand panel — desktop only */}
       <div className="hidden lg:flex flex-col justify-between w-1/2 bg-gradient-to-br from-blue-600 to-blue-700 p-12 text-white">
-        <div className="flex items-center gap-3">
-          <div className="size-10 rounded-xl bg-white/15 flex items-center justify-center">
-            <Factory className="size-6 text-white" />
-          </div>
-          <span className="text-xl font-bold tracking-tight">OneFlow</span>
+        <div className="w-fit rounded-xl bg-white px-4 py-2 shadow-sm">
+          <img src="/oneflow-logo.png" alt="OneFlow" className="h-9 w-auto object-contain" />
         </div>
 
         <div className="max-w-md">
@@ -77,18 +74,17 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <p className="text-white/60 text-sm">OneFlow</p>
+        <div className="w-fit rounded-lg bg-white px-2.5 py-1">
+          <img src="/oneflow-logo.png" alt="OneFlow" className="h-5 w-auto object-contain" />
+        </div>
       </div>
 
       {/* Right form panel */}
       <div className="flex flex-1 items-center justify-center px-4 py-12">
         <div className="w-full max-w-sm">
           {/* Mobile brand header */}
-          <div className="mb-8 flex items-center gap-2.5 lg:hidden">
-            <div className="size-9 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-              <Factory className="size-5 text-white" />
-            </div>
-            <span className="text-xl font-bold tracking-tight">OneFlow</span>
+          <div className="mb-8 w-fit lg:hidden rounded-lg bg-white px-2.5 py-1.5">
+            <img src="/oneflow-logo.png" alt="OneFlow" className="h-6 w-auto object-contain" />
           </div>
 
           <div className="mb-6">

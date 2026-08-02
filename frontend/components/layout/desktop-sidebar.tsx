@@ -107,13 +107,8 @@ export function DesktopSidebar() {
   return (
     <aside className="hidden md:flex flex-col w-60 shrink-0 border-r bg-sidebar h-screen sticky top-0">
       {/* Logo / Brand */}
-      <div className="flex items-center gap-2.5 px-5 h-16 border-b shrink-0">
-        <div className="size-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 shadow-sm flex items-center justify-center">
-          <Factory className="size-4 text-white" />
-        </div>
-        <span className="text-base font-bold tracking-tight text-sidebar-foreground">
-          OneFlow
-        </span>
+      <div className="flex items-center px-5 h-16 border-b shrink-0">
+        <img src="/oneflow-logo.png" alt="OneFlow" className="h-7 w-auto object-contain" />
       </div>
 
       {/* Nav */}

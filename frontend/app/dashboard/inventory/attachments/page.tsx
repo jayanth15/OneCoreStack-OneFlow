@@ -137,6 +137,7 @@ export default function AttachmentsPage() {
   // history
   const [historyItem, setHistoryItem] = useState<AttachmentItem | null>(null);
   const [historyRows, setHistoryRows] = useState<HistoryEntry[]>([]);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyHasMore, setHistoryHasMore] = useState(false);
@@ -449,11 +450,11 @@ export default function AttachmentsPage() {
   // ── History ───────────────────────────────────────────────────────────
 
   async function openHistory(item: AttachmentItem) {
-    setHistoryItem(item); setHistoryRows([]); setHistoryPage(1); setHistoryHasMore(false); setHistoryLoading(true);
+    setHistoryItem(item); setHistoryRows([]); setHistoryPage(1); setHistoryHasMore(false); setHistoryLoading(true); setHistoryError(null);
     try {
       const rows = await apiFetchJson<HistoryEntry[]>(`/api/v1/attachments/${item.id}/history?limit=10&offset=0`);
-      setHistoryRows(rows); setHistoryHasMore(rows.length === 10);
-    } catch { /* ignore */ }
+      setHistoryRows(rows); setHistoryError(null); setHistoryHasMore(rows.length === 10);
+    } catch { setHistoryError("Failed to load history"); }
     finally { setHistoryLoading(false); }
   }
 
@@ -462,8 +463,8 @@ export default function AttachmentsPage() {
     setHistoryRows([]); setHistoryLoading(true);
     try {
       const rows = await apiFetchJson<HistoryEntry[]>(`/api/v1/attachments/${historyItem.id}/history?limit=10&offset=${(newPage - 1) * 10}`);
-      setHistoryRows(rows); setHistoryPage(newPage); setHistoryHasMore(rows.length === 10);
-    } catch { /* ignore */ }
+      setHistoryRows(rows); setHistoryError(null); setHistoryPage(newPage); setHistoryHasMore(rows.length === 10);
+    } catch { setHistoryError("Failed to load history"); }
     finally { setHistoryLoading(false); }
   }
 
@@ -1003,6 +1004,8 @@ export default function AttachmentsPage() {
           </DialogHeader>
           {historyLoading ? (
             <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div>
+          ) : historyError ? (
+            <p className="text-sm text-destructive text-center py-8">{historyError}</p>
           ) : historyRows.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-6">No history yet.</p>
           ) : (

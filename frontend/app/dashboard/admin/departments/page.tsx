@@ -62,6 +62,7 @@ export default function DepartmentsPage() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadDepts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showInactive]);

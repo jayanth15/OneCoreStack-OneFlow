@@ -37,6 +37,7 @@ export function usePwaInstall() {
       !/CriOS|FxiOS|EdgiOS/.test(ua);
 
     if (isIOS) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setInstallKind("ios");
       return;
     }

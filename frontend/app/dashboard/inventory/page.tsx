@@ -16,11 +16,12 @@ import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet";
 import { apiFetchJson } from "@/lib/api";
-import { isAdminOrAbove, canAccessInventory } from "@/lib/user";
+import { isAdminOrAbove, canAccessInventory, ALL_INVENTORY_TYPES } from "@/lib/user";
 import {
   PlusIcon, Pencil, Trash2, AlertTriangle, PackagePlus,
   PackageMinus, History, TrendingDown, Eye, Search, ChevronLeft, ChevronRight,
   Package, Box, Layers, Wrench, FlaskConical, Paperclip, Scissors, Recycle, Printer,
+  ClipboardCheck,
 } from "lucide-react";
 import { fetchAllPages, openPrintWindow } from "@/lib/print-report";
 
@@ -237,6 +238,13 @@ function InventoryLanding() {
       border: "hover:border-rose-400",
     },
     {
+      id: "cycle_count", label: "Cycle Count", desc: "Count one inventory type at a time",
+      href: "/dashboard/inventory/cycle-count",
+      icon: <ClipboardCheck className="size-8" />,
+      accent: "bg-primary/10 text-primary",
+      border: "hover:border-sky-400",
+    },
+    {
       id: "stock_alerts", label: "Stock Alerts", desc: "Items below reorder level",
       href: "/dashboard/inventory/stock-alerts",
       icon: <AlertTriangle className="size-8" />,
@@ -259,6 +267,10 @@ function InventoryLanding() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {CARDS.filter((c) => {
+            // cycle_count is visible when the user can access any inventory type
+            if (c.id === "cycle_count") {
+              return ALL_INVENTORY_TYPES.some((t) => canAccessInventory(t));
+            }
             // stock_alerts is always visible; otherwise check inventory_access
             if (c.id === "stock_alerts") return true;
             // map card id → inventory type token
@@ -287,9 +299,11 @@ function InventoryLanding() {
                 <p className="text-2xl font-bold tabular-nums">
                   {c.id === "stock_alerts"
                     ? <span className="text-sm font-normal text-muted-foreground">View alerts →</span>
-                    : count === null
-                      ? <span className="text-muted-foreground text-base animate-pulse">—</span>
-                      : <>{count}<span className="text-sm font-normal text-muted-foreground ml-1">{c.id === "spares" ? "categories" : "items"}</span></>}
+                    : c.id === "cycle_count"
+                      ? <span className="text-sm font-normal text-muted-foreground">All types →</span>
+                      : count === null
+                        ? <span className="text-muted-foreground text-base animate-pulse">—</span>
+                        : <>{count}<span className="text-sm font-normal text-muted-foreground ml-1">{c.id === "spares" ? "categories" : "items"}</span></>}
                 </p>
               </button>
             );
@@ -323,7 +337,7 @@ function InventoryPageInner() {
   const [data, setData]         = useState<PaginatedInventory | null>(null);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
-  const [admin, setAdmin]       = useState(false);
+  const [admin]                 = useState(() => isAdminOrAbove());
   const [searchDraft, setSearchDraft] = useState(search);
 
   // Delete
@@ -347,13 +361,14 @@ function InventoryPageInner() {
   const [historyPage, setHistoryPage]         = useState(1);
   const [historyHasMore, setHistoryHasMore]   = useState(false);
 
-  useEffect(() => { setAdmin(isAdminOrAbove()); }, []);
 
   // Keep search draft in sync with URL
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setSearchDraft(search); }, [search]);
 
   // ── Fetch — triggered on every URL param change ────────────────────────────
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setError(null);
     const params = new URLSearchParams({

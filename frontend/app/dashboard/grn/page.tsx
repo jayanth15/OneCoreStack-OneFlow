@@ -316,6 +316,7 @@ export default function GRNPage() {
       .finally(() => setLoading(false));
   }, [page, statusFilter]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchData(); }, [fetchData]);
 
   async function deleteGrn(grn: GRNRecord) {

@@ -337,7 +337,9 @@ export default function GatePassesPage() {
       });
       setViewTarget(null);
       load();
-    } catch { /* ignore */ } finally { setClosingId(null); }
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Failed to close gate pass");
+    } finally { setClosingId(null); }
   }
 
   async function openHistory(gp: GatePass) {
@@ -1027,6 +1029,18 @@ function GPInvCombobox({ invType, value, disabled, onSelect }: {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    function handler(e: PointerEvent) {
+      const target = e.target as Node | null;
+      if (target && rootRef.current && !rootRef.current.contains(target)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("pointerdown", handler);
+    return () => document.removeEventListener("pointerdown", handler);
+  }, []);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setQuery(value); }, [value]);
@@ -1081,14 +1095,13 @@ function GPInvCombobox({ invType, value, disabled, onSelect }: {
   }, [invType]);
 
   return (
-    <div className="relative">
+    <div className="relative" ref={rootRef}>
       <Input
         placeholder={`Search ${invType.replace("_", " ")}…`}
         value={query}
         disabled={disabled}
         onChange={(e) => { setQuery(e.target.value); doSearch(e.target.value); }}
         onFocus={() => { if (!query) doSearch(""); }}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
         className="text-sm"
       />
       {busy && (

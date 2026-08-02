@@ -34,13 +34,13 @@ interface RMRow {
 function NewBomForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const nextKey = useRef(1);
 
   const [productName, setProductName] = useState(searchParams.get("product") ?? "");
   const [finishedGoods, setFinishedGoods] = useState<InventoryItem[]>([]);
   const [rawMaterials, setRawMaterials] = useState<InventoryItem[]>([]);
   const [units, setUnits] = useState<{id: number; name: string}[]>([]);
-  const [rows, setRows] = useState<RMRow[]>([{ key: nextKey.current++, raw_material_id: "", qty_per_unit: 1, material_used: "", scrap: "", material_unit_id: "", notes: "" }]);
+  const [rows, setRows] = useState<RMRow[]>(() => [{ key: 1, raw_material_id: "", qty_per_unit: 1, material_used: "", scrap: "", material_unit_id: "", notes: "" }]);
+  const nextKeyRef = useRef(2);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -103,7 +103,8 @@ function NewBomForm() {
   // ── Row helpers ─────────────────────────────────────────────────────────────────────────────
 
   function addRow() {
-    setRows((r) => [...r, { key: nextKey.current++, raw_material_id: "", qty_per_unit: 1, material_used: "", scrap: "", material_unit_id: "", notes: "" }]);
+    const key = nextKeyRef.current++;
+    setRows((r) => [...r, { key, raw_material_id: "", qty_per_unit: 1, material_used: "", scrap: "", material_unit_id: "", notes: "" }]);
   }
 
   function removeRow(key: number) {

@@ -66,6 +66,7 @@ export default function NewProductionOrderPage() {
   // Auto-fill dates from selected plan
   useEffect(() => {
     if (selectedPlan) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setStartDate(selectedPlan.start_date ?? "");
       setEndDate(selectedPlan.end_date ?? "");
     } else {

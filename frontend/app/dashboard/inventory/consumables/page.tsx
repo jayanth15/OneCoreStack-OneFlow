@@ -84,7 +84,7 @@ const BLANK = {
 
 export default function ConsumablesPage() {
   const router = useRouter();
-  const [admin, setAdmin] = useState(false);
+  const [admin] = useState(() => isAdminOrAbove());
   const [items, setItems] = useState<Consumable[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -124,12 +124,12 @@ export default function ConsumablesPage() {
   // history
   const [historyItem, setHistoryItem] = useState<Consumable | null>(null);
   const [historyRows, setHistoryRows] = useState<ConsumableHistoryEntry[]>([]);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyHasMore, setHistoryHasMore] = useState(false);
 
   useEffect(() => {
-    setAdmin(isAdminOrAbove());
     if (!canAccessInventory("consumable")) {
       router.replace("/dashboard/inventory");
     }
@@ -252,12 +252,12 @@ export default function ConsumablesPage() {
   // ── History ───────────────────────────────────────────────────────────────────
 
   async function openHistory(item: Consumable) {
-    setHistoryItem(item); setHistoryRows([]); setHistoryPage(1); setHistoryHasMore(false); setHistoryLoading(true);
+    setHistoryItem(item); setHistoryRows([]); setHistoryPage(1); setHistoryHasMore(false); setHistoryLoading(true); setHistoryError(null);
     try {
       const rows = await apiFetchJson<ConsumableHistoryEntry[]>(`/api/v1/consumables/${item.id}/history?limit=10&offset=0`);
-      setHistoryRows(rows);
+      setHistoryRows(rows); setHistoryError(null);
       setHistoryHasMore(rows.length === 10);
-    } catch { /* ignore */ }
+    } catch { setHistoryError("Failed to load history"); }
     finally { setHistoryLoading(false); }
   }
 
@@ -266,10 +266,10 @@ export default function ConsumablesPage() {
     setHistoryRows([]); setHistoryLoading(true);
     try {
       const rows = await apiFetchJson<ConsumableHistoryEntry[]>(`/api/v1/consumables/${historyItem.id}/history?limit=10&offset=${(newPage - 1) * 10}`);
-      setHistoryRows(rows);
+      setHistoryRows(rows); setHistoryError(null);
       setHistoryPage(newPage);
       setHistoryHasMore(rows.length === 10);
-    } catch { /* ignore */ }
+    } catch { setHistoryError("Failed to load history"); }
     finally { setHistoryLoading(false); }
   }
 
@@ -786,6 +786,8 @@ export default function ConsumablesPage() {
           </DialogHeader>
           {historyLoading ? (
             <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div>
+          ) : historyError ? (
+            <p className="text-sm text-destructive text-center py-8">{historyError}</p>
           ) : historyRows.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-6">No history yet.</p>
           ) : (

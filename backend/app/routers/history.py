@@ -4,7 +4,8 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlmodel import Session, and_, func, select, text
+from sqlalchemy import String
+from sqlmodel import Session, and_, func, or_, select
 
 from app.core.database import get_session
 from app.dependencies.auth import get_current_user, is_admin_or_above
@@ -185,21 +186,38 @@ def _apply_filters(q, model, start_dt, end_dt, changed_by, entity_name=""):  # t
     return q
 
 
+def _apply_entity_search(q, history_model, fk_col, entity_model, name_cols, entity_name=""):  # type: ignore[no-untyped-def]
+    """Filter history by entity display-name columns in SQL, so count and
+    offset/limit pagination stay correct (no post-pagination filtering)."""
+    if not (entity_name and entity_name.strip()):
+        return q
+    pat = f"%{entity_name.strip()}%"
+    conds = [getattr(entity_model, col).ilike(pat) for col in name_cols]  # type: ignore[union-attr]
+    return q.join(entity_model, fk_col == entity_model.id).where(or_(*conds))
+
+
 def _inventory_history(
     session: Session, page: int, page_size: int, offset: int,
     start_dt, end_dt, changed_by, entity_name: str = "",
     item_type: Optional[str] = None,
 ) -> HistoryPage:
-    if item_type is not None:
-        # Filter by item_type via a join to InventoryItem
+    if item_type is not None or (entity_name and entity_name.strip()):
+        # Filter by item_type / entity name via a join to InventoryItem
         q = (
             select(InventoryHistory)
             .join(InventoryItem, InventoryHistory.inventory_item_id == InventoryItem.id)
-            .where(InventoryItem.item_type == item_type)
         )
+        if item_type is not None:
+            q = q.where(InventoryItem.item_type == item_type)
+        if entity_name and entity_name.strip():
+            pat = f"%{entity_name.strip()}%"
+            q = q.where(or_(
+                InventoryItem.code.ilike(pat),  # type: ignore[union-attr]
+                InventoryItem.name.ilike(pat),  # type: ignore[union-attr]
+            ))
     else:
         q = select(InventoryHistory)
-    q = _apply_filters(q, InventoryHistory, start_dt, end_dt, changed_by, entity_name)
+    q = _apply_filters(q, InventoryHistory, start_dt, end_dt, changed_by)
     total = session.exec(select(func.count()).select_from(q.subquery())).one()
     rows = session.exec(q.order_by(InventoryHistory.changed_at.desc()).offset(offset).limit(page_size)).all()  # type: ignore[union-attr]
 
@@ -225,8 +243,6 @@ def _inventory_history(
         )
         for r in rows
     ]
-    if entity_name:
-        out = [item for item in out if entity_name.lower() in (item.entity_name or "").lower()]
     return _page_result(out, total, page, page_size)
 
 
@@ -235,7 +251,8 @@ def _pr_history(
     start_dt, end_dt, changed_by, entity_name: str = "",
 ) -> HistoryPage:
     q = select(PurchaseRequestHistory)
-    q = _apply_filters(q, PurchaseRequestHistory, start_dt, end_dt, changed_by, entity_name)
+    q = _apply_filters(q, PurchaseRequestHistory, start_dt, end_dt, changed_by)
+    q = _apply_entity_search(q, PurchaseRequestHistory, PurchaseRequestHistory.request_id, PurchaseRequest, ("sn_no",), entity_name)
     total = session.exec(select(func.count()).select_from(q.subquery())).one()
     rows = session.exec(q.order_by(PurchaseRequestHistory.changed_at.desc()).offset(offset).limit(page_size)).all()  # type: ignore[union-attr]
 
@@ -260,8 +277,6 @@ def _pr_history(
         )
         for r in rows
     ]
-    if entity_name:
-        out = [item for item in out if entity_name.lower() in (item.entity_name or "").lower()]
     return _page_result(out, total, page, page_size)
 
 
@@ -270,7 +285,8 @@ def _mr_history(
     start_dt, end_dt, changed_by, entity_name: str = "",
 ) -> HistoryPage:
     q = select(MarketingRequestHistory)
-    q = _apply_filters(q, MarketingRequestHistory, start_dt, end_dt, changed_by, entity_name)
+    q = _apply_filters(q, MarketingRequestHistory, start_dt, end_dt, changed_by)
+    q = _apply_entity_search(q, MarketingRequestHistory, MarketingRequestHistory.request_id, MarketingRequest, ("sn_no",), entity_name)
     total = session.exec(select(func.count()).select_from(q.subquery())).one()
     rows = session.exec(q.order_by(MarketingRequestHistory.changed_at.desc()).offset(offset).limit(page_size)).all()  # type: ignore[union-attr]
 
@@ -295,8 +311,6 @@ def _mr_history(
         )
         for r in rows
     ]
-    if entity_name:
-        out = [item for item in out if entity_name.lower() in (item.entity_name or "").lower()]
     return _page_result(out, total, page, page_size)
 
 
@@ -305,7 +319,13 @@ def _job_card_history(
     start_dt, end_dt, changed_by, entity_name: str = "",
 ) -> HistoryPage:
     q = select(JobCardHistory)
-    q = _apply_filters(q, JobCardHistory, start_dt, end_dt, changed_by, entity_name)
+    q = _apply_filters(q, JobCardHistory, start_dt, end_dt, changed_by)
+    if entity_name and entity_name.strip():
+        # Job cards display as "Job #<id>" — search by numeric id in SQL
+        pat = f"%{entity_name.strip()}%"
+        q = q.where(JobCardHistory.job_card_id.in_(  # type: ignore[union-attr]
+            select(JobCard.id).where(func.cast(JobCard.id, String).ilike(pat))
+        ))
     total = session.exec(select(func.count()).select_from(q.subquery())).one()
     rows = session.exec(q.order_by(JobCardHistory.changed_at.desc()).offset(offset).limit(page_size)).all()  # type: ignore[union-attr]
 
@@ -330,8 +350,6 @@ def _job_card_history(
         )
         for r in rows
     ]
-    if entity_name:
-        out = [item for item in out if entity_name.lower() in (item.entity_name or "").lower()]
     return _page_result(out, total, page, page_size)
 
 
@@ -340,7 +358,8 @@ def _schedule_history(
     start_dt, end_dt, changed_by, entity_name: str = "",
 ) -> HistoryPage:
     q = select(ScheduleHistory)
-    q = _apply_filters(q, ScheduleHistory, start_dt, end_dt, changed_by, entity_name)
+    q = _apply_filters(q, ScheduleHistory, start_dt, end_dt, changed_by)
+    q = _apply_entity_search(q, ScheduleHistory, ScheduleHistory.schedule_id, Schedule, ("customer_name",), entity_name)
     total = session.exec(select(func.count()).select_from(q.subquery())).one()
     rows = session.exec(q.order_by(ScheduleHistory.changed_at.desc()).offset(offset).limit(page_size)).all()  # type: ignore[union-attr]
 
@@ -364,8 +383,6 @@ def _schedule_history(
         )
         for r in rows
     ]
-    if entity_name:
-        out = [item for item in out if entity_name.lower() in (item.entity_name or "").lower()]
     return _page_result(out, total, page, page_size)
 
 
@@ -374,7 +391,8 @@ def _consumable_history(
     start_dt, end_dt, changed_by, entity_name: str = "",
 ) -> HistoryPage:
     q = select(ConsumableHistory)
-    q = _apply_filters(q, ConsumableHistory, start_dt, end_dt, changed_by, entity_name)
+    q = _apply_filters(q, ConsumableHistory, start_dt, end_dt, changed_by)
+    q = _apply_entity_search(q, ConsumableHistory, ConsumableHistory.consumable_id, Consumable, ("name",), entity_name)
     total = session.exec(select(func.count()).select_from(q.subquery())).one()
     rows = session.exec(q.order_by(ConsumableHistory.changed_at.desc()).offset(offset).limit(page_size)).all()  # type: ignore[union-attr]
 
@@ -399,8 +417,6 @@ def _consumable_history(
         )
         for r in rows
     ]
-    if entity_name:
-        out = [item for item in out if entity_name.lower() in (item.entity_name or "").lower()]
     return _page_result(out, total, page, page_size)
 
 
@@ -409,7 +425,8 @@ def _spare_history(
     start_dt, end_dt, changed_by, entity_name: str = "",
 ) -> HistoryPage:
     q = select(SpareItemHistory)
-    q = _apply_filters(q, SpareItemHistory, start_dt, end_dt, changed_by, entity_name)
+    q = _apply_filters(q, SpareItemHistory, start_dt, end_dt, changed_by)
+    q = _apply_entity_search(q, SpareItemHistory, SpareItemHistory.spare_item_id, SpareItem, ("name",), entity_name)
     total = session.exec(select(func.count()).select_from(q.subquery())).one()
     rows = session.exec(q.order_by(SpareItemHistory.changed_at.desc()).offset(offset).limit(page_size)).all()  # type: ignore[union-attr]
 
@@ -435,8 +452,6 @@ def _spare_history(
         )
         for r in rows
     ]
-    if entity_name:
-        out = [item for item in out if entity_name.lower() in (item.entity_name or "").lower()]
     return _page_result(out, total, page, page_size)
 
 
@@ -445,7 +460,8 @@ def _weeder_history(
     start_dt, end_dt, changed_by, entity_name: str = "",
 ) -> HistoryPage:
     q = select(WeederHistory)
-    q = _apply_filters(q, WeederHistory, start_dt, end_dt, changed_by, entity_name)
+    q = _apply_filters(q, WeederHistory, start_dt, end_dt, changed_by)
+    q = _apply_entity_search(q, WeederHistory, WeederHistory.weeder_id, WeederItem, ("sn_no", "description"), entity_name)
     total = session.exec(select(func.count()).select_from(q.subquery())).one()
     rows = session.exec(q.order_by(WeederHistory.changed_at.desc()).offset(offset).limit(page_size)).all()  # type: ignore[union-attr]
 
@@ -470,8 +486,6 @@ def _weeder_history(
         )
         for r in rows
     ]
-    if entity_name:
-        out = [item for item in out if entity_name.lower() in (item.entity_name or "").lower()]
     return _page_result(out, total, page, page_size)
 
 
@@ -480,7 +494,8 @@ def _attachment_history(
     start_dt, end_dt, changed_by, entity_name: str = "",
 ) -> HistoryPage:
     q = select(AttachmentHistory)
-    q = _apply_filters(q, AttachmentHistory, start_dt, end_dt, changed_by, entity_name)
+    q = _apply_filters(q, AttachmentHistory, start_dt, end_dt, changed_by)
+    q = _apply_entity_search(q, AttachmentHistory, AttachmentHistory.attachment_id, AttachmentItem, ("sn_no", "description"), entity_name)
     total = session.exec(select(func.count()).select_from(q.subquery())).one()
     rows = session.exec(q.order_by(AttachmentHistory.changed_at.desc()).offset(offset).limit(page_size)).all()  # type: ignore[union-attr]
 
@@ -505,8 +520,6 @@ def _attachment_history(
         )
         for r in rows
     ]
-    if entity_name:
-        out = [item for item in out if entity_name.lower() in (item.entity_name or "").lower()]
     return _page_result(out, total, page, page_size)
 
 
@@ -515,7 +528,8 @@ def _dispatch_history(
     start_dt, end_dt, changed_by, entity_name: str = "",
 ) -> HistoryPage:
     q = select(DispatchHistory)
-    q = _apply_filters(q, DispatchHistory, start_dt, end_dt, changed_by, entity_name)
+    q = _apply_filters(q, DispatchHistory, start_dt, end_dt, changed_by)
+    q = _apply_entity_search(q, DispatchHistory, DispatchHistory.dispatch_id, Dispatch, ("dispatch_number",), entity_name)
     total = session.exec(select(func.count()).select_from(q.subquery())).one()
     rows = session.exec(q.order_by(DispatchHistory.changed_at.desc()).offset(offset).limit(page_size)).all()  # type: ignore[union-attr]
 
@@ -539,8 +553,6 @@ def _dispatch_history(
         )
         for r in rows
     ]
-    if entity_name:
-        out = [item for item in out if entity_name.lower() in (item.entity_name or "").lower()]
     return _page_result(out, total, page, page_size)
 
 
@@ -549,7 +561,8 @@ def _gate_pass_history(
     start_dt, end_dt, changed_by, entity_name: str = "",
 ) -> HistoryPage:
     q = select(GatePassHistory)
-    q = _apply_filters(q, GatePassHistory, start_dt, end_dt, changed_by, entity_name)
+    q = _apply_filters(q, GatePassHistory, start_dt, end_dt, changed_by)
+    q = _apply_entity_search(q, GatePassHistory, GatePassHistory.gate_pass_id, GatePass, ("gate_pass_number",), entity_name)
     total = session.exec(select(func.count()).select_from(q.subquery())).one()
     rows = session.exec(q.order_by(GatePassHistory.changed_at.desc()).offset(offset).limit(page_size)).all()  # type: ignore[union-attr]
 
@@ -573,6 +586,4 @@ def _gate_pass_history(
         )
         for r in rows
     ]
-    if entity_name:
-        out = [item for item in out if entity_name.lower() in (item.entity_name or "").lower()]
     return _page_result(out, total, page, page_size)

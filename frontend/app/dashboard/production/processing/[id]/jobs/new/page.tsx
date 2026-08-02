@@ -48,7 +48,8 @@ function NewJobCardInner() {
   const [workerBusy, setWorkerBusy] = useState(false);
   const [jobType, setJobType] = useState<"internal" | "supplier">(prefillJobType);
   const [supplierId, setSupplierId] = useState<string>(prefillSupplierId);
-  const [producedQty, setProducedQty] = useState("0");
+  const [hoursWorked, setHoursWorked] = useState("");
+  const [minutesWorked, setMinutesWorked] = useState("");
   const [workDate, setWorkDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [dateLocked, setDateLocked] = useState(false);
   const [notes, setNotes] = useState("");
@@ -83,35 +84,34 @@ function NewJobCardInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // Debounced worker search
+  const [workerOpen, setWorkerOpen] = useState(false);
+
+  // Debounced worker search — opens on focus showing all workers, filters as you type
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (!workerSearch.trim()) { setWorkerResults([]); setWorkerBusy(false); return; }
+    if (!workerOpen) return;
     const timer = setTimeout(() => {
       setWorkerBusy(true);
-      apiFetchJson<{id: number; username: string}[]>(`/api/v1/production/workers?search=${encodeURIComponent(workerSearch.trim())}`)
+      const qs = workerSearch.trim() ? `?search=${encodeURIComponent(workerSearch.trim())}` : "";
+      apiFetchJson<{id: number; username: string}[]>(`/api/v1/production/workers${qs}`)
         .then((r) => setWorkerResults(r))
         .catch(() => setWorkerResults([]))
         .finally(() => setWorkerBusy(false));
-    }, 300);
+    }, workerSearch.trim() ? 300 : 0);
     return () => clearTimeout(timer);
-  }, [workerSearch]);
+  }, [workerSearch, workerOpen]);
 
-  // Auto-compute time from produced quantity and process estimated time.
+  // Hours worked is entered directly (hours + minutes) — no qty auto-calc.
   const selectedProcess = order?.processes.find((p) => p.name === processName) ?? null;
   const estimatedTimeMinutes = selectedProcess?.estimated_time_minutes ?? null;
-  const producedQtyNumber = parseFloat(producedQty) || 0;
-  const computedHours = estimatedTimeMinutes && producedQtyNumber > 0
-    ? (producedQtyNumber * estimatedTimeMinutes) / 60
-    : 0;
-  const computedHoursLabel = computedHours > 0 && computedHours < 0.1
-    ? computedHours.toFixed(3)
-    : computedHours.toFixed(2);
+  const hoursNumber = parseFloat(hoursWorked) || 0;
+  const minutesNumber = parseFloat(minutesWorked) || 0;
+  const totalHours = Math.round((hoursNumber + minutesNumber / 60) * 1000) / 1000;
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!processName.trim()) { setError("Select a process"); return; }
     if (jobType === "internal" && selectedWorkers.length === 0) { setError("Select at least one worker"); return; }
+    if (totalHours <= 0) { setError("Enter hours worked"); return; }
     setSaving(true);
     setError(null);
     try {
@@ -122,9 +122,9 @@ function NewJobCardInner() {
         machine_name: machine || null,
         worker_name: workerNames[0] ?? null,
         worker_names: workerNames,
-        hours_worked: computedHours,
-        actual_qty: producedQtyNumber,
-        qty_produced: producedQtyNumber,
+        hours_worked: totalHours,
+        actual_qty: 0,
+        qty_produced: 0,
         work_date: workDate || null,
         notes: notes || null,
         job_type: jobType,
@@ -251,11 +251,12 @@ function NewJobCardInner() {
                 <div className="relative">
                   <Input
                     value={workerSearch}
-                    onChange={(e) => setWorkerSearch(e.target.value)}
+                    onChange={(e) => { setWorkerSearch(e.target.value); setWorkerOpen(true); }}
+                    onFocus={() => setWorkerOpen(true)}
                     disabled={saving}
                     placeholder="Search worker name…"
                   />
-                  {workerSearch.trim() && (
+                  {workerOpen && (
                     <div className="absolute top-full mt-1 left-0 right-0 z-50 rounded-md border bg-popover shadow-md max-h-48 overflow-y-auto">
                       {workerBusy ? (
                         <p className="px-3 py-2 text-sm text-muted-foreground">Searching…</p>
@@ -297,19 +298,39 @@ function NewJobCardInner() {
               </div>
             )}
 
-            {/* Products produced — hours are auto-computed */}
+            {/* Hours worked — entered directly (hours + minutes) */}
             <div className="space-y-1.5">
-              <Label htmlFor="produced_qty">Products Produced <span className="text-destructive">*</span></Label>
-              <Input id="produced_qty" type="number" step="any" min="0" value={producedQty}
-                onChange={(e) => setProducedQty(e.target.value)} disabled={saving} />
-              {estimatedTimeMinutes && producedQtyNumber > 0 && (
+              <Label>Hours Worked <span className="text-destructive">*</span></Label>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Input
+                    id="hours_worked"
+                    type="number"
+                    min={0}
+                    step="any"
+                    placeholder="Hours"
+                    value={hoursWorked}
+                    onChange={(e) => setHoursWorked(e.target.value)}
+                    disabled={saving}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Input
+                    id="minutes_worked"
+                    type="number"
+                    min={0}
+                    max={59}
+                    step={1}
+                    placeholder="Minutes"
+                    value={minutesWorked}
+                    onChange={(e) => setMinutesWorked(e.target.value)}
+                    disabled={saving}
+                  />
+                </div>
+              </div>
+              {totalHours > 0 && (
                 <p className="text-xs text-muted-foreground">
-                  Time calculated: {computedHoursLabel} h ({producedQtyNumber} × {estimatedTimeMinutes} min/unit ÷ 60)
-                </p>
-              )}
-              {estimatedTimeMinutes == null && (
-                <p className="text-xs text-amber-600">
-                  No estimated time set for this process. Hours will be saved as 0.
+                  Total: {totalHours} h{estimatedTimeMinutes != null ? ` · Estimated for this process: ${estimatedTimeMinutes} min/unit` : ""}
                 </p>
               )}
             </div>

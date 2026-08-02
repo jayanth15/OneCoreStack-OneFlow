@@ -8,7 +8,8 @@ export default function SetupPage() {
   return (
     <div className="min-h-dvh bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">
-        <div className="text-center space-y-2">
+        <div className="text-center space-y-3">
+          <img src="/oneflow-logo.png" alt="OneFlow" className="h-9 w-auto object-contain mx-auto" />
           <h1 className="text-2xl font-bold">OneFlow Device Setup</h1>
           <p className="text-sm text-muted-foreground">
             Install the OneFlow certificate so the app works properly as a PWA

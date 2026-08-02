@@ -205,7 +205,7 @@ export default function RequestsPage() {
   const hasNextPage = (data?.length ?? 0) === PAGE_SIZE;
   const hasPreviousPage = page > 1;
   const isAdminUser = user.role === "admin" || user.role === "super_admin";
-  const purchaseRequestAllowed = isAdminUser || departments.some(
+  const purchaseRequestAllowed = isAdminUser || user.purchase_access || departments.some(
     (dept) => dept.can_create_purchase_request && (user.department_codes ?? []).includes(dept.code),
   );
 

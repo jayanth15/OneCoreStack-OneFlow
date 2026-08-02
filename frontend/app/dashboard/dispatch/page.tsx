@@ -12,8 +12,9 @@ import {
 } from "@/components/ui/dialog";
 import { apiFetchJson } from "@/lib/api";
 import { getCurrentUser, isAdminOrAbove, refreshCurrentUser } from "@/lib/user";
-import { PackageCheck, Plus, Search, Pencil, Minus, Printer, Trash2 } from "lucide-react";
+import { PackageCheck, Plus, Search, Pencil, Minus, Printer, Trash2, X, History } from "lucide-react";
 import { openPrintWindow } from "@/lib/print-report";
+import { SearchCombobox } from "@/components/ui/search-combobox";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -34,8 +35,6 @@ interface Dispatch {
   supplier_name: string | null;
   schedule_id: number | null;
   schedule_number: string | null;
-  request_id: number | null;
-  request_sn_no: string | null;
   receipt_id: number | null;
   receipt_number: string | null;
   product_name: string;
@@ -70,9 +69,8 @@ interface DispatchFormState {
   driver_name: string;
   notes: string;
   status: string;
-  request_id: number | null;
-  request_sn_no: string;
   receipt_id: number | null;
+  receipt_number: string;
 }
 
 interface CompanyInfo {
@@ -88,8 +86,24 @@ interface CompanyInfo {
 }
 
 interface NameOption { id: number; name: string; }
-interface AvailableRequest { id: number; sn_no: string; request_type: string; status: string; requested_by_username: string | null; }
-interface ReceiptOption { id: number; receipt_number: string; request_id: number; request_sn_no: string | null; status: string; }
+interface ReceiptOption {
+  id: number;
+  receipt_number: string;
+  status: string;
+  request_sn_no?: string | null;
+}
+interface DispatchHistoryEntry {
+  id: number;
+  dispatch_id: number;
+  changed_by_username: string | null;
+  changed_at: string;
+  change_type: string;
+  old_status: string | null;
+  new_status: string | null;
+  notes: string | null;
+}
+
+const HISTORY_PAGE_SIZE = 10;
 
 const STATUS_COLORS: Record<string, string> = {
   pending:    "bg-warning/15 text-warning",
@@ -121,9 +135,8 @@ function BLANK_FORM(): DispatchFormState {
     items: [blankDispatchItem()],
     dispatch_date: "",
     vehicle_number: "", driver_name: "", notes: "", status: "pending",
-    request_id: null,
-    request_sn_no: "",
     receipt_id: null,
+    receipt_number: "",
   };
 }
 
@@ -150,7 +163,6 @@ export default function DispatchPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [vendors, setVendors] = useState<NameOption[]>([]);
-  const [receipts, setReceipts] = useState<ReceiptOption[]>([]);
 
   const [showCreate, setShowCreate] = useState(false);
   const [createForm, setCreateForm] = useState<DispatchFormState>(BLANK_FORM());
@@ -164,9 +176,13 @@ export default function DispatchPage() {
 
   const searchRef = useRef<HTMLInputElement>(null);
   const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
-  const [availableRequests, setAvailableRequests] = useState<AvailableRequest[]>([]);
   const adminUser = isAdminOrAbove();
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [historyTarget, setHistoryTarget] = useState<Dispatch | null>(null);
+  const [historyRows, setHistoryRows] = useState<DispatchHistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyHasMore, setHistoryHasMore] = useState(false);
 
   function load() {
     setLoading(true);
@@ -180,21 +196,13 @@ export default function DispatchPage() {
       .finally(() => setLoading(false));
   }
 
-  function loadAvailableRequests(excludeDispatchId?: number) {
-    const query = excludeDispatchId ? "?exclude_dispatch_id=" + excludeDispatchId : "";
-    apiFetchJson<AvailableRequest[]>("/api/v1/dispatch/available-requests" + query)
-      .then(setAvailableRequests)
-      .catch(() => setAvailableRequests([]));
-  }
-
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load(); }, [search, statusFilter]);
 
   useEffect(() => {
     apiFetchJson<CompanyInfo>("/api/v1/settings/company").then(setCompanyInfo).catch(() => {});
     apiFetchJson<NameOption[]>("/api/v1/vendors/names").then(setVendors).catch(() => {});
-    apiFetchJson<ReceiptOption[]>("/api/v1/receipts?limit=500").then(setReceipts).catch(() => setReceipts([]));
-    loadAvailableRequests();
   }, []);
 
   function buildPayload(form: DispatchFormState) {
@@ -209,9 +217,7 @@ export default function DispatchPage() {
       supplier_name: form.party_type === "supplier" ? form.supplier_name || null : null,
       schedule_id: null,
       schedule_number: null,
-      request_id: form.request_id,
-      request_sn_no: form.request_sn_no || null,
-      receipt_id: form.party_type === "supplier" ? form.receipt_id : null,
+      receipt_id: form.receipt_id,
       product_name: first?.item_name ?? "",
       quantity: parseFloat(first?.quantity ?? "0") || 0,
       unit: first?.unit || null,
@@ -240,14 +246,13 @@ export default function DispatchPage() {
         method: "POST",
         body: JSON.stringify(buildPayload(createForm)),
       });
-      setShowCreate(false); setCreateForm(BLANK_FORM()); load(); loadAvailableRequests();
+      setShowCreate(false); setCreateForm(BLANK_FORM()); load();
     } catch (err: unknown) {
       setCreateError(err instanceof Error ? err.message : "Failed to create");
     } finally { setCreateSaving(false); }
   }
 
   function openEdit(d: Dispatch) {
-    loadAvailableRequests(d.id);
     setEditTarget(d);
     const partyType = (d.party_type as "vendor" | "supplier") ?? (d.supplier_name ? "supplier" : "vendor");
     const formItems: DispatchItemForm[] =
@@ -271,9 +276,8 @@ export default function DispatchPage() {
       driver_name: d.driver_name ?? "",
       notes: d.notes ?? "",
       status: d.status,
-      request_id: d.request_id,
-      request_sn_no: d.request_sn_no ?? "",
       receipt_id: d.receipt_id,
+      receipt_number: d.receipt_number ?? "",
     });
     setEditError(null);
   }
@@ -289,7 +293,7 @@ export default function DispatchPage() {
         method: "PUT",
         body: JSON.stringify(buildPayload(editForm)),
       });
-      setEditTarget(null); load(); loadAvailableRequests();
+      setEditTarget(null); load();
     } catch (err: unknown) {
       setEditError(err instanceof Error ? err.message : "Failed to update");
     } finally { setEditSaving(false); }
@@ -323,6 +327,47 @@ export default function DispatchPage() {
     } finally {
       setDeletingId(null);
     }
+  }
+
+  async function openHistory(d: Dispatch, page = 1) {
+    setHistoryTarget(d);
+    setHistoryPage(page);
+    setHistoryLoading(true);
+    try {
+      const rows = await apiFetchJson<DispatchHistoryEntry[]>(
+        `/api/v1/dispatch/${d.id}/history?limit=${HISTORY_PAGE_SIZE}&offset=${(page - 1) * HISTORY_PAGE_SIZE}`,
+      );
+      setHistoryRows(rows);
+      setHistoryHasMore(rows.length === HISTORY_PAGE_SIZE);
+    } catch {
+      setHistoryRows([]);
+      setHistoryHasMore(false);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }
+
+  function changeHistoryPage(newPage: number) {
+    if (!historyTarget) return;
+    void openHistory(historyTarget, newPage);
+  }
+
+  function printDispatchHistory() {
+    if (!historyTarget) return;
+    openPrintWindow({
+      title: `Dispatch History — ${historyTarget.dispatch_number}`,
+      subtitle: `${historyRows.length} audit events · Page ${historyPage}`,
+      companyName: companyInfo?.company_name,
+      mode: "audit-history",
+      columns: ["Action", "Timestamp", "User", "Status Change", "Notes"],
+      rows: historyRows.map(row => ({
+        "Action": row.change_type.replaceAll("_", " "),
+        "Timestamp": new Date(row.changed_at).toLocaleString("en-IN"),
+        "User": row.changed_by_username ?? "System",
+        "Status Change": row.old_status || row.new_status ? (row.old_status ?? "—") + " → " + (row.new_status ?? "—") : "",
+        "Notes": row.notes ?? "",
+      })),
+    });
   }
 
   function printDispatch(d: Dispatch) {
@@ -368,7 +413,7 @@ export default function DispatchPage() {
               <option value="">All statuses</option>
               {STATUSES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
             </select>
-            <Button size="sm" onClick={() => { loadAvailableRequests(); setCreateForm(BLANK_FORM()); setCreateError(null); setShowCreate(true); }}>
+            <Button size="sm" onClick={() => { setCreateForm(BLANK_FORM()); setCreateError(null); setShowCreate(true); }}>
               <Plus className="size-4 mr-1.5" />New Dispatch
             </Button>
           </>
@@ -379,9 +424,8 @@ export default function DispatchPage() {
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>New Dispatch</DialogTitle></DialogHeader>
-          <DispatchForm form={createForm} vendors={vendors} receipts={receipts} saving={createSaving}
-            error={createError} onChange={setCreateForm} onSubmit={handleCreate} isCreate
-            availableRequests={availableRequests} />
+          <DispatchForm form={createForm} vendors={vendors} saving={createSaving}
+            error={createError} onChange={setCreateForm} onSubmit={handleCreate} isCreate />
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowCreate(false)} disabled={createSaving}>Cancel</Button>
             <Button disabled={createSaving} onClick={handleCreate}>
@@ -395,15 +439,66 @@ export default function DispatchPage() {
       <Dialog open={!!editTarget} onOpenChange={(o) => { if (!o) setEditTarget(null); }}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Edit Dispatch</DialogTitle></DialogHeader>
-          <DispatchForm form={editForm} vendors={vendors} receipts={receipts} saving={editSaving}
-            error={editError} onChange={setEditForm} onSubmit={handleEdit} isCreate={false}
-            availableRequests={availableRequests} />
+          <DispatchForm form={editForm} vendors={vendors} saving={editSaving}
+            error={editError} onChange={setEditForm} onSubmit={handleEdit} isCreate={false} />
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setEditTarget(null)} disabled={editSaving}>Cancel</Button>
             <Button disabled={editSaving} onClick={handleEdit}>
               {editSaving ? "Saving…" : "Save Changes"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* History Dialog */}
+      <Dialog open={historyTarget !== null} onOpenChange={(o) => { if (!o) setHistoryTarget(null); }}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between gap-2">
+              <span>History — {historyTarget?.dispatch_number}</span>
+              <Button size="sm" variant="outline" onClick={printDispatchHistory} disabled={historyRows.length === 0}>
+                <Printer className="size-3.5 mr-1" />Print
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="px-4 pb-2 space-y-2">
+            {historyLoading ? (
+              <Skeleton className="h-24 w-full" />
+            ) : historyRows.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">No history recorded.</p>
+            ) : (
+              historyRows.map(row => (
+                <div key={row.id} className="rounded-lg border bg-muted/40 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      {row.change_type.replaceAll("_", " ")}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(row.changed_at).toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                  {(row.old_status || row.new_status) && (
+                    <p className="mt-1 text-sm font-medium">
+                      {(row.old_status ?? "—")} → {row.new_status}
+                    </p>
+                  )}
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    by {row.changed_by_username ?? "System"}
+                    {row.notes ? ` · ${row.notes}` : ""}
+                  </p>
+                </div>
+              ))
+            )}
+            {(historyPage > 1 || historyHasMore) && (
+              <div className="flex items-center justify-between gap-3 pt-2">
+                <Button size="sm" variant="outline" disabled={historyPage <= 1 || historyLoading}
+                  onClick={() => changeHistoryPage(historyPage - 1)}>← Prev</Button>
+                <span className="text-sm text-muted-foreground">Page {historyPage}</span>
+                <Button size="sm" variant="outline" disabled={!historyHasMore || historyLoading}
+                  onClick={() => changeHistoryPage(historyPage + 1)}>Next →</Button>
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -477,14 +572,16 @@ export default function DispatchPage() {
                       {d.vehicle_number && <span>Vehicle: {d.vehicle_number}</span>}
                       {d.driver_name && <span>Driver: {d.driver_name}</span>}
                       {d.schedule_number && <span>Schedule: {d.schedule_number}</span>}
-                      {d.party_type === "vendor" && d.request_sn_no && <span>Request: {d.request_sn_no}</span>}
-                      {d.party_type === "supplier" && d.receipt_number && <span>Receipt: {d.receipt_number}</span>}
+                      {d.receipt_number && <span>Receipt: {d.receipt_number}</span>}
                     </div>
                     {d.notes && <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{d.notes}</p>}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <Button size="icon" variant="ghost" className="size-8" onClick={() => printDispatch(d)}>
+                    <Button size="icon" variant="ghost" className="size-8" onClick={() => printDispatch(d)} title="Print dispatch">
                       <Printer className="size-3.5" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="size-8" onClick={() => openHistory(d)} title="History">
+                      <History className="size-3.5" />
                     </Button>
                     <Button size="icon" variant="ghost" className="size-8" onClick={() => openEdit(d)}>
                       <Pencil className="size-3.5" />
@@ -515,22 +612,47 @@ export default function DispatchPage() {
 // ── Form ──────────────────────────────────────────────────────────────────────
 
 function DispatchForm({
-  form, vendors, receipts, saving, error, onChange, onSubmit, isCreate, availableRequests,
+  form, vendors, saving, error, onChange, onSubmit, isCreate,
 }: {
   form: DispatchFormState;
   vendors: NameOption[];
-  receipts: ReceiptOption[];
   saving: boolean;
   error: string | null;
-  onChange: (f: DispatchFormState) => void;
+  onChange: (f: DispatchFormState | ((prev: DispatchFormState) => DispatchFormState)) => void;
   onSubmit: (e: React.FormEvent) => void;
   isCreate: boolean;
-  availableRequests: AvailableRequest[];
 }) {
-  const requestItemsLocked = form.request_id !== null;
+  const receiptItemsLocked = form.receipt_id !== null;
 
   function updateItem(key: string, patch: Partial<DispatchItemForm>) {
     onChange({ ...form, items: form.items.map(i => i._key === key ? { ...i, ...patch } : i) });
+  }
+
+  async function applyReceipt(receiptId: number) {
+    try {
+      const receipt = await apiFetchJson<{
+        id: number; receipt_number: string; status: string;
+        items: {
+          item_name: string | null; item_code: string | null; item_type: string | null;
+          inventory_item_id: number | null; unit_name: string | null;
+          quantity_delivered: number; quantity_signed_off: number | null;
+        }[];
+      }>(`/api/v1/receipts/${receiptId}`);
+      const items: DispatchItemForm[] = (receipt.items ?? []).map(it => ({
+        _key: Math.random().toString(36).slice(2),
+        inv_type: it.item_type || "",
+        inv_item_id: it.inventory_item_id,
+        item_name: it.item_name || it.item_code || "",
+        quantity: String(it.quantity_signed_off ?? it.quantity_delivered ?? ""),
+        unit: it.unit_name ?? "",
+      }));
+      onChange(current => ({
+        ...current,
+        items: items.length > 0 ? items : current.items,
+      }));
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to prefill from receipt");
+    }
   }
   function addItem() {
     onChange({ ...form, items: [...form.items, blankDispatchItem()] });
@@ -601,20 +723,20 @@ function DispatchForm({
         <div className="flex items-center justify-between">
           <Label>Items <span className="text-destructive">*</span></Label>
           <Button type="button" size="sm" variant="outline" className="h-7 text-xs gap-1"
-            onClick={addItem} disabled={saving || requestItemsLocked}>
+            onClick={addItem} disabled={saving || receiptItemsLocked}>
             <Plus className="size-3" /> Add Item
           </Button>
         </div>
-        {requestItemsLocked && (
+        {receiptItemsLocked && (
           <p className="text-xs text-muted-foreground">
-            Items are filled from the selected request and cannot be changed in dispatch.
+            Items are filled from the selected receipt and cannot be changed in dispatch.
           </p>
         )}
         {form.items.map((item, idx) => (
           <div key={item._key} className="rounded-lg border p-3 space-y-2 bg-muted/20">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-muted-foreground">Item {idx + 1}</span>
-              {form.items.length > 1 && !requestItemsLocked && (
+              {form.items.length > 1 && !receiptItemsLocked && (
                 <Button type="button" size="icon" variant="ghost"
                   className="size-6 text-destructive hover:text-destructive"
                   onClick={() => removeItem(item._key)} disabled={saving}>
@@ -626,7 +748,7 @@ function DispatchForm({
               <Label className="text-xs">Inventory Type <span className="text-destructive">*</span></Label>
               <select value={item.inv_type}
                 onChange={(e) => updateItem(item._key, { inv_type: e.target.value, inv_item_id: null, item_name: "" })}
-                disabled={saving || requestItemsLocked}
+                disabled={saving || receiptItemsLocked}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
                 <option value="">— Select type —</option>
                 {DISPATCH_INV_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -638,7 +760,7 @@ function DispatchForm({
                 <DispatchInvCombobox
                   invType={item.inv_type}
                   value={item.item_name}
-                  disabled={saving || requestItemsLocked}
+                  disabled={saving || receiptItemsLocked}
                   onSelect={(name, id) => updateItem(item._key, { item_name: name, inv_item_id: id })}
                 />
               </div>
@@ -646,19 +768,19 @@ function DispatchForm({
               <div className="space-y-1.5">
                 <Label className="text-xs">Item name</Label>
                 <Input placeholder="Select type above to search items" value={item.item_name}
-                  onChange={(e) => updateItem(item._key, { item_name: e.target.value })} disabled={saving || requestItemsLocked} />
+                  onChange={(e) => updateItem(item._key, { item_name: e.target.value })} disabled={saving || receiptItemsLocked} />
               </div>
             )}
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1.5">
                 <Label className="text-xs">Quantity</Label>
                 <Input type="number" step="any" placeholder="0" value={item.quantity}
-                  onChange={(e) => updateItem(item._key, { quantity: e.target.value })} disabled={saving || requestItemsLocked} />
+                  onChange={(e) => updateItem(item._key, { quantity: e.target.value })} disabled={saving || receiptItemsLocked} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Unit</Label>
                 <Input placeholder="pcs / kg" value={item.unit}
-                  onChange={(e) => updateItem(item._key, { unit: e.target.value })} disabled={saving || requestItemsLocked} />
+                  onChange={(e) => updateItem(item._key, { unit: e.target.value })} disabled={saving || receiptItemsLocked} />
               </div>
             </div>
           </div>
@@ -693,80 +815,45 @@ function DispatchForm({
           </select>
         </div>
       )}
-      {form.party_type === "supplier" && (
-        <div className="space-y-1.5">
-          <Label htmlFor="d-receipt">Receipt Number <span className="text-xs text-muted-foreground">(required to complete)</span></Label>
-          <select id="d-receipt" value={form.receipt_id ?? ""}
-            onChange={(e) => {
-              const receipt = receipts.find(r => r.id === Number(e.target.value));
-              onChange({ ...form, receipt_id: receipt?.id ?? null, request_id: receipt?.request_id ?? form.request_id, request_sn_no: receipt?.request_sn_no ?? form.request_sn_no });
-            }}
-            disabled={saving}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
-            <option value="">— Select receipt —</option>
-            {receipts.map(r => <option key={r.id} value={r.id}>{r.receipt_number}{r.request_sn_no ? ` — ` : ""}</option>)}
-          </select>
+      {/* Receipt linkage */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between gap-2">
+          <Label htmlFor="d-receipt">Receipt <span className="text-xs text-muted-foreground">(required to complete)</span></Label>
+          {form.receipt_id && (
+            <button type="button"
+              className="text-xs text-destructive hover:text-destructive/80 disabled:opacity-50 flex items-center gap-0.5"
+              onClick={() => onChange({ ...form, receipt_id: null, receipt_number: "" })}
+              disabled={saving}>
+              <X className="size-3" /> Clear
+            </button>
+          )}
         </div>
-      )}
-            <div className="space-y-1.5">
-        <Label htmlFor="d-request">Request <span className="text-xs text-muted-foreground">(optional)</span></Label>
-        <select id="d-request" value={form.request_id ?? ""}
-          onChange={async (e) => {
-            const reqId = parseInt(e.target.value);
-            if (!reqId) {
-              onChange({ ...form, request_id: null, request_sn_no: "" });
-              return;
-            }
-            try {
-              const req = await apiFetchJson<{
-                id: number; sn_no: string; request_type: string;
-                items: { id: number; inventory_item_id: number | null; item_name: string | null; item_code: string | null; item_type: string | null; quantity: number }[];
-                dispatch: { customer_name: string | null; inventory_type: string; item_id: number | null; item_sn_no: string | null; item_description: string | null; quantity: number } | null;
-              }>(`/api/v1/requests/${reqId}`);
-              const d = req.dispatch;
-              if (d) {
-                const items: DispatchItemForm[] = [{
-                  _key: Math.random().toString(36).slice(2),
-                  inv_type: d.inventory_type,
-                  inv_item_id: d.item_id,
-                  item_name: d.item_description || d.item_sn_no || "",
-                  quantity: String(d.quantity),
-                  unit: "",
-                }];
-                onChange({
-                  ...form,
-                  items,
-                  notes: d.customer_name ? `Customer: ${d.customer_name}` : form.notes,
-                  request_id: req.id,
-                  request_sn_no: req.sn_no,
-                });
-              } else {
-                const items: DispatchItemForm[] = req.items.map((item) => ({
-                  _key: Math.random().toString(36).slice(2),
-                  inv_type: item.item_type || "",
-                  inv_item_id: item.inventory_item_id,
-                  item_name: item.item_name || item.item_code || "",
-                  quantity: String(item.quantity),
-                  unit: "",
-                }));
-                onChange({
-                  ...form,
-                  items: items.length > 0 ? items : form.items,
-                  request_id: req.id,
-                  request_sn_no: req.sn_no,
-                });
-              }
-            } catch { /* ignore */ }
-          }}
+        <SearchCombobox<ReceiptOption>
+          variant="list"
+          value={form.receipt_id ? String(form.receipt_id) : ""}
+          placeholder="Search receipt (RCP-…)…"
           disabled={saving}
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
-          <option value="">— None —</option>
-          {availableRequests.map(r => (
-            <option key={r.id} value={r.id}>
-              {r.sn_no} — {r.request_type.replaceAll("_", " ")} · {r.status.replaceAll("_", " ")}
-            </option>
-          ))}
-        </select>
+          fetcher={async (q) => {
+            const search = q.trim() ? `&search=${encodeURIComponent(q.trim())}` : "";
+            return apiFetchJson<ReceiptOption[]>(`/api/v1/receipts?status=signed_off&limit=50${search}`);
+          }}
+          getItemKey={(r) => r.id}
+          getItemLabel={(r) => r.receipt_number}
+          itemIdOf={(r) => r.id}
+          onSelect={(r) => {
+            onChange({ ...form, receipt_id: r.id, receipt_number: r.receipt_number });
+            void applyReceipt(r.id);
+          }}
+          emptyText="No signed-off receipts found"
+          renderItem={(r) => (
+            <div className="flex min-w-0 flex-col">
+              <span className="truncate text-sm font-medium font-mono">{r.receipt_number}</span>
+              {r.request_sn_no && (
+                <span className="truncate text-xs text-muted-foreground">{r.request_sn_no}</span>
+              )}
+            </div>
+          )}
+        />
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="d-notes">Notes</Label>
@@ -794,8 +881,22 @@ function DispatchInvCombobox({ invType, value, disabled, onSelect }: {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
 
+  useEffect(() => {
+    function handler(e: PointerEvent) {
+      const target = e.target as Node | null;
+      if (target && rootRef.current && !rootRef.current.contains(target)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("pointerdown", handler);
+    return () => document.removeEventListener("pointerdown", handler);
+  }, []);
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setQuery(value); }, [value]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setResults([]); setQuery(""); }, [invType]);
 
   const doSearch = useCallback((q: string) => {
@@ -844,7 +945,7 @@ function DispatchInvCombobox({ invType, value, disabled, onSelect }: {
   }, [invType]);
 
   return (
-    <div className="relative">
+    <div className="relative" ref={rootRef}>
       <div className="relative">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
         <Input
@@ -854,7 +955,6 @@ function DispatchInvCombobox({ invType, value, disabled, onSelect }: {
           disabled={disabled}
           onFocus={() => { setOpen(true); doSearch(query); }}
           onChange={e => { setQuery(e.target.value); doSearch(e.target.value); setOpen(true); }}
-          onBlur={() => setTimeout(() => setOpen(false), 150)}
         />
         {busy && (
           <span className="absolute right-2.5 top-1/2 -translate-y-1/2 size-3.5 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />

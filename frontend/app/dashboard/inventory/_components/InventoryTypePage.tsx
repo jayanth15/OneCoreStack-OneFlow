@@ -164,7 +164,6 @@ export default function InventoryTypePage({ itemType, label, description, basePa
   const [allVendors, setAllVendors] = useState<string[]>([]);
 
   useEffect(() => {
-    setAdmin(isAdminOrAbove());
     if (!canAccessInventory(itemType)) {
       router.replace("/dashboard/inventory");
     }
@@ -179,10 +178,12 @@ export default function InventoryTypePage({ itemType, label, description, basePa
       .catch(() => {});
   }, [itemType]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setSearchDraft(search); }, [search]);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setError(null);
     const params = new URLSearchParams({

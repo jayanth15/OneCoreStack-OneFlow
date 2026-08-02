@@ -94,8 +94,7 @@ export default function VendorsPage() {
   }, [router]);
 
   // Admin state
-  const [adminUser, setAdminUser] = useState(false);
-  useEffect(() => { setAdminUser(checkIsAdmin()); }, []);
+  const [adminUser] = useState(() => checkIsAdmin());
 
   // Create vendor sheet
   const [showCreate, setShowCreate] = useState(false);
@@ -114,6 +113,7 @@ export default function VendorsPage() {
   }
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { loadVendors(); }, [search]);
 
   async function handleCreateVendor(e: React.FormEvent) {

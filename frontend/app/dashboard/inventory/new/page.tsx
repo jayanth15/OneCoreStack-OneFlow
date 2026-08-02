@@ -63,12 +63,11 @@ function NewInventoryInner() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [admin, setAdmin] = useState(false);
+  const [admin] = useState(() => isAdminOrAbove());
   const [vendors, setVendors] = useState<{ id: number | null; name: string }[]>([]);
   const codeRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setAdmin(isAdminOrAbove());
     codeRef.current?.focus();
   }, []);
 

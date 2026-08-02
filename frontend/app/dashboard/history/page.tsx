@@ -12,8 +12,8 @@ import { isAdminOrAbove } from "@/lib/user";
 import {
   Package, ShoppingCart, Megaphone, ClipboardList, Calendar,
   FlaskConical, Wrench, Scissors, Paperclip, ChevronDown,
-  RotateCcw, Box, PackageCheck, Layers, Recycle, PackageSearch, Truck,
-  LayoutGrid, Rows3, ArrowRight, User, Printer,
+  RotateCcw, PackageCheck, Layers, Recycle, PackageSearch, Truck,
+  LayoutGrid, Rows3, ArrowRight, User, Printer, Loader2,
 } from "lucide-react";
 import { fetchAllPages, openPrintWindow } from "@/lib/print-report";
 
@@ -292,7 +292,7 @@ function HistoryCard({ tab, h }: { tab: TabKey; h: HistoryItem }) {
             {h.new_value && <span className="font-mono font-semibold">{h.new_value}</span>}
           </div>
         ) : null}
-        {h.note && <p className="text-muted-foreground italic truncate" title={h.note}>"{h.note}"</p>}
+        {h.note && <p className="text-muted-foreground italic truncate" title={h.note}>&ldquo;{h.note}&rdquo;</p>}
       </div>
 
       {/* Bottom: by user + date */}
@@ -321,6 +321,7 @@ export default function HistoryPage() {
 
   const [activeTab, setActiveTab] = useState<TabKey>("raw-materials");
   const [viewMode, setViewMode] = useState<"table" | "cards">("cards");
+  const [printing, setPrinting] = useState(false);
   const [tabState, setTabState] = useState<Record<TabKey, TabState>>(
     () => Object.fromEntries(TABS.map(t => [t.key, { ...INITIAL_TAB_STATE }])) as Record<TabKey, TabState>
   );
@@ -371,6 +372,7 @@ export default function HistoryPage() {
   useEffect(() => {
     const st = tabState[activeTab];
     if (!st.loaded && !st.loading) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       loadTab(activeTab, 1, false);
     }
   }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -387,6 +389,7 @@ export default function HistoryPage() {
   useEffect(() => {
     const st = tabState[activeTab];
     if (!st.loaded && !st.loading) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       loadTab(activeTab, 1, false);
     }
   }, [tabState, activeTab, loadTab]);
@@ -409,40 +412,48 @@ export default function HistoryPage() {
   }
 
   async function printHistory() {
+    if (printing) return;
     const label = TABS.find(t => t.key === activeTab)?.label ?? activeTab;
-    const allItems = await fetchAllPages(async (page, pageSize) => {
-      const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
-      if (startDate) params.set("start_date", startDate);
-      if (endDate) params.set("end_date", endDate);
-      if (changedBy) params.set("changed_by", changedBy);
-      if (entityName) params.set("entity_name", entityName);
-      const data = await apiFetchJson<HistoryPage>(`/api/v1/history/${activeTab}?${params}`);
-      return { items: data.items, total: data.total, page: data.page, page_size: data.page_size, pages: data.total_pages };
-    });
-    openPrintWindow({
-      title: `History — ${label}`,
-      subtitle: `${allItems.length} record${allItems.length !== 1 ? "s" : ""}`,
-      mode: "audit-snapshot",
-      columns: HEADERS[activeTab],
-      rows: allItems.map(h => {
-        const inventory = ["raw-materials", "finished-goods", "semi-finished", "scraps", "consumables", "weeders", "attachments"];
-        const requests = ["purchase-requests", "marketing-requests", "job-cards"];
-        const status = ["schedules", "dispatches", "gate-passes"];
+    setPrinting(true);
+    try {
+      const allItems = await fetchAllPages(async (page, pageSize) => {
+        const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
+        if (startDate) params.set("start_date", startDate);
+        if (endDate) params.set("end_date", endDate);
+        if (changedBy) params.set("changed_by", changedBy);
+        if (entityName) params.set("entity_name", entityName);
+        const data = await apiFetchJson<HistoryPage>(`/api/v1/history/${activeTab}?${params}`);
+        return { items: data.items, total: data.total, page: data.page, page_size: data.page_size, pages: data.total_pages };
+      });
+      const inventory = ["raw-materials", "finished-goods", "semi-finished", "scraps", "consumables", "weeders", "attachments"];
+      const requests = ["purchase-requests", "marketing-requests", "job-cards"];
+      const status = ["schedules", "dispatches", "gate-passes"];
+      const rows = allItems.map(h => {
         if (inventory.includes(activeTab)) {
           return { "Item": h.entity_name ?? "—", "By": h.changed_by_username ?? "—", "Type": h.change_type, "Qty Before": h.qty_before ?? "—", "Qty After": h.qty_after ?? "—", "Delta": h.qty_delta ?? "—", "Note": h.note ?? "—", "Date": fmtDate(h.changed_at) };
         }
         if (requests.includes(activeTab)) {
-          return { "Request": h.entity_name ?? "—", "By": h.changed_by_username ?? "—", "Type": h.change_type, "Field": h.field_name ?? "—", "Before": h.old_value ?? "—", "After": h.new_value ?? "—", "Note": h.note ?? "—", "Date": fmtDate(h.changed_at) };
+          return { "Request (SN)": h.entity_name ?? "—", "By": h.changed_by_username ?? "—", "Type": h.change_type, "Field": h.field_name ?? "—", "Before": h.old_value ?? "—", "After": h.new_value ?? "—", "Note": h.note ?? "—", "Date": fmtDate(h.changed_at) };
         }
         if (status.includes(activeTab)) {
-          return { "Entity": h.entity_name ?? "—", "By": h.changed_by_username ?? "—", "Type": h.change_type, "Old": h.old_value ?? "—", "New": h.new_value ?? "—", "Note": h.note ?? "—", "Date": fmtDate(h.changed_at) };
+          const entityKey = activeTab === "dispatches" ? "Dispatch #" : activeTab === "gate-passes" ? "Gate Pass #" : "Schedule";
+          return { [entityKey]: h.entity_name ?? "—", "By": h.changed_by_username ?? "—", "Type": h.change_type, "Old Status": h.old_value ?? "—", "New Status": h.new_value ?? "—", "Note": h.note ?? "—", "Date": fmtDate(h.changed_at) };
         }
         if (activeTab === "spares") {
           return { "Item": h.entity_name ?? "—", "By": h.changed_by_username ?? "—", "Variant": h.variant_label ?? "—", "Type": h.change_type, "Qty Before": h.qty_before ?? "—", "Qty After": h.qty_after ?? "—", "Delta": h.qty_delta ?? "—", "Note": h.note ?? "—", "Date": fmtDate(h.changed_at) };
         }
         return {};
-      }),
-    });
+      });
+      openPrintWindow({
+        title: `History — ${label}`,
+        subtitle: `${rows.length} record${rows.length !== 1 ? "s" : ""}${startDate || endDate || changedBy || entityName ? " (filtered)" : ""}`,
+        mode: "audit-snapshot",
+        columns: HEADERS[activeTab],
+        rows,
+      });
+    } finally {
+      setPrinting(false);
+    }
   }
 
   const st = tabState[activeTab];
@@ -454,6 +465,12 @@ export default function HistoryPage() {
         title="History"
         description="Audit log of all changes across the system. Admin only."
         breadcrumbs={[{ label: "History" }]}
+        actions={
+          <Button size="sm" variant="outline" onClick={() => void printHistory()} disabled={printing}>
+            {printing ? <Loader2 className="size-3.5 mr-1.5 animate-spin" /> : <Printer className="size-3.5 mr-1.5" />}
+            {printing ? "Preparing…" : "Print"}
+          </Button>
+        }
       />
 
       <div className="flex flex-1 flex-col gap-5 p-4 md:p-6 max-w-[1400px] mx-auto w-full">
@@ -522,11 +539,12 @@ export default function HistoryPage() {
             <Rows3 className="size-3.5" />Table
           </button>
           <button
-            onClick={printHistory}
+            onClick={() => void printHistory()}
             title="Print"
-            className="px-2 py-1 rounded text-xs font-medium flex items-center gap-1 transition-colors text-muted-foreground hover:text-foreground"
+            disabled={printing}
+            className="px-2 py-1 rounded text-xs font-medium flex items-center gap-1 transition-colors text-muted-foreground hover:text-foreground disabled:opacity-50"
           >
-            <Printer className="size-3.5" />
+            {printing ? <Loader2 className="size-3.5 animate-spin" /> : <Printer className="size-3.5" />}
           </button>
         </div>
       </div>

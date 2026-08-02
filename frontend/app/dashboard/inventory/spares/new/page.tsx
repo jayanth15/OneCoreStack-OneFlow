@@ -56,7 +56,7 @@ export default function NewSpareCategoryPage() {
       {/* Header */}
       <PageHeader
         title="New Spare Category"
-        description={`Create a category to group related spare parts together (e.g. "Engines", "Filters", "Belts").`}
+        description={`Create a category to group related spare parts together (e.g. &ldquo;Engines&rdquo;, &ldquo;Filters&rdquo;, &ldquo;Belts&rdquo;).`}
         breadcrumbs={[
           { label: "Inventory", href: "/dashboard/inventory" },
           { label: "Spares", href: "/dashboard/inventory/spares" },
@@ -76,7 +76,7 @@ export default function NewSpareCategoryPage() {
 
         <h1 className="text-xl font-semibold mb-1">New Spare Category</h1>
         <p className="text-sm text-muted-foreground mb-6">
-          Create a category to group related spare parts together (e.g. "Engines", "Filters", "Belts").
+          Create a category to group related spare parts together (e.g. &ldquo;Engines&rdquo;, &ldquo;Filters&rdquo;, &ldquo;Belts&rdquo;).
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-5">

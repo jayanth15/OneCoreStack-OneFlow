@@ -19,6 +19,7 @@ from app.models.dispatch import Dispatch
 from app.models.dispatch_history import DispatchHistory
 from app.models.dispatch_item import DispatchItem
 from app.models.receipt import Receipt
+from app.models.receipt_item import ReceiptItem
 from app.models.request import Request, REQUEST_TYPE_CUSTOMER_DISPATCH
 from app.models.request_customer_dispatch import RequestCustomerDispatch
 from app.models.request_item import RequestItem
@@ -94,6 +95,10 @@ def create_dispatch(
     linked_request = _linked_request(session, body.get("request_id"))
     if linked_request:
         raw_items = _request_dispatch_items(session, linked_request)
+    linked_receipt = _linked_receipt(session, body.get("receipt_id")) if body.get("receipt_id") else None
+    if linked_receipt and not raw_items:
+        # Fallback: no items submitted — derive them from the linked receipt
+        raw_items = _receipt_dispatch_items(session, linked_receipt)
     first_item_name = ""
     first_qty = 0.0
     first_unit_id = None
@@ -127,7 +132,7 @@ def create_dispatch(
         created_by=current_user.username,
         created_at=datetime.now(timezone.utc).isoformat(),
     )
-    if party_type == "supplier" and body.get("receipt_id"):
+    if body.get("receipt_id"):
         receipt = _get_dispatch_receipt(session, body["receipt_id"])
         dispatch.receipt_id = receipt.id
         dispatch.receipt_number = receipt.receipt_number
@@ -232,7 +237,11 @@ def update_dispatch(
         target_status = target_status.strip() or old_status
 
     linked_request = _linked_request(session, target_request_id, exclude_dispatch_id=dispatch.id)
+    linked_receipt = _linked_receipt(session, body.get("receipt_id", dispatch.receipt_id))
     raw_items = _request_dispatch_items(session, linked_request) if linked_request else body.get("items")
+    if linked_receipt and raw_items == []:
+        # Explicit empty item list — refill from the linked receipt
+        raw_items = _receipt_dispatch_items(session, linked_receipt)
     if raw_items is None:
         existing_items = session.exec(
             select(DispatchItem).where(DispatchItem.dispatch_id == dispatch.id)
@@ -247,15 +256,14 @@ def update_dispatch(
 
     # Validate receipt reference for supplier dispatches before completing
     if target_party_type == "supplier" and target_status in ("dispatched", "delivered"):
-        receipt_id = body.get("receipt_id") or dispatch.receipt_id
-        if not receipt_id:
+        if not linked_receipt:
             raise HTTPException(status_code=409, detail="Supplier dispatch requires a receipt reference")
-        receipt = _get_dispatch_receipt(session, receipt_id, require_completable=True)
-        dispatch.receipt_number = receipt.receipt_number
-        dispatch.receipt_id = receipt_id
+        _get_dispatch_receipt(session, linked_receipt.id, require_completable=True)
 
-    # For OEM/vendor dispatches, clear receipt reference
-    if target_party_type == "vendor":
+    if linked_receipt:
+        dispatch.receipt_id = linked_receipt.id
+        dispatch.receipt_number = linked_receipt.receipt_number
+    else:
         dispatch.receipt_id = None
         dispatch.receipt_number = None
 
@@ -450,6 +458,31 @@ def _request_dispatch_items(session: Session, req: Request) -> list[dict[str, An
         "inv_item_id": detail.item_id,
         "quantity": detail.quantity,
     }]
+
+
+def _linked_receipt(session: Session, receipt_id: int | None) -> Receipt | None:
+    if not receipt_id:
+        return None
+    return _get_dispatch_receipt(session, receipt_id)  # type: ignore[arg-type]
+
+
+def _receipt_dispatch_items(session: Session, receipt: Receipt) -> list[dict[str, Any]]:
+    """Derive dispatch line items from a receipt — the goods were already
+    subtracted from stock when the receipt was created."""
+    items = session.exec(select(ReceiptItem).where(ReceiptItem.receipt_id == receipt.id)).all()
+    if not items:
+        raise HTTPException(status_code=409, detail=f"Receipt {receipt.receipt_number} has no line items")
+    result: list[dict[str, Any]] = []
+    for item in items:
+        quantity = item.quantity_signed_off if item.quantity_signed_off is not None else item.quantity_delivered
+        result.append({
+            "item_name": item.item_name or item.item_code or f"Item #{item.id}",
+            "inv_type": item.item_type,
+            "inv_item_id": item.inventory_item_id,
+            "quantity": quantity,
+            "unit_id": item.unit_id,
+        })
+    return result
 
 
 def _sync_linked_request(

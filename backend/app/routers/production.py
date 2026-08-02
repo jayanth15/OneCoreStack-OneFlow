@@ -160,15 +160,19 @@ def _check_backward_status(
 
 
 def _propagate_statuses(order_id: int, session: Session) -> None:
-    """After a job card change, cascade status up: Order → Plan → Schedule.
+    """After a job card change, cascade status up AND down: Order → Plan → Schedule.
 
     Rules:
     - Order: ANY active card in_progress → order in_progress.
              ALL active cards completed + FG qty met → order completed.
+             If cards are reopened / FG drops below target, order reverts to
+             in_progress (downgrade from completed is allowed).
     - Plan:  ANY active order in_progress → plan in_progress.
              ALL active orders completed → plan completed.
-    - Schedule: plan goes in_progress → schedule in_production.
-                plan goes completed → schedule delivered.
+             If an order reverts, plan reverts to in_progress.
+    - Schedule: plan in_progress → schedule in_production.
+                plan completed → schedule completed (or delivered).
+                If the plan reverts, schedule reverts to in_production.
     """
     order = session.get(ProductionOrder, order_id)
     if not order:
@@ -184,6 +188,7 @@ def _propagate_statuses(order_id: int, session: Session) -> None:
 
     if cards:
         all_completed = all(c.status == "completed" for c in cards)
+        any_active = any(c.status == "in_progress" for c in cards)
 
         # Compute effective FG qty (MIN across processes using actual_qty)
         effective_qty = 0.0
@@ -204,6 +209,10 @@ def _propagate_statuses(order_id: int, session: Session) -> None:
 
         if all_completed and fg_complete and order.status != "completed":
             order.status = "completed"
+            session.add(order)
+        elif order.status == "completed" and not (all_completed and fg_complete):
+            # Cards reopened or FG dropped below target — revert the order
+            order.status = "in_progress"
             session.add(order)
         elif not all_completed and order.status == "open":
             order.status = "in_progress"
@@ -226,6 +235,10 @@ def _propagate_statuses(order_id: int, session: Session) -> None:
         if all_orders_completed and plan.status != "completed":
             plan.status = "completed"
             session.add(plan)
+        elif plan.status == "completed" and not all_orders_completed:
+            # An order reverted — pull the plan back to in_progress
+            plan.status = "in_progress"
+            session.add(plan)
         elif any_order_active and plan.status in ("draft", "approved"):
             plan.status = "in_progress"
             session.add(plan)
@@ -240,9 +253,40 @@ def _propagate_statuses(order_id: int, session: Session) -> None:
     if plan.status == "completed" and sched.status not in ("completed", "delivered"):
         sched.status = "completed"
         session.add(sched)
+    elif plan.status == "in_progress" and sched.status == "completed":
+        # Plan reverted — pull the schedule back to in_production
+        sched.status = "in_production"
+        session.add(sched)
     elif plan.status == "in_progress" and sched.status in ("pending", "confirmed"):
         sched.status = "in_production"
         session.add(sched)
+
+
+def _recompute_job_status(job: JobCard, order: ProductionOrder, session: Session) -> None:
+    """Recompute a job card's qty_pending and status from its process total.
+
+    Mirrors the logic in update_job so batch endpoints (e.g. process actual-qty
+    updates) stay consistent with single-card edits.
+    """
+    plan = session.get(ProductionPlan, order.production_plan_id)
+    if not plan:
+        return
+    same_process_cards = list(session.exec(
+        select(JobCard).where(
+            JobCard.production_order_id == order.id,
+            JobCard.process_name == job.process_name,
+            JobCard.is_active == True,  # noqa: E712
+        )
+    ).all())
+    total_for_process = sum(c.actual_qty for c in same_process_cards)
+    job.qty_pending = max(0.0, round(plan.planned_qty - total_for_process, 4))
+    if total_for_process <= 0:
+        job.status = "open"
+    elif plan.planned_qty > 0 and total_for_process >= plan.planned_qty:
+        job.status = "completed"
+    else:
+        job.status = "in_progress"
+    session.add(job)
 
 
 def _consume_bom_materials(
@@ -1306,14 +1350,17 @@ def create_job(
     elif not worker_names_list and body_dump.get("worker_name"):
         worker_names_list = [body_dump["worker_name"]]
     worker_names_json = json.dumps(worker_names_list) if worker_names_list else None
-    calculated_hours = _calculated_hours_from_produced_qty(
-        session,
-        order,
-        body_dump.get("process_name"),
-        body_dump.get("qty_produced"),
-    )
-    if calculated_hours is not None:
-        body_dump["hours_worked"] = calculated_hours
+    # Auto-compute hours from produced quantity ONLY when the user didn't
+    # enter hours directly (job card forms now ask for hours/minutes worked).
+    if not body_dump.get("hours_worked") and body_dump.get("qty_produced", 0) > 0:
+        calculated_hours = _calculated_hours_from_produced_qty(
+            session,
+            order,
+            body_dump.get("process_name"),
+            body_dump.get("qty_produced"),
+        )
+        if calculated_hours is not None:
+            body_dump["hours_worked"] = calculated_hours
 
     job = JobCard(
         card_number=_next_card_number(session),
@@ -1436,7 +1483,7 @@ def update_job(
     old_status = job.status
     order = session.get(ProductionOrder, job.production_order_id)
     should_recalculate_hours = any(k in data for k in ("process_name", "qty_produced", "actual_qty"))
-    if order and should_recalculate_hours:
+    if order and should_recalculate_hours and "hours_worked" not in data:
         calculated_hours = _calculated_hours_from_produced_qty(
             session,
             order,
@@ -1459,23 +1506,7 @@ def update_job(
 
     # Auto-compute qty_pending and status from process-total produced
     if order:
-        plan = session.get(ProductionPlan, order.production_plan_id)
-        if plan:
-            same_process_cards = list(session.exec(
-                select(JobCard).where(
-                    JobCard.production_order_id == order.id,
-                    JobCard.process_name == job.process_name,
-                    JobCard.is_active == True,  # noqa: E712
-                )
-            ).all())
-            total_for_process = sum(c.actual_qty for c in same_process_cards)
-            job.qty_pending = max(0.0, round(plan.planned_qty - total_for_process, 4))
-            if total_for_process <= 0:
-                job.status = "open"
-            elif plan.planned_qty > 0 and total_for_process >= plan.planned_qty:
-                job.status = "completed"
-            else:
-                job.status = "in_progress"
+        _recompute_job_status(job, order, session)
 
     session.add(job)
     session.flush()
@@ -1527,6 +1558,13 @@ def delete_job(
 
     job.is_active = False
     session.add(job)
+
+    # Deleting a card may revert order/plan/schedule status and FG credit
+    order = session.get(ProductionOrder, job.production_order_id)
+    if order:
+        _recalc_fg_for_order(order, session)
+        _propagate_statuses(order.id, session)  # type: ignore[arg-type]
+
     session.commit()
 
 
@@ -1588,7 +1626,9 @@ def update_process_actual_qty(
         ))
         session.add(c)
 
-    # Recompute statuses
+    # Recompute each card's status from the new process total, then cascade up
+    for c in cards:
+        _recompute_job_status(c, order, session)
     _recalc_fg_for_order(order, session)
     _propagate_statuses(order.id, session)
     session.commit()

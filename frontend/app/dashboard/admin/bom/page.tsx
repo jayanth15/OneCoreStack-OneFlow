@@ -71,6 +71,7 @@ export default function BomPage() {
     }
   }
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load(); }, [showInactive, vendor]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleDelete() {
@@ -181,10 +182,10 @@ export default function BomPage() {
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mt-2">
-                        <div><span className="text-muted-foreground">Qty / Unit:</span> <span className="font-medium">{line.qty_per_unit}</span></div>
-                        <div><span className="text-muted-foreground">Mat. Used:</span> <span className="font-medium">{line.material_used ?? "—"}</span></div>
-                        <div><span className="text-muted-foreground">Scrap:</span> <span className="font-medium">{line.scrap != null ? line.scrap : "Computed"}</span></div>
-                        <div><span className="text-muted-foreground">Unit:</span> <span className="font-medium">{line.material_unit ?? "inherits RM"}</span></div>
+                        <div className="truncate"><span className="text-muted-foreground">Qty / Unit:</span> <span className="font-medium">{line.qty_per_unit} {line.raw_material_unit ?? ""}</span></div>
+                        <div className="truncate"><span className="text-muted-foreground">Mat. Used:</span> <span className="font-medium">{line.material_used != null ? `${line.material_used} ${usedUnit ?? ""}` : "—"}</span></div>
+                        <div className="truncate"><span className="text-muted-foreground">Scrap:</span> <span className="font-medium">{line.scrap != null ? `${line.scrap} ${usedUnit ?? ""}` : "Computed"}</span></div>
+                        <div className="truncate"><span className="text-muted-foreground">Unit:</span> <span className="font-medium">{line.material_unit ?? "inherits RM"}</span></div>
                       </div>
                       {line.notes && <p className="text-xs text-muted-foreground">{line.notes}</p>}
                     </div>
@@ -192,16 +193,16 @@ export default function BomPage() {
                   })}
                 </div>
                 {/* Desktop table */}
-                <table className="hidden md:table w-full text-sm">
+                <table className="hidden md:table w-full text-sm table-fixed">
                   <thead>
                     <tr className="border-b bg-muted/10">
-                      <th className="px-4 py-2 text-left font-medium text-xs">Raw Material</th>
-                      <th className="px-4 py-2 text-right font-medium text-xs">Qty / Unit</th>
-                      <th className="px-4 py-2 text-right font-medium text-xs">Material Used / Unit</th>
-                      <th className="px-4 py-2 text-right font-medium text-xs">Scrap / Unit</th>
-                      <th className="px-4 py-2 text-left font-medium text-xs">Unit (Used/Scrap)</th>
+                      <th className="px-4 py-2 text-left font-medium text-xs w-[28%]">Raw Material</th>
+                      <th className="px-4 py-2 text-right font-medium text-xs w-[12%]">Qty / Unit</th>
+                      <th className="px-4 py-2 text-right font-medium text-xs w-[14%]">Material Used / Unit</th>
+                      <th className="px-4 py-2 text-right font-medium text-xs w-[13%]">Scrap / Unit</th>
+                      <th className="px-4 py-2 text-left font-medium text-xs w-[11%]">Unit (Used/Scrap)</th>
                       <th className="px-4 py-2 text-left font-medium text-xs">Notes</th>
-                      <th className="px-4 py-2 text-right font-medium text-xs">Actions</th>
+                      <th className="px-4 py-2 text-right font-medium text-xs w-[10%]">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -211,7 +212,7 @@ export default function BomPage() {
                       <tr key={line.id} className={["border-b last:border-0 hover:bg-muted/20", !line.is_active ? "opacity-60" : ""].join(" ")}>
                         <td className="px-4 py-2.5">
                           <div className="font-medium truncate max-w-[200px] whitespace-nowrap block">{line.raw_material_name}</div>
-                          <div className="text-xs text-muted-foreground font-mono">{line.raw_material_code}</div>
+                          <div className="text-xs text-muted-foreground font-mono truncate">{line.raw_material_code}</div>
                         </td>
                         <td className="px-4 py-2.5 text-right tabular-nums">
                           {line.qty_per_unit} {line.raw_material_unit}
@@ -220,12 +221,12 @@ export default function BomPage() {
                           {line.material_used != null ? `${line.material_used} ${usedUnit ?? ""}` : "—"}
                         </td>
                         <td className="px-4 py-2.5 text-right tabular-nums">
-                          {line.scrap != null ? `${line.scrap} ${usedUnit ?? ""}` : <span className="text-muted-foreground italic">Computed from weights</span>}
+                          {line.scrap != null ? `${line.scrap} ${usedUnit ?? ""}` : <span className="text-muted-foreground italic">Computed</span>}
                         </td>
                         <td className="px-4 py-2.5 text-xs">
                           {line.material_unit ?? <span className="text-muted-foreground">inherits RM unit</span>}
                         </td>
-                        <td className="px-4 py-2.5 text-muted-foreground text-xs">
+                        <td className="px-4 py-2.5 text-muted-foreground text-xs truncate">
                           {line.notes ?? "—"}
                         </td>
                         <td className="px-4 py-2.5 text-right">

@@ -111,6 +111,7 @@ export interface RequestListItem {
 
 export interface CreateRequestPayload {
   request_type: RequestType;
+  from_department?: string;
   department?: string;
   from_whom?: string;
   notes?: string;
@@ -198,7 +199,4 @@ export const requestsApi = {
     const body = typeof payload === "string" ? { delivery_note: payload } : (payload ?? {});
     return apiFetchJson<UnifiedRequest>(`/api/v1/requests/${id}/deliver`, { method: "POST", body: JSON.stringify(body) });
   },
-
-  acknowledgeDelivery: (id: number, acknowledgment_note?: string) =>
-    apiFetchJson<UnifiedRequest>(`/api/v1/requests/${id}/acknowledge-delivery`, { method: "POST", body: JSON.stringify({ acknowledgment_note }) }),
 };

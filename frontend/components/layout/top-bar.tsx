@@ -88,6 +88,7 @@ function NotificationBell() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 30_000);
     return () => clearInterval(interval);
@@ -109,7 +110,9 @@ function NotificationBell() {
       await apiFetchJson(`/api/v1/notifications/${id}/read`, { method: "POST" });
       setNotifications((prev) => prev.filter((n) => n.id !== id));
       window.dispatchEvent(new Event("notifications-updated"));
-    } catch { /* ignore */ }
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Failed to mark notification as read");
+    }
   }
 
   async function markAllRead() {
@@ -117,7 +120,9 @@ function NotificationBell() {
       await apiFetchJson("/api/v1/notifications/read-all", { method: "POST" });
       setNotifications([]);
       window.dispatchEvent(new Event("notifications-updated"));
-    } catch { /* ignore */ }
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Failed to mark all notifications as read");
+    }
   }
 
   async function handleNotifClick(n: Notification) {
@@ -285,6 +290,7 @@ export function TopBar() {
   const [user, setUser] = useState<CurrentUser | null>(null);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setUser(getCurrentUser());
   }, []);
 

@@ -114,7 +114,7 @@ function SchedulePageInner() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [searchDraft, setSearchDraft] = useState(search);
-  const [admin, setAdmin] = useState(false);
+  const [admin] = useState(() => isAdminOrAbove());
 
   // History modal state
   const [historySchedule, setHistorySchedule] = useState<ScheduleItem | null>(null);
@@ -126,12 +126,12 @@ function SchedulePageInner() {
   const [markDelivering, setMarkDelivering] = useState(false);
 
   // Keep search draft in sync with URL
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setSearchDraft(search); }, [search]);
-  // Detect admin once on mount
-  useEffect(() => { setAdmin(isAdminOrAbove()); }, []);
 
   // ── Fetch — triggered every time URL params change ──────────────────────────
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setError(null);
     const params = new URLSearchParams({

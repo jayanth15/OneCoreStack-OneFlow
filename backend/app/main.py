@@ -67,7 +67,6 @@ def _auto_seed_if_empty() -> None:
 
         default_admin = User(
             username="admin",
-            email="admin@oneflow.local",
             password_hash=hash_password("admin123"),
             role="super_admin",
             is_active=True,

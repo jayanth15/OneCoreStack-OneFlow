@@ -50,8 +50,7 @@ export default function SuppliersPage() {
     if (!isAdminOrAbove()) { router.replace("/dashboard"); }
   }, [router]);
 
-  const [adminUser, setAdminUser] = useState(false);
-  useEffect(() => { setAdminUser(checkIsAdmin()); }, []);
+  const [adminUser] = useState(() => checkIsAdmin());
 
   // Create sheet
   const [showCreate, setShowCreate] = useState(false);
@@ -76,6 +75,7 @@ export default function SuppliersPage() {
   }
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { loadSuppliers(); }, [search, showInactive]);
 
   async function handleCreate(e: React.FormEvent) {
@@ -156,7 +156,9 @@ export default function SuppliersPage() {
         });
       }
       loadSuppliers();
-    } catch { /* ignore */ }
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to update supplier");
+    }
   }
 
   return (

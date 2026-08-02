@@ -96,6 +96,7 @@ class RequestHistoryRead(BaseModel):
 
 class RequestCreate(BaseModel):
     request_type: RequestType
+    from_department: Optional[str] = None
     department: Optional[str] = None
     from_whom: Optional[str] = None
     notes: Optional[str] = None
@@ -221,7 +222,3 @@ class RequestDeliverItemAction(BaseModel):
 class RequestDeliverAction(BaseModel):
     delivery_note: Optional[str] = None
     items: List[RequestDeliverItemAction] = Field(default_factory=list)
-
-
-class RequestAcknowledgeDeliveryAction(BaseModel):
-    acknowledgment_note: Optional[str] = None

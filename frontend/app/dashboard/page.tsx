@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { apiFetchJson } from "@/lib/api";
 import { isAdminOrAbove } from "@/lib/user";
 import {
@@ -306,7 +307,7 @@ export default function DashboardPage() {
                 <Wrench className="size-4" />
               </div>
               <p className="text-sm font-semibold">Spares</p>
-              <a href="/dashboard/inventory/spares" className="ml-auto text-xs text-primary hover:underline">View all</a>
+              <Link href="/dashboard/inventory/spares" className="ml-auto text-xs text-primary hover:underline">View all</Link>
             </div>
             {sparesStats === null ? (
               <p className="text-xs text-muted-foreground text-center py-3">No inventory items</p>
@@ -348,7 +349,7 @@ export default function DashboardPage() {
                 <FlaskConical className="size-4" />
               </div>
               <p className="text-sm font-semibold">Consumables</p>
-              <a href="/dashboard/inventory/consumables" className="ml-auto text-xs text-primary hover:underline">View all</a>
+              <Link href="/dashboard/inventory/consumables" className="ml-auto text-xs text-primary hover:underline">View all</Link>
             </div>
             {consumablesLoaded && (consumablesTotal === null || consumablesTotal === 0) ? (
               <p className="text-xs text-muted-foreground text-center py-3">No inventory items</p>
@@ -396,7 +397,7 @@ export default function DashboardPage() {
                 <Paperclip className="size-4" />
               </div>
               <p className="text-sm font-semibold">Attachments</p>
-              <a href="/dashboard/inventory/attachments" className="ml-auto text-xs text-primary hover:underline">View all</a>
+              <Link href="/dashboard/inventory/attachments" className="ml-auto text-xs text-primary hover:underline">View all</Link>
             </div>
             {attachmentsLoaded && (attachmentsTotal === null || attachmentsTotal === 0) ? (
               <p className="text-xs text-muted-foreground text-center py-3">No inventory items</p>
@@ -444,7 +445,7 @@ export default function DashboardPage() {
                 <Scissors className="size-4" />
               </div>
               <p className="text-sm font-semibold">Weeders</p>
-              <a href="/dashboard/inventory/weeders" className="ml-auto text-xs text-primary hover:underline">View all</a>
+              <Link href="/dashboard/inventory/weeders" className="ml-auto text-xs text-primary hover:underline">View all</Link>
             </div>
             {weedersLoaded && (weedersTotal === null || weedersTotal === 0) ? (
               <p className="text-xs text-muted-foreground text-center py-3">No inventory items</p>

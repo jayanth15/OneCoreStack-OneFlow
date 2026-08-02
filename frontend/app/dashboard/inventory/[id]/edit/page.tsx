@@ -57,11 +57,10 @@ export default function EditInventoryPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [admin, setAdmin] = useState(false);
+  const [admin] = useState(() => isAdminOrAbove());
   const [vendors, setVendors] = useState<{ id: number | null; name: string }[]>([]);
 
   useEffect(() => {
-    setAdmin(isAdminOrAbove());
     apiFetchJson<{ id: number; name: string }[]>("/api/v1/vendors/names")
       .then(setVendors)
       .catch(() => {});
