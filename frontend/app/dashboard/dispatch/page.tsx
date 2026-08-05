@@ -91,6 +91,11 @@ interface ReceiptOption {
   receipt_number: string;
   status: string;
   request_sn_no?: string | null;
+  items?: Array<{
+    item_name: string | null; item_code: string | null; item_type: string | null;
+    inventory_item_id: number | null; unit_name: string | null;
+    quantity_delivered: number; quantity_signed_off: number | null;
+  }>;
 }
 interface DispatchHistoryEntry {
   id: number;
@@ -114,12 +119,21 @@ const STATUS_COLORS: Record<string, string> = {
 const STATUSES = ["pending", "dispatched", "delivered", "cancelled"];
 
 const DISPATCH_INV_TYPES = [
+  { value: "raw_material",  label: "Raw Material" },
   { value: "finished_good", label: "Finished Goods" },
+  { value: "semi_finished", label: "Semi-Finished" },
+  { value: "scrap",         label: "Scrap" },
   { value: "weeder",        label: "Weeder" },
   { value: "attachment",    label: "Attachment" },
   { value: "spare",         label: "Spares" },
   { value: "consumable",    label: "Consumable" },
 ];
+
+function inventoryTypeLabel(value: string): string {
+  if (!value) return "Not specified";
+  return DISPATCH_INV_TYPES.find((type) => type.value === value)?.label
+    ?? value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
 
 function blankDispatchItem(): DispatchItemForm {
   return {
@@ -628,16 +642,11 @@ function DispatchForm({
     onChange({ ...form, items: form.items.map(i => i._key === key ? { ...i, ...patch } : i) });
   }
 
-  async function applyReceipt(receiptId: number) {
+  async function applyReceipt(receiptOption: ReceiptOption) {
     try {
-      const receipt = await apiFetchJson<{
-        id: number; receipt_number: string; status: string;
-        items: {
-          item_name: string | null; item_code: string | null; item_type: string | null;
-          inventory_item_id: number | null; unit_name: string | null;
-          quantity_delivered: number; quantity_signed_off: number | null;
-        }[];
-      }>(`/api/v1/receipts/${receiptId}`);
+      const receipt = receiptOption.items
+        ? receiptOption
+        : await apiFetchJson<ReceiptOption>(`/api/v1/receipts/${receiptOption.id}`);
       const items: DispatchItemForm[] = (receipt.items ?? []).map(it => ({
         _key: Math.random().toString(36).slice(2),
         inv_type: it.item_type || "",
@@ -646,9 +655,12 @@ function DispatchForm({
         quantity: String(it.quantity_signed_off ?? it.quantity_delivered ?? ""),
         unit: it.unit_name ?? "",
       }));
+      if (items.length === 0) throw new Error("Selected receipt has no items to dispatch");
       onChange(current => ({
         ...current,
-        items: items.length > 0 ? items : current.items,
+        receipt_id: receipt.id,
+        receipt_number: receipt.receipt_number,
+        items,
       }));
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "Failed to prefill from receipt");
@@ -746,13 +758,19 @@ function DispatchForm({
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Inventory Type <span className="text-destructive">*</span></Label>
-              <select value={item.inv_type}
-                onChange={(e) => updateItem(item._key, { inv_type: e.target.value, inv_item_id: null, item_name: "" })}
-                disabled={saving || receiptItemsLocked}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
-                <option value="">— Select type —</option>
-                {DISPATCH_INV_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-              </select>
+              {receiptItemsLocked ? (
+                <div className="w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm font-medium">
+                  {inventoryTypeLabel(item.inv_type)}
+                </div>
+              ) : (
+                <select value={item.inv_type}
+                  onChange={(e) => updateItem(item._key, { inv_type: e.target.value, inv_item_id: null, item_name: "" })}
+                  disabled={saving}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
+                  <option value="">— Select type —</option>
+                  {DISPATCH_INV_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+              )}
             </div>
             {item.inv_type ? (
               <div className="space-y-1.5">
@@ -829,25 +847,20 @@ function DispatchForm({
           )}
         </div>
         <SearchCombobox<ReceiptOption>
-          variant="list"
-          value={form.receipt_id ? String(form.receipt_id) : ""}
+          value={form.receipt_number}
           placeholder="Search receipt (RCP-…)…"
           disabled={saving}
           fetcher={async (q) => {
             const search = q.trim() ? `&search=${encodeURIComponent(q.trim())}` : "";
-            return apiFetchJson<ReceiptOption[]>(`/api/v1/receipts?status=signed_off&limit=50${search}`);
+            return apiFetchJson<ReceiptOption[]>(`/api/v1/receipts/dispatchable?limit=50${search}`);
           }}
           getItemKey={(r) => r.id}
           getItemLabel={(r) => r.receipt_number}
-          itemIdOf={(r) => r.id}
-          onSelect={(r) => {
-            onChange({ ...form, receipt_id: r.id, receipt_number: r.receipt_number });
-            void applyReceipt(r.id);
-          }}
-          emptyText="No signed-off receipts found"
+          onSelect={(r) => { void applyReceipt(r); }}
+          emptyText="No dispatchable receipts found"
           renderItem={(r) => (
             <div className="flex min-w-0 flex-col">
-              <span className="truncate text-sm font-medium font-mono">{r.receipt_number}</span>
+              <span className="truncate font-mono text-sm font-medium">{r.receipt_number}</span>
               {r.request_sn_no && (
                 <span className="truncate text-xs text-muted-foreground">{r.request_sn_no}</span>
               )}
@@ -897,7 +910,7 @@ function DispatchInvCombobox({ invType, value, disabled, onSelect }: {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setQuery(value); }, [value]);
   // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { setResults([]); setQuery(""); }, [invType]);
+  useEffect(() => { setResults([]); }, [invType]);
 
   const doSearch = useCallback((q: string) => {
     if (!invType) return;
@@ -907,9 +920,9 @@ function DispatchInvCombobox({ invType, value, disabled, onSelect }: {
       try {
         const qs = q.trim() ? `&search=${encodeURIComponent(q)}` : "";
         let invItems: InvItem[] = [];
-        if (invType === "finished_good") {
+        if (["raw_material", "finished_good", "semi_finished", "scrap"].includes(invType)) {
           const d = await apiFetchJson<{ items: { id: number; code: string; name: string }[] }>(
-            `/api/v1/inventory?page_size=12&include_inactive=false&item_type=finished_good${qs}`
+            `/api/v1/inventory?page_size=12&include_inactive=false&item_type=${encodeURIComponent(invType)}${qs}`
           );
           invItems = d.items.map(i => ({ id: i.id, code: i.code, name: i.name }));
         } else if (invType === "weeder") {

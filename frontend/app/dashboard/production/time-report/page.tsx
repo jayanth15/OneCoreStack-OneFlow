@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SearchCombobox } from "@/components/ui/search-combobox";
 import { apiFetchJson } from "@/lib/api";
+import { getCompanyPrintHeaderHtml } from "@/lib/print-report";
 import {
   ArrowLeft, Clock, User, Users, Package, TrendingUp,
   Factory, Wrench, CalendarDays, ChevronDown, ChevronUp, BarChart3, Printer,
@@ -465,8 +466,11 @@ export default function TimeReportPage() {
     fetchReport(selectedWorkerId, dateFrom || undefined, dateTo || undefined);
   }
 
-  function printWorkerReport() {
+  async function printWorkerReport() {
     if (!singleWorker) return;
+    const win = window.open("", "_blank", "width=900,height=700");
+    if (!win) return;
+    const companyHeader = await getCompanyPrintHeaderHtml();
     const w = singleWorker;
     const dateRange = (dateFrom || dateTo)
       ? `${fmtDate(dateFrom || dateTo)} – ${fmtDate(dateTo || dateFrom)}`
@@ -509,6 +513,7 @@ export default function TimeReportPage() {
   .card-sub{font-size:11px;color:#6b7280;margin-top:2px}
   @media print{body{margin:16px}}
 </style></head><body>
+${companyHeader}
 <h1 style="font-size:20px;margin:0">${w.username}</h1>
 <p style="color:#6b7280;margin:2px 0 8px;font-size:13px">${dateRange}</p>
 <div class="cards">
@@ -523,13 +528,10 @@ ${section("By Production Order", orderRows, "<th>Order</th><th style='text-align
 ${section("By Machine", machineRows, "<th>Machine</th><th style='text-align:right'>Hours</th><th style='text-align:right'>Qty</th><th style='text-align:right'>Cards</th>")}
 </body></html>`;
 
-    const win = window.open("", "_blank", "width=900,height=700");
-    if (win) {
-      win.document.write(html);
-      win.document.close();
-      win.focus();
-      win.print();
-    }
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    win.print();
   }
 
   const singleWorker = typeof selectedWorkerId === "number"

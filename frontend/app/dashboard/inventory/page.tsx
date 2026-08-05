@@ -509,7 +509,13 @@ function InventoryPageInner() {
     try {
       await apiFetchJson(`/api/v1/inventory/${deleteId}`, { method: "DELETE" });
       setDeleteId(null);
-      nav({});
+      setData(current => {
+        if (!current) return current;
+        const nextTotal = Math.max(0, current.total - 1);
+        return { ...current, items: current.items.filter(item => item.id !== deleteId),
+          total: nextTotal, pages: Math.max(1, Math.ceil(nextTotal / current.page_size)) };
+      });
+      window.dispatchEvent(new Event("inventory-updated"));
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Delete failed");
     } finally {

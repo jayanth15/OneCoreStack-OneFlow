@@ -21,7 +21,7 @@ import {
   PlusIcon, Pencil, Trash2, AlertTriangle, Wrench, ChevronRight, ChevronDown,
   Search, Printer, PackagePlus, PackageMinus, ImageIcon, Layers, Eye, History, ChevronsDown,
 } from "lucide-react";
-import { fetchAllPages, openPrintWindow } from "@/lib/print-report";
+import { fetchAllPages, getCompanyPrintHeaderHtml, openPrintWindow } from "@/lib/print-report";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -765,6 +765,7 @@ export default function SparesPage() {
   async function printCycleCount() {
     const win = window.open("", "_blank");
     if (!win) return;
+    const companyHeader = await getCompanyPrintHeaderHtml();
 
     // Fetch all data from API for the print — don't rely on UI state
     const allCats = await apiFetchJson<{ items: { id: number; name: string }[] }>(
@@ -818,6 +819,7 @@ export default function SparesPage() {
         th{background:#e5e5e5;}
         .counted{border-bottom:2px solid #333;min-width:80px;display:inline-block;}
       </style></head><body>
+      ${companyHeader}
       <h2 style="text-align:center;">Spares Cycle Count</h2>
       <p style="text-align:center;">Date: ${new Date().toLocaleDateString()}</p>
       <table>

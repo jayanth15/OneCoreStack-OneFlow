@@ -13,6 +13,8 @@ from app.models.attachment_item import AttachmentItem
 from app.models.attachment_history import AttachmentHistory
 from app.models.inventory import InventoryItem
 from app.models.inventory_history import InventoryHistory
+from app.models.receipt import Receipt
+from app.models.receipt_item import ReceiptItem
 from app.models.request import Request
 from app.models.request_item import RequestItem
 from app.models.spare_item import SpareItem
@@ -237,3 +239,101 @@ def test_set_status_deducts_rejected_items_are_skipped(client, session, admin_to
     assert resp.status_code == 200, resp.json()
     session.refresh(stock)
     assert stock.quantity_on_hand == 10
+
+
+def test_direct_receipt_deducts_delivered_quantity_once(client, session, admin_token):
+    stock = InventoryItem(
+        code="RM-RECEIPT",
+        name="Receipt steel",
+        item_type="raw_material",
+        quantity_on_hand=10,
+    )
+    session.add(stock)
+    session.commit()
+    req = _request_with_item(session, stock.id, "raw_material", quantity=4)
+    request_item = session.exec(
+        select(RequestItem).where(RequestItem.request_id == req.id)
+    ).one()
+
+    created = client.post(
+        "/api/v1/receipts",
+        json={
+            "request_id": req.id,
+            "items": [{
+                "request_item_id": request_item.id,
+                "quantity_delivered": 4,
+                "condition": "good",
+            }],
+        },
+        headers=_headers(admin_token),
+    )
+
+    assert created.status_code == 201, created.json()
+    session.refresh(stock)
+    session.refresh(request_item)
+    assert stock.quantity_on_hand == 6
+    assert request_item.item_status == "delivered"
+
+    signed_off = client.post(
+        f"/api/v1/receipts/{created.json()['id']}/signoff",
+        json={},
+        headers=_headers(admin_token),
+    )
+    assert signed_off.status_code == 200, signed_off.json()
+    session.refresh(stock)
+    assert stock.quantity_on_hand == 6
+
+
+def test_signoff_legacy_receipt_deducts_missing_inventory_transaction(
+    client, session, admin_token,
+):
+    stock = InventoryItem(
+        code="FG-LEGACY-RECEIPT",
+        name="Legacy finished good",
+        item_type="finished_good",
+        quantity_on_hand=9,
+    )
+    session.add(stock)
+    session.commit()
+    req = _request_with_item(session, stock.id, "finished_good", quantity=3)
+    req.status = "awaiting_signoff"
+    request_item = session.exec(
+        select(RequestItem).where(RequestItem.request_id == req.id)
+    ).one()
+    receipt = Receipt(
+        receipt_number=f"RCP-LEGACY-{req.id}",
+        request_id=req.id,
+        status="created",
+    )
+    session.add(req)
+    session.add(receipt)
+    session.flush()
+    session.add(ReceiptItem(
+        receipt_id=receipt.id,
+        request_item_id=request_item.id,
+        inventory_item_id=stock.id,
+        item_name=stock.name,
+        item_code=stock.code,
+        item_type=stock.item_type,
+        quantity_requested=3,
+        quantity_delivered=3,
+        condition="good",
+    ))
+    session.commit()
+
+    signed_off = client.post(
+        f"/api/v1/receipts/{receipt.id}/signoff",
+        json={},
+        headers=_headers(admin_token),
+    )
+
+    assert signed_off.status_code == 200, signed_off.json()
+    session.refresh(stock)
+    session.refresh(request_item)
+    assert stock.quantity_on_hand == 6
+    assert request_item.item_status == "delivered"
+    history = session.exec(
+        select(InventoryHistory).where(InventoryHistory.inventory_item_id == stock.id)
+    ).all()
+    assert history[-1].quantity_delta == -3
+    assert history[-1].notes == f"Fulfilled request {req.sn_no}"

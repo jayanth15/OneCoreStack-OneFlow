@@ -244,9 +244,5 @@
   "242": "_migrate_grn_v2",
   "243": "_migrate_job_card_worker_id",
   "244": "client",
-  "245": "_migrate_po_vendor_fields",
-  "246": "_migrate_inventory_drawing_pdf",
-  "247": "_migrate_marketing_request_tables",
-  "248": "_migrate_production_process_v2",
-  "249": "_migrate_receipts_into_requests"
+  "245": "_migrate_po_vendor_fields"
 }

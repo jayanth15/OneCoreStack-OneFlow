@@ -13,6 +13,7 @@ from sqlmodel import Session, select
 
 from app.core.database import get_session
 from app.dependencies.auth import get_current_user
+from app.models.dispatch import Dispatch
 from app.models.user import User
 from app.models.request import Request, REQUEST_TYPE_INTERNAL_TRANSFER, REQUEST_TYPE_VENDOR_PURCHASE
 from app.models.request_item import RequestItem
@@ -31,6 +32,7 @@ from app.schemas.receipt import (
     ReceiptSignoff, ReceiptDispute,
 )
 from app.routers.notifications import create_notification
+from app.services.request_inventory import StockDeduction, deduct_request_stock
 
 router = APIRouter(prefix="/api/v1/receipts", tags=["receipts"])
 
@@ -167,6 +169,53 @@ def _receipt_visible_to_user(receipt: Receipt, user: User, session: Session) -> 
     )
 
 
+def _deduct_receipt_stock(
+    *,
+    session: Session,
+    req: Request,
+    current_user: User,
+    delivered_items: list[tuple[RequestItem, float]],
+) -> None:
+    """Deduct receipt quantities that were not already handled by Deliver.
+
+    The Deliver endpoint marks request items delivered after deducting them. A
+    receipt can also be created directly, and older receipts may reach signoff
+    with their request items still unmarked. Using the item status here makes
+    both paths safe without subtracting the same line twice.
+    """
+    if req.request_type != REQUEST_TYPE_INTERNAL_TRANSFER:
+        return
+
+    pending_items = [
+        (item, quantity)
+        for item, quantity in delivered_items
+        if quantity > 0
+        and item.item_status not in ("delivered", "rejected")
+        and item.inventory_item_id is not None
+        and item.item_type
+    ]
+    if not pending_items:
+        return
+
+    deduct_request_stock(
+        session,
+        [
+            StockDeduction(
+                inventory_type=item.item_type,
+                item_id=item.inventory_item_id,
+                quantity=quantity,
+                label=item.item_name or item.item_code or f"Request item {item.id}",
+            )
+            for item, quantity in pending_items
+        ],
+        current_user,
+        note=f"Fulfilled request {req.sn_no}",
+    )
+    for item, _ in pending_items:
+        item.item_status = "delivered"
+        session.add(item)
+
+
 def create_receipt_for_request(
     *,
     session: Session,
@@ -207,6 +256,8 @@ def create_receipt_for_request(
             for ri in req_items
         ]
 
+    prepared_items: list[tuple[RequestItem, float, Optional[str]]] = []
+    seen_request_item_ids: set[int] = set()
     for item_in in receipt_items:
         request_item_id = item_in["request_item_id"] if isinstance(item_in, dict) else item_in.request_item_id
         quantity_delivered = item_in["quantity_delivered"] if isinstance(item_in, dict) else item_in.quantity_delivered
@@ -215,7 +266,20 @@ def create_receipt_for_request(
         ri = req_item_map.get(request_item_id)
         if not ri:
             raise HTTPException(status_code=400, detail=f"Request item {request_item_id} not found for this request")
+        if request_item_id in seen_request_item_ids:
+            raise HTTPException(status_code=400, detail=f"Request item {request_item_id} was included more than once")
+        seen_request_item_ids.add(request_item_id)
         delivered_qty = max(0.0, min(float(quantity_delivered), float(ri.quantity)))
+        prepared_items.append((ri, delivered_qty, condition))
+
+    _deduct_receipt_stock(
+        session=session,
+        req=req,
+        current_user=current_user,
+        delivered_items=[(item, quantity) for item, quantity, _ in prepared_items],
+    )
+
+    for ri, delivered_qty, condition in prepared_items:
         session.add(ReceiptItem(
             receipt_id=receipt.id,  # type: ignore[arg-type]
             request_item_id=ri.id,  # type: ignore[arg-type]
@@ -342,6 +406,36 @@ def list_receipts(
     return [_build_receipt_read(r, session) for r in receipts]
 
 
+@router.get("/dispatchable")
+def list_dispatchable_receipts(
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    search: str = Query(default=""),
+    limit: int = Query(default=50, ge=1, le=500),
+) -> List[dict]:
+    """List receipts that an authorized dispatcher can attach to a dispatch.
+
+    Dispatch access is intentionally broader than receipt-page department
+    visibility. Both created and signed-off receipts are valid because the
+    dispatch completion validation accepts either state.
+    """
+    if current_user.role not in ("admin", "super_admin") and not current_user.dispatch_access:
+        raise HTTPException(status_code=403, detail="Dispatch access required")
+
+    linked_receipt_ids = select(Dispatch.receipt_id).where(
+        Dispatch.receipt_id.is_not(None),  # type: ignore[union-attr]
+        Dispatch.status != "deleted",
+    )
+    stmt = select(Receipt).where(
+        Receipt.status.in_(["created", "signed_off"]),  # type: ignore[union-attr]
+        Receipt.id.not_in(linked_receipt_ids),  # type: ignore[union-attr]
+    ).order_by(Receipt.created_at.desc())
+    if search.strip():
+        stmt = stmt.where(Receipt.receipt_number.ilike(f"%{search.strip()}%"))  # type: ignore[union-attr]
+    receipts = session.exec(stmt.limit(limit)).all()
+    return [_build_receipt_read(receipt, session) for receipt in receipts]
+
+
 @router.get("/{receipt_id}")
 def get_receipt(
     receipt_id: int,
@@ -410,6 +504,20 @@ def signoff_receipt(
 
     # Copy delivered quantities to signed_off on receipt items
     items = session.exec(select(ReceiptItem).where(ReceiptItem.receipt_id == receipt_id)).all()
+    request_items = {
+        item.id: item
+        for item in session.exec(select(RequestItem).where(RequestItem.request_id == req.id)).all()
+    }
+    _deduct_receipt_stock(
+        session=session,
+        req=req,
+        current_user=current_user,
+        delivered_items=[
+            (request_items[item.request_item_id], item.quantity_delivered)
+            for item in items
+            if item.request_item_id in request_items
+        ],
+    )
     for it in items:
         if it.quantity_signed_off is None:
             it.quantity_signed_off = it.quantity_delivered

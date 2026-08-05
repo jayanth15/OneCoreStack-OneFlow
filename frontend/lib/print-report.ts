@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetchJson } from "./api";
+
 export type PrintMode = "cycle-count" | "audit-snapshot" | "audit-history";
 
 export interface PrintOptions {
@@ -12,6 +14,24 @@ export interface PrintOptions {
   rows: Record<string, unknown>[];
   extraHeader?: string;
 }
+export interface CompanyPrintInfo {
+  company_name: string;
+  company_address: string;
+  company_phone: string;
+  company_email: string;
+  company_gstin: string;
+  company_website: string;
+  company_logo_url: string;
+  company_city: string;
+  company_state: string;
+  company_country: string;
+  company_pincode: string;
+}
+
+export function loadCompanyPrintInfo(): Promise<CompanyPrintInfo | null> {
+  return apiFetchJson<CompanyPrintInfo>("/api/v1/settings/company").catch(() => null);
+}
+
 
 function escapeHtml(value: unknown): string {
   if (value === null || value === undefined) return "";
@@ -23,6 +43,36 @@ function escapeHtml(value: unknown): string {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
+export function companyPrintHeaderHtml(company: CompanyPrintInfo | null): string {
+  if (!company) return "";
+  const address = [
+    company.company_address,
+    company.company_city,
+    company.company_state,
+    company.company_pincode,
+    company.company_country,
+  ].filter(Boolean).map(escapeHtml).join(", ");
+  const contact = [
+    company.company_phone ? `Phone: ${escapeHtml(company.company_phone)}` : "",
+    company.company_email ? `Email: ${escapeHtml(company.company_email)}` : "",
+    company.company_gstin ? `GSTIN: ${escapeHtml(company.company_gstin)}` : "",
+    company.company_website ? escapeHtml(company.company_website) : "",
+  ].filter(Boolean).join(" &nbsp;|&nbsp; ");
+  const hasCompanyInfo = company.company_name || address || contact || company.company_logo_url;
+  if (!hasCompanyInfo) return "";
+
+  return `<div style="text-align:center;margin-bottom:18px;padding-bottom:12px;border-bottom:2px solid #222;">
+    ${company.company_logo_url ? `<img src="${escapeHtml(company.company_logo_url)}" alt="" style="max-height:56px;max-width:180px;object-fit:contain;margin-bottom:6px;" />` : ""}
+    ${company.company_name ? `<div style="font-size:21px;font-weight:800;line-height:1.2;">${escapeHtml(company.company_name)}</div>` : ""}
+    ${address ? `<div style="font-size:12px;color:#555;margin-top:4px;">${address}</div>` : ""}
+    ${contact ? `<div style="font-size:11px;color:#666;margin-top:4px;">${contact}</div>` : ""}
+  </div>`;
+}
+
+export async function getCompanyPrintHeaderHtml(): Promise<string> {
+  return companyPrintHeaderHtml(await loadCompanyPrintInfo());
+}
+
 
 export async function fetchAllPages<T>(
   fetchPage: (page: number, pageSize: number) => Promise<{ items: T[]; total: number; page: number; page_size: number; pages: number }>,
@@ -55,9 +105,34 @@ export async function fetchAllPages<T>(
 }
 
 export function openPrintWindow(options: PrintOptions): void {
+  const win = window.open("", "_blank", "width=900,height=700");
+  if (!win) {
+    alert("Please allow popups for printing");
+    return;
+  }
+  void renderPrintWindow(win, options);
+}
+
+async function renderPrintWindow(win: Window, options: PrintOptions): Promise<void> {
   const { title, subtitle, companyName, companyAddress, mode, columns, rows, extraHeader } = options;
   const modeLabel = mode === "cycle-count" ? "Cycle Count" : mode === "audit-history" ? "Audit History" : "Audit Snapshot";
   const printedAt = new Date().toLocaleString("en-IN");
+  const companyHeader = companyPrintHeaderHtml(
+    (await loadCompanyPrintInfo()) ?? (companyName ? {
+      company_name: companyName,
+      company_address: companyAddress ?? "",
+      company_phone: "",
+      company_email: "",
+      company_gstin: "",
+      company_website: "",
+      company_logo_url: "",
+      company_city: "",
+      company_state: "",
+      company_country: "",
+      company_pincode: "",
+    } : null),
+  );
+
 
   const rowsHtml = rows.map((row) => {
     const cells = columns.map((col) => {
@@ -102,10 +177,10 @@ export function openPrintWindow(options: PrintOptions): void {
 </style>
 </head>
 <body>
+  ${companyHeader}
   <div class="print-header">
     <h1>${escapeHtml(title)} <span class="mode-badge">${modeLabel}</span></h1>
     ${subtitle ? `<div class="subtitle">${escapeHtml(subtitle)}</div>` : ""}
-    ${companyName ? `<div class="company">${escapeHtml(companyName)}${companyAddress ? " — " + escapeHtml(companyAddress) : ""}</div>` : ""}
     ${extraHeader ? `<div class="extra-header">${escapeHtml(extraHeader)}</div>` : ""}
   </div>
   <table>
@@ -117,11 +192,7 @@ export function openPrintWindow(options: PrintOptions): void {
 </body>
 </html>`;
 
-  const win = window.open("", "_blank", "width=900,height=700");
-  if (!win) {
-    alert("Please allow popups for printing");
-    return;
-  }
+  win.document.open();
   win.document.write(html);
   win.document.close();
 }

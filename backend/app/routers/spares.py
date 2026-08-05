@@ -295,12 +295,14 @@ def _category_out(session: Session, cat: SpareCategory) -> CategoryOut:
         )
     ).one()
     cat_val = session.exec(
-        select(func.sum(SpareItem.rate * SpareItem.recorded_qty)).where(
+        select(func.sum(
+            SpareItemVariant.qty * func.coalesce(SpareItemVariant.rate, SpareItem.rate, 0)
+        )).select_from(SpareItemVariant).join(
+            SpareItem, SpareItemVariant.spare_item_id == SpareItem.id
+        ).where(
             SpareItem.category_id == cat.id,
             SpareItem.is_active == True,
-            SpareItem.id.in_(
-                select(SpareItemVariant.spare_item_id).where(SpareItemVariant.is_active == True)
-            ),
+            SpareItemVariant.is_active == True,
         )
     ).one()
     return CategoryOut(
@@ -331,12 +333,14 @@ def _sub_out(session: Session, sub: SpareSubCategory) -> SubCategoryOut:
         )
     ).one()
     sub_val = session.exec(
-        select(func.sum(SpareItem.rate * SpareItem.recorded_qty)).where(
+        select(func.sum(
+            SpareItemVariant.qty * func.coalesce(SpareItemVariant.rate, SpareItem.rate, 0)
+        )).select_from(SpareItemVariant).join(
+            SpareItem, SpareItemVariant.spare_item_id == SpareItem.id
+        ).where(
             SpareItem.sub_category_id == sub.id,
             SpareItem.is_active == True,
-            SpareItem.id.in_(
-                select(SpareItemVariant.spare_item_id).where(SpareItemVariant.is_active == True)
-            ),
+            SpareItemVariant.is_active == True,
         )
     ).one()
     return SubCategoryOut(
@@ -790,7 +794,12 @@ def _sync_item_from_variants(session: Session, item: SpareItem) -> None:
         )
     ).all()
     if not rows:
-        return  # no active variants — leave item fields as-is
+        item.recorded_qty = 0
+        item.updated_at = datetime.now(tz=timezone.utc)
+        session.add(item)
+        session.commit()
+        session.refresh(item)
+        return
     total_qty = sum(v.qty for v in rows)
     # total value = sum of (qty × rate) for variants that have a rate
     total_val = sum(v.qty * v.rate for v in rows if v.rate is not None)

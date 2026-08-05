@@ -1,4 +1,6 @@
 """Tests for Receipt creation, signoff, and dispute workflow."""
+
+from app.models.dispatch import Dispatch
 from tests.conftest import create_admin, create_dept, create_user_with_dept, login
 
 
@@ -523,3 +525,69 @@ def test_dispute_reverts_request_to_awaiting_signoff(client, session, admin_toke
         headers={"Authorization": f"Bearer {prod_token}"},
     )
     assert client.get(f"/api/v1/requests/{req_id}", headers={"Authorization": f"Bearer {prod_token}"}).json()["status"] == "awaiting_signoff"
+
+
+def test_dispatchable_receipts_are_selectable_by_dispatch_users(
+    client, session, admin_token, qa_dept,
+):
+    prod_token, qa_token, req_id = setup_request(
+        client, session, admin_token, qa_dept,
+    )
+    request_data = client.get(
+        f"/api/v1/requests/{req_id}",
+        headers={"Authorization": f"Bearer {qa_token}"},
+    ).json()
+    request_item_id = request_data["items"][0]["id"]
+    created = client.post(
+        "/api/v1/receipts",
+        json={
+            "request_id": req_id,
+            "items": [{
+                "request_item_id": request_item_id,
+                "quantity_delivered": 10,
+                "condition": "good",
+            }],
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert created.status_code == 201, created.json()
+    receipt_id = created.json()["id"]
+
+    create_dept(session, "STORE", "Stores")
+    dispatcher = create_user_with_dept(
+        session, "dispatch_worker", "worker", "STORE",
+    )
+    dispatcher.dispatch_access = True
+    session.add(dispatcher)
+    session.commit()
+    dispatcher_token = login(client, "dispatch_worker", "test123")
+
+    forbidden = client.get(
+        "/api/v1/receipts/dispatchable",
+        headers={"Authorization": f"Bearer {qa_token}"},
+    )
+    assert forbidden.status_code == 403
+
+    available = client.get(
+        "/api/v1/receipts/dispatchable",
+        headers={"Authorization": f"Bearer {dispatcher_token}"},
+    )
+    assert available.status_code == 200, available.json()
+    assert receipt_id in {receipt["id"] for receipt in available.json()}
+
+    session.add(Dispatch(
+        dispatch_number="DSP-RECEIPT-LINKED",
+        receipt_id=receipt_id,
+        receipt_number=created.json()["receipt_number"],
+        status="pending",
+    ))
+    session.commit()
+
+    available_after_link = client.get(
+        "/api/v1/receipts/dispatchable",
+        headers={"Authorization": f"Bearer {dispatcher_token}"},
+    )
+    assert available_after_link.status_code == 200
+    assert receipt_id not in {
+        receipt["id"] for receipt in available_after_link.json()
+    }

@@ -690,8 +690,8 @@
     "semantic_hash": ""
   },
   "frontend/app/dashboard/dispatch/page.tsx": {
-    "mtime": 1785929400.986398,
-    "ast_hash": "964e645047da276d8c86e680cea499b0",
+    "mtime": 1785928969.5431035,
+    "ast_hash": "57358d54c2dcf7859f9396d327e71175",
     "semantic_hash": ""
   },
   "frontend/app/dashboard/gate-passes/page.tsx": {
