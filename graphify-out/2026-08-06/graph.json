@@ -98859,7 +98859,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/app/dashboard/inventory/_components/InventoryTypePage.tsx",
-      "source_location": "L530",
+      "source_location": "L504",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_app_dashboard_inventory_components_inventorytypepage_inventorytypepage",
@@ -98871,7 +98871,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/app/dashboard/inventory/_components/InventoryTypePage.tsx",
-      "source_location": "L550",
+      "source_location": "L524",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_app_dashboard_inventory_components_inventorytypepage_inventorytypepage",
@@ -98883,7 +98883,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/app/dashboard/inventory/_components/InventoryTypePage.tsx",
-      "source_location": "L875",
+      "source_location": "L844",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_app_dashboard_inventory_components_inventorytypepage_inventorytypepage",
@@ -98895,7 +98895,7 @@
       "context": "argument",
       "confidence": "INFERRED",
       "source_file": "frontend/app/dashboard/inventory/_components/InventoryTypePage.tsx",
-      "source_location": "L342",
+      "source_location": "L316",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_app_dashboard_inventory_components_inventorytypepage_inventorytypepage",
@@ -98907,7 +98907,7 @@
       "context": "argument",
       "confidence": "INFERRED",
       "source_file": "frontend/app/dashboard/inventory/_components/InventoryTypePage.tsx",
-      "source_location": "L343",
+      "source_location": "L317",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_app_dashboard_inventory_components_inventorytypepage_inventorytypepage",
@@ -128390,5 +128390,5 @@
       "source_file": "okf/production/production-system.md"
     }
   ],
-  "built_at_commit": "1a4000d93c6a14609133b5dc6c054380aa62b138"
+  "built_at_commit": "05d519f7464e92548e457e1b753107a75e5d22eb"
 }

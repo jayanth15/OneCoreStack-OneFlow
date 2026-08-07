@@ -287,6 +287,32 @@ export default function InventoryTypePage({ itemType, label, description, basePa
     }
   }
 
+  async function printHistory() {
+    if (!historyItem) return;
+    const { fetchAllPages, openPrintWindow } = await import("@/lib/print-report");
+    const all = await fetchAllPages(async (printPage, pageSize) => {
+      const rows = await apiFetchJson<HistoryEntry[]>(
+        `/api/v1/inventory/${historyItem.id}/history?limit=${pageSize}&offset=${(printPage - 1) * pageSize}`
+      );
+      return { items: rows, total: 0, page: printPage, page_size: pageSize, pages: 0 };
+    });
+    openPrintWindow({
+      title: `${label} History — ${historyItem.name}`,
+      mode: "audit-history",
+      columns: ["Date", "Action", "Before", "Change", "After", "User", "Schedule", "Notes"],
+      rows: all.map(row => ({
+        "Date": new Date(row.changed_at).toLocaleString(),
+        "Action": CHANGE_LABELS[row.change_type] ?? row.change_type,
+        "Before": row.quantity_before ?? "",
+        "Change": row.quantity_delta ?? "",
+        "After": row.quantity_after ?? "",
+        "User": row.changed_by_username ?? "System",
+        "Schedule": row.schedule_number ?? "",
+        "Notes": row.notes ?? "",
+      })),
+    });
+  }
+
   // ── Delete ─────────────────────────────────────────────────────────────────
   async function handleDelete() {
     if (deleteId === null) return;
@@ -821,7 +847,12 @@ export default function InventoryTypePage({ itemType, label, description, basePa
       <Dialog open={historyItem !== null} onOpenChange={(o) => !o && setHistoryItem(null)}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader className="mb-4">
-            <DialogTitle>History — {historyItem?.name}</DialogTitle>
+            <DialogTitle className="flex items-center justify-between gap-2">
+              <span>History — {historyItem?.name}</span>
+              <Button size="sm" variant="outline" onClick={printHistory}>
+                <Printer className="size-3.5 mr-1" />Print
+              </Button>
+            </DialogTitle>
             <p className="text-sm text-muted-foreground">{historyItem?.code}</p>
           </DialogHeader>
           {historyLoading ? (

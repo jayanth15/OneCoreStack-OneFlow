@@ -720,8 +720,8 @@
     "semantic_hash": "917bcbc7f92daa52eafdfd95d090025b"
   },
   "frontend/app/dashboard/inventory/_components/InventoryTypePage.tsx": {
-    "mtime": 1786032144.0113928,
-    "ast_hash": "0c3a8e3df584a5f6aa12011f7666d2ff",
+    "mtime": 1785926910.35905,
+    "ast_hash": "d41b57c3ded39db7c24d148f155dc0ed",
     "semantic_hash": ""
   },
   "frontend/app/dashboard/inventory/attachments/page.tsx": {
