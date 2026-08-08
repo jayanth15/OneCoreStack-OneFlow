@@ -1,6 +1,6 @@
 """Dashboard analytics endpoint — aggregates key metrics across all modules."""
 
-from typing import Annotated, Optional
+from typing import Annotated, Any, Optional
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -21,6 +21,7 @@ from app.models.production_plan import ProductionPlan
 from app.models.spare_item_variant import SpareItemVariant
 from app.models.user import User
 from app.models.weeder_item import WeederItem
+from app.routers.inventory import _user_inventory_types
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])
 
@@ -97,25 +98,25 @@ def get_dashboard(
 ) -> DashboardResponse:
 
     # ── Overview counts ────────────────────────────────────────────────────
-    inv_total = session.exec(
-        select(func.count()).where(InventoryItem.is_active == True)  # noqa: E712
-    ).one()
-    inv_rm = session.exec(
-        select(func.count()).where(InventoryItem.is_active == True, InventoryItem.item_type == "raw_material")  # noqa: E712
-    ).one()
-    inv_fg = session.exec(
-        select(func.count()).where(InventoryItem.is_active == True, InventoryItem.item_type == "finished_good")  # noqa: E712
-    ).one()
-    inv_sfg = session.exec(
-        select(func.count()).where(InventoryItem.is_active == True, InventoryItem.item_type == "semi_finished")  # noqa: E712
-    ).one()
-    low_stock_inv = session.exec(
-        select(func.count()).where(
-            InventoryItem.is_active == True,  # noqa: E712
-            InventoryItem.reorder_level > 0,
-            InventoryItem.quantity_on_hand <= InventoryItem.reorder_level,
-        )
-    ).one()
+    allowed_types = _user_inventory_types(current_user)
+
+    def count_inventory(*where_clauses: Any) -> int:
+        """Count active inventory items, restricted to the user's allowed types."""
+        query = select(func.count()).where(*where_clauses)
+        if allowed_types is not None:
+            query = query.where(InventoryItem.item_type.in_(allowed_types))  # type: ignore[union-attr]
+        return session.exec(query).one()
+
+    inv_total = count_inventory(InventoryItem.is_active == True)  # noqa: E712
+    inv_rm = count_inventory(InventoryItem.is_active == True, InventoryItem.item_type == "raw_material")  # noqa: E712
+    inv_fg = count_inventory(InventoryItem.is_active == True, InventoryItem.item_type == "finished_good")  # noqa: E712
+    inv_sfg = count_inventory(InventoryItem.is_active == True, InventoryItem.item_type == "semi_finished")  # noqa: E712
+    low_stock_inv = count_inventory(
+        InventoryItem.is_active == True,  # noqa: E712
+        InventoryItem.reorder_level > 0,
+        InventoryItem.quantity_on_hand <= InventoryItem.reorder_level,
+    )
+
     low_stock_spares = session.exec(
         select(func.count()).where(
             SpareItemVariant.is_active == True,  # noqa: E712
@@ -165,18 +166,19 @@ def get_dashboard(
     )
 
     # ── Inventory by type (with value) ─────────────────────────────────────
+    inv_by_type_query = select(
+        InventoryItem.item_type,
+        func.count().label("cnt"),
+        func.coalesce(func.sum(InventoryItem.quantity_on_hand), 0).label("total_qty"),
+        func.coalesce(
+            func.sum(InventoryItem.quantity_on_hand * func.coalesce(InventoryItem.rate, 0)),
+            0,
+        ).label("total_value"),
+    ).where(InventoryItem.is_active == True)  # noqa: E712
+    if allowed_types is not None:
+        inv_by_type_query = inv_by_type_query.where(InventoryItem.item_type.in_(allowed_types))  # type: ignore[union-attr]
     inv_by_type_rows = session.exec(
-        select(
-            InventoryItem.item_type,
-            func.count().label("cnt"),
-            func.coalesce(func.sum(InventoryItem.quantity_on_hand), 0).label("total_qty"),
-            func.coalesce(
-                func.sum(InventoryItem.quantity_on_hand * func.coalesce(InventoryItem.rate, 0)),
-                0,
-            ).label("total_value"),
-        )
-        .where(InventoryItem.is_active == True)  # noqa: E712
-        .group_by(InventoryItem.item_type)
+        inv_by_type_query.group_by(InventoryItem.item_type)
     ).all()
     inventory_by_type = [
         InventoryByType(
@@ -189,10 +191,14 @@ def get_dashboard(
     ]
 
     # ── Recent inventory activity (last 10) ────────────────────────────────
+    recent_inv_query = select(InventoryHistory, InventoryItem).join(
+        InventoryItem, InventoryHistory.inventory_item_id == InventoryItem.id
+    )
+    if allowed_types is not None:
+        recent_inv_query = recent_inv_query.where(InventoryItem.item_type.in_(allowed_types))  # type: ignore[union-attr]
     recent_inv_rows = list(
         session.exec(
-            select(InventoryHistory, InventoryItem)
-            .join(InventoryItem, InventoryHistory.inventory_item_id == InventoryItem.id)
+            recent_inv_query
             .order_by(InventoryHistory.changed_at.desc())  # type: ignore[union-attr]
             .limit(10)
         ).all()
@@ -236,14 +242,16 @@ def get_dashboard(
     ]
 
     # ── Low stock items ────────────────────────────────────────────────────
+    low_stock_query = select(InventoryItem).where(
+        InventoryItem.is_active == True,  # noqa: E712
+        InventoryItem.reorder_level > 0,
+        InventoryItem.quantity_on_hand <= InventoryItem.reorder_level,
+    )
+    if allowed_types is not None:
+        low_stock_query = low_stock_query.where(InventoryItem.item_type.in_(allowed_types))  # type: ignore[union-attr]
     low_stock_rows = list(
         session.exec(
-            select(InventoryItem)
-            .where(
-                InventoryItem.is_active == True,  # noqa: E712
-                InventoryItem.reorder_level > 0,
-                InventoryItem.quantity_on_hand <= InventoryItem.reorder_level,
-            )
+            low_stock_query
             .order_by(
                 (InventoryItem.quantity_on_hand / InventoryItem.reorder_level)  # type: ignore[operator]
             )

@@ -1,16 +1,16 @@
-# Graph Report - OneFlow  (2026-08-08)
+# Graph Report - OneFlow  (2026-08-06)
 
 ## Corpus Check
-- 310 files · ~299,631 words
+- 310 files · ~299,517 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 3174 nodes · 8045 edges · 249 communities (173 shown, 76 thin omitted)
-- Extraction: 79% EXTRACTED · 21% INFERRED · 0% AMBIGUOUS · INFERRED: 1667 edges (avg confidence: 0.63)
+- 3174 nodes · 8042 edges · 250 communities (174 shown, 76 thin omitted)
+- Extraction: 79% EXTRACTED · 21% INFERRED · 0% AMBIGUOUS · INFERRED: 1666 edges (avg confidence: 0.63)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `719cbc5a`
+- Built from commit: `1a4000d9`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -74,6 +74,7 @@
 - Community 56
 - Community 57
 - Community 58
+- Community 59
 - Community 60
 - Community 61
 - Community 62
@@ -283,7 +284,7 @@
 - **Request Delivery Workflow (request -> procurement PO / logistics receipt -> inventory)** — okf_requests_request-system, okf_procurement_procurement-system, okf_logistics_logistics-system, okf_inventory_inventory-system [EXTRACTED 0.95]
 - **Production BOM consumes raw materials and credits finished goods to inventory** — okf_production_production-system, okf_inventory_inventory-system, okf_procurement_procurement-system [EXTRACTED 0.95]
 
-## Communities (249 total, 76 thin omitted)
+## Communities (250 total, 76 thin omitted)
 
 ### Community 0 - "Admin Dashboard Pages"
 Cohesion: 0.05
@@ -294,8 +295,8 @@ Cohesion: 0.06
 Nodes (107): SQLModel, SpareCategory, SQLModel, Audit trail for every stock change on a SpareItem., SpareItemHistory, SQLModel, SpareItem, SQLModel (+99 more)
 
 ### Community 2 - "Departments and Inventory History"
-Cohesion: 0.14
-Nodes (50): BomItem, SQLModel, Bill of Materials — maps a product name to required raw materials.      product_, InventoryHistory, SQLModel, Audit trail for every stock change on an InventoryItem.      Written on: create,, JobCardHistory, SQLModel (+42 more)
+Cohesion: 0.12
+Nodes (55): Department, SQLModel, InventoryHistory, SQLModel, Audit trail for every stock change on an InventoryItem.      Written on: create,, JobCardHistory, SQLModel, Audit trail for every change on a JobCard.      One row per changed field per ed (+47 more)
 
 ### Community 3 - "New BOM Creation UI"
 Cohesion: 0.05
@@ -334,8 +335,8 @@ Cohesion: 0.07
 Nodes (38): EmptyState(), EmptyStateProps, PageShell(), PageShellProps, AlertDialogMedia(), AlertDialogOverlay(), Breadcrumb(), BreadcrumbEllipsis() (+30 more)
 
 ### Community 12 - "Auth and Inventory Module"
-Cohesion: 0.09
-Nodes (56): get_current_user(), Session, InventoryItem, SQLModel, BomCloneBody, BomItemCreate, BomItemResponse, BomItemUpdate (+48 more)
+Cohesion: 0.14
+Nodes (39): get_current_user(), Session, InventoryItem, SQLModel, adjust_stock(), AdjustStockBody, _compute_extra(), create_item() (+31 more)
 
 ### Community 13 - "Purchase Request Item Model"
 Cohesion: 0.26
@@ -421,6 +422,10 @@ Nodes (29): Auth Model, Compat shims (Strangler Fig), Context, Data Migration, D
 Cohesion: 0.12
 Nodes (19): alembic_version_exists(), init_db(), Create all tables from SQLModel metadata. Called on startup.      For fresh data, Run Alembic migrations to bring the database to the latest revision., Stamp the database at the current Alembic head (for legacy catch-up)., Check if the alembic_version table exists (i.e., DB is already Alembic-managed)., run_alembic_upgrade(), stamp_alembic_head() (+11 more)
 
+### Community 34 - "Community 34"
+Cohesion: 0.21
+Nodes (20): BomItem, SQLModel, Bill of Materials — maps a product name to required raw materials.      product_, BomCloneBody, BomItemCreate, BomItemResponse, BomItemUpdate, clone_bom() (+12 more)
+
 ### Community 35 - "Community 35"
 Cohesion: 0.12
 Nodes (27): create_user_with_dept(), login(), Admin quantity adjustment during request approval., test_admin_can_adjust_item_quantities_while_approving(), test_approval_rejects_item_from_another_request(), A user in the requester's department can identify receipt source/target context., Delivery splits receipts by line-item department and closes only after all are s, test_multi_department_request_creates_department_receipts() (+19 more)
@@ -475,7 +480,7 @@ Nodes (28): create_purchase_request(), delete_purchase_request(), get_purchase_r
 
 ### Community 48 - "Community 48"
 Cohesion: 0.11
-Nodes (19): @base-ui/react, class-variance-authority, @ducanh2912/next-pwa, dependencies, @base-ui/react, class-variance-authority, @ducanh2912/next-pwa, @hugeicons/core-free-icons (+11 more)
+Nodes (19): @base-ui/react, class-variance-authority, dependencies, @base-ui/react, class-variance-authority, @hugeicons/core-free-icons, next, radix-ui (+11 more)
 
 ### Community 49 - "Community 49"
 Cohesion: 0.29
@@ -518,8 +523,8 @@ Cohesion: 0.30
 Nodes (14): DispatchStatus, GatePassStatus, is_admin_or_above(), JobCardStatus, OrderStatus, PlanStatus, PurchaseOrderStatus, Enums for roles, request statuses, and other string constants.  Replaces scatter (+6 more)
 
 ### Community 60 - "Community 60"
-Cohesion: 0.18
-Nodes (26): Department, SQLModel, LoginRequest, me(), BaseModel, User, TokenResponse, UserMeResponse (+18 more)
+Cohesion: 0.25
+Nodes (18): create_department(), delete_department(), DepartmentCreate, DepartmentResponse, DepartmentUpdate, DeptSimple, get_department(), list_departments() (+10 more)
 
 ### Community 61 - "Community 61"
 Cohesion: 0.11
@@ -905,9 +910,9 @@ Nodes (3): client(), TestClient, FastAPI TestClient that uses the isolated per-t
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `User` connect `Departments and Inventory History` to `Community 33`, `Spare Parts Data Model`, `Consumables Data Model`, `Community 37`, `Linkable Purchase Requests`, `Database Session and Auth Core`, `input-group.tsx`, `Community 40`, `BOM Edit Pages`, `Community 43`, `Auth and Inventory Module`, `Weeder Category Model`, `Combobox UI Component`, `Community 49`, `Legacy Migrations and Scheduling`, `Request Items and Router`, `Community 51`, `Community 60`?**
+- **Why does `User` connect `Departments and Inventory History` to `Spare Parts Data Model`, `Consumables Data Model`, `Linkable Purchase Requests`, `Database Session and Auth Core`, `BOM Edit Pages`, `Auth and Inventory Module`, `Weeder Category Model`, `Combobox UI Component`, `Legacy Migrations and Scheduling`, `Request Items and Router`, `Community 33`, `Community 34`, `input-group.tsx`, `Community 37`, `Community 40`, `Community 43`, `Community 49`, `Community 51`, `Community 60`?**
   _High betweenness centrality (0.037) - this node is a cross-community bridge._
-- **Why does `get_session()` connect `Database Session and Auth Core` to `Departments and Inventory History`, `Consumables Data Model`, `Auth and Inventory Module`, `Purchase Request Item Model`, `Community 142`, `Combobox UI Component`, `Units and Vendors Model`, `Supplier Job Model`, `Legacy Migrations and Scheduling`, `Receipts and Requests Model`, `Purchase Request Routes`, `Community 33`, `input-group.tsx`, `Community 37`, `Community 39`, `Community 40`, `Community 49`, `Community 51`, `Community 60`?**
+- **Why does `get_session()` connect `Database Session and Auth Core` to `Departments and Inventory History`, `Consumables Data Model`, `Auth and Inventory Module`, `Purchase Request Item Model`, `Community 142`, `Combobox UI Component`, `Units and Vendors Model`, `Supplier Job Model`, `Legacy Migrations and Scheduling`, `Receipts and Requests Model`, `Purchase Request Routes`, `Community 33`, `Community 34`, `input-group.tsx`, `Community 37`, `Community 39`, `Community 40`, `Community 49`, `Community 51`, `Community 60`?**
   _High betweenness centrality (0.037) - this node is a cross-community bridge._
 - **Why does `_seed_customers_from_schedules()` connect `Community 37` to `Community 56`, `Community 33`, `Legacy Migrations and Scheduling`, `Community 55`?**
   _High betweenness centrality (0.027) - this node is a cross-community bridge._

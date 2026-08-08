@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiFetchJson } from "@/lib/api";
-import { isAdminOrAbove } from "@/lib/user";
+import { canAccessInventory, isAdminOrAbove } from "@/lib/user";
 import {
   Package, Users, Calendar, ClipboardList, Factory, Wrench,
   AlertTriangle, TrendingUp, ArrowUpRight, ArrowDownRight, Minus,
@@ -199,37 +199,45 @@ export default function DashboardPage() {
     apiFetchJson<DashboardData>("/api/v1/dashboard")
       .then(setData)
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load dashboard"));
-    apiFetchJson<{items: {id: number; item_count: number; total_value: number | null}[]; total: number}>("/api/v1/spares/categories?include_inactive=false&page_size=500")
-      .then(data => setSparesStats({
-        categories: data.total,
-        items: data.items.reduce((s, c) => s + c.item_count, 0),
-        total_value: data.items.reduce((s, c) => s + (c.total_value ?? 0), 0),
-      }))
-      .catch(() => {});
-    apiFetchJson<{items: {total_price: number | null; qty: number; reorder_level: number}[], total: number}>("/api/v1/consumables?page_size=500&include_inactive=false")
-      .then(d => {
-        setConsumablesTotal(d.total);
-        setConsumablesValue(d.items.reduce((s, c) => s + (c.total_price ?? 0), 0));
-        setConsumablesLowStock(d.items.filter(c => c.reorder_level > 0 && c.qty <= c.reorder_level).length);
-      })
-      .catch(() => { setConsumablesTotal(0); })
-      .finally(() => { setConsumablesLoaded(true); });
-    apiFetchJson<{items: {total_rate: number | null; qty: number; reorder_level: number}[], total: number}>("/api/v1/attachments?page_size=500&include_inactive=false")
-      .then(d => {
-        setAttachmentsTotal(d.total);
-        setAttachmentsValue(d.items.reduce((s, c) => s + (c.total_rate ?? 0), 0));
-        setAttachmentsLowStock(d.items.filter(c => c.reorder_level > 0 && c.qty <= c.reorder_level).length);
-      })
-      .catch(() => { setAttachmentsTotal(0); })
-      .finally(() => { setAttachmentsLoaded(true); });
-    apiFetchJson<{items: {total_rate: number | null; qty: number; reorder_level: number}[], total: number}>("/api/v1/weeders?page_size=500&include_inactive=false")
-      .then(d => {
-        setWeedersTotal(d.total);
-        setWeedersValue(d.items.reduce((s, c) => s + (c.total_rate ?? 0), 0));
-        setWeedersLowStock(d.items.filter(c => c.reorder_level > 0 && c.qty <= c.reorder_level).length);
-      })
-      .catch(() => { setWeedersTotal(0); })
-      .finally(() => { setWeedersLoaded(true); });
+    if (canAccessInventory("spare")) {
+      apiFetchJson<{items: {id: number; item_count: number; total_value: number | null}[]; total: number}>("/api/v1/spares/categories?include_inactive=false&page_size=500")
+        .then(data => setSparesStats({
+          categories: data.total,
+          items: data.items.reduce((s, c) => s + c.item_count, 0),
+          total_value: data.items.reduce((s, c) => s + (c.total_value ?? 0), 0),
+        }))
+        .catch(() => {});
+    }
+    if (canAccessInventory("consumable")) {
+      apiFetchJson<{items: {total_price: number | null; qty: number; reorder_level: number}[], total: number}>("/api/v1/consumables?page_size=500&include_inactive=false")
+        .then(d => {
+          setConsumablesTotal(d.total);
+          setConsumablesValue(d.items.reduce((s, c) => s + (c.total_price ?? 0), 0));
+          setConsumablesLowStock(d.items.filter(c => c.reorder_level > 0 && c.qty <= c.reorder_level).length);
+        })
+        .catch(() => { setConsumablesTotal(0); })
+        .finally(() => { setConsumablesLoaded(true); });
+    }
+    if (canAccessInventory("attachment")) {
+      apiFetchJson<{items: {total_rate: number | null; qty: number; reorder_level: number}[], total: number}>("/api/v1/attachments?page_size=500&include_inactive=false")
+        .then(d => {
+          setAttachmentsTotal(d.total);
+          setAttachmentsValue(d.items.reduce((s, c) => s + (c.total_rate ?? 0), 0));
+          setAttachmentsLowStock(d.items.filter(c => c.reorder_level > 0 && c.qty <= c.reorder_level).length);
+        })
+        .catch(() => { setAttachmentsTotal(0); })
+        .finally(() => { setAttachmentsLoaded(true); });
+    }
+    if (canAccessInventory("weeder")) {
+      apiFetchJson<{items: {total_rate: number | null; qty: number; reorder_level: number}[], total: number}>("/api/v1/weeders?page_size=500&include_inactive=false")
+        .then(d => {
+          setWeedersTotal(d.total);
+          setWeedersValue(d.items.reduce((s, c) => s + (c.total_rate ?? 0), 0));
+          setWeedersLowStock(d.items.filter(c => c.reorder_level > 0 && c.qty <= c.reorder_level).length);
+        })
+        .catch(() => { setWeedersTotal(0); })
+        .finally(() => { setWeedersLoaded(true); });
+    }
   }, []);
 
   if (error) {
@@ -283,12 +291,18 @@ export default function DashboardPage() {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
           <StatCard label="Inventory Items" value={o.total_inventory_items}
             icon={<Package className="size-5" />} />
-          <StatCard label="Raw Materials" value={o.raw_materials}
-            icon={<Package className="size-5" />} tone="amber" />
-          <StatCard label="Semi Finished" value={o.semi_finished}
-            icon={<Package className="size-5" />} tone="violet" />
-          <StatCard label="Finished Goods" value={o.finished_goods}
-            icon={<Package className="size-5" />} tone="emerald" />
+          {canAccessInventory("raw_material") && (
+            <StatCard label="Raw Materials" value={o.raw_materials}
+              icon={<Package className="size-5" />} tone="amber" />
+          )}
+          {canAccessInventory("semi_finished") && (
+            <StatCard label="Semi Finished" value={o.semi_finished}
+              icon={<Package className="size-5" />} tone="violet" />
+          )}
+          {canAccessInventory("finished_good") && (
+            <StatCard label="Finished Goods" value={o.finished_goods}
+              icon={<Package className="size-5" />} tone="emerald" />
+          )}
           {o.low_stock_alerts > 0 ? (
             <StatCard label="Low Stock Alerts" value={o.low_stock_alerts}
               icon={<AlertTriangle className="size-5" />} tone="destructive" />
@@ -301,6 +315,7 @@ export default function DashboardPage() {
         {/* ── Spares & Consumables Overview ─────────────────────────── */}
         <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
           {/* Spares card */}
+          {canAccessInventory("spare") && (
           <div className="rounded-xl border bg-card p-4 shadow-sm">
             <div className="flex items-center gap-2 mb-3">
               <div className="flex size-8 items-center justify-center rounded-lg bg-tone-violet/10 text-tone-violet">
@@ -341,8 +356,10 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
+          )}
 
           {/* Consumables card */}
+          {canAccessInventory("consumable") && (
           <div className="rounded-xl border bg-card p-4 shadow-sm">
             <div className="flex items-center gap-2 mb-3">
               <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -389,8 +406,10 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
+          )}
 
           {/* Attachments card */}
+          {canAccessInventory("attachment") && (
           <div className="rounded-xl border bg-card p-4 shadow-sm">
             <div className="flex items-center gap-2 mb-3">
               <div className="flex size-8 items-center justify-center rounded-lg bg-tone-amber/15 text-tone-amber">
@@ -437,8 +456,10 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
+          )}
 
           {/* Weeders card */}
+          {canAccessInventory("weeder") && (
           <div className="rounded-xl border bg-card p-4 shadow-sm">
             <div className="flex items-center gap-2 mb-3">
               <div className="flex size-8 items-center justify-center rounded-lg bg-tone-emerald/10 text-tone-emerald">
@@ -485,6 +506,7 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
+          )}
         </div>
         {isAdminOrAbove() && data.inventory_by_type.length > 0 && (
           <div className="rounded-xl border bg-card p-4 shadow-sm">

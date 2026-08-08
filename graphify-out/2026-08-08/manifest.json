@@ -450,9 +450,9 @@
     "semantic_hash": "ca2ef646d38049bf7eb3bf6af9ee7c3a"
   },
   "backend/app/routers/dashboard.py": {
-    "mtime": 1786164951.0331805,
-    "ast_hash": "2fa5aea81660a0e2bbaf615a241bc2ea",
-    "semantic_hash": ""
+    "mtime": 1782744027.4855943,
+    "ast_hash": "e9acc8fe5ce9ba1e32c9c74de28d5a77",
+    "semantic_hash": "e9acc8fe5ce9ba1e32c9c74de28d5a77"
   },
   "backend/app/routers/departments.py": {
     "mtime": 1783245564.0765336,
@@ -805,8 +805,8 @@
     "semantic_hash": "bb6cc3c84244b63daccc9d266c1e3f83"
   },
   "frontend/app/dashboard/page.tsx": {
-    "mtime": 1786164721.8812194,
-    "ast_hash": "1a9884af1dba3d4154e8704b0f17ef7a",
+    "mtime": 1785649559.8067095,
+    "ast_hash": "35f2eeafd4316a9be4ed7b9cbea69561",
     "semantic_hash": ""
   },
   "frontend/app/dashboard/production/page.tsx": {
