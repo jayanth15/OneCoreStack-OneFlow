@@ -2,12 +2,13 @@ from datetime import datetime, timedelta, timezone
 from typing import Annotated, Optional
 
 import jwt
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from app.core.config import settings
 from app.core.database import get_session
+from app.core.rate_limit import enforce_rate_limit
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -64,7 +65,7 @@ def _set_refresh_cookie(response: Response, token: str) -> None:
         key=COOKIE_NAME,
         value=token,
         httponly=True,
-        secure=settings.cookie_secure,
+        secure=settings.cookie_secure or settings.environment != "development",
         samesite="strict",
         max_age=COOKIE_MAX_AGE,
         path="/api/v1/auth",
@@ -80,9 +81,12 @@ def _clear_refresh_cookie(response: Response) -> None:
 @router.post("/login", response_model=TokenResponse)
 def login(
     body: LoginRequest,
+    request: Request,
     response: Response,
     session: Annotated[Session, Depends(get_session)],
 ) -> TokenResponse:
+    client_host = request.client.host if request.client else "unknown"
+    enforce_rate_limit("login", client_host, settings.login_rate_limit)
     user = session.exec(select(User).where(User.username == body.username)).first()
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(
@@ -111,10 +115,13 @@ def login(
 
 @router.post("/refresh", response_model=TokenResponse)
 def refresh(
+    request: Request,
     response: Response,
     session: Annotated[Session, Depends(get_session)],
     oneflow_refresh: str | None = Cookie(default=None),
 ) -> TokenResponse:
+    client_host = request.client.host if request.client else "unknown"
+    enforce_rate_limit("refresh", client_host, settings.refresh_rate_limit)
     exc = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired, please log in again")
 
     if not oneflow_refresh:

@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { apiFetchJson } from "@/lib/api";
+import { openPrintWindow } from "@/lib/print-report";
 import { getCurrentUser, refreshCurrentUser } from "@/lib/user";
 import {
   PlusIcon,
@@ -54,6 +55,8 @@ interface GRNItem {
   quantity_pr_requested: number | null;
   quantity_filled: number;
   quantity_returned: number;
+  request_item_id: number | null;
+  purchase_order_item_id: number | null;
 }
 
 interface GRNRecord {
@@ -71,23 +74,14 @@ interface GRNRecord {
   stock_filled_at: string | null;
   created_at: string;
   purchase_request_id: number | null;
+  request_id: number | null;
+  purchase_order_id: number | null;
   purchase_request_sn_no: string | null;
   po_number: string | null;
   dc_number: string | null;
   items: GRNItem[];
 }
 
-interface CompanyInfo {
-  company_name: string;
-  company_address: string;
-  company_city: string;
-  company_state: string;
-  company_country: string;
-  company_pincode: string;
-  company_phone: string;
-  company_email: string;
-  company_gstin: string;
-}
 
 interface PaginatedGRN {
   items: GRNRecord[];
@@ -132,6 +126,9 @@ interface PoDetailItem {
   item_name: string;
   quantity: number;
   unit: string | null;
+  inventory_type: string | null;
+  inventory_item_id: number | null;
+  request_item_id: number | null;
 }
 
 interface PoDetail {
@@ -155,6 +152,8 @@ interface FormItemRow {
   quantity_received: string;
   quantity_pr_requested: string; // hint from linked PR
   invTypeFilter: string;
+  request_item_id: number | null;
+  purchase_order_item_id: number | null;
 }
 
 let _rowKey = 0;
@@ -169,6 +168,7 @@ function newRow(): FormItemRow {
     quantity_received: "",
     quantity_pr_requested: "",
     invTypeFilter: "",
+    request_item_id: null, purchase_order_item_id: null,
   };
 }
 
@@ -183,6 +183,7 @@ function grnItemToFormRow(item: GRNItem): FormItemRow {
     quantity_received: String(item.quantity_received),
     quantity_pr_requested: item.quantity_pr_requested != null ? String(item.quantity_pr_requested) : "",
     invTypeFilter: "",
+    request_item_id: item.request_item_id ?? null, purchase_order_item_id: item.purchase_order_item_id ?? null,
   };
 }
 
@@ -197,20 +198,22 @@ function prItemToFormRow(pr: PRItem): FormItemRow {
     quantity_received: "",
     quantity_pr_requested: String(pr.quantity ?? ""),
     invTypeFilter: "",
+    request_item_id: pr.id, purchase_order_item_id: null,
   };
 }
 
 function poItemToFormRow(item: PoDetailItem): FormItemRow {
   return {
     _key: Date.now() + Math.random(),
-    inventory_item_id: null,
+    inventory_item_id: item.inventory_item_id,
     item_name: item.item_name ?? "",
     item_code: "",
-    item_type: "raw_material",
+    item_type: item.inventory_type ?? "raw_material",
     unit: item.unit ?? "",
     quantity_received: "",
     quantity_pr_requested: "",
     invTypeFilter: "",
+    request_item_id: item.request_item_id, purchase_order_item_id: item.id,
   };
 }
 
@@ -247,7 +250,6 @@ const INV_TYPE_OPTIONS = [
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function GRNPage() {
-  const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [data, setData] = useState<PaginatedGRN | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -302,7 +304,6 @@ export default function GRNPage() {
         setCanManage(isAdmin || user.grn_access === true);
       }
     });
-    apiFetchJson<CompanyInfo>("/api/v1/settings/company").then(setCompanyInfo).catch(() => {});
   }, []);
 
   const fetchData = useCallback(() => {
@@ -360,7 +361,8 @@ export default function GRNPage() {
     setTransportType(grn.transport_type as "own" | "company");
     setVehicleNumber(grn.vehicle_number ?? "");
     setGrnNotes(grn.notes ?? "");
-    setLinkedPrId(grn.purchase_request_id);
+    setLinkedPrId(grn.request_id ?? grn.purchase_request_id);
+    setLinkedPoId(grn.purchase_order_id);
     setLinkedPrLabel(grn.purchase_request_sn_no ?? "");
     setPoNumber(grn.po_number ?? "");
     setDcNumber(grn.dc_number ?? "");
@@ -457,7 +459,9 @@ export default function GRNPage() {
       transport_type: transportType,
       vehicle_number: transportType === "company" ? vehicleNumber.trim() : null,
       notes: grnNotes.trim() || null,
-      purchase_request_id: linkedPrId,
+      purchase_request_id: null,
+      request_id: linkedPrId,
+      purchase_order_id: linkedPoId,
       po_number: poNumber.trim() || null,
       dc_number: dcNumber.trim() || null,
       inspected_by_user_id: inspectedByUserId,
@@ -472,6 +476,8 @@ export default function GRNPage() {
               unit: r.unit.trim() || null,
               quantity_received: parseFloat(r.quantity_received),
               quantity_pr_requested: r.quantity_pr_requested ? parseFloat(r.quantity_pr_requested) : null,
+              request_item_id: r.request_item_id,
+              purchase_order_item_id: r.purchase_order_item_id,
             })),
           }
         : {}),
@@ -530,93 +536,25 @@ export default function GRNPage() {
   }
 
   function printGRN(grn: GRNRecord) {
-    const win = window.open("", "_blank", "width=800,height=700");
-    if (!win) return;
-    const totalReceived = grn.items.reduce((s, it) => s + it.quantity_received, 0);
-    const totalFilled = grn.items.reduce((s, it) => s + it.quantity_filled, 0);
-    const totalReturned = grn.items.reduce((s, it) => s + it.quantity_returned, 0);
-    const co = companyInfo;
-    const coHtml = (co && co.company_name) ? `
-      <div style="text-align:center;margin-bottom:20px;padding-bottom:10px;border-bottom:2px solid #333;">
-        <h1 style="margin:0;font-size:20px;font-weight:bold;">${co.company_name}</h1>
-        <p style="margin:4px 0;">${[co.company_address, co.company_city, co.company_state].filter(Boolean).join(', ')}${co.company_pincode ? ' - ' + co.company_pincode : ''}</p>
-        <p style="margin:2px 0;font-size:12px;">
-          ${[co.company_phone ? `Phone: ${co.company_phone}` : '', co.company_email ? `Email: ${co.company_email}` : '', co.company_gstin ? `GST: ${co.company_gstin}` : ''].filter(Boolean).join(' | ')}
-        </p>
-      </div>` : '';
-    win.document.write(`<!DOCTYPE html><html><head><title>GRN — ${grn.grn_number}</title>
-<style>
-  body { font-family: Arial, sans-serif; font-size: 13px; margin: 24px; color: #111; }
-  h2 { margin: 0 0 4px; font-size: 18px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-  th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
-  th { background: #f5f5f5; font-weight: 600; }
-  .row { display: flex; gap: 32px; margin-bottom: 8px; flex-wrap: wrap; }
-  .lbl { color: #666; font-size: 11px; }
-  tfoot td { font-weight: 600; background: #f9f9f9; }
-  .text-right { text-align: right; }
-  @media print { body { margin: 0; } }
-</style></head><body>
-${coHtml}
-<h2>Goods Received Note — ${grn.grn_number}</h2>
-<p style="color:#666;font-size:11px">Generated on ${new Date().toLocaleString("en-IN")}</p>
-<div class="row">
-  <div><div class="lbl">Received By</div><div>${grn.received_by_username ?? "—"}</div></div>
-  <div><div class="lbl">Date</div><div>${grn.created_at?.slice(0, 10) ?? "—"}</div></div>
-  <div><div class="lbl">Status</div><div>${grn.status}</div></div>
-  ${grn.transport_type ? `<div><div class="lbl">Transport</div><div>${grn.transport_type === "company" ? "Company Transport" : "Own Transport"}${grn.vehicle_number ? ` (${grn.vehicle_number})` : ""}</div></div>` : ""}
-  ${grn.inspected_by_username ? `<div><div class="lbl">Inspected By</div><div>${grn.inspected_by_username}</div></div>` : ""}
-  ${grn.purchase_request_sn_no ? `<div><div class="lbl">Linked PR</div><div>${grn.purchase_request_sn_no}</div></div>` : ""}
-  ${grn.po_number ? `<div><div class="lbl">PO Number</div><div>${grn.po_number}</div></div>` : ""}
-  ${grn.dc_number ? `<div><div class="lbl">DC Number</div><div>${grn.dc_number}</div></div>` : ""}
-</div>
-<table>
-  <thead><tr>
-    <th>#</th><th>Item</th><th>Code</th>
-    <th class="text-right">PR Qty</th>
-    <th class="text-right">Received</th>
-    <th class="text-right">Filled</th>
-    <th class="text-right">Returned</th>
-    <th class="text-right">Remaining</th>
-    <th>Unit</th>
-  </tr></thead>
-  <tbody>
-    ${grn.items.map((it, i) => {
-      const remaining = it.quantity_received - it.quantity_filled - it.quantity_returned;
-      return `<tr>
-        <td>${i + 1}</td>
-        <td>${it.item_name ?? "—"}</td>
-        <td style="font-family:monospace">${it.item_code ?? "—"}</td>
-        <td class="text-right">${it.quantity_pr_requested != null ? it.quantity_pr_requested : "—"}</td>
-        <td class="text-right">${it.quantity_received}</td>
-        <td class="text-right">${it.quantity_filled}</td>
-        <td class="text-right">${it.quantity_returned}</td>
-        <td class="text-right">${(Math.round(remaining * 1000) / 1000).toLocaleString("en-IN")}</td>
-        <td>${it.unit ?? ""}</td>
-      </tr>`;
-    }).join("")}
-  </tbody>
-  <tfoot>
-    <tr>
-      <td colspan="3" style="text-align:right">Totals</td>
-      <td class="text-right">—</td>
-      <td class="text-right">${totalReceived.toLocaleString("en-IN")}</td>
-      <td class="text-right">${totalFilled.toLocaleString("en-IN")}</td>
-      <td class="text-right">${totalReturned.toLocaleString("en-IN")}</td>
-      <td class="text-right">${(totalReceived - totalFilled - totalReturned).toLocaleString("en-IN")}</td>
-      <td></td>
-    </tr>
-  </tfoot>
-</table>
-${grn.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${grn.notes}</p>` : ""}
-<p style="margin-top:24px;font-size:11px;color:#666">
-  Received By: ${grn.received_by_username ?? "—"} &nbsp;&nbsp;&nbsp;
-  Inspected By: ${grn.inspected_by_username ?? "—"}
-</p>
-</body></html>`);
-    win.document.close();
-    win.focus();
-    win.print();
+    openPrintWindow({
+      title: `Goods Received Note — ${grn.grn_number}`,
+      subtitle: `Status: ${grn.status} · Received by: ${grn.received_by_username ?? "—"}`,
+      mode: "audit-snapshot",
+      columns: ["#", "Item", "Inventory Type", "Code", "Ordered", "Received", "Filled", "Returned", "Remaining", "Unit"],
+      rows: grn.items.map((item, index) => ({
+        "#": index + 1,
+        Item: item.item_name ?? "—",
+        "Inventory Type": item.item_type?.replaceAll("_", " ") ?? "—",
+        Code: item.item_code ?? "—",
+        Ordered: item.quantity_pr_requested ?? "—",
+        Received: item.quantity_received,
+        Filled: item.quantity_filled,
+        Returned: item.quantity_returned,
+        Remaining: Math.round((item.quantity_received - item.quantity_filled - item.quantity_returned) * 1000) / 1000,
+        Unit: item.unit ?? "—",
+      })),
+      extraHeader: [grn.po_number ? `PO: ${grn.po_number}` : "", grn.purchase_request_sn_no ? `Request: ${grn.purchase_request_sn_no}` : "", grn.dc_number ? `DC: ${grn.dc_number}` : ""].filter(Boolean).join(" | "),
+    });
   }
 
   async function handleReturnItems() {

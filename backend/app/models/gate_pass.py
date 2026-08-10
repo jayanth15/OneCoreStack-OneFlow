@@ -10,6 +10,7 @@ class GatePass(SQLModel, table=True):
     gate_pass_number: str = Field(unique=True, index=True)  # e.g. GP-0001
 
     pass_type: str = Field(default="out")                   # in | out
+    party_type: str = Field(default="vendor")              # vendor | supplier
 
     # Party (vendor or supplier)
     vendor_id: Optional[int] = Field(default=None)
@@ -38,3 +39,5 @@ class GatePass(SQLModel, table=True):
     # Linked purchase order (optional)
     purchase_order_id: Optional[int] = Field(default=None)
     purchase_order_number: Optional[str] = None             # denormalized
+    dispatch_id: Optional[int] = Field(default=None, index=True)
+    grn_id: Optional[int] = Field(default=None, index=True)

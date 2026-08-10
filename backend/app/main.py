@@ -41,6 +41,7 @@ from app.routers import grn as grn_router
 from app.routers import history as history_router
 from app.routers.receipts import router as receipts_router
 from app.routers import units
+from app.routers import reconciliation as reconciliation_router
 
 logger = logging.getLogger(__name__)
 
@@ -133,6 +134,18 @@ app.add_middleware(
 )
 
 
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error("Unhandled exception on %s %s: %s", request.method, request.url.path, exc, exc_info=True)
@@ -140,18 +153,6 @@ async def global_exception_handler(request: Request, exc: Exception):
         status_code=500,
         content={"detail": "Internal server error"},
     )
-
-@app.get("/_debug/schema/{table_name}")
-def _debug_schema(table_name: str):
-    from sqlalchemy import inspect
-    from app.core.database import engine
-    insp = inspect(engine)
-    if table_name not in insp.get_table_names():
-        return {"error": f"table {table_name} not found", "all_tables": insp.get_table_names()}
-    cols = insp.get_columns(table_name)
-    return {"table": table_name, "columns": [{"name": c["name"], "type": str(c["type"]), "nullable": c.get("nullable")} for c in cols]}
-
-
 # ── Core routers (always on) ──────────────────────────────────────────────────
 app.include_router(auth_router.router)
 app.include_router(bom_router.router)
@@ -182,6 +183,7 @@ app.include_router(grn_router.router)
 app.include_router(history_router.router)
 app.include_router(receipts_router)
 app.include_router(units.router)
+app.include_router(reconciliation_router.router)
 
 
 @app.get("/health")

@@ -5,6 +5,7 @@ from app.models.consumable import Consumable  # noqa: F401
 from app.models.consumable_history import ConsumableHistory  # noqa: F401
 from app.models.vendor import Vendor  # noqa: F401
 from app.models.supplier import Supplier  # noqa: F401
+from app.models.document_counter import DocumentCounter  # noqa: F401
 from app.models.department import Department  # noqa: F401
 from app.models.inventory import InventoryItem  # noqa: F401
 from app.models.inventory_history import InventoryHistory  # noqa: F401

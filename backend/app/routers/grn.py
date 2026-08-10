@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field as PydanticField
 from sqlmodel import Session, func, or_, select
 
 from app.core.database import get_session
@@ -12,9 +12,15 @@ from app.models.grn_item import GRNItem
 from app.models.inventory import InventoryItem
 from app.models.inventory_history import InventoryHistory
 from app.models.purchase_request import PurchaseRequest
+from app.models.purchase_order import PurchaseOrder, PurchaseOrderItem
+from app.models.request import Request
+from app.models.request_item import RequestItem
+from app.routers.requests_helpers import log_history
 from app.models.unit import Unit
 from app.models.user import User
 
+from app.services.document_numbers import allocate_document_number
+from app.services.units import resolve_unit_id
 router = APIRouter(
     prefix="/api/v1/grn",
     tags=["grn"],
@@ -30,8 +36,7 @@ def _require_grn_access(user: User) -> None:
 
 
 def _next_grn_number(session: Session) -> str:
-    count = session.exec(select(func.count()).select_from(GRNRecord)).one()
-    return f"GRN-{count + 1:04d}"
+    return allocate_document_number(session, key="grn", prefix="GRN", existing_model=GRNRecord, number_field="grn_number")
 
 
 def _recompute_status(items: list[GRNItem]) -> str:
@@ -56,8 +61,11 @@ class GRNItemCreate(BaseModel):
     item_code: Optional[str] = None
     item_type: Optional[str] = None
     unit_id: Optional[int] = None
-    quantity_received: float = 0.0
+    unit: Optional[str] = None
+    quantity_received: float = PydanticField(gt=0)
     quantity_pr_requested: Optional[float] = None
+    request_item_id: Optional[int] = None
+    purchase_order_item_id: Optional[int] = None
 
 
 class GRNCreate(BaseModel):
@@ -67,6 +75,8 @@ class GRNCreate(BaseModel):
     inspected_by_user_id: Optional[int] = None
     inspected_by_username: Optional[str] = None
     purchase_request_id: Optional[int] = None
+    request_id: Optional[int] = None
+    purchase_order_id: Optional[int] = None
     po_number: Optional[str] = None
     dc_number: Optional[str] = None
     items: list[GRNItemCreate]
@@ -80,6 +90,8 @@ class GRNUpdate(BaseModel):
     inspected_by_user_id: Optional[int] = None
     inspected_by_username: Optional[str] = None
     purchase_request_id: Optional[int] = None
+    request_id: Optional[int] = None
+    purchase_order_id: Optional[int] = None
     po_number: Optional[str] = None
     dc_number: Optional[str] = None
     items: Optional[list[GRNItemCreate]] = None  # None=no change; list=replace all (draft only)
@@ -112,10 +124,13 @@ class GRNItemOut(BaseModel):
     item_type: Optional[str]
     unit_id: Optional[int] = None
     unit_name: Optional[str] = None
+    unit: Optional[str] = None
     quantity_received: float
     quantity_pr_requested: Optional[float] = None
     quantity_filled: float
     quantity_returned: float
+    request_item_id: Optional[int] = None
+    purchase_order_item_id: Optional[int] = None
 
     model_config = {"from_attributes": True}
 
@@ -130,6 +145,8 @@ class GRNOut(BaseModel):
     inspected_by_user_id: Optional[int]
     inspected_by_username: Optional[str]
     purchase_request_id: Optional[int]
+    request_id: Optional[int] = None
+    purchase_order_id: Optional[int] = None
     purchase_request_sn_no: Optional[str] = None
     po_number: Optional[str]
     dc_number: Optional[str]
@@ -177,6 +194,7 @@ def _build_grn_out(session: Session, grn: GRNRecord) -> GRNOut:
         item_out = GRNItemOut.model_validate(i)
         item_out.unit_id = i.unit_id
         item_out.unit_name = unit.name if unit else None
+        item_out.unit = item_out.unit_name
         resolved.append(item_out)
     out.items = resolved
     if grn.purchase_request_id:
@@ -191,7 +209,7 @@ def _create_grn_items(session: Session, grn_id: int, items_body: list[GRNItemCre
         item_name = ib.item_name
         item_code = ib.item_code
         item_type = ib.item_type
-        unit_id = ib.unit_id
+        unit_id = resolve_unit_id(session, ib.unit_id, ib.unit)
         if ib.inventory_item_id:
             inv = session.get(InventoryItem, ib.inventory_item_id)
             if inv:
@@ -210,6 +228,8 @@ def _create_grn_items(session: Session, grn_id: int, items_body: list[GRNItemCre
             quantity_pr_requested=ib.quantity_pr_requested,
             quantity_filled=0.0,
             quantity_returned=0.0,
+            request_item_id=ib.request_item_id,
+            purchase_order_item_id=ib.purchase_order_item_id,
         ))
 
 
@@ -314,6 +334,36 @@ def create_grn(
         raise HTTPException(status_code=422, detail="At least one item is required")
 
     now = datetime.now(tz=timezone.utc)
+    purchase_order = session.get(PurchaseOrder, body.purchase_order_id) if body.purchase_order_id else None
+    if body.purchase_order_id and not purchase_order:
+        raise HTTPException(status_code=404, detail="Purchase order not found")
+    if purchase_order and purchase_order.status not in ("approved", "partially_received"):
+        raise HTTPException(status_code=409, detail=f"Purchase order cannot receive goods in status {purchase_order.status!r}")
+    request_id = body.request_id or (purchase_order.purchase_request_id if purchase_order else None)
+    if purchase_order:
+        po_items = list(session.exec(select(PurchaseOrderItem).where(PurchaseOrderItem.purchase_order_id == purchase_order.id)).all())
+        for received in body.items:
+            source = next((item for item in po_items if item.id == received.purchase_order_item_id), None)
+            if source is None and received.item_name:
+                matches = [item for item in po_items if item.item_name == received.item_name]
+                source = matches[0] if len(matches) == 1 else None
+            if source is None:
+                raise HTTPException(status_code=422, detail=f"GRN item {received.item_name or ''!r} is not linked to a line on {purchase_order.po_number}")
+            prior = session.exec(
+                select(func.coalesce(func.sum(GRNItem.quantity_received), 0.0))
+                .join(GRNRecord, GRNRecord.id == GRNItem.grn_id)
+                .where(GRNItem.purchase_order_item_id == source.id, GRNRecord.is_active == True)  # noqa: E712
+            ).one()
+            remaining = float(source.quantity) - float(prior or 0)
+            if received.quantity_received > remaining + 1e-9:
+                raise HTTPException(status_code=409, detail=f"Cannot receive {received.quantity_received} of {source.item_name}; only {round(remaining, 4)} remains on the PO")
+            received.purchase_order_item_id = source.id
+            received.request_item_id = source.request_item_id
+            received.inventory_item_id = source.inventory_item_id
+            received.item_type = source.inventory_type
+            received.item_name = source.item_name
+            received.unit_id = source.unit_id
+            received.quantity_pr_requested = source.quantity
 
     # Resolve inspected_by_username from user_id if not supplied
     inspected_username = body.inspected_by_username
@@ -332,7 +382,9 @@ def create_grn(
         inspected_by_user_id=body.inspected_by_user_id,
         inspected_by_username=inspected_username,
         purchase_request_id=body.purchase_request_id,
-        po_number=body.po_number or None,
+        request_id=request_id,
+        purchase_order_id=purchase_order.id if purchase_order else None,
+        po_number=purchase_order.po_number if purchase_order else (body.po_number or None),
         dc_number=body.dc_number or None,
         status="draft",
         created_at=now,
@@ -387,7 +439,12 @@ def update_grn(
     grn.vehicle_number = body.vehicle_number if body.transport_type == "company" else None
     grn.notes = body.notes or None
     grn.purchase_request_id = body.purchase_request_id
-    grn.po_number = body.po_number or None
+    grn.request_id = body.request_id
+    grn.purchase_order_id = body.purchase_order_id
+    linked_po = session.get(PurchaseOrder, body.purchase_order_id) if body.purchase_order_id else None
+    if body.purchase_order_id and not linked_po:
+        raise HTTPException(status_code=404, detail="Purchase order not found")
+    grn.po_number = linked_po.po_number if linked_po else (body.po_number or None)
     grn.dc_number = body.dc_number or None
     grn.inspected_by_user_id = body.inspected_by_user_id
     grn.inspected_by_username = inspected_username or None
@@ -425,6 +482,8 @@ def delete_grn(
     grn = session.get(GRNRecord, grn_id)
     if not grn or not grn.is_active:
         raise HTTPException(status_code=404, detail="GRN not found")
+    if grn.status != "draft":
+        raise HTTPException(status_code=409, detail="A stock-affecting GRN cannot be deleted; return its items first")
     grn.is_active = False
     grn.updated_at = datetime.now(tz=timezone.utc)
     session.add(grn)
@@ -486,6 +545,23 @@ def fill_items(
     all_items = list(session.exec(select(GRNItem).where(GRNItem.grn_id == grn_id)).all())
     new_status = _recompute_status(all_items)
     grn.status = new_status
+    if grn.purchase_order_id:
+        po = session.get(PurchaseOrder, grn.purchase_order_id)
+        if po:
+            po.status = "received" if new_status == "stock_filled" else "partially_received"
+            session.add(po)
+            if new_status == "stock_filled" and po.purchase_request_id:
+                req = session.get(Request, po.purchase_request_id)
+                if req and req.status != "received":
+                    old_req_status = req.status
+                    req.status = "received"
+                    req.acknowledged_by_user_id = current_user.id
+                    req.acknowledged_by_username = current_user.username
+                    req.acknowledged_at = now
+                    req.acknowledgment_note = f"Received through {grn.grn_number} for {po.po_number}"
+                    req.updated_at = now
+                    session.add(req)
+                    log_history(session, req.id, changed_by_user_id=current_user.id, changed_by_username=current_user.username, change_type="grn_received", field_name="status", old_value=old_req_status, new_value="received", note=req.acknowledgment_note)
     if new_status == "stock_filled":
         grn.stock_filled_by_user_id = current_user.id  # type: ignore[assignment]
         grn.stock_filled_by_username = current_user.username

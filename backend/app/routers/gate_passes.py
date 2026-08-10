@@ -19,6 +19,9 @@ from app.core.database import get_session
 from app.dependencies.auth import get_current_user
 from app.models.gate_pass import GatePass
 from app.models.gate_pass_history import GatePassHistory
+from app.services.document_numbers import allocate_document_number
+from app.services.workflow import GATE_PASS_TRANSITIONS, ensure_inventory_identity, ensure_transition
+from app.services.units import resolve_unit_id
 from app.models.gate_pass_item import GatePassItem
 from app.models.purchase_order import PurchaseOrder
 from app.models.unit import Unit
@@ -31,12 +34,11 @@ CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
 def _next_gp_number(session: Session) -> str:
-    count = session.exec(select(GatePass)).all()
-    return f"GP-{(len(count) + 1):04d}"
+    return allocate_document_number(session, key="gate_pass", prefix="GP", existing_model=GatePass, number_field="gate_pass_number")
 
 
 def _party_type(gp: GatePass) -> str:
-    return "supplier" if gp.supplier_id else "vendor"
+    return gp.party_type
 
 
 def _assign_purchase_order(session: Session, gp: GatePass, purchase_order_id: int) -> None:
@@ -104,6 +106,13 @@ def create_gate_pass(
 ) -> dict[str, Any]:
     _require_access(current_user)
     raw_items = body.get("items") or []
+    if not raw_items and (body.get("material") or "").strip():
+        raw_items = [{"item_name": body.get("material"), "quantity": body.get("quantity"), "unit_id": body.get("unit_id"), "unit": body.get("unit")}]
+    if not raw_items:
+        raise HTTPException(status_code=422, detail="At least one item is required")
+    party_type = body.get("party_type") or ("supplier" if body.get("supplier_id") else "vendor")
+    if party_type not in ("vendor", "supplier"):
+        raise HTTPException(status_code=422, detail="party_type must be vendor or supplier")
     first_item_name = ""
     first_qty = 0.0
     first_unit_id = None
@@ -111,11 +120,12 @@ def create_gate_pass(
         first = raw_items[0]
         first_item_name = (first.get("item_name") or "").strip()
         first_qty = float(first.get("quantity") or 0)
-        first_unit_id = first.get("unit_id") or None
+        first_unit_id = resolve_unit_id(session, first.get("unit_id"), first.get("unit"))
 
     gp = GatePass(
         gate_pass_number=_next_gp_number(session),
         pass_type=body.get("pass_type") or "out",
+        party_type=party_type,
         vendor_id=body.get("vendor_id"),
         vendor_name=(body.get("vendor_name") or "").strip() or None,
         supplier_id=body.get("supplier_id"),
@@ -128,10 +138,14 @@ def create_gate_pass(
         date=(body.get("date") or "").strip() or None,
         notes=(body.get("notes") or "").strip() or None,
         status="open",
+        dispatch_id=body.get("dispatch_id"),
+        grn_id=body.get("grn_id"),
         created_by=current_user.username,
         created_at=datetime.now(timezone.utc).isoformat(),
     )
     party_type = _party_type(gp)
+    if (party_type == "vendor" and not (gp.vendor_id or gp.vendor_name)) or (party_type == "supplier" and not (gp.supplier_id or gp.supplier_name)):
+        raise HTTPException(status_code=422, detail=f"A {party_type} must be selected")
     _sanitize_purchase_refs(gp, party_type)
     if party_type == "vendor" and body.get("purchase_order_id"):
         _assign_purchase_order(session, gp, body["purchase_order_id"])
@@ -142,22 +156,26 @@ def create_gate_pass(
         name = (item_data.get("item_name") or "").strip()
         if not name:
             continue
+        if float(item_data.get("quantity") or 0) <= 0:
+            raise HTTPException(status_code=422, detail="Gate pass item quantity must be greater than zero")
+        ensure_inventory_identity(item_data.get("inv_type"), item_data.get("inv_item_id"), label="Gate pass item")
         session.add(GatePassItem(
             gate_pass_id=gp.id,  # type: ignore[arg-type]
             item_name=name,
             inv_type=item_data.get("inv_type") or None,
             inv_item_id=item_data.get("inv_item_id"),
             quantity=float(item_data.get("quantity") or 0),
-            unit_id=item_data.get("unit_id") or None,
+            unit_id=resolve_unit_id(session, item_data.get("unit_id"), item_data.get("unit")),
         ))
 
     _add_gp_history(session, gp, "created", current_user.id, current_user.username, new_status=gp.status)
     session.commit()
     session.refresh(gp)
-    session.commit()
-    session.refresh(gp)
     saved_items = list(session.exec(select(GatePassItem).where(GatePassItem.gate_pass_id == gp.id)).all())
     return _to_dict(gp, saved_items, session)
+
+
+@router.get("/{gp_id}")
 def get_gate_pass(
     gp_id: int,
     session: Annotated[Session, Depends(get_session)],
@@ -184,13 +202,15 @@ def update_gate_pass(
         raise HTTPException(status_code=404, detail="Gate pass not found")
 
     old_status = gp.status
+    target_status = body.get("status", old_status)
+    ensure_transition("gate pass", old_status, target_status, GATE_PASS_TRANSITIONS)
 
     # Purchase reference labels are always resolved server-side.
     body.pop("purchase_request_id", None)
     body.pop("purchase_request_number", None)
     body.pop("purchase_order_number", None)
 
-    tracked_fields = ("pass_type", "vendor_id", "vendor_name", "supplier_id", "supplier_name",
+    tracked_fields = ("pass_type", "party_type", "dispatch_id", "grn_id", "vendor_id", "vendor_name", "supplier_id", "supplier_name",
                       "material", "quantity", "unit_id", "purpose", "vehicle_number", "date", "notes",
                       "status", "purchase_request_id", "purchase_request_number",
                       "purchase_order_id", "purchase_order_number")
@@ -220,13 +240,16 @@ def update_gate_pass(
             name = (item_data.get("item_name") or "").strip()
             if not name:
                 continue
+            if float(item_data.get("quantity") or 0) <= 0:
+                raise HTTPException(status_code=422, detail="Gate pass item quantity must be greater than zero")
+            ensure_inventory_identity(item_data.get("inv_type"), item_data.get("inv_item_id"), label="Gate pass item")
             session.add(GatePassItem(
                 gate_pass_id=gp.id,  # type: ignore[arg-type]
                 item_name=name,
                 inv_type=item_data.get("inv_type") or None,
                 inv_item_id=item_data.get("inv_item_id"),
                 quantity=float(item_data.get("quantity") or 0),
-                unit_id=item_data.get("unit_id") or None,
+                unit_id=resolve_unit_id(session, item_data.get("unit_id"), item_data.get("unit")),
             ))
         if raw_items:
             first_data = raw_items[0]
@@ -280,6 +303,8 @@ def delete_gate_pass(
     gp = session.get(GatePass, gp_id)
     if not gp or gp.status == "deleted":
         raise HTTPException(status_code=404, detail="Gate pass not found")
+    if gp.status not in ("open", "cancelled"):
+        raise HTTPException(status_code=409, detail="Completed gate passes cannot be deleted")
     gp.status = "deleted"
     session.add(gp)
     _add_gp_history(session, gp, "deleted", current_user.id, current_user.username)
@@ -374,6 +399,7 @@ def _to_dict(g: GatePass, items: list[GatePassItem] | None = None, session: Sess
                 "quantity": i.quantity,
                 "unit_id": i.unit_id,
                 "unit_name": i_unit_name,
+            "unit": i_unit_name,
             })
     party_type = _party_type(g)
     return {
@@ -389,6 +415,7 @@ def _to_dict(g: GatePass, items: list[GatePassItem] | None = None, session: Sess
         "quantity": g.quantity,
         "unit_id": g.unit_id,
         "unit_name": header_unit_name,
+        "unit": header_unit_name,
         "purpose": g.purpose,
         "vehicle_number": g.vehicle_number,
         "date": g.date,
@@ -400,5 +427,7 @@ def _to_dict(g: GatePass, items: list[GatePassItem] | None = None, session: Sess
         "purchase_request_number": None,
         "purchase_order_id": g.purchase_order_id if party_type == "vendor" else None,
         "purchase_order_number": g.purchase_order_number if party_type == "vendor" else None,
+        "dispatch_id": g.dispatch_id,
+        "grn_id": g.grn_id,
         "items": item_list,
     }

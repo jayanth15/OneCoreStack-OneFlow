@@ -111,9 +111,14 @@ def run_inline_migrations():
             )
             conn.commit()
             logger.info("Migration: created table receipt")
-        cursor.execute("CREATE INDEX IF NOT EXISTS ix_receipt_sn_no ON receipt(sn_no)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS ix_receipt_request_id ON receipt(request_id)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS ix_receipt_status ON receipt(status)")
+        receipt_columns = {
+            row[1] for row in cursor.execute("PRAGMA table_info(receipt)").fetchall()
+        }
+        for column in ("sn_no", "request_id", "status"):
+            if column in receipt_columns:
+                cursor.execute(
+                    f"CREATE INDEX IF NOT EXISTS ix_receipt_{column} ON receipt({column})"
+                )
         conn.commit()
     except Exception as exc:
         logger.warning("Migration receipt table failed: %s", exc)

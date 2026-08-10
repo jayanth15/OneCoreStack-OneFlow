@@ -43,3 +43,6 @@ class PurchaseOrderItem(SQLModel, table=True):
     unit_id: Optional[int] = Field(default=None, foreign_key="unit.id")
     rate: Optional[float] = None                            # per unit price
     notes: Optional[str] = None
+    inventory_type: Optional[str] = Field(default=None, index=True)
+    inventory_item_id: Optional[int] = Field(default=None, index=True)
+    request_item_id: Optional[int] = Field(default=None, index=True)

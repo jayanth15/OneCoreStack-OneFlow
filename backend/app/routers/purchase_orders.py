@@ -17,16 +17,19 @@ from app.core.database import get_session
 from app.dependencies.auth import get_current_user
 from app.models.purchase_order import PurchaseOrder, PurchaseOrderItem
 from app.models.request import Request
+from app.models.request_item import RequestItem
 from app.models.unit import Unit
 from app.models.user import User
 from app.routers.requests_helpers import log_history
+from app.services.document_numbers import allocate_document_number
+from app.services.workflow import PURCHASE_ORDER_TRANSITIONS, ensure_inventory_identity, ensure_transition
+from app.services.units import resolve_unit_id
 
 router = APIRouter(prefix="/api/v1/purchase-orders", tags=["purchase-orders"])
 
 
 def _next_po_number(session: Session) -> str:
-    count = session.exec(select(PurchaseOrder)).all()
-    return f"PO-{(len(count) + 1):04d}"
+    return allocate_document_number(session, key="purchase_order", prefix="PO", existing_model=PurchaseOrder, number_field="po_number")
 
 
 def _sync_linked_purchase_request(session: Session, po: PurchaseOrder, current_user: User, old_status: str | None = None) -> None:
@@ -128,9 +131,38 @@ def create_po(
     existing = session.exec(select(PurchaseOrder).where(PurchaseOrder.po_number == po_number)).first()
     if existing:
         raise HTTPException(status_code=400, detail=f"PO number '{po_number}' already exists")
+    items = body.get("items") or []
+    if not items:
+        raise HTTPException(status_code=422, detail="At least one item is required")
+    party_type = body.get("party_type") or "supplier"
+    if party_type not in ("supplier", "vendor"):
+        raise HTTPException(status_code=422, detail="party_type must be supplier or vendor")
+    if (party_type == "supplier" and not (body.get("supplier_id") or body.get("supplier_name"))) or (party_type == "vendor" and not (body.get("vendor_id") or body.get("vendor_name"))):
+        raise HTTPException(status_code=422, detail=f"A {party_type} must be selected")
+    linked_request = session.get(Request, body.get("purchase_request_id")) if body.get("purchase_request_id") else None
+    if body.get("purchase_request_id") and not linked_request:
+        raise HTTPException(status_code=404, detail="Linked request not found")
+    if linked_request and (linked_request.request_type != "vendor_purchase" or linked_request.status not in ("approved", "in_progress")):
+        raise HTTPException(status_code=409, detail="Only approved vendor-purchase requests can be linked to a purchase order")
+    if linked_request:
+        request_items = list(session.exec(select(RequestItem).where(RequestItem.request_id == linked_request.id)).all())
+        submitted = {item.get("request_item_id"): item for item in items if item.get("request_item_id")}
+        items = [{
+            "item_name": req_item.item_name or req_item.item_code or f"Request item {req_item.id}",
+            "quantity": req_item.quantity,
+            "inventory_type": req_item.item_type,
+            "inventory_item_id": req_item.inventory_item_id,
+            "request_item_id": req_item.id,
+            "unit_id": submitted.get(req_item.id, {}).get("unit_id"),
+            "unit": submitted.get(req_item.id, {}).get("unit"),
+            "rate": submitted.get(req_item.id, {}).get("rate"),
+            "notes": submitted.get(req_item.id, {}).get("notes"),
+        } for req_item in request_items]
+        if not items:
+            raise HTTPException(status_code=409, detail="Linked request has no items")
     po = PurchaseOrder(
         po_number=po_number,
-        party_type=body.get("party_type") or "supplier",
+        party_type=party_type,
         supplier_id=body.get("supplier_id"),
         supplier_name=(body.get("supplier_name") or "").strip() or None,
         vendor_id=body.get("vendor_id"),
@@ -147,17 +179,22 @@ def create_po(
     session.add(po)
     session.flush()
 
-    items = body.get("items") or []
     for item in items:
         if not (item.get("item_name") or "").strip():
             continue
+        if float(item.get("quantity") or 0) <= 0:
+            raise HTTPException(status_code=422, detail="Purchase order item quantity must be greater than zero")
+        ensure_inventory_identity(item.get("inventory_type"), item.get("inventory_item_id"), label="Purchase order item")
         session.add(PurchaseOrderItem(
             purchase_order_id=po.id,  # type: ignore[arg-type]
             item_name=(item.get("item_name") or "").strip(),
             quantity=float(item.get("quantity") or 0),
-            unit_id=item.get("unit_id") or None,
+            unit_id=resolve_unit_id(session, item.get("unit_id"), item.get("unit")),
             rate=float(item["rate"]) if item.get("rate") is not None else None,
             notes=(item.get("notes") or "").strip() or None,
+            inventory_type=item.get("inventory_type") or None,
+            inventory_item_id=item.get("inventory_item_id"),
+            request_item_id=item.get("request_item_id"),
         ))
 
     _sync_linked_purchase_request(session, po, current_user)
@@ -197,6 +234,10 @@ def update_po(
     if not po or po.status == "deleted":
         raise HTTPException(status_code=404, detail="Purchase order not found")
     old_status = po.status
+    target_status = body.get("status", old_status)
+    if target_status in ("partially_received", "received"):
+        raise HTTPException(status_code=409, detail="Purchase order receipt status is derived from linked GRNs")
+    ensure_transition("purchase order", old_status, target_status, PURCHASE_ORDER_TRANSITIONS)
 
     for field in ("party_type", "supplier_id", "supplier_name", "vendor_id", "vendor_name",
                   "po_number", "po_date", "expected_delivery", "notes", "status",
@@ -230,13 +271,19 @@ def update_po(
         for item in (body["items"] or []):
             if not (item.get("item_name") or "").strip():
                 continue
+            if float(item.get("quantity") or 0) <= 0:
+                raise HTTPException(status_code=422, detail="Purchase order item quantity must be greater than zero")
+            ensure_inventory_identity(item.get("inventory_type"), item.get("inventory_item_id"), label="Purchase order item")
             session.add(PurchaseOrderItem(
                 purchase_order_id=po_id,
                 item_name=(item.get("item_name") or "").strip(),
                 quantity=float(item.get("quantity") or 0),
-                unit_id=item.get("unit_id") or None,
+                unit_id=resolve_unit_id(session, item.get("unit_id"), item.get("unit")),
                 rate=float(item["rate"]) if item.get("rate") is not None else None,
                 notes=(item.get("notes") or "").strip() or None,
+                inventory_type=item.get("inventory_type") or None,
+                inventory_item_id=item.get("inventory_item_id"),
+                request_item_id=item.get("request_item_id"),
             ))
 
     _sync_linked_purchase_request(session, po, current_user, old_status=old_status)
@@ -260,6 +307,8 @@ def cancel_po(
     po = session.get(PurchaseOrder, po_id)
     if not po or po.status == "deleted":
         raise HTTPException(status_code=404, detail="Purchase order not found")
+    if po.status not in ("draft", "cancelled"):
+        raise HTTPException(status_code=409, detail="Approved or received purchase orders cannot be deleted; cancel them through the workflow")
     po.status = "deleted"
     session.add(po)
     session.commit()
@@ -289,8 +338,12 @@ def _to_dict(po: PurchaseOrder, items: list[PurchaseOrderItem], session: Session
             "quantity": i.quantity,
             "unit_id": i.unit_id,
             "unit_name": i_unit_name,
+            "unit": i_unit_name,
             "rate": i.rate,
             "notes": i.notes,
+            "inventory_type": i.inventory_type,
+            "inventory_item_id": i.inventory_item_id,
+            "request_item_id": i.request_item_id,
         })
     return {
         "id": po.id,

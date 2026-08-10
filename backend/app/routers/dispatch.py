@@ -23,6 +23,9 @@ from app.models.receipt_item import ReceiptItem
 from app.models.request import Request, REQUEST_TYPE_CUSTOMER_DISPATCH
 from app.models.request_customer_dispatch import RequestCustomerDispatch
 from app.models.request_item import RequestItem
+from app.services.document_numbers import allocate_document_number
+from app.services.workflow import DISPATCH_TRANSITIONS, ensure_inventory_identity, ensure_transition
+from app.services.units import resolve_unit_id
 from app.models.unit import Unit
 from app.models.user import User
 from app.routers.notifications import create_notification
@@ -35,8 +38,7 @@ router = APIRouter(prefix="/api/v1/dispatch", tags=["dispatch"])
 # ── Number generation ─────────────────────────────────────────────────────────
 
 def _next_dispatch_number(session: Session) -> str:
-    count = session.exec(select(Dispatch)).all()
-    return f"DSP-{(len(count) + 1):04d}"
+    return allocate_document_number(session, key="dispatch", prefix="DSP", existing_model=Dispatch, number_field="dispatch_number")
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -99,6 +101,12 @@ def create_dispatch(
     if linked_receipt and not raw_items:
         # Fallback: no items submitted — derive them from the linked receipt
         raw_items = _receipt_dispatch_items(session, linked_receipt)
+    if not raw_items:
+        raise HTTPException(status_code=422, detail="At least one item is required")
+    for item in raw_items:
+        if float(item.get("quantity") or 0) <= 0:
+            raise HTTPException(status_code=422, detail="Dispatch item quantity must be greater than zero")
+        ensure_inventory_identity(item.get("inv_type"), item.get("inv_item_id"), label="Dispatch item")
     first_item_name = ""
     first_qty = 0.0
     first_unit_id = None
@@ -106,7 +114,7 @@ def create_dispatch(
         first = raw_items[0]
         first_item_name = (first.get("item_name") or "").strip()
         first_qty = float(first.get("quantity") or 0)
-        first_unit_id = first.get("unit_id") or None
+        first_unit_id = resolve_unit_id(session, first.get("unit_id"), first.get("unit"))
 
     dispatch = Dispatch(
         dispatch_number=_next_dispatch_number(session),
@@ -151,7 +159,7 @@ def create_dispatch(
             inv_type=item_data.get("inv_type") or None,
             inv_item_id=item_data.get("inv_item_id"),
             quantity=float(item_data.get("quantity") or 0),
-            unit_id=item_data.get("unit_id") or None,
+            unit_id=resolve_unit_id(session, item_data.get("unit_id"), item_data.get("unit")),
         )
         session.add(di)
         di_list.append(di)
@@ -235,6 +243,7 @@ def update_dispatch(
     target_status = body.get("status", old_status)
     if isinstance(target_status, str):
         target_status = target_status.strip() or old_status
+    ensure_transition("dispatch", old_status, target_status, DISPATCH_TRANSITIONS)
 
     linked_request = _linked_request(session, target_request_id, exclude_dispatch_id=dispatch.id)
     linked_receipt = _linked_receipt(session, body.get("receipt_id", dispatch.receipt_id))
@@ -253,6 +262,12 @@ def update_dispatch(
             "quantity": item.quantity,
             "unit_id": item.unit_id,
         } for item in existing_items]
+    if not raw_items:
+        raise HTTPException(status_code=422, detail="At least one item is required")
+    for item in raw_items:
+        if float(item.get("quantity") or 0) <= 0:
+            raise HTTPException(status_code=422, detail="Dispatch item quantity must be greater than zero")
+        ensure_inventory_identity(item.get("inv_type"), item.get("inv_item_id"), label="Dispatch item")
 
     # Validate receipt reference for supplier dispatches before completing
     if target_party_type == "supplier" and target_status in ("dispatched", "delivered"):
@@ -314,7 +329,7 @@ def update_dispatch(
                 inv_type=item_data.get("inv_type") or None,
                 inv_item_id=item_data.get("inv_item_id"),
                 quantity=float(item_data.get("quantity") or 0),
-                unit_id=item_data.get("unit_id") or None,
+                unit_id=resolve_unit_id(session, item_data.get("unit_id"), item_data.get("unit")),
             )
             session.add(di)
             new_dis.append(di)
@@ -349,6 +364,8 @@ def delete_dispatch(
     dispatch = session.get(Dispatch, dispatch_id)
     if not dispatch or dispatch.status == "deleted":
         raise HTTPException(status_code=404, detail="Dispatch not found")
+    if dispatch.inventory_deducted_at is not None or dispatch.status in ("dispatched", "delivered"):
+        raise HTTPException(status_code=409, detail="A stock-affecting dispatch cannot be deleted; use a reversal workflow")
     old_status_del = dispatch.status
     _release_linked_request(session, dispatch.request_id)
     dispatch.status = "deleted"
@@ -623,6 +640,7 @@ def _to_dict(d: Dispatch, items: list[DispatchItem] | None = None, session: Sess
                 "quantity": i.quantity,
                 "unit_id": i.unit_id,
                 "unit_name": i_unit_name,
+            "unit": i_unit_name,
             })
     return {
         "id": d.id,
@@ -642,6 +660,7 @@ def _to_dict(d: Dispatch, items: list[DispatchItem] | None = None, session: Sess
         "quantity": d.quantity,
         "unit_id": d.unit_id,
         "unit_name": header_unit_name,
+        "unit": header_unit_name,
         "dispatch_date": d.dispatch_date,
         "vehicle_number": d.vehicle_number,
         "driver_name": d.driver_name,

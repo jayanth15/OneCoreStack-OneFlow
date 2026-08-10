@@ -221,6 +221,7 @@ export default function GatePassesPage() {
     const first = validItems[0];
     return {
       pass_type: form.pass_type,
+      party_type: form.party_type,
       vendor_id: form.party_type === "vendor" ? (vendor?.id ?? null) : null,
       vendor_name: form.party_type === "vendor" ? form.vendor_name || null : null,
       supplier_id: form.party_type === "supplier" ? (supplier?.id ?? null) : null,

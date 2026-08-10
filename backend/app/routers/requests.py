@@ -41,6 +41,7 @@ from app.routers.requests_helpers import (
 from app.routers.notifications import create_notification
 from app.routers.receipts import create_department_receipts_for_request
 from app.services.request_inventory import StockDeduction, deduct_request_stock
+from app.services.workflow import REQUEST_TRANSITIONS, ensure_transition
 
 router = APIRouter(prefix="/api/v1/requests", tags=["requests"])
 
@@ -1011,6 +1012,7 @@ def set_status(
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
     old_status = req.status
+    ensure_transition("request", old_status, payload.new_status, REQUEST_TRANSITIONS)
 
     # Completing a request via the manual override must still deduct stock
     # (internal_transfer only — vendor_purchase is inbound and GRN adds stock).

@@ -4,6 +4,7 @@ from collections.abc import Generator
 from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine, select
 from app.core.database import get_session
+from app.core.rate_limit import reset_rate_limits
 from app.core.security import hash_password
 from app.main import app as fastapi_app
 from app.models.user import User
@@ -40,9 +41,11 @@ def client(session):
     def override_get_session() -> Generator[Session, None, None]:
         yield session
 
+    reset_rate_limits()
     fastapi_app.dependency_overrides[get_session] = override_get_session
     yield TestClient(fastapi_app)
     fastapi_app.dependency_overrides.clear()
+    reset_rate_limits()
 
 
 # ── helpers ────────────────────────────────────────────────────────────────────

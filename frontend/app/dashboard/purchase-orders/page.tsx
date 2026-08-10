@@ -12,6 +12,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { apiFetchJson } from "@/lib/api";
+import { openPrintWindow } from "@/lib/print-report";
 import { getAccessToken } from "@/lib/auth";
 import { getCurrentUser, isAdminOrAbove, setCurrentUser } from "@/lib/user";
 import { ShoppingCart, Plus, Trash2, PlusCircle, CheckCircle2, Printer, Link2, ClipboardCopy, Pencil } from "lucide-react";
@@ -27,10 +28,16 @@ interface POItem {
   notes: string;
   inventory_type?: string;
   inventory_item_id?: number | null;
+  request_item_id?: number | null;
 }
 
 interface PurchaseOrder {
   id: number;
+  party_type: "supplier" | "vendor";
+  supplier_id: number | null;
+  supplier_name: string | null;
+  vendor_id: number | null;
+  vendor_name: string | null;
   po_number: string;
   po_date: string | null;
   expected_delivery: string | null;
@@ -44,17 +51,6 @@ interface PurchaseOrder {
   purchase_request_number: string | null;
 }
 
-interface CompanyInfo {
-  company_name: string;
-  company_address: string;
-  company_city: string;
-  company_state: string;
-  company_country: string;
-  company_pincode: string;
-  company_phone: string;
-  company_email: string;
-  company_gstin: string;
-}
 
 interface InventoryItem {
   id: number;
@@ -67,7 +63,7 @@ type ApiRecord = Record<string, unknown>;
 interface PurchaseRequestDetail {
   id: number;
   sn_no: string;
-  items?: { item_name?: string | null; quantity: number; unit?: string | null }[];
+  items?: { id: number; item_name?: string | null; quantity: number; unit?: string | null; unit_name?: string | null; item_type?: string | null; inventory_item_id?: number | null }[];
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -76,7 +72,7 @@ const STATUS_COLORS: Record<string, string> = {
   received:  "bg-success/10 text-success",
   cancelled: "bg-destructive/10 text-destructive",
 };
-const STATUSES = ["draft", "approved", "received", "cancelled"];
+const STATUSES = ["draft", "approved", "cancelled"];
 
 const INVENTORY_TYPES = [
   "raw_material",
@@ -176,6 +172,8 @@ const BLANK_ITEM = (): POItem => ({
 });
 const BLANK_FORM = () => ({
   po_number: "",
+  party_type: "supplier" as "supplier" | "vendor",
+  supplier_name: "", vendor_name: "",
   po_date: "", expected_delivery: "", notes: "", status: "draft",
   items: [BLANK_ITEM()],
   purchase_request_id: null as number | null,
@@ -233,7 +231,6 @@ export default function PurchaseOrdersPage() {
     });
   }, [router]);
 
-  const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -277,7 +274,6 @@ export default function PurchaseOrdersPage() {
   }, [statusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    apiFetchJson<CompanyInfo>("/api/v1/settings/company").then(setCompanyInfo).catch(() => {});
     apiFetchJson<{ id: number; sn_no: string; item_name: string | null; items: { item_name: string | null; quantity: number }[] }[]>(
       "/api/v1/requests?request_type=vendor_purchase&status=approved&limit=100"
     ).then(setPurchaseRequests).catch(() => {});
@@ -286,6 +282,9 @@ export default function PurchaseOrdersPage() {
   function buildPayload(form: ReturnType<typeof BLANK_FORM>) {
     return {
       po_number: form.po_number || null,
+      party_type: form.party_type,
+      supplier_name: form.party_type === "supplier" ? form.supplier_name || null : null,
+      vendor_name: form.party_type === "vendor" ? form.vendor_name || null : null,
       po_date: form.po_date || null,
       expected_delivery: form.expected_delivery || null,
       notes: form.notes || null,
@@ -298,6 +297,9 @@ export default function PurchaseOrdersPage() {
         unit: it.unit || null,
         rate: Number(it.rate) || 0,
         notes: it.notes || null,
+        inventory_type: it.inventory_type || null,
+        inventory_item_id: it.inventory_item_id,
+        request_item_id: it.request_item_id,
       })),
     };
   }
@@ -319,6 +321,9 @@ export default function PurchaseOrdersPage() {
     setEditTarget(po);
     setEditForm({
       po_number: po.po_number ?? "",
+      party_type: po.party_type ?? "supplier",
+      supplier_name: po.supplier_name ?? "",
+      vendor_name: po.vendor_name ?? "",
       po_date: po.po_date ?? "",
       expected_delivery: po.expected_delivery ?? "",
       notes: po.notes ?? "",
@@ -329,8 +334,9 @@ export default function PurchaseOrdersPage() {
         unit: i.unit ?? "",
         rate: i.rate ?? 0,
         notes: i.notes ?? "",
-        inventory_type: permittedInventoryTypes()[0] ?? "raw_material",
-        inventory_item_id: null,
+        inventory_type: i.inventory_type ?? permittedInventoryTypes()[0] ?? "raw_material",
+        inventory_item_id: i.inventory_item_id ?? null,
+        request_item_id: i.request_item_id ?? null,
       })) : [BLANK_ITEM()],
       purchase_request_id: po.purchase_request_id,
       purchase_request_number: po.purchase_request_number ?? "",
@@ -373,11 +379,12 @@ export default function PurchaseOrdersPage() {
       const prItems = (prDetail.items || []).map((i) => ({
         item_name: i.item_name ?? "",
         quantity: i.quantity,
-        unit: i.unit ?? "",
+        unit: i.unit_name ?? i.unit ?? "",
         rate: 0,
         notes: "",
-        inventory_type: permittedInventoryTypes()[0] ?? "raw_material",
-        inventory_item_id: null,
+        inventory_type: i.item_type ?? permittedInventoryTypes()[0] ?? "raw_material",
+        inventory_item_id: i.inventory_item_id ?? null,
+        request_item_id: i.id,
       }));
       setCreateForm(f => ({
         ...f,
@@ -430,56 +437,23 @@ export default function PurchaseOrdersPage() {
   }
 
   function printPurchaseOrder(po: PurchaseOrder) {
-    const win = window.open("", "_blank", "width=800,height=700");
-    if (!win) return;
-    const co = companyInfo;
-    const coHtml = (co && co.company_name) ? `
-      <div style="text-align:center;margin-bottom:20px;padding-bottom:10px;border-bottom:2px solid #333;">
-        <h1 style="margin:0;font-size:20px;font-weight:bold;">${co.company_name}</h1>
-        <p style="margin:4px 0;">${[co.company_address, co.company_city, co.company_state].filter(Boolean).join(', ')}${co.company_pincode ? ' - ' + co.company_pincode : ''}</p>
-        <p style="margin:2px 0;font-size:12px;">
-          ${[co.company_phone ? `Phone: ${co.company_phone}` : '', co.company_email ? `Email: ${co.company_email}` : '', co.company_gstin ? `GST: ${co.company_gstin}` : ''].filter(Boolean).join(' | ')}
-        </p>
-      </div>` : '';
-    win.document.write(`<!DOCTYPE html><html><head><title>Purchase Order — ${po.po_number}</title>
-<style>
-  body { font-family: Arial, sans-serif; font-size: 13px; margin: 24px; color: #111; }
-  h2 { margin: 0 0 4px; font-size: 18px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-  th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
-  th { background: #f5f5f5; font-weight: 600; }
-  .row { display: flex; gap: 32px; margin-bottom: 8px; }
-  .lbl { color: #666; font-size: 11px; }
-  tfoot td { font-weight: 600; background: #f9f9f9; }
-  @media print { body { margin: 0; } }
-</style></head><body>
-${coHtml}
-<h2>Purchase Order — ${po.po_number}</h2>
-<p style="color:#666;font-size:11px">Generated on ${new Date().toLocaleString("en-IN")}</p>
-<div class="row">
-  <div><div class="lbl">Status</div><div>${po.status}</div></div>
-  ${po.po_date ? `<div><div class="lbl">PO Date</div><div>${po.po_date}</div></div>` : ""}
-  ${po.expected_delivery ? `<div><div class="lbl">Expected Delivery</div><div>${po.expected_delivery}</div></div>` : ""}
-  ${po.purchase_request_number ? `<div><div class="lbl">Linked PR</div><div>${po.purchase_request_number}</div></div>` : ""}
-</div>
-<table>
-  <thead><tr><th>#</th><th>Item</th><th>Qty</th><th>Unit</th><th>Rate (₹)</th><th>Amount (₹)</th><th>Notes</th></tr></thead>
-  <tbody>
-    ${po.items.map((it, i) => `<tr>
-      <td>${i + 1}</td><td>${it.item_name}</td><td>${it.quantity}</td><td>${it.unit ?? ""}</td>
-      <td>${it.rate > 0 ? it.rate.toFixed(2) : "—"}</td>
-      <td>${it.rate > 0 ? (it.quantity * it.rate).toLocaleString("en-IN") : "—"}</td>
-      <td>${it.notes ?? ""}</td>
-    </tr>`).join("")}
-  </tbody>
-  ${po.total_value > 0 ? `<tfoot><tr><td colspan="5" style="text-align:right">Total</td><td>₹${po.total_value.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td><td></td></tr></tfoot>` : ""}
-</table>
-${po.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${po.notes}</p>` : ""}
-<p style="margin-top:16px;font-size:11px;color:#666">Created by: ${po.created_by ?? "—"}</p>
-</body></html>`);
-    win.document.close();
-    win.focus();
-    win.print();
+    openPrintWindow({
+      title: `Purchase Order — ${po.po_number}`,
+      subtitle: `${po.party_type === "supplier" ? po.supplier_name ?? "Supplier" : po.vendor_name ?? "Vendor"} · Status: ${po.status}`,
+      mode: "audit-snapshot",
+      columns: ["#", "Item", "Inventory Type", "Qty", "Unit", "Rate", "Amount", "Notes"],
+      rows: po.items.map((item, index) => ({
+        "#": index + 1,
+        Item: item.item_name,
+        "Inventory Type": item.inventory_type?.replaceAll("_", " ") ?? "—",
+        Qty: item.quantity,
+        Unit: item.unit ?? "—",
+        Rate: item.rate || "—",
+        Amount: item.rate ? item.quantity * item.rate : "—",
+        Notes: item.notes || "",
+      })),
+      extraHeader: [po.po_date ? `PO date: ${po.po_date}` : "", po.expected_delivery ? `Expected: ${po.expected_delivery}` : "", po.purchase_request_number ? `Request: ${po.purchase_request_number}` : ""].filter(Boolean).join(" | "),
+    });
   }
 
   return (
@@ -751,6 +725,18 @@ function POForm({ form, saving, error, onChange, onSubmit, isCreate, purchaseReq
           disabled={saving}
         />
       </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="po-party-type">Party Type</Label>
+          <select id="po-party-type" value={form.party_type} onChange={(e) => onChange({ ...form, party_type: e.target.value as "supplier" | "vendor", supplier_name: "", vendor_name: "" })} disabled={saving} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+            <option value="supplier">Supplier</option><option value="vendor">Vendor</option>
+          </select>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="po-party">{form.party_type === "supplier" ? "Supplier" : "Vendor"}</Label>
+          <Input id="po-party" required value={form.party_type === "supplier" ? form.supplier_name : form.vendor_name} onChange={(e) => onChange({ ...form, [form.party_type === "supplier" ? "supplier_name" : "vendor_name"]: e.target.value })} placeholder={`Enter ${form.party_type} name`} disabled={saving} />
+        </div>
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <Label htmlFor="po-date">PO Date</Label>
@@ -769,7 +755,7 @@ function POForm({ form, saving, error, onChange, onSubmit, isCreate, purchaseReq
           <select id="po-status" value={form.status}
             onChange={(e) => onChange({ ...form, status: e.target.value })} disabled={saving}
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
-            {["draft","approved","received","cancelled"].map(s => (
+            {["draft","approved","cancelled"].map(s => (
               <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
             ))}
           </select>

@@ -26,3 +26,5 @@ class GRNItem(SQLModel, table=True):
     quantity_filled: float = Field(default=0.0)
     # How much has been returned from stock
     quantity_returned: float = Field(default=0.0)
+    request_item_id: Optional[int] = Field(default=None, index=True)
+    purchase_order_item_id: Optional[int] = Field(default=None, index=True)

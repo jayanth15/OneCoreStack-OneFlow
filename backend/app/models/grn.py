@@ -12,7 +12,7 @@ class GRNRecord(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
 
     # Auto-generated serial number — GRN-0001
-    grn_number: str = Field(index=True)
+    grn_number: str = Field(unique=True, index=True)
 
     # Transport
     transport_type: str = Field(default="own")  # own | company
@@ -38,6 +38,8 @@ class GRNRecord(SQLModel, table=True):
     # Linked purchase request (soft reference — no CASCADE)
     purchase_request_id: Optional[int] = Field(default=None)
 
+    request_id: Optional[int] = Field(default=None, index=True)
+    purchase_order_id: Optional[int] = Field(default=None, index=True)
     # Documents
     po_number: Optional[str] = Field(default=None)
     dc_number: Optional[str] = Field(default=None)

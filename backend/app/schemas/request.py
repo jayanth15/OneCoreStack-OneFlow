@@ -29,7 +29,7 @@ class RequestItemCreate(BaseModel):
     item_code: Optional[str] = None
     item_type: Optional[str] = None
     description: Optional[str] = None
-    quantity: float = 1.0
+    quantity: float = Field(default=1.0, gt=0)
     timeline_days: Optional[int] = None
     department: Optional[str] = None
 
@@ -63,7 +63,7 @@ class RequestCustomerDispatchCreate(BaseModel):
     item_id: Optional[int] = None
     item_sn_no: Optional[str] = None
     item_description: Optional[str] = None
-    quantity: float = 1.0
+    quantity: float = Field(default=1.0, gt=0)
 
 
 class RequestCustomerDispatchRead(BaseModel):
