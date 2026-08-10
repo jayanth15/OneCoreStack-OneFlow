@@ -90,8 +90,8 @@
     "semantic_hash": "5e0fd93fd5fbd8e3a53ea7cbde2fcca6"
   },
   "backend/app/core/database.py": {
-    "mtime": 1786354875.0543404,
-    "ast_hash": "92e26f5269e2a2a255e04f9be3fc778a",
+    "mtime": 1786363592.384891,
+    "ast_hash": "14cacd9e2cf00cf28dbe2ec2dad8145b",
     "semantic_hash": ""
   },
   "backend/app/core/enums.py": {
@@ -1695,8 +1695,8 @@
     "semantic_hash": ""
   },
   "backend/tests/test_startup_migrations.py": {
-    "mtime": 1786354918.0940535,
-    "ast_hash": "6f00682db0a656d11c5ec75eef71b9af",
+    "mtime": 1786363649.7230656,
+    "ast_hash": "b4446130940c6233c66ff8868305bf63",
     "semantic_hash": ""
   },
   "backend/alembic/versions/0015_clear_inactive_inventory_stock.py": {

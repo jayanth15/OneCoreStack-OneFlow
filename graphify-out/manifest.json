@@ -90,8 +90,8 @@
     "semantic_hash": "5e0fd93fd5fbd8e3a53ea7cbde2fcca6"
   },
   "backend/app/core/database.py": {
-    "mtime": 1786363592.384891,
-    "ast_hash": "14cacd9e2cf00cf28dbe2ec2dad8145b",
+    "mtime": 1786365183.4185727,
+    "ast_hash": "a1b50dd79db131182540eba9f8f0b7f6",
     "semantic_hash": ""
   },
   "backend/app/core/enums.py": {
@@ -1275,8 +1275,8 @@
     "semantic_hash": "6a47d64fcc136324ca395065a707ef76"
   },
   "SETUP.md": {
-    "mtime": 1786355092.158893,
-    "ast_hash": "29137bb3418707d7cabddf6279f97be9",
+    "mtime": 1786365428.4994278,
+    "ast_hash": "e6a921c594778661c41031ff5bcf1c6b",
     "semantic_hash": ""
   },
   "backend/requirements.txt": {
@@ -1700,13 +1700,13 @@
     "semantic_hash": ""
   },
   "backend/alembic/versions/0015_clear_inactive_inventory_stock.py": {
-    "mtime": 1786356862.795009,
-    "ast_hash": "f2d94036fd6c9fc1b195ca4d445fe1e3",
+    "mtime": 1786365183.4185727,
+    "ast_hash": "62e59596bc04eebea9b1ae3d060bbc19",
     "semantic_hash": ""
   },
   "backend/tests/test_inactive_inventory_cleanup_migration.py": {
-    "mtime": 1786356792.1800296,
-    "ast_hash": "58df4dc8e0959644725f4fb9b0a288d8",
+    "mtime": 1786365381.3283992,
+    "ast_hash": "26cf50dac80fc052ddefb5e2b9c42cbe",
     "semantic_hash": ""
   },
   "backend/tests/test_inventory_deletion_quantities.py": {

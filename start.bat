@@ -74,6 +74,19 @@ if errorlevel 1 (
     echo [OK] Backend service installed.
 )
 
+REM Always refresh existing service paths. This is required when the code folder
+REM was moved or replaced after OneFlow-Backend was first installed.
+"%NSSM%" set OneFlow-Backend Application     "%PYTHON%" >nul
+"%NSSM%" set OneFlow-Backend AppParameters   "-m uvicorn app.main:app --host 0.0.0.0 --port 8000" >nul
+"%NSSM%" set OneFlow-Backend AppDirectory    "%BACKEND%" >nul
+"%NSSM%" set OneFlow-Backend AppStdout       "%LOGS%\backend.log" >nul
+"%NSSM%" set OneFlow-Backend AppStderr       "%LOGS%\backend-error.log" >nul
+"%NSSM%" set OneFlow-Backend AppRestartDelay 5000 >nul
+REM Uvicorn uses exit code 3 for application-startup failures. Do not restart
+REM endlessly when a migration fails; preserve the final traceback for diagnosis.
+"%NSSM%" set OneFlow-Backend AppExit 3 Exit >nul
+
+echo [Backend] Service directory: %BACKEND%
 "%NSSM%" start OneFlow-Backend >nul 2>&1
 if errorlevel 1 (
     "%NSSM%" restart OneFlow-Backend >nul 2>&1

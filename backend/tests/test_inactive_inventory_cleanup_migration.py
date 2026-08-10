@@ -2,6 +2,7 @@ from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
+from sqlalchemy import text
 from sqlmodel import Session, SQLModel, create_engine, select
 
 import app.models  # noqa: F401
@@ -70,3 +71,41 @@ def test_cleanup_migration_never_changes_active_quantities(tmp_path, monkeypatch
         variants = list(session.exec(select(SpareItemVariant).order_by(SpareItemVariant.id)).all())
         assert variants[0].qty == 59
         assert variants[1].qty == 0
+
+
+def test_cleanup_migration_handles_legacy_history_required_columns(tmp_path, monkeypatch):
+    database_path = tmp_path / "legacy-required-history.db"
+    database_url = f"sqlite:///{database_path}"
+    engine = create_engine(database_url)
+    with engine.begin() as connection:
+        connection.execute(text(
+            "CREATE TABLE inventory_item ("
+            "id INTEGER PRIMARY KEY, is_active BOOLEAN NOT NULL, quantity_on_hand FLOAT NOT NULL)"
+        ))
+        connection.execute(text(
+            "CREATE TABLE inventory_history ("
+            "id INTEGER PRIMARY KEY, inventory_item_id INTEGER NOT NULL, "
+            "changed_at DATETIME NOT NULL, change_type VARCHAR NOT NULL, "
+            "quantity_before FLOAT, quantity_after FLOAT, quantity_delta FLOAT, notes VARCHAR, "
+            "legacy_actor VARCHAR NOT NULL)"
+        ))
+        connection.execute(text(
+            "INSERT INTO inventory_item (id, is_active, quantity_on_hand) "
+            "VALUES (1, 1, 3), (2, 0, 5)"
+        ))
+
+    monkeypatch.setattr(settings, "database_url", database_url)
+    config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
+    command.stamp(config, "0014")
+    command.upgrade(config, "0015")
+
+    with engine.connect() as connection:
+        rows = connection.execute(text(
+            "SELECT id, quantity_on_hand FROM inventory_item ORDER BY id"
+        )).all()
+        revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+        history_count = connection.execute(text("SELECT COUNT(*) FROM inventory_history")).scalar_one()
+
+    assert rows == [(1, 3.0), (2, 0.0)]
+    assert revision == "0015"
+    assert history_count == 0

@@ -7,6 +7,7 @@ from sqlmodel import Session, SQLModel, create_engine
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+MIGRATION_RUNNER_ID = "checkpointed-v2"
 
 connect_args = {}
 if "sqlite" in settings.database_url:
@@ -63,6 +64,13 @@ def run_alembic_upgrade() -> None:
     if head is None:
         raise RuntimeError("Alembic has no head revision")
 
+    logger.info(
+        "Migration runner %s starting: current=%s head=%s database=%s",
+        MIGRATION_RUNNER_ID,
+        _current_alembic_revision() or "base",
+        head,
+        settings.database_url.rsplit("/", 1)[-1],
+    )
     for _ in range(100):
         current = _current_alembic_revision()
         if current == head:
