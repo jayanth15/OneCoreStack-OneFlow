@@ -424,13 +424,26 @@ def update_weeder(item_id: int, body: WeederUpdate, session: SessionDep, _: Admi
 
 
 @router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_weeder(item_id: int, session: SessionDep, _: AdminUser) -> None:
+def delete_weeder(item_id: int, session: SessionDep, current_user: AdminUser) -> None:
     w = session.get(WeederItem, item_id)
     if not w:
         raise HTTPException(status_code=404, detail="Weeder not found")
+    qty_before = w.qty
     w.is_active = False
+    w.qty = 0.0
     w.updated_at = datetime.now(tz=timezone.utc)
     session.add(w)
+    session.add(WeederHistory(
+        weeder_id=item_id,
+        changed_by_user_id=current_user.id,
+        changed_by_username=current_user.username,
+        changed_at=w.updated_at,
+        change_type="set",
+        qty_before=qty_before,
+        qty_after=0.0,
+        qty_delta=-qty_before,
+        note="Weeder deactivated; residual stock cleared",
+    ))
     session.commit()
 
 

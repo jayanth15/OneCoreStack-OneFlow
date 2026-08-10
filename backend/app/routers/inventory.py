@@ -518,9 +518,12 @@ def deactivate_item(
     item = session.get(InventoryItem, item_id)
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
+    qty_before = item.quantity_on_hand
     item.is_active = False
+    item.quantity_on_hand = 0.0
     item.updated_at = datetime.now(tz=timezone.utc)
-    _write_history(session, item, "edit", current_user.id, notes="Item deactivated", username=current_user.username)
+    _write_history(session, item, "set", current_user.id, qty_before=qty_before, qty_after=0.0,
+                   notes="Item deactivated; residual stock cleared", username=current_user.username)
     session.add(item)
     session.commit()
 

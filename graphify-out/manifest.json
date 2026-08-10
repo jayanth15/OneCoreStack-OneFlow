@@ -430,8 +430,8 @@
     "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
   },
   "backend/app/routers/attachments.py": {
-    "mtime": 1785259375.2574263,
-    "ast_hash": "bea3d61e545abb4565a902d44a748f11",
+    "mtime": 1786356697.174955,
+    "ast_hash": "58f470fd6136bd6f682ed06bcc5e0460",
     "semantic_hash": ""
   },
   "backend/app/routers/auth.py": {
@@ -445,9 +445,9 @@
     "semantic_hash": "09cf164f773b1c40dd6b90ef3e24c646"
   },
   "backend/app/routers/consumables.py": {
-    "mtime": 1775821270.1576834,
-    "ast_hash": "ca2ef646d38049bf7eb3bf6af9ee7c3a",
-    "semantic_hash": "ca2ef646d38049bf7eb3bf6af9ee7c3a"
+    "mtime": 1786356697.1748788,
+    "ast_hash": "b668707e0202407c5f1b2c7193b5fa3c",
+    "semantic_hash": ""
   },
   "backend/app/routers/dashboard.py": {
     "mtime": 1786164951.0331805,
@@ -480,9 +480,9 @@
     "semantic_hash": ""
   },
   "backend/app/routers/inventory.py": {
-    "mtime": 1782744027.4885943,
-    "ast_hash": "f15b13f98faaf3e29d4389873bc9717b",
-    "semantic_hash": "f15b13f98faaf3e29d4389873bc9717b"
+    "mtime": 1786356697.1747131,
+    "ast_hash": "35898f76a4bebf4c6900292b5640f330",
+    "semantic_hash": ""
   },
   "backend/app/routers/marketing_requests.py": {
     "mtime": 1781779177.808186,
@@ -535,8 +535,8 @@
     "semantic_hash": "db2b4c0d2a5a12df074cad4c41a8ab7b"
   },
   "backend/app/routers/spares.py": {
-    "mtime": 1785926910.35905,
-    "ast_hash": "1d983a57aff5594af79386d8ab302e1d",
+    "mtime": 1786356697.1750848,
+    "ast_hash": "92d1e98780d32f00d8d14ae277457111",
     "semantic_hash": ""
   },
   "backend/app/routers/suppliers.py": {
@@ -560,9 +560,9 @@
     "semantic_hash": "5fcb876e900e7019e54c0716c0e54efd"
   },
   "backend/app/routers/weeders.py": {
-    "mtime": 1776950688.6042113,
-    "ast_hash": "23b32408c747669d1ba4a360b68e7b28",
-    "semantic_hash": "23b32408c747669d1ba4a360b68e7b28"
+    "mtime": 1786356697.1750174,
+    "ast_hash": "bb47584b2700a8f56f8c98dc65dc75d3",
+    "semantic_hash": ""
   },
   "backend/app/routers/work_types.py": {
     "mtime": 1772319689.9427073,
@@ -1697,6 +1697,21 @@
   "backend/tests/test_startup_migrations.py": {
     "mtime": 1786354918.0940535,
     "ast_hash": "6f00682db0a656d11c5ec75eef71b9af",
+    "semantic_hash": ""
+  },
+  "backend/alembic/versions/0015_clear_inactive_inventory_stock.py": {
+    "mtime": 1786356862.795009,
+    "ast_hash": "f2d94036fd6c9fc1b195ca4d445fe1e3",
+    "semantic_hash": ""
+  },
+  "backend/tests/test_inactive_inventory_cleanup_migration.py": {
+    "mtime": 1786356792.1800296,
+    "ast_hash": "58df4dc8e0959644725f4fb9b0a288d8",
+    "semantic_hash": ""
+  },
+  "backend/tests/test_inventory_deletion_quantities.py": {
+    "mtime": 1786356834.3787801,
+    "ast_hash": "688cf3f9170947bb7ccf8db517dfd861",
     "semantic_hash": ""
   }
 }

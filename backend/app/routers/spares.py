@@ -661,11 +661,25 @@ def update_item(item_id: int, body: ItemUpdate, session: SessionDep, _: AdminUse
 
 
 @router.delete("/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_item(item_id: int, session: SessionDep, _: AdminUser) -> None:
+def delete_item(item_id: int, session: SessionDep, current_user: AdminUser) -> None:
     item = _item_or_404(session, item_id)
+    qty_before = item.recorded_qty
     item.is_active = False
+    item.recorded_qty = 0.0
     item.updated_at = datetime.now(tz=timezone.utc)
-    session.add(item); session.commit()
+    session.add(item)
+    session.add(SpareItemHistory(
+        spare_item_id=item.id,
+        changed_by_user_id=current_user.id,
+        changed_by_username=current_user.username,
+        changed_at=item.updated_at,
+        change_type="set",
+        qty_before=qty_before,
+        qty_after=0.0,
+        qty_delta=-qty_before,
+        note="Spare item deactivated; residual stock cleared",
+    ))
+    session.commit()
 
 
 @router.post("/items/{item_id}/adjust")
@@ -976,6 +990,8 @@ def delete_variant(variant_id: int, session: SessionDep, current_user: AdminUser
     v_parts = [p for p in [v.variant_color, v.serial_number] if p]
     v_label = " / ".join(v_parts) if v_parts else f"Variant #{v.id}"
     v.is_active = False
+    v.qty = 0.0
+    v.updated_at = datetime.now(tz=timezone.utc)
     session.add(v); session.commit()
     _sync_item_from_variants(session, parent)
     qty_after = parent.recorded_qty

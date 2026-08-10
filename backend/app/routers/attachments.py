@@ -215,13 +215,26 @@ def update_attachment(item_id: int, body: AttachmentUpdate, session: SessionDep,
 
 
 @router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_attachment(item_id: int, session: SessionDep, _: AdminUser) -> None:
+def delete_attachment(item_id: int, session: SessionDep, current_user: AdminUser) -> None:
     a = session.get(AttachmentItem, item_id)
     if not a:
         raise HTTPException(status_code=404, detail="Attachment not found")
+    qty_before = a.qty
     a.is_active = False
+    a.qty = 0.0
     a.updated_at = datetime.now(tz=timezone.utc)
     session.add(a)
+    session.add(AttachmentHistory(
+        attachment_id=item_id,
+        changed_by_user_id=current_user.id,
+        changed_by_username=current_user.username,
+        changed_at=a.updated_at,
+        change_type="set",
+        qty_before=qty_before,
+        qty_after=0.0,
+        qty_delta=-qty_before,
+        note="Attachment deactivated; residual stock cleared",
+    ))
     session.commit()
 
 

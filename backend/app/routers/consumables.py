@@ -219,13 +219,26 @@ def update_consumable(item_id: int, body: ConsumableUpdate, session: SessionDep,
 
 
 @router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_consumable(item_id: int, session: SessionDep, _: AdminUser) -> None:
+def delete_consumable(item_id: int, session: SessionDep, current_user: AdminUser) -> None:
     c = session.get(Consumable, item_id)
     if not c:
         raise HTTPException(status_code=404, detail="Consumable not found")
+    qty_before = c.qty
     c.is_active = False
+    c.qty = 0.0
     c.updated_at = datetime.now(tz=timezone.utc)
     session.add(c)
+    session.add(ConsumableHistory(
+        consumable_id=item_id,
+        changed_by_user_id=current_user.id,
+        changed_by_username=current_user.username,
+        changed_at=c.updated_at,
+        change_type="set",
+        qty_before=qty_before,
+        qty_after=0.0,
+        qty_delta=-qty_before,
+        note="Consumable deactivated; residual stock cleared",
+    ))
     session.commit()
 
 
