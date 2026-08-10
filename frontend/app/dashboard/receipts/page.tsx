@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { apiFetchJson } from "@/lib/api";
 import { receiptsApi, type Receipt } from "@/lib/receipts";
 import { getCurrentUser } from "@/lib/user";
+import { openPrintWindow } from "@/lib/print-report";
 import { ScrollText, ClipboardCheck, AlertTriangle, CheckCircle2, Printer, ExternalLink, Check, ChevronLeft, ChevronRight } from "lucide-react";
 
 const PAGE_SIZE = 10;
@@ -19,18 +19,6 @@ const STATUS_BADGES: Record<string, string> = {
   signed_off: "bg-success/10 text-success",
   disputed: "bg-destructive/10 text-destructive",
 };
-
-interface CompanyInfo {
-  company_name: string;
-  company_address: string;
-  company_city: string;
-  company_state: string;
-  company_country: string;
-  company_pincode: string;
-  company_phone: string;
-  company_email: string;
-  company_gstin: string;
-}
 
 const STATUS_ICONS: Record<string, typeof ScrollText> = {
   created: ScrollText,
@@ -81,7 +69,6 @@ export default function ReceiptsPage() {
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Receipt | null>(null);
-  const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [signoffBusy, setSignoffBusy] = useState(false);
   const [page, setPage] = useState(1);
 
@@ -91,10 +78,6 @@ export default function ReceiptsPage() {
       return;
     }
   }, [user, router]);
-
-  useEffect(() => {
-    apiFetchJson<CompanyInfo>("/api/v1/settings/company").then(setCompanyInfo).catch(() => {});
-  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -134,57 +117,36 @@ export default function ReceiptsPage() {
   const hasPreviousPage = page > 1;
 
   function printReceipt(r: Receipt) {
-    const co = companyInfo;
-    const coHtml = (co && co.company_name) ? `
-      <div style="text-align:center;margin-bottom:20px;padding-bottom:10px;border-bottom:2px solid #333;">
-        <h1 style="margin:0;font-size:20px;font-weight:bold;">${co.company_name}</h1>
-        <p style="margin:4px 0;">${[co.company_address, co.company_city, co.company_state].filter(Boolean).join(', ')}${co.company_pincode ? ' - ' + co.company_pincode : ''}</p>
-        <p style="margin:2px 0;font-size:12px;">
-          ${[co.company_phone ? `Phone: ${co.company_phone}` : '', co.company_email ? `Email: ${co.company_email}` : '', co.company_gstin ? `GST: ${co.company_gstin}` : ''].filter(Boolean).join(' | ')}
-        </p>
-      </div>` : '';
-    const win = window.open("", "_blank", "width=800,height=600");
-    if (!win) return;
-    win.document.write(`<!DOCTYPE html><html><head><title>Receipt — ${r.receipt_number}</title>
-<style>
-  body { font-family: Arial, sans-serif; font-size: 13px; margin: 24px; color: #111; }
-  h2 { margin: 0 0 4px; font-size: 18px; }
-  .meta { color: #555; font-size: 12px; margin-bottom: 16px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-  th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
-  th { background: #f5f5f5; font-weight: 600; }
-  .shortage { background: #fff1f2; color: #991b1b; }
-  .row { display: flex; gap: 32px; margin-bottom: 8px; }
-  .lbl { color: #666; font-size: 11px; }
-  @media print { body { margin: 0; } }
-</style></head><body>
-${coHtml}
-<h2>Receipt — ${r.receipt_number}</h2>
-<p class="meta">Generated on ${new Date().toLocaleString("en-IN")}</p>
-<div class="row">
-  <div><div class="lbl">Status</div><div>${r.status.replace(/_/g, " ")}</div></div>
-  ${r.department_label || r.department ? `<div><div class="lbl">Department</div><div>${r.department_label ?? r.department}</div></div>` : ""}
-  ${r.created_by_username ? `<div><div class="lbl">Created By</div><div>${r.created_by_username}</div></div>` : ""}
-  ${r.signed_off_at ? `<div><div class="lbl">Signed Off</div><div>${new Date(r.signed_off_at).toLocaleString()}</div></div>` : ""}
-  ${r.signed_off_by_username ? `<div><div class="lbl">Signed Off By</div><div>${r.signed_off_by_username}</div></div>` : ""}
-</div>
-<table>
-  <thead><tr><th>#</th><th>Item</th><th>Requested</th><th>Delivered</th>${r.items.some(i => i.quantity_signed_off != null) ? '<th>Signed Off</th>' : ''}</tr></thead>
-  <tbody>
-    ${r.items.map((it, i) => `<tr class="${it.quantity_delivered < it.quantity_requested ? 'shortage' : ''}">
-      <td>${i + 1}</td>
-      <td>${it.item_name ?? "—"}</td>
-      <td>${it.quantity_requested}</td>
-      <td>${it.quantity_delivered}</td>
-      ${it.quantity_signed_off != null ? `<td>${it.quantity_signed_off}</td>` : ''}
-    </tr>`).join("")}
-  </tbody>
-</table>
-${r.notes ? `<p style="margin-top:12px"><strong>Notes:</strong> ${r.notes}</p>` : ""}
-</body></html>`);
-    win.document.close();
-    win.focus();
-    win.print();
+    openPrintWindow({
+      title: `Receipt — ${r.receipt_number}`,
+      subtitle: r.request_sn_no ? `Request: ${r.request_sn_no}` : undefined,
+      mode: "audit-snapshot",
+      documentLabel: "Receipt",
+      metadata: [
+        { label: "Status", value: r.status.replaceAll("_", " ") },
+        { label: "Department", value: r.department_label ?? r.department ?? "—" },
+        { label: "Request", value: r.request_sn_no ?? "—" },
+        { label: "Requested by", value: r.requested_by_username ?? "—" },
+        { label: "Created by", value: r.created_by_username ?? "—" },
+        { label: "Created at", value: new Date(r.created_at).toLocaleString("en-IN") },
+        { label: "Signed off by", value: r.signed_off_by_username ?? "—" },
+        { label: "Signed off at", value: r.signed_off_at ? new Date(r.signed_off_at).toLocaleString("en-IN") : "—" },
+        { label: "Dispute", value: r.dispute_note ?? "—" },
+        { label: "Notes", value: r.notes ?? "—" },
+      ],
+      columns: ["#", "Item", "Code", "Type", "Requested", "Delivered", "Signed Off", "Unit", "Condition"],
+      rows: r.items.map((item, index) => ({
+        "#": index + 1,
+        Item: item.item_name ?? "—",
+        Code: item.item_code ?? "—",
+        Type: item.item_type?.replaceAll("_", " ") ?? "—",
+        Requested: item.quantity_requested,
+        Delivered: item.quantity_delivered,
+        "Signed Off": item.quantity_signed_off ?? "—",
+        Unit: item.unit_name ?? item.unit ?? "—",
+        Condition: item.condition ?? "—",
+      })),
+    });
   }
 
   return (

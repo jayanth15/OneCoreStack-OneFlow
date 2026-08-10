@@ -19,6 +19,7 @@ class RequestItem(SQLModel, table=True):
     item_name: Optional[str] = None
     item_code: Optional[str] = None
     item_type: Optional[str] = None
+    unit_id: Optional[int] = Field(default=None, foreign_key="unit.id")
     description: Optional[str] = None
     quantity: float = Field(default=1.0)
     timeline_days: Optional[int] = None

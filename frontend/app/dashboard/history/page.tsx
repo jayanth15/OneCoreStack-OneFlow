@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { apiFetchJson } from "@/lib/api";
 import { isAdminOrAbove } from "@/lib/user";
 import {
@@ -16,6 +17,8 @@ import {
   LayoutGrid, Rows3, ArrowRight, User, Printer, Loader2,
 } from "lucide-react";
 import { fetchAllPages, openPrintWindow } from "@/lib/print-report";
+import { requestsApi, type UnifiedRequest } from "@/lib/requests";
+import { receiptsApi, type Receipt } from "@/lib/receipts";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -34,6 +37,10 @@ interface HistoryItem {
   qty_after: number | null;
   qty_delta: number | null;
   variant_label: string | null;
+  request_id: number | null;
+  request_sn_no: string | null;
+  receipt_id: number | null;
+  receipt_number: string | null;
 }
 
 interface HistoryPage {
@@ -239,7 +246,7 @@ function SkeletonRows({ cols, rows = 8 }: { cols: number; rows?: number }) {
 
 // ── History Card (card-view renderer) ─────────────────────────────────────────
 
-function HistoryCard({ tab, h }: { tab: TabKey; h: HistoryItem }) {
+function HistoryCard({ tab, h, onOpen }: { tab: TabKey; h: HistoryItem; onOpen: () => void }) {
   const isQty = tab === "raw-materials" || tab === "finished-goods" ||
                 tab === "semi-finished" || tab === "scraps" ||
                 tab === "consumables" || tab === "spares" ||
@@ -247,7 +254,7 @@ function HistoryCard({ tab, h }: { tab: TabKey; h: HistoryItem }) {
   const isStatus = tab === "schedules" || tab === "dispatches" || tab === "gate-passes";
 
   return (
-    <div className="rounded-lg border bg-card p-3 hover:shadow-sm transition-shadow">
+    <button type="button" onClick={onOpen} className="w-full rounded-lg border bg-card p-3 text-left hover:bg-muted/40 hover:shadow-sm transition-all">
       {/* Top row: entity name + change type badge */}
       <div className="flex items-start justify-between gap-2 mb-1.5">
         <div className="min-w-0 flex-1">
@@ -303,7 +310,7 @@ function HistoryCard({ tab, h }: { tab: TabKey; h: HistoryItem }) {
         </span>
         <span className="whitespace-nowrap">{fmtDate(h.changed_at)}</span>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -322,9 +329,28 @@ export default function HistoryPage() {
   const [activeTab, setActiveTab] = useState<TabKey>("raw-materials");
   const [viewMode, setViewMode] = useState<"table" | "cards">("cards");
   const [printing, setPrinting] = useState(false);
+  const [selectedHistory, setSelectedHistory] = useState<HistoryItem | null>(null);
+  const [linkedRequest, setLinkedRequest] = useState<UnifiedRequest | null>(null);
+  const [linkedReceipt, setLinkedReceipt] = useState<Receipt | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [tabState, setTabState] = useState<Record<TabKey, TabState>>(
     () => Object.fromEntries(TABS.map(t => [t.key, { ...INITIAL_TAB_STATE }])) as Record<TabKey, TabState>
   );
+
+  useEffect(() => {
+    if (!selectedHistory) return;
+    let cancelled = false;
+    setDetailLoading(true);
+    setLinkedRequest(null);
+    setLinkedReceipt(null);
+    Promise.all([
+      selectedHistory.request_id ? requestsApi.get(selectedHistory.request_id).catch(() => null) : Promise.resolve(null),
+      selectedHistory.receipt_id ? receiptsApi.get(selectedHistory.receipt_id).catch(() => null) : Promise.resolve(null),
+    ]).then(([request, receipt]) => {
+      if (!cancelled) { setLinkedRequest(request); setLinkedReceipt(receipt); }
+    }).finally(() => { if (!cancelled) setDetailLoading(false); });
+    return () => { cancelled = true; };
+  }, [selectedHistory]);
 
   // Filters (shared across tabs — changing filter resets all tabs)
   const [startDate, setStartDate] = useState("");
@@ -409,6 +435,38 @@ export default function HistoryPage() {
     setEntityName("");
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(applyFilters, 0);
+  }
+
+  function printSelectedHistory() {
+    if (!selectedHistory) return;
+    const document = linkedReceipt ?? linkedRequest;
+    const documentRows = linkedReceipt?.items.map((item, index) => ({
+      "#": index + 1, Item: item.item_name ?? "—", Code: item.item_code ?? "—",
+      Type: item.item_type?.replaceAll("_", " ") ?? "—", Qty: item.quantity_signed_off ?? item.quantity_delivered,
+      Unit: item.unit_name ?? item.unit ?? "—",
+    })) ?? linkedRequest?.items.map((item, index) => ({
+      "#": index + 1, Item: item.item_name ?? "—", Code: item.item_code ?? "—",
+      Type: item.item_type?.replaceAll("_", " ") ?? "—", Qty: item.quantity, Unit: item.unit_name ?? "—",
+    })) ?? [{ "#": 1, Item: selectedHistory.entity_name ?? "—", Code: "—", Type: activeTab.replaceAll("-", " "), Qty: selectedHistory.qty_delta ?? "—", Unit: "—" }];
+    openPrintWindow({
+      title: linkedReceipt ? `Receipt — ${linkedReceipt.receipt_number}` : linkedRequest ? `Request — ${linkedRequest.sn_no}` : `History — ${selectedHistory.entity_name ?? "Record"}`,
+      subtitle: `Stock history event · ${fmtDate(selectedHistory.changed_at)}`,
+      mode: "audit-snapshot",
+      documentLabel: linkedReceipt ? "Receipt" : linkedRequest ? "Request" : "History Detail",
+      metadata: [
+        { label: "Change", value: selectedHistory.change_type.replaceAll("_", " ") },
+        { label: "Changed by", value: selectedHistory.changed_by_username ?? "System" },
+        { label: "Quantity before", value: selectedHistory.qty_before ?? "—" },
+        { label: "Quantity after", value: selectedHistory.qty_after ?? "—" },
+        { label: "Quantity change", value: selectedHistory.qty_delta ?? "—" },
+        { label: "Request", value: linkedRequest?.sn_no ?? selectedHistory.request_sn_no ?? "—" },
+        { label: "Receipt", value: linkedReceipt?.receipt_number ?? selectedHistory.receipt_number ?? "—" },
+        { label: "Document status", value: document?.status?.replaceAll("_", " ") ?? "—" },
+        { label: "Note", value: selectedHistory.note ?? "—" },
+      ],
+      columns: ["#", "Item", "Code", "Type", "Qty", "Unit"],
+      rows: documentRows,
+    });
   }
 
   async function printHistory() {
@@ -563,7 +621,7 @@ export default function HistoryPage() {
           ) : (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {st.items.map(h => <HistoryCard key={h.id} tab={activeTab} h={h} />)}
+                {st.items.map(h => <HistoryCard key={h.id} tab={activeTab} h={h} onOpen={() => setSelectedHistory(h)} />)}
               </div>
               {st.loading && st.items.length > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
@@ -608,7 +666,7 @@ export default function HistoryPage() {
                 </tr>
               ) : (
                 st.items.map(h => (
-                  <tr key={h.id} className="border-b hover:bg-muted/30 transition-colors">
+                  <tr key={h.id} onClick={() => setSelectedHistory(h)} className="cursor-pointer border-b hover:bg-muted/30 transition-colors">
                     <RowCells tab={activeTab} h={h} />
                   </tr>
                 ))
@@ -644,6 +702,54 @@ export default function HistoryPage() {
       )}
 
     </div>
+
+    <Dialog open={selectedHistory !== null} onOpenChange={(open) => { if (!open) setSelectedHistory(null); }}>
+      <DialogContent className="max-w-[calc(100%-1rem)] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{selectedHistory?.entity_name ?? "History detail"}</DialogTitle>
+          <p className="text-xs text-muted-foreground">{selectedHistory ? fmtDate(selectedHistory.changed_at) : ""}</p>
+        </DialogHeader>
+        {selectedHistory && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/20 p-3 text-sm sm:grid-cols-3">
+              <div><p className="text-xs text-muted-foreground">Action</p><ChangeTypeBadge type={selectedHistory.change_type} /></div>
+              <div><p className="text-xs text-muted-foreground">Changed by</p><p className="font-medium">{selectedHistory.changed_by_username ?? "System"}</p></div>
+              <div><p className="text-xs text-muted-foreground">Quantity</p><p className="font-medium">{selectedHistory.qty_before ?? "—"} → {selectedHistory.qty_after ?? "—"}</p></div>
+              <div className="col-span-2 sm:col-span-3"><p className="text-xs text-muted-foreground">Note</p><p>{selectedHistory.note ?? "—"}</p></div>
+            </div>
+            {detailLoading ? <Skeleton className="h-28 w-full" /> : (linkedRequest || linkedReceipt) ? (
+              <div className="rounded-lg border p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Associated documents</p>
+                    {linkedRequest && <p className="font-mono font-semibold">Request {linkedRequest.sn_no} · {linkedRequest.status.replaceAll("_", " ")}</p>}
+                    {linkedReceipt && <p className="font-mono font-semibold">Receipt {linkedReceipt.receipt_number} · {linkedReceipt.status.replaceAll("_", " ")}</p>}
+                  </div>
+                  <div className="flex gap-2">
+                    {linkedRequest && <Button size="sm" variant="outline" onClick={() => router.push(`/dashboard/requests?highlight=${linkedRequest.id}`)}>Open request</Button>}
+                    {linkedReceipt && <Button size="sm" variant="outline" onClick={() => router.push(`/dashboard/receipts?receipt=${linkedReceipt.id}`)}>Open receipt</Button>}
+                  </div>
+                </div>
+                <div className="space-y-1 text-sm">
+                  {(linkedReceipt?.items ?? linkedRequest?.items ?? []).map((item, index) => (
+                    <div key={item.id ?? index} className="flex items-center justify-between gap-3 rounded border bg-muted/20 px-3 py-2">
+                      <span className="truncate">{item.item_name ?? item.item_code ?? `Item ${index + 1}`}</span>
+                      <span className="shrink-0 font-medium">Qty {"quantity" in item ? item.quantity : (item.quantity_signed_off ?? item.quantity_delivered)} {("unit" in item ? (item.unit_name ?? item.unit ?? "") : (item.unit_name ?? ""))}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="rounded-lg border p-4 text-sm text-muted-foreground">No Request or Receipt is associated with this history event.</p>
+            )}
+          </div>
+        )}
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setSelectedHistory(null)}>Close</Button>
+          <Button onClick={printSelectedHistory}><Printer className="size-3.5" />Print details</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
     </>
   );
 }

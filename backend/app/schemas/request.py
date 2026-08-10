@@ -28,6 +28,8 @@ class RequestItemCreate(BaseModel):
     item_name: Optional[str] = None
     item_code: Optional[str] = None
     item_type: Optional[str] = None
+    unit_id: Optional[int] = None
+    unit_name: Optional[str] = None
     description: Optional[str] = None
     quantity: float = Field(default=1.0, gt=0)
     timeline_days: Optional[int] = None
@@ -40,6 +42,8 @@ class RequestItemRead(BaseModel):
     item_name: Optional[str] = None
     item_code: Optional[str] = None
     item_type: Optional[str] = None
+    unit_id: Optional[int] = None
+    unit_name: Optional[str] = None
     description: Optional[str] = None
     quantity: float
     timeline_days: Optional[int] = None

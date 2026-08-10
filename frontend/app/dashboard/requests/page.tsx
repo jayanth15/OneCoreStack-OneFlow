@@ -12,7 +12,8 @@ import { TypeTabs, type TypeTabsValue } from "@/components/requests/type-tabs";
 import { RequestForm } from "@/components/requests/request-form";
 import { RequestDetailDialog } from "@/components/requests/request-detail-dialog";
 import { PageHeader } from "@/components/layout/page-header";
-import { ChevronLeft, ChevronRight, FileText, Plus, Settings, ShoppingCart } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileText, Plus, Search, Settings, ShoppingCart } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 const PAGE_SIZE = 10;
 
@@ -82,6 +83,8 @@ export default function RequestsPage() {
   const [allRows, setAllRows] = useState<RequestListItem[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [createBusy, setCreateBusy] = useState(false);
   const [highlightId, setHighlightId] = useState<number | null>(null);
   const searchParams = useSearchParams();
@@ -121,16 +124,21 @@ export default function RequestsPage() {
   }, [hydrated, user, router]);
 
   useEffect(() => {
+    const timer = window.setTimeout(() => { setDebouncedSearch(search.trim()); setPage(1); }, 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
     if (!hydrated) return;
     Promise.resolve().then(() => {
       setLoading(true);
-      const paging = { limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE };
+      const paging = { limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE, search: debouncedSearch || undefined };
       const fetch = tab === "inbox"
         ? requestsApi.inbox(paging)
         : requestsApi.list(tab === "all" ? paging : { request_type: tab as RequestType, ...paging });
       fetch.then(setData).catch(() => setData([])).finally(() => setLoading(false));
     });
-  }, [tab, hydrated, page]);
+  }, [tab, hydrated, page, debouncedSearch]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -154,7 +162,7 @@ export default function RequestsPage() {
 
   const refresh = () => {
     setLoading(true);
-    const paging = { limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE };
+    const paging = { limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE, search: debouncedSearch || undefined };
     (tab === "inbox" ? requestsApi.inbox(paging) : requestsApi.list(tab === "all" ? paging : { request_type: tab as RequestType, ...paging }))
       .then(setData).catch(() => setData([])).finally(() => setLoading(false));
     requestsApi.list({ limit: 500, offset: 0 }).then(setAllRows).catch(() => setAllRows([]));
@@ -347,6 +355,10 @@ export default function RequestsPage() {
       </Dialog>
 
       <div className="p-4 sm:p-6 space-y-4 max-w-6xl mx-auto">
+        <div className="relative max-w-md">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input value={search} onChange={(event) => setSearch(event.target.value)} className="pl-9" placeholder="Search request number, item, requester, or notes…" />
+        </div>
         <TypeTabs
           value={tab}
           onChange={(nextTab) => {

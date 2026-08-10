@@ -1,5 +1,6 @@
 """Aggregate history browser — admin only."""
 from datetime import datetime, timezone
+import re
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -15,6 +16,8 @@ from app.models.consumable import Consumable
 from app.models.consumable_history import ConsumableHistory
 from app.models.inventory import InventoryItem
 from app.models.inventory_history import InventoryHistory
+from app.models.request import Request
+from app.models.receipt import Receipt
 from app.models.job_card import JobCard
 from app.models.job_card_history import JobCardHistory
 from app.models.marketing_request import MarketingRequest
@@ -71,6 +74,10 @@ class HistoryItem(BaseModel):
     qty_after: Optional[float] = None
     qty_delta: Optional[float] = None
     variant_label: Optional[str] = None
+    request_id: Optional[int] = None
+    request_sn_no: Optional[str] = None
+    receipt_id: Optional[int] = None
+    receipt_number: Optional[str] = None
 
 
 class HistoryPage(BaseModel):
@@ -95,6 +102,50 @@ def _parse_dt(s: Optional[str]) -> Optional[datetime]:
 
 def _iso(dt: datetime) -> str:
     return dt.isoformat()
+
+
+def _stock_document_links(session: Session, rows: list) -> dict[int, dict]:
+    """Resolve document lineage for current and legacy stock audit notes."""
+    request_refs: set[str] = set()
+    receipt_refs: set[str] = set()
+    row_refs: dict[int, tuple[Optional[str], Optional[str]]] = {}
+    for row in rows:
+        note = (getattr(row, "notes", None) or getattr(row, "note", None) or "").strip()
+        request_match = re.search(r"(?:Fulfilled request|Request)\s+([A-Za-z0-9_-]+)", note, re.IGNORECASE)
+        receipt_match = re.search(r"(?:Receipt)\s+([A-Za-z0-9_-]+)", note, re.IGNORECASE)
+        request_ref = request_match.group(1) if request_match else None
+        receipt_ref = receipt_match.group(1) if receipt_match else None
+        if request_ref:
+            request_refs.add(request_ref)
+        if receipt_ref:
+            receipt_refs.add(receipt_ref)
+        if row.id is not None:
+            row_refs[row.id] = (request_ref, receipt_ref)
+
+    requests = session.exec(select(Request).where(Request.sn_no.in_(request_refs))).all() if request_refs else []  # type: ignore[union-attr]
+    request_by_sn = {request.sn_no: request for request in requests}
+    receipts = session.exec(select(Receipt).where(or_(
+        Receipt.request_id.in_([request.id for request in requests if request.id]),  # type: ignore[union-attr]
+        Receipt.receipt_number.in_(receipt_refs),  # type: ignore[union-attr]
+    )).order_by(Receipt.created_at.desc())).all() if (requests or receipt_refs) else []
+    receipt_by_number = {receipt.receipt_number: receipt for receipt in receipts}
+    receipt_by_request: dict[int, Receipt] = {}
+    for receipt in receipts:
+        receipt_by_request.setdefault(receipt.request_id, receipt)
+
+    result: dict[int, dict] = {}
+    for row_id, (request_ref, receipt_ref) in row_refs.items():
+        request = request_by_sn.get(request_ref or "")
+        receipt = receipt_by_number.get(receipt_ref or "") or (receipt_by_request.get(request.id) if request and request.id else None)
+        if not request and receipt:
+            request = session.get(Request, receipt.request_id)
+        result[row_id] = {
+            "request_id": request.id if request else None,
+            "request_sn_no": request.sn_no if request else request_ref,
+            "receipt_id": receipt.id if receipt else None,
+            "receipt_number": receipt.receipt_number if receipt else receipt_ref,
+        }
+    return result
 
 
 # ── Endpoint ───────────────────────────────────────────────────────────────────
@@ -228,8 +279,11 @@ def _inventory_history(
         items = session.exec(select(InventoryItem).where(InventoryItem.id.in_(list(ids)))).all()  # type: ignore[union-attr]
         name_map = {i.id: f"{i.code} — {i.name}" for i in items if i.id}
 
+    link_map = _stock_document_links(session, rows)
+
     out = [
         HistoryItem(
+            **link_map.get(r.id, {}),
             id=r.id,  # type: ignore[arg-type]
             entity_id=r.inventory_item_id,
             entity_name=name_map.get(r.inventory_item_id),
@@ -402,8 +456,11 @@ def _consumable_history(
         items = session.exec(select(Consumable).where(Consumable.id.in_(list(ids)))).all()  # type: ignore[union-attr]
         name_map = {i.id: i.name for i in items if i.id}
 
+    link_map = _stock_document_links(session, rows)
+
     out = [
         HistoryItem(
+            **link_map.get(r.id, {}),
             id=r.id,  # type: ignore[arg-type]
             entity_id=r.consumable_id,
             entity_name=name_map.get(r.consumable_id),
@@ -436,8 +493,11 @@ def _spare_history(
         items = session.exec(select(SpareItem).where(SpareItem.id.in_(list(ids)))).all()  # type: ignore[union-attr]
         name_map = {i.id: i.name for i in items if i.id}
 
+    link_map = _stock_document_links(session, rows)
+
     out = [
         HistoryItem(
+            **link_map.get(r.id, {}),
             id=r.id,  # type: ignore[arg-type]
             entity_id=r.spare_item_id,
             entity_name=name_map.get(r.spare_item_id),
@@ -471,8 +531,11 @@ def _weeder_history(
         items = session.exec(select(WeederItem).where(WeederItem.id.in_(list(ids)))).all()  # type: ignore[union-attr]
         name_map = {i.id: (i.sn_no or i.description or f"Weeder #{i.id}") for i in items if i.id}  # type: ignore[attr-defined]
 
+    link_map = _stock_document_links(session, rows)
+
     out = [
         HistoryItem(
+            **link_map.get(r.id, {}),
             id=r.id,  # type: ignore[arg-type]
             entity_id=r.weeder_id,
             entity_name=name_map.get(r.weeder_id),
@@ -505,8 +568,11 @@ def _attachment_history(
         items = session.exec(select(AttachmentItem).where(AttachmentItem.id.in_(list(ids)))).all()  # type: ignore[union-attr]
         name_map = {i.id: (i.sn_no or i.description or f"Attachment #{i.id}") for i in items if i.id}  # type: ignore[attr-defined]
 
+    link_map = _stock_document_links(session, rows)
+
     out = [
         HistoryItem(
+            **link_map.get(r.id, {}),
             id=r.id,  # type: ignore[arg-type]
             entity_id=r.attachment_id,
             entity_name=name_map.get(r.attachment_id),

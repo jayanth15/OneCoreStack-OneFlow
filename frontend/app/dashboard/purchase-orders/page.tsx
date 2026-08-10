@@ -441,6 +441,18 @@ export default function PurchaseOrdersPage() {
       title: `Purchase Order — ${po.po_number}`,
       subtitle: `${po.party_type === "supplier" ? po.supplier_name ?? "Supplier" : po.vendor_name ?? "Vendor"} · Status: ${po.status}`,
       mode: "audit-snapshot",
+      documentLabel: "Purchase Order",
+      metadata: [
+        { label: "Status", value: po.status.replaceAll("_", " ") },
+        { label: po.party_type === "supplier" ? "Supplier" : "Vendor", value: po.party_type === "supplier" ? po.supplier_name : po.vendor_name },
+        { label: "PO date", value: po.po_date ?? "—" },
+        { label: "Expected delivery", value: po.expected_delivery ?? "—" },
+        { label: "Purchase request", value: po.purchase_request_number ?? "—" },
+        { label: "Created by", value: po.created_by ?? "—" },
+        { label: "Created at", value: po.created_at ? new Date(po.created_at).toLocaleString("en-IN") : "—" },
+        { label: "Total value", value: po.total_value },
+        { label: "Notes", value: po.notes ?? "—" },
+      ],
       columns: ["#", "Item", "Inventory Type", "Qty", "Unit", "Rate", "Amount", "Notes"],
       rows: po.items.map((item, index) => ({
         "#": index + 1,

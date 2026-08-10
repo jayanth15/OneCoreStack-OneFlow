@@ -320,9 +320,9 @@
     "semantic_hash": "a82b82c40cede819a537c7eaaf88ed46"
   },
   "backend/app/models/request_item.py": {
-    "mtime": 1781765461.9670599,
-    "ast_hash": "4f80df870256d2cdffe736be2c256b58",
-    "semantic_hash": "4f80df870256d2cdffe736be2c256b58"
+    "mtime": 1786358523.5661597,
+    "ast_hash": "14727e797ada3454c238bc696e3ab0de",
+    "semantic_hash": ""
   },
   "backend/app/models/schedule.py": {
     "mtime": 1779816104.3428805,
@@ -475,8 +475,8 @@
     "semantic_hash": ""
   },
   "backend/app/routers/history.py": {
-    "mtime": 1785683181.3076696,
-    "ast_hash": "09b07d07d59e9ed702118477e2dcbf75",
+    "mtime": 1786358759.5876153,
+    "ast_hash": "e4636b112ed708319e73bc5401634440",
     "semantic_hash": ""
   },
   "backend/app/routers/inventory.py": {
@@ -515,8 +515,8 @@
     "semantic_hash": ""
   },
   "backend/app/routers/requests.py": {
-    "mtime": 1786297775.7141972,
-    "ast_hash": "7100e6d951a441f189f67aca1e7240a4",
+    "mtime": 1786358720.2692726,
+    "ast_hash": "393144761e69b3777f8a39434d9a6ac6",
     "semantic_hash": ""
   },
   "backend/app/routers/requests_helpers.py": {
@@ -580,8 +580,8 @@
     "semantic_hash": "6aea327d1580b1cf63ca762186185981"
   },
   "backend/app/schemas/request.py": {
-    "mtime": 1786297775.7134762,
-    "ast_hash": "515d5f4c3550f2152d496767a17d8331",
+    "mtime": 1786358523.5661597,
+    "ast_hash": "16944cf6224422d2148ca780cffb99d8",
     "semantic_hash": ""
   },
   "backend/pyproject.toml": {
@@ -690,23 +690,23 @@
     "semantic_hash": ""
   },
   "frontend/app/dashboard/dispatch/page.tsx": {
-    "mtime": 1785929400.986398,
-    "ast_hash": "964e645047da276d8c86e680cea499b0",
+    "mtime": 1786358640.0056531,
+    "ast_hash": "941f466861aaff78f9e1459c1e70fe8d",
     "semantic_hash": ""
   },
   "frontend/app/dashboard/gate-passes/page.tsx": {
-    "mtime": 1786297876.3596294,
-    "ast_hash": "37e2190f252e38ece5626aef83985ee9",
+    "mtime": 1786358979.1556175,
+    "ast_hash": "1a1ab2e12c135d5131063be1f919f9b6",
     "semantic_hash": ""
   },
   "frontend/app/dashboard/grn/page.tsx": {
-    "mtime": 1786298395.134284,
-    "ast_hash": "ad9ec1bcb4598d006bbad2407cf5502d",
+    "mtime": 1786358640.0056531,
+    "ast_hash": "8b2490d9fe705d33e750ca7115b4f826",
     "semantic_hash": ""
   },
   "frontend/app/dashboard/history/page.tsx": {
-    "mtime": 1785683381.162782,
-    "ast_hash": "3b3fcf0030b1b7908d6ba12c80d34ea7",
+    "mtime": 1786358853.001194,
+    "ast_hash": "2191ca5eb99173971db3d122669a4050",
     "semantic_hash": ""
   },
   "frontend/app/dashboard/inventory/[id]/edit/page.tsx": {
@@ -865,8 +865,8 @@
     "semantic_hash": ""
   },
   "frontend/app/dashboard/purchase-orders/page.tsx": {
-    "mtime": 1786298536.4551241,
-    "ast_hash": "7f8844198bdf838c098edd715058bee2",
+    "mtime": 1786358640.0056531,
+    "ast_hash": "c4893b9b1be76a35e70fb0fc5c363db9",
     "semantic_hash": ""
   },
   "frontend/app/dashboard/purchase-requests/page.tsx": {
@@ -875,13 +875,13 @@
     "semantic_hash": "c31f472f5c19ccf1ac237c7a126271ca"
   },
   "frontend/app/dashboard/receipts/page.tsx": {
-    "mtime": 1783227011.2252374,
-    "ast_hash": "b631af17fbb39fedd407bf2b915f8a34",
-    "semantic_hash": "b631af17fbb39fedd407bf2b915f8a34"
+    "mtime": 1786358720.2692726,
+    "ast_hash": "17a4d50264db77e7123ccce71a765a20",
+    "semantic_hash": ""
   },
   "frontend/app/dashboard/requests/page.tsx": {
-    "mtime": 1785661968.5896466,
-    "ast_hash": "c35f5793f468f497eb20d4fbc7482090",
+    "mtime": 1786358523.5661597,
+    "ast_hash": "7cf91e76a8479b085a55ca57a332b365",
     "semantic_hash": ""
   },
   "frontend/app/dashboard/schedule/[id]/edit/page.tsx": {
@@ -1005,13 +1005,13 @@
     "semantic_hash": "37ffa7e07678c9522b1bbf58bc34f081"
   },
   "frontend/components/requests/request-detail-dialog.tsx": {
-    "mtime": 1784726603.1579192,
-    "ast_hash": "8a3fd41b4cd52161eaededc3a8a14f40",
+    "mtime": 1786359230.8263035,
+    "ast_hash": "2f171fa089013ffb808655daa2319892",
     "semantic_hash": ""
   },
   "frontend/components/requests/request-form.tsx": {
-    "mtime": 1785661988.94494,
-    "ast_hash": "efaec9e2238a8ccb7563a1ebf4c490e6",
+    "mtime": 1786358523.5661597,
+    "ast_hash": "fae42d5a82c15dd388a991a704f08c56",
     "semantic_hash": ""
   },
   "frontend/components/requests/type-tabs.tsx": {
@@ -1185,13 +1185,13 @@
     "semantic_hash": "72ca575655ed7b342ee51bc315000e40"
   },
   "frontend/lib/receipts.ts": {
-    "mtime": 1783226904.3397892,
-    "ast_hash": "df45b7a508a00dd7711b2cb388f5b2ef",
-    "semantic_hash": "df45b7a508a00dd7711b2cb388f5b2ef"
+    "mtime": 1786358686.764593,
+    "ast_hash": "93540bfab622617e83a3c7634a5dc1de",
+    "semantic_hash": ""
   },
   "frontend/lib/requests.ts": {
-    "mtime": 1785661720.9116182,
-    "ast_hash": "287e076ead9e565de781038fdfaa6adb",
+    "mtime": 1786358523.5661597,
+    "ast_hash": "15e56aa8b2cdaa7ce5993fb66336a4d3",
     "semantic_hash": ""
   },
   "frontend/lib/theme.ts": {
@@ -1225,7 +1225,7 @@
     "semantic_hash": "239f3ebf717465dc636818a1a619398d"
   },
   "frontend/public/swe-worker-5c72df51bb1f6ee0.js": {
-    "mtime": 1786298624.256724,
+    "mtime": 1786359003.7554405,
     "ast_hash": "76fdd3369f623a3edcf74ce2200bfdd0",
     "semantic_hash": "76fdd3369f623a3edcf74ce2200bfdd0"
   },
@@ -1580,8 +1580,8 @@
     "semantic_hash": ""
   },
   "frontend/lib/print-report.ts": {
-    "mtime": 1785926729.6167758,
-    "ast_hash": "ab4e4146f8d184c82b44fd10c8e1e3c9",
+    "mtime": 1786358640.0055928,
+    "ast_hash": "8ebfbae829f3ce403abf5b4fd44464e4",
     "semantic_hash": ""
   },
   "planner/2026-07-28-improvements-plan.md": {
@@ -1712,6 +1712,16 @@
   "backend/tests/test_inventory_deletion_quantities.py": {
     "mtime": 1786356834.3787801,
     "ast_hash": "688cf3f9170947bb7ccf8db517dfd861",
+    "semantic_hash": ""
+  },
+  "backend/alembic/versions/0016_request_item_units.py": {
+    "mtime": 1786358541.0827649,
+    "ast_hash": "db9976171722638b0ec88753cd53bd7a",
+    "semantic_hash": ""
+  },
+  "backend/tests/test_request_units_search_history_links.py": {
+    "mtime": 1786359291.5681236,
+    "ast_hash": "42baf64cb1dbb7a23be4bbe7b19d2787",
     "semantic_hash": ""
   }
 }

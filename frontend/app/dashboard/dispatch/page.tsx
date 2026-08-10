@@ -93,7 +93,7 @@ interface ReceiptOption {
   request_sn_no?: string | null;
   items?: Array<{
     item_name: string | null; item_code: string | null; item_type: string | null;
-    inventory_item_id: number | null; unit_name: string | null;
+    inventory_item_id: number | null; unit_id: number | null; unit_name: string | null;
     quantity_delivered: number; quantity_signed_off: number | null;
   }>;
 }
@@ -398,6 +398,18 @@ export default function DispatchPage() {
       companyName: companyInfo?.company_name,
       companyAddress: [companyInfo?.company_address, companyInfo?.company_city, companyInfo?.company_state].filter(Boolean).join(", "),
       mode: "audit-snapshot",
+      documentLabel: "Dispatch",
+      metadata: [
+        { label: "Status", value: d.status.replaceAll("_", " ") },
+        { label: partyLabel, value: partyName ?? "—" },
+        { label: "Receipt", value: d.receipt_number ?? "—" },
+        { label: "Dispatch date", value: d.dispatch_date ?? "—" },
+        { label: "Vehicle", value: d.vehicle_number ?? "—" },
+        { label: "Driver", value: d.driver_name ?? "—" },
+        { label: "Created by", value: d.created_by ?? "—" },
+        { label: "Created at", value: d.created_at ? new Date(d.created_at).toLocaleString("en-IN") : "—" },
+        { label: "Notes", value: d.notes ?? "—" },
+      ],
       columns: ["#", "Item", "Type", "Qty", "Unit"],
       rows: items.map((it, i) => ({
         "#": String(i + 1),

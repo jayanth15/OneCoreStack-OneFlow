@@ -384,6 +384,20 @@ export default function GatePassesPage() {
       companyName: companyInfo?.company_name,
       companyAddress: [companyInfo?.company_address, companyInfo?.company_city, companyInfo?.company_state].filter(Boolean).join(", "),
       mode: "audit-snapshot",
+      documentLabel: "Gate Pass",
+      metadata: [
+        { label: "Status", value: gp.status.replaceAll("_", " ") },
+        { label: "Pass type", value: gp.pass_type === "out" ? "Outward" : "Inward" },
+        { label: partyLabel, value: partyName },
+        { label: "Date", value: gp.date ?? "—" },
+        { label: "Vehicle", value: gp.vehicle_number ?? "—" },
+        { label: "Purpose", value: gp.purpose ?? "—" },
+        { label: "Purchase request", value: gp.purchase_request_number ?? "—" },
+        { label: "Purchase order", value: gp.purchase_order_number ?? "—" },
+        { label: "Created by", value: gp.created_by ?? "—" },
+        { label: "Created at", value: gp.created_at ? new Date(gp.created_at).toLocaleString("en-IN") : "—" },
+        { label: "Notes", value: gp.notes ?? "—" },
+      ],
       columns: ["#", "Item", "Qty", "Unit"],
       rows: items.map((it, i) => ({
         "#": String(i + 1),
@@ -412,6 +426,7 @@ export default function GatePassesPage() {
       subtitle: `${all.length} record${all.length !== 1 ? "s" : ""}`,
       companyName: companyInfo?.company_name,
       mode: "audit-snapshot",
+      documentLabel: "Gate Pass Register",
       columns: ["GP No.", "Type", "Party", "Items", "Date", "Vehicle", "Purpose", "Status", "Purchase Number"],
       rows: all.map(gp => ({
         "GP No.": gp.gate_pass_number,

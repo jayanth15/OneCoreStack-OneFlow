@@ -22,11 +22,15 @@ from app.models.request import (
     REQUEST_TYPES,
 )
 from app.models.request_item import RequestItem
+from app.models.inventory import InventoryItem
+from app.models.spare_item import SpareItem
+from app.models.spare_item_variant import SpareItemVariant
 from app.models.request_history import RequestHistory
 from app.models.request_customer_dispatch import RequestCustomerDispatch
 from app.models.notification import Notification
 from app.models.receipt import Receipt
 from app.models.receipt_item import ReceiptItem
+from app.models.unit import Unit
 from app.schemas.request import (
     RequestCreate, RequestUpdate, RequestRead, RequestListRead,
     RequestReviewAction, RequestItemAcceptAction, RequestStatusUpdate,
@@ -44,6 +48,21 @@ from app.services.request_inventory import StockDeduction, deduct_request_stock
 from app.services.workflow import REQUEST_TRANSITIONS, ensure_transition
 
 router = APIRouter(prefix="/api/v1/requests", tags=["requests"])
+
+
+def _request_item_unit_id(session: Session, item) -> Optional[int]:
+    """Resolve the inventory's configured unit; client data is only a fallback."""
+    if item.inventory_item_id is not None:
+        if item.item_type in {"raw_material", "finished_good", "semi_finished", "scrap"}:
+            inventory_item = session.get(InventoryItem, item.inventory_item_id)
+            if inventory_item:
+                return inventory_item.unit_id
+        elif item.item_type == "spare":
+            variant = session.get(SpareItemVariant, item.inventory_item_id)
+            parent = session.get(SpareItem, variant.spare_item_id) if variant else None
+            if parent:
+                return parent.unit_id
+    return item.unit_id
 
 
 # --- auth/visibility helpers ---
@@ -201,6 +220,7 @@ def list_requests(
     request_type: Optional[str] = Query(default=None),
     status: Optional[str] = Query(default=None),
     department: Optional[str] = Query(default=None),
+    search: str = Query(default=""),
     only_active: bool = Query(default=True),
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
@@ -218,6 +238,20 @@ def list_requests(
         stmt = stmt.where(Request.status == status)
     if department:
         stmt = stmt.where(Request.department == department)
+    if search.strip():
+        pattern = f"%{search.strip()}%"
+        matching_item_requests = select(RequestItem.request_id).where(or_(
+            RequestItem.item_name.ilike(pattern),  # type: ignore[union-attr]
+            RequestItem.item_code.ilike(pattern),  # type: ignore[union-attr]
+            RequestItem.description.ilike(pattern),  # type: ignore[union-attr]
+        ))
+        stmt = stmt.where(or_(
+            Request.sn_no.ilike(pattern),  # type: ignore[union-attr]
+            Request.from_whom.ilike(pattern),  # type: ignore[union-attr]
+            Request.requested_by_username.ilike(pattern),  # type: ignore[union-attr]
+            Request.notes.ilike(pattern),  # type: ignore[union-attr]
+            Request.id.in_(matching_item_requests),  # type: ignore[arg-type]
+        ))
     user_depts = get_user_departments(session, current_user.id)  # type: ignore[arg-type]
     stmt = _apply_visibility_filter(stmt, current_user, user_depts)
     stmt = _apply_department_visibility_filter(stmt, current_user, user_depts)
@@ -252,6 +286,7 @@ def list_requests(
 
 @router.get("/inbox", response_model=List[RequestListRead])
 def list_inbox(
+    search: str = Query(default=""),
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
     session: Session = Depends(get_session),
@@ -263,6 +298,19 @@ def list_inbox(
         Request.status.in_(["approved", "in_progress", "awaiting_signoff"]),
         Request.request_type != REQUEST_TYPE_CUSTOMER_DISPATCH,
     )
+    if search.strip():
+        pattern = f"%{search.strip()}%"
+        matching_item_requests = select(RequestItem.request_id).where(or_(
+            RequestItem.item_name.ilike(pattern),  # type: ignore[union-attr]
+            RequestItem.item_code.ilike(pattern),  # type: ignore[union-attr]
+            RequestItem.description.ilike(pattern),  # type: ignore[union-attr]
+        ))
+        stmt = stmt.where(or_(
+            Request.sn_no.ilike(pattern),  # type: ignore[union-attr]
+            Request.requested_by_username.ilike(pattern),  # type: ignore[union-attr]
+            Request.notes.ilike(pattern),  # type: ignore[union-attr]
+            Request.id.in_(matching_item_requests),  # type: ignore[arg-type]
+        ))
     if current_user.role not in ("admin", "super_admin"):
         dept_codes = [d.code for d in user_depts]
         if not dept_codes:
@@ -364,6 +412,7 @@ def create_request(
                 item_name=item_in.item_name,
                 item_code=item_in.item_code,
                 item_type=item_in.item_type,
+                unit_id=_request_item_unit_id(session, item_in),
                 description=item_in.description,
                 quantity=item_in.quantity,
                 timeline_days=item_in.timeline_days,
@@ -444,7 +493,7 @@ def update_request(
             session.add(RequestItem(
                 request_id=req.id, inventory_item_id=item_in.inventory_item_id,
                 item_name=item_in.item_name, item_code=item_in.item_code,
-                item_type=item_in.item_type, description=item_in.description,
+                item_type=item_in.item_type, unit_id=_request_item_unit_id(session, item_in), description=item_in.description,
                 quantity=item_in.quantity, timeline_days=item_in.timeline_days,
                 department=item_in.department,
             ))
@@ -1062,6 +1111,8 @@ def _build_read(
         select(RequestHistory).where(RequestHistory.request_id == req.id).order_by(RequestHistory.changed_at.asc())
     ).all()
     label_map = build_department_label_map(session)
+    unit_ids = {item.unit_id for item in items if item.unit_id}
+    unit_names = {unit.id: unit.name for unit in session.exec(select(Unit).where(Unit.id.in_(unit_ids))).all()} if unit_ids else {}  # type: ignore[union-attr]
     return RequestRead(
         id=req.id, sn_no=req.sn_no, request_type=req.request_type,
         from_department=req.from_department,
@@ -1099,7 +1150,7 @@ def _build_read(
         is_active=req.is_active,
         items=[RequestItemRead(
             id=i.id, inventory_item_id=i.inventory_item_id, item_name=i.item_name, item_code=i.item_code,
-            item_type=i.item_type, description=i.description, quantity=i.quantity, timeline_days=i.timeline_days,
+            item_type=i.item_type, unit_id=i.unit_id, unit_name=unit_names.get(i.unit_id), description=i.description, quantity=i.quantity, timeline_days=i.timeline_days,
             department=i.department, department_label=label_for_code(i.department, label_map),
             item_status=i.item_status, accepted_by_username=i.accepted_by_username, accepted_at=i.accepted_at,
             acceptance_note=i.acceptance_note,

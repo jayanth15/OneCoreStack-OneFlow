@@ -40,7 +40,9 @@ import {
   ExternalLink,
   AlertTriangle,
   ShoppingCart,
+  Printer,
 } from "lucide-react";
+import { openPrintWindow } from "@/lib/print-report";
 import { isAdmin, type CurrentUser } from "@/lib/user";
 
 export interface RequestDetailDialogProps {
@@ -267,6 +269,41 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
     }
   };
 
+  const printRequest = () => {
+    if (!data) return;
+    openPrintWindow({
+      title: `Request — ${data.sn_no}`,
+      subtitle: REQUEST_TYPE_META[data.request_type]?.label ?? data.request_type.replaceAll("_", " "),
+      mode: "audit-snapshot",
+      documentLabel: "Request",
+      metadata: [
+        { label: "Status", value: STATUS_META[data.status]?.label ?? data.status },
+        { label: "From department", value: data.from_department_label ?? data.from_department ?? "—" },
+        { label: "To department", value: data.target_department_labels?.join(", ") || data.department_label || data.department || "—" },
+        { label: "Requested by", value: data.requested_by_username ?? "—" },
+        { label: "Created at", value: formatDateTime(data.created_at) },
+        { label: "Reviewed by", value: data.reviewed_by_username ?? "—" },
+        { label: "Reviewed at", value: formatDateTime(data.reviewed_at) },
+        { label: "Delivered by", value: data.delivered_by_username ?? "—" },
+        { label: "Delivered at", value: formatDateTime(data.delivered_at) },
+        { label: "Signed off by", value: data.acknowledged_by_username ?? "—" },
+        { label: "Signed off at", value: formatDateTime(data.acknowledged_at) },
+        { label: "Notes", value: data.notes ?? "—" },
+      ],
+      columns: ["#", "Item", "Code", "Inventory Type", "Department", "Qty", "Unit", "Status"],
+      rows: data.items.map((item, index) => ({
+        "#": index + 1,
+        Item: item.item_name ?? "—",
+        Code: item.item_code ?? "—",
+        "Inventory Type": item.item_type?.replaceAll("_", " ") ?? "—",
+        Department: item.department_label ?? item.department ?? data.department_label ?? data.department ?? "—",
+        Qty: item.quantity,
+        Unit: item.unit_name ?? "—",
+        Status: item.item_status?.replaceAll("_", " ") ?? "pending",
+      })),
+    });
+  };
+
   const cancelRequest = async () => {
     if (!data || !window.confirm(`Delete request ${data.sn_no}? This will hide it from active requests.`)) return;
     try {
@@ -479,7 +516,7 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
                               )}
                             </div>
                             <div className="shrink-0 flex items-center gap-2 text-xs text-muted-foreground">
-                              <span>Qty <span className="text-foreground font-semibold">{it.quantity}</span></span>
+                              <span>Qty <span className="text-foreground font-semibold">{it.quantity}</span>{it.unit_name ? ` ${it.unit_name}` : ""}</span>
                               {canAcceptItem && it.id != null ? (
                                 <Button
                                   size="sm"
@@ -715,6 +752,10 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
               </Popover>
 
               <div className="flex items-center gap-2 flex-wrap justify-end">
+                <Button variant="outline" size="sm" onClick={printRequest}>
+                  <Printer className="size-3.5" />
+                  Print
+                </Button>
                 {reviewerIsAdmin && data.status === "pending" && (
                   <>
                     <Button variant="destructive" size="sm" onClick={() => review("reject")}>

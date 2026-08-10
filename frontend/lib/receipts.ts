@@ -11,6 +11,8 @@ export interface ReceiptItem {
   item_code?: string | null;
   item_type?: string | null;
   unit?: string | null;
+  unit_id?: number | null;
+  unit_name?: string | null;
   quantity_requested: number;
   quantity_delivered: number;
   quantity_signed_off?: number | null;

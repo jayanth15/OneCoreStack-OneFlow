@@ -13,6 +13,8 @@ export interface PrintOptions {
   columns: string[];
   rows: Record<string, unknown>[];
   extraHeader?: string;
+  documentLabel?: string;
+  metadata?: Array<{ label: string; value: unknown }>;
 }
 export interface CompanyPrintInfo {
   company_name: string;
@@ -114,8 +116,8 @@ export function openPrintWindow(options: PrintOptions): void {
 }
 
 async function renderPrintWindow(win: Window, options: PrintOptions): Promise<void> {
-  const { title, subtitle, companyName, companyAddress, mode, columns, rows, extraHeader } = options;
-  const modeLabel = mode === "cycle-count" ? "Cycle Count" : mode === "audit-history" ? "Audit History" : "Audit Snapshot";
+  const { title, subtitle, companyName, companyAddress, mode, columns, rows, extraHeader, metadata } = options;
+  const modeLabel = options.documentLabel ?? (mode === "cycle-count" ? "Cycle Count" : mode === "audit-history" ? "Audit History" : "Document");
   const printedAt = new Date().toLocaleString("en-IN");
   const companyHeader = companyPrintHeaderHtml(
     (await loadCompanyPrintInfo()) ?? (companyName ? {
@@ -145,6 +147,10 @@ async function renderPrintWindow(win: Window, options: PrintOptions): Promise<vo
   const headersHtml = columns.map((col) =>
     `<th>${escapeHtml(col)}</th>`
   ).join("");
+  const metadataHtml = (metadata ?? [])
+    .filter((entry) => entry.value !== null && entry.value !== undefined && entry.value !== "")
+    .map((entry) => `<div class="meta-item"><span>${escapeHtml(entry.label)}</span><strong>${escapeHtml(entry.value)}</strong></div>`)
+    .join("");
 
   const html = `<!DOCTYPE html>
 <html>
@@ -169,6 +175,10 @@ async function renderPrintWindow(win: Window, options: PrintOptions): Promise<vo
   .print-header .subtitle { font-size: 12px; color: #555; }
   .print-header .mode-badge { display: inline-block; background: #1e40af; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 8px; }
   .company { font-size: 11px; color: #666; margin-top: 4px; }
+  .metadata { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 16px; margin: 10px 0 14px; }
+  .meta-item { border-bottom: 1px solid #ddd; padding-bottom: 5px; }
+  .meta-item span { display: block; color: #666; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; }
+  .meta-item strong { display: block; margin-top: 2px; font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
   table { width: 100%; border-collapse: collapse; font-size: 12px; }
   th { background: #f3f4f6; border: 1px solid #ccc; padding: 8px 10px; text-align: left; }
   td { padding: 6px 10px; border: 1px solid #ddd; }
@@ -183,6 +193,7 @@ async function renderPrintWindow(win: Window, options: PrintOptions): Promise<vo
     ${subtitle ? `<div class="subtitle">${escapeHtml(subtitle)}</div>` : ""}
     ${extraHeader ? `<div class="extra-header">${escapeHtml(extraHeader)}</div>` : ""}
   </div>
+  ${metadataHtml ? `<div class="metadata">${metadataHtml}</div>` : ""}
   <table>
     <thead><tr>${headersHtml}</tr></thead>
     <tbody>${rowsHtml}</tbody>

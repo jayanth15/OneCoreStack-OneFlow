@@ -11,6 +11,8 @@ export interface RequestItem {
   item_name?: string | null;
   item_code?: string | null;
   item_type?: string | null;
+  unit_id?: number | null;
+  unit_name?: string | null;
   description?: string | null;
   quantity: number;
   timeline_days?: number | null;
@@ -129,6 +131,7 @@ export const requestsApi = {
     request_type?: RequestType;
     status?: RequestStatus;
     department?: string;
+    search?: string;
     only_active?: boolean;
     limit?: number;
     offset?: number;
@@ -137,7 +140,9 @@ export const requestsApi = {
     if (params?.request_type) search.set("request_type", params.request_type);
     if (params?.status) search.set("status", params.status);
     if (params?.department) search.set("department", params.department);
+    if (params?.search) search.set("search", params.search);
     if (params?.only_active !== undefined) search.set("only_active", String(params.only_active));
+    if (params?.search) search.set("search", params.search);
     if (params?.limit !== undefined) search.set("limit", String(params.limit));
     if (params?.offset !== undefined) search.set("offset", String(params.offset));
     const qs = search.toString();
@@ -187,8 +192,9 @@ export const requestsApi = {
   history: (id: number) =>
     apiFetchJson<RequestHistory[]>(`/api/v1/requests/${id}/history`),
 
-  inbox: (params?: { limit?: number; offset?: number }) => {
+  inbox: (params?: { limit?: number; offset?: number; search?: string }) => {
     const search = new URLSearchParams();
+    if (params?.search) search.set("search", params.search);
     if (params?.limit !== undefined) search.set("limit", String(params.limit));
     if (params?.offset !== undefined) search.set("offset", String(params.offset));
     const qs = search.toString();
