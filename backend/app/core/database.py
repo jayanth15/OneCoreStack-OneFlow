@@ -33,14 +33,48 @@ def init_db() -> None:
             pass
 
 
-def run_alembic_upgrade() -> None:
-    """Run Alembic migrations to bring the database to the latest revision."""
-    from alembic import command
+def _alembic_config():
     from alembic.config import Config
 
-    alembic_cfg = Config(os.path.join(os.path.dirname(__file__), "..", "..", "alembic.ini"))
-    alembic_cfg.set_main_option("sqlalchemy.url", settings.database_url)
-    command.upgrade(alembic_cfg, "head")
+    config = Config(os.path.join(os.path.dirname(__file__), "..", "..", "alembic.ini"))
+    config.set_main_option("sqlalchemy.url", settings.database_url)
+    return config
+
+
+def _current_alembic_revision() -> str | None:
+    from alembic.runtime.migration import MigrationContext
+
+    with engine.connect() as connection:
+        return MigrationContext.configure(connection).get_current_revision()
+
+
+def run_alembic_upgrade() -> None:
+    """Upgrade one revision per transaction so completed cleanup cannot loop.
+
+    A single ``upgrade head`` can roll the version marker back to the starting
+    revision when a later migration fails. Applying ``+1`` in separate Alembic
+    environments checkpoints every successful revision before continuing.
+    """
+    from alembic import command
+    from alembic.script import ScriptDirectory
+
+    alembic_cfg = _alembic_config()
+    head = ScriptDirectory.from_config(alembic_cfg).get_current_head()
+    if head is None:
+        raise RuntimeError("Alembic has no head revision")
+
+    for _ in range(100):
+        current = _current_alembic_revision()
+        if current == head:
+            return
+        logger.info("Applying next database migration after %s", current or "base")
+        command.upgrade(alembic_cfg, "+1")
+        progressed = _current_alembic_revision()
+        if progressed == current:
+            raise RuntimeError(f"Database migration made no progress from revision {current!r}")
+        logger.info("Committed database migration revision %s", progressed)
+
+    raise RuntimeError("Database migration exceeded 100 revisions without reaching head")
 
 
 def stamp_alembic_revision(revision: str) -> None:
@@ -50,11 +84,8 @@ def stamp_alembic_revision(revision: str) -> None:
     immediately afterwards with :func:`run_alembic_upgrade`.
     """
     from alembic import command
-    from alembic.config import Config
 
-    alembic_cfg = Config(os.path.join(os.path.dirname(__file__), "..", "..", "alembic.ini"))
-    alembic_cfg.set_main_option("sqlalchemy.url", settings.database_url)
-    command.stamp(alembic_cfg, revision)
+    command.stamp(_alembic_config(), revision)
 
 
 def alembic_version_exists() -> bool:

@@ -256,5 +256,7 @@
   "254": "0014_repair_workflow_lineage.py",
   "255": "PurchaseRequestItem",
   "256": "RequestCustomerDispatch",
-  "257": "RequestHistory"
+  "257": "RequestHistory",
+  "258": "_migrate_spare_item_v2",
+  "259": "_seed_customers_from_schedules"
 }
