@@ -2,7 +2,7 @@
 
 from typing import Annotated, Any, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel
 from sqlmodel import Session, func, select
 
@@ -95,7 +95,9 @@ class DashboardResponse(BaseModel):
 def get_dashboard(
     session: Annotated[Session, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)],
+    response: Response,
 ) -> DashboardResponse:
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
 
     # ── Overview counts ────────────────────────────────────────────────────
     allowed_types = _user_inventory_types(current_user)

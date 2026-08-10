@@ -450,8 +450,8 @@
     "semantic_hash": ""
   },
   "backend/app/routers/dashboard.py": {
-    "mtime": 1786164951.0331805,
-    "ast_hash": "2fa5aea81660a0e2bbaf615a241bc2ea",
+    "mtime": 1786360471.6897705,
+    "ast_hash": "5ad2ca9f68e12cff8ff5f4110d9aabd7",
     "semantic_hash": ""
   },
   "backend/app/routers/departments.py": {
@@ -805,8 +805,8 @@
     "semantic_hash": "bb6cc3c84244b63daccc9d266c1e3f83"
   },
   "frontend/app/dashboard/page.tsx": {
-    "mtime": 1786164721.8812194,
-    "ast_hash": "1a9884af1dba3d4154e8704b0f17ef7a",
+    "mtime": 1786360471.6897705,
+    "ast_hash": "84a1f767e88608c35559c83294cb1677",
     "semantic_hash": ""
   },
   "frontend/app/dashboard/production/page.tsx": {
@@ -1225,7 +1225,7 @@
     "semantic_hash": "239f3ebf717465dc636818a1a619398d"
   },
   "frontend/public/swe-worker-5c72df51bb1f6ee0.js": {
-    "mtime": 1786359003.7554405,
+    "mtime": 1786360521.215718,
     "ast_hash": "76fdd3369f623a3edcf74ce2200bfdd0",
     "semantic_hash": "76fdd3369f623a3edcf74ce2200bfdd0"
   },
@@ -1530,8 +1530,8 @@
     "semantic_hash": ""
   },
   "backend/tests/test_spares_stock_adjustment.py": {
-    "mtime": 1785926910.35905,
-    "ast_hash": "00fb13dd0bb90f0205cf4009f5bfef5f",
+    "mtime": 1786360471.6909945,
+    "ast_hash": "2e145b06f641b46204a0d0c699ad2f87",
     "semantic_hash": ""
   },
   "backend/app/services/request_inventory.py": {

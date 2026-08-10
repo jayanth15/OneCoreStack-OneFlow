@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { apiFetchJson } from "@/lib/api";
 import { canAccessInventory, isAdminOrAbove } from "@/lib/user";
@@ -194,10 +194,11 @@ export default function DashboardPage() {
   const [weedersValue, setWeedersValue] = useState<number | null>(null);
   const [weedersLowStock, setWeedersLowStock] = useState<number>(0);
   const [weedersLoaded, setWeedersLoaded] = useState(false);
+  const [refreshedAt, setRefreshedAt] = useState<Date | null>(null);
 
-  useEffect(() => {
-    apiFetchJson<DashboardData>("/api/v1/dashboard")
-      .then(setData)
+  const loadDashboard = useCallback(() => {
+    apiFetchJson<DashboardData>("/api/v1/dashboard", { cache: "no-store" })
+      .then((dashboard) => { setData(dashboard); setError(null); setRefreshedAt(new Date()); })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load dashboard"));
     if (canAccessInventory("spare")) {
       apiFetchJson<{items: {id: number; item_count: number; total_value: number | null}[]; total: number}>("/api/v1/spares/categories?include_inactive=false&page_size=500")
@@ -240,6 +241,18 @@ export default function DashboardPage() {
     }
   }, []);
 
+  useEffect(() => {
+    loadDashboard();
+    const refresh = () => loadDashboard();
+    const refreshWhenVisible = () => { if (document.visibilityState === "visible") loadDashboard(); };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, [loadDashboard]);
+
   if (error) {
     return (
       <>
@@ -266,7 +279,7 @@ export default function DashboardPage() {
         title="Dashboard"
         actions={
           <span className="text-xs text-muted-foreground">
-            Last refreshed: {new Date().toLocaleTimeString()}
+            Last refreshed: {refreshedAt?.toLocaleTimeString() ?? "Loading…"}
           </span>
         }
       />

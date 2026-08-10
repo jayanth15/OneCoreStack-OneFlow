@@ -167,6 +167,8 @@ def test_dashboard_inventory_value_excludes_inactive_items(client, session, admi
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert response.status_code == 200
-    raw_material = next(row for row in response.json()["inventory_by_type"] if row["item_type"] == "raw_material")
+    payload = response.json()
+    assert payload["overview"]["total_inventory_items"] == 1
+    raw_material = next(row for row in payload["inventory_by_type"] if row["item_type"] == "raw_material")
     assert raw_material["count"] == 1
     assert raw_material["total_value"] == 900_000
