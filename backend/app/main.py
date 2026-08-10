@@ -10,7 +10,7 @@ from app.core.config import settings
 from app.core.database import (
     init_db,
     run_alembic_upgrade,
-    stamp_alembic_head,
+    stamp_alembic_revision,
     alembic_version_exists,
 )
 from app.core.backup import start_scheduler
@@ -80,6 +80,29 @@ def _auto_seed_if_empty() -> None:
         )
 
 
+def _migrate_database_on_startup() -> None:
+    """Bring a fresh, legacy, or Alembic-managed database to the latest schema."""
+    init_db()
+    if alembic_version_exists():
+        logger.info("Checking for pending database migrations...")
+        run_alembic_upgrade()
+        logger.info("Database schema is at the latest revision")
+        return
+
+    logger.info("No alembic_version table — running legacy catch-up migrations...")
+    from app.core.legacy_migrations import run_all as run_legacy_migrations
+
+    run_legacy_migrations()
+    # Receipt cleanup can replace tables. Recreate any missing current tables
+    # before handing schema ownership to Alembic.
+    init_db()
+    # Legacy catch-up covers schema through 0009. Newer migrations must still
+    # execute; stamping directly to head would silently skip their columns.
+    stamp_alembic_revision("0009")
+    run_alembic_upgrade()
+    logger.info("Legacy catch-up complete — pending migrations applied once")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     if settings.secret_key == _DEFAULT_SECRET and settings.environment != "development":
@@ -93,21 +116,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
 
-    init_db()
-
-    if alembic_version_exists():
-        run_alembic_upgrade()
-    else:
-        logger.info("No alembic_version table — running legacy catch-up migrations...")
-        from app.core.legacy_migrations import run_all as run_legacy_migrations
-        run_legacy_migrations()
-        # The legacy receipt cleanup can drop the old ``receipt`` table.
-        # Re-run metadata creation afterwards so the current receipt and
-        # receipt_item tables exist before this database is stamped at head.
-        init_db()
-        stamp_alembic_head()
-        logger.info("Legacy migrations complete — database stamped at Alembic baseline")
-
+    _migrate_database_on_startup()
     _auto_seed_if_empty()
     start_scheduler()
     yield

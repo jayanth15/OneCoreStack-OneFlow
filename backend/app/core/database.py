@@ -43,14 +43,18 @@ def run_alembic_upgrade() -> None:
     command.upgrade(alembic_cfg, "head")
 
 
-def stamp_alembic_head() -> None:
-    """Stamp the database at the current Alembic head (for legacy catch-up)."""
+def stamp_alembic_revision(revision: str) -> None:
+    """Stamp a legacy database at a known covered revision.
+
+    This records migration history only; pending revisions must be applied
+    immediately afterwards with :func:`run_alembic_upgrade`.
+    """
     from alembic import command
     from alembic.config import Config
 
     alembic_cfg = Config(os.path.join(os.path.dirname(__file__), "..", "..", "alembic.ini"))
     alembic_cfg.set_main_option("sqlalchemy.url", settings.database_url)
-    command.stamp(alembic_cfg, "head")
+    command.stamp(alembic_cfg, revision)
 
 
 def alembic_version_exists() -> bool:

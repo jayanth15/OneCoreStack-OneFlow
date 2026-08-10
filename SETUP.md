@@ -152,6 +152,8 @@ OneFlow\logs\frontend-error.log
 
 You can also view service status in **Windows Task Manager → Services** tab or **services.msc**, and look for `OneFlow-Backend` and `OneFlow-Frontend`.
 
+**Automatic database migrations:** The backend checks Alembic during every service startup. Only pending revisions are applied, and each revision is recorded in `alembic_version`, so an already-applied migration is not repeated on later restarts. If a migration fails, the backend does not begin serving requests; inspect `logs\backend-error.log`, correct the database issue, and restart `OneFlow-Backend`. Back up `backend\app\db\oneflow.db` before deploying a release that contains new migrations.
+
 > **Note:** `start.bat` relies on **NSSM** (downloaded automatically by `install.bat` into `tools\nssm.exe`). NSSM is a free, open-source Windows service wrapper — no licence required.
 
 ### Linux

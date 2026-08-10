@@ -90,9 +90,9 @@
     "semantic_hash": "5e0fd93fd5fbd8e3a53ea7cbde2fcca6"
   },
   "backend/app/core/database.py": {
-    "mtime": 1786354875.0543404,
-    "ast_hash": "92e26f5269e2a2a255e04f9be3fc778a",
-    "semantic_hash": ""
+    "mtime": 1782744027.4745944,
+    "ast_hash": "ba8e1d1e558a050730423a1a49609e6d",
+    "semantic_hash": "ba8e1d1e558a050730423a1a49609e6d"
   },
   "backend/app/core/enums.py": {
     "mtime": 1782744027.4745944,
@@ -140,8 +140,8 @@
     "semantic_hash": "9c61a7ffb2462c1958155cc5c9716621"
   },
   "backend/app/main.py": {
-    "mtime": 1786354901.1288135,
-    "ast_hash": "19f1112c2cb4d287092f4b765ccf7eb2",
+    "mtime": 1786295466.332691,
+    "ast_hash": "1770da37afa5a577bcfa0ecfebf662da",
     "semantic_hash": ""
   },
   "backend/app/models/__init__.py": {
@@ -1275,9 +1275,9 @@
     "semantic_hash": "6a47d64fcc136324ca395065a707ef76"
   },
   "SETUP.md": {
-    "mtime": 1786355092.158893,
-    "ast_hash": "29137bb3418707d7cabddf6279f97be9",
-    "semantic_hash": ""
+    "mtime": 1773942053.129549,
+    "ast_hash": "976164fc94139d6f7f6ce87bff897d7c",
+    "semantic_hash": "976164fc94139d6f7f6ce87bff897d7c"
   },
   "backend/requirements.txt": {
     "mtime": 1781788684.535561,
@@ -1687,16 +1687,6 @@
   "backend/tests/test_document_workflows.py": {
     "mtime": 1786298313.6297896,
     "ast_hash": "3208e259094e2cc11ff8051d25031cf4",
-    "semantic_hash": ""
-  },
-  "backend/alembic/versions/0014_repair_workflow_lineage.py": {
-    "mtime": 1786354965.0687404,
-    "ast_hash": "7a1dd5ef223992ebbba5081254e6f530",
-    "semantic_hash": ""
-  },
-  "backend/tests/test_startup_migrations.py": {
-    "mtime": 1786354918.0940535,
-    "ast_hash": "6f00682db0a656d11c5ec75eef71b9af",
     "semantic_hash": ""
   }
 }
