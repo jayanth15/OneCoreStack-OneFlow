@@ -1147,149 +1147,6 @@
       "norm_label": "downgrade()"
     },
     {
-      "label": "0017_repair_legacy_schema_and_requests.py",
-      "file_type": "code",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_alembic_versions_0017_repair_legacy_schema_and_requests",
-      "community": 16,
-      "community_name": "Combobox UI Component",
-      "norm_label": "0017_repair_legacy_schema_and_requests.py"
-    },
-    {
-      "label": "_tables()",
-      "file_type": "code",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L42",
-      "_origin": "ast",
-      "id": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_tables",
-      "community": 16,
-      "community_name": "Combobox UI Component",
-      "norm_label": "_tables()"
-    },
-    {
-      "label": "_columns()",
-      "file_type": "code",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L46",
-      "_origin": "ast",
-      "id": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_columns",
-      "community": 16,
-      "community_name": "Combobox UI Component",
-      "norm_label": "_columns()"
-    },
-    {
-      "label": "_indexes()",
-      "file_type": "code",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L52",
-      "_origin": "ast",
-      "id": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_indexes",
-      "community": 16,
-      "community_name": "Combobox UI Component",
-      "norm_label": "_indexes()"
-    },
-    {
-      "label": "_add_column()",
-      "file_type": "code",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L58",
-      "_origin": "ast",
-      "id": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_add_column",
-      "community": 16,
-      "community_name": "Combobox UI Component",
-      "norm_label": "_add_column()"
-    },
-    {
-      "label": "Column",
-      "file_type": "code",
-      "source_file": "",
-      "source_location": "",
-      "_origin": "ast",
-      "id": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_py_column",
-      "community": 16,
-      "community_name": "Combobox UI Component",
-      "norm_label": "column"
-    },
-    {
-      "label": "_repair_unit_columns()",
-      "file_type": "code",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L63",
-      "_origin": "ast",
-      "id": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_repair_unit_columns",
-      "community": 16,
-      "community_name": "Combobox UI Component",
-      "norm_label": "_repair_unit_columns()"
-    },
-    {
-      "label": "_repair_job_cards()",
-      "file_type": "code",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L108",
-      "_origin": "ast",
-      "id": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_repair_job_cards",
-      "community": 16,
-      "community_name": "Combobox UI Component",
-      "norm_label": "_repair_job_cards()"
-    },
-    {
-      "label": "_restore_purchase_requests()",
-      "file_type": "code",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L115",
-      "_origin": "ast",
-      "id": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_restore_purchase_requests",
-      "community": 16,
-      "community_name": "Combobox UI Component",
-      "norm_label": "_restore_purchase_requests()"
-    },
-    {
-      "label": "_repair_receipts()",
-      "file_type": "code",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L202",
-      "_origin": "ast",
-      "id": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_repair_receipts",
-      "community": 16,
-      "community_name": "Combobox UI Component",
-      "norm_label": "_repair_receipts()"
-    },
-    {
-      "label": "upgrade()",
-      "file_type": "code",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L273",
-      "_origin": "ast",
-      "id": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_upgrade",
-      "community": 16,
-      "community_name": "Combobox UI Component",
-      "norm_label": "upgrade()"
-    },
-    {
-      "label": "downgrade()",
-      "file_type": "code",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L280",
-      "_origin": "ast",
-      "id": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_downgrade",
-      "community": 16,
-      "community_name": "Combobox UI Component",
-      "norm_label": "downgrade()"
-    },
-    {
-      "label": "Repair legacy schemas stamped past migrations and restore request data.  Revisio",
-      "file_type": "rationale",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_rationale_1",
-      "community": 16,
-      "community_name": "Combobox UI Component",
-      "norm_label": "repair legacy schemas stamped past migrations and restore request data.  revisio"
-    },
-    {
       "label": "__init__.py",
       "file_type": "code",
       "source_file": "backend/app/__init__.py",
@@ -1736,8 +1593,8 @@
       "source_location": "L107",
       "_origin": "ast",
       "id": "backend_app_core_database_get_session",
-      "community": 12,
-      "community_name": "Auth and Inventory Module",
+      "community": 18,
+      "community_name": "Supplier Job Model",
       "norm_label": "get_session()"
     },
     {
@@ -1747,8 +1604,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_core_database_py_session",
-      "community": 12,
-      "community_name": "Auth and Inventory Module",
+      "community": 18,
+      "community_name": "Supplier Job Model",
       "norm_label": "session"
     },
     {
@@ -2341,8 +2198,8 @@
       "source_location": "L641",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_seed_customers_from_schedules",
-      "community": 19,
-      "community_name": "Legacy Migrations and Scheduling",
+      "community": 37,
+      "community_name": "Community 37",
       "norm_label": "_seed_customers_from_schedules()"
     },
     {
@@ -2858,8 +2715,8 @@
       "source_location": "L642",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_rationale_642",
-      "community": 19,
-      "community_name": "Legacy Migrations and Scheduling",
+      "community": 37,
+      "community_name": "Community 37",
       "norm_label": "one-time idempotent migration: copy unique customer_name values from existing"
     },
     {
@@ -3287,8 +3144,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_core_rate_limit",
-      "community": 49,
-      "community_name": "Community 49",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "rate_limit.py"
     },
     {
@@ -3309,8 +3166,8 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "backend_app_core_rate_limit_reset_rate_limits",
-      "community": 49,
-      "community_name": "Community 49",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "reset_rate_limits()"
     },
     {
@@ -3320,8 +3177,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_core_rate_limit_rationale_1",
-      "community": 49,
-      "community_name": "Community 49",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "small in-process sliding-window limiter for sensitive auth endpoints."
     },
     {
@@ -3342,8 +3199,8 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "backend_app_core_rate_limit_rationale_36",
-      "community": 49,
-      "community_name": "Community 49",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "clear limiter state (used by isolated tests)."
     },
     {
@@ -3485,8 +3342,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_dependencies_auth",
-      "community": 49,
-      "community_name": "Community 49",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "auth.py"
     },
     {
@@ -3518,8 +3375,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_dependencies_auth_py_depends",
-      "community": 49,
-      "community_name": "Community 49",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "depends"
     },
     {
@@ -3551,8 +3408,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_dependencies_auth_py_user",
-      "community": 49,
-      "community_name": "Community 49",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "user"
     },
     {
@@ -3562,8 +3419,8 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "backend_app_dependencies_auth_get_current_active_user",
-      "community": 49,
-      "community_name": "Community 49",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "get_current_active_user()"
     },
     {
@@ -3573,8 +3430,8 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "backend_app_dependencies_auth_require_admin",
-      "community": 194,
-      "community_name": "bom.py",
+      "community": 18,
+      "community_name": "Supplier Job Model",
       "norm_label": "require_admin()"
     },
     {
@@ -3584,8 +3441,8 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "backend_app_dependencies_auth_require_super_admin",
-      "community": 49,
-      "community_name": "Community 49",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "require_super_admin()"
     },
     {
@@ -3595,8 +3452,8 @@
       "source_location": "L70",
       "_origin": "ast",
       "id": "backend_app_dependencies_auth_is_admin_or_above",
-      "community": 49,
-      "community_name": "Community 49",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "is_admin_or_above()"
     },
     {
@@ -3606,8 +3463,8 @@
       "source_location": "L74",
       "_origin": "ast",
       "id": "backend_app_dependencies_auth_require_grn_access",
-      "community": 49,
-      "community_name": "Community 49",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "require_grn_access()"
     },
     {
@@ -3617,8 +3474,8 @@
       "source_location": "L83",
       "_origin": "ast",
       "id": "backend_app_dependencies_auth_require_dispatch_access",
-      "community": 49,
-      "community_name": "Community 49",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "require_dispatch_access()"
     },
     {
@@ -3628,8 +3485,8 @@
       "source_location": "L92",
       "_origin": "ast",
       "id": "backend_app_dependencies_auth_require_gate_pass_access",
-      "community": 49,
-      "community_name": "Community 49",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "require_gate_pass_access()"
     },
     {
@@ -3639,8 +3496,8 @@
       "source_location": "L101",
       "_origin": "ast",
       "id": "backend_app_dependencies_auth_require_purchase_access",
-      "community": 49,
-      "community_name": "Community 49",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "require_purchase_access()"
     },
     {
@@ -3650,8 +3507,8 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "backend_app_dependencies_auth_rationale_55",
-      "community": 194,
-      "community_name": "bom.py",
+      "community": 18,
+      "community_name": "Supplier Job Model",
       "norm_label": "require admin or super_admin role."
     },
     {
@@ -3661,8 +3518,8 @@
       "source_location": "L64",
       "_origin": "ast",
       "id": "backend_app_dependencies_auth_rationale_64",
-      "community": 49,
-      "community_name": "Community 49",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "require super_admin role only."
     },
     {
@@ -3672,8 +3529,8 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "backend_app_dependencies_auth_rationale_77",
-      "community": 49,
-      "community_name": "Community 49",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "require grn_access flag on the user (or admin/super_admin)."
     },
     {
@@ -3683,8 +3540,8 @@
       "source_location": "L86",
       "_origin": "ast",
       "id": "backend_app_dependencies_auth_rationale_86",
-      "community": 49,
-      "community_name": "Community 49",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "require dispatch_access flag on the user (or admin/super_admin)."
     },
     {
@@ -3694,8 +3551,8 @@
       "source_location": "L95",
       "_origin": "ast",
       "id": "backend_app_dependencies_auth_rationale_95",
-      "community": 49,
-      "community_name": "Community 49",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "require gate_pass_access flag on the user (or admin/super_admin)."
     },
     {
@@ -3705,8 +3562,8 @@
       "source_location": "L104",
       "_origin": "ast",
       "id": "backend_app_dependencies_auth_rationale_104",
-      "community": 49,
-      "community_name": "Community 49",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "require purchase_access flag on the user (or admin/super_admin)."
     },
     {
@@ -3760,8 +3617,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "fastapi",
-      "community": 49,
-      "community_name": "Community 49",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "fastapi"
     },
     {
@@ -4145,8 +4002,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_models_department",
-      "community": 7,
-      "community_name": "Database Session and Auth Core",
+      "community": 60,
+      "community_name": "Community 60",
       "norm_label": "department.py"
     },
     {
@@ -4156,8 +4013,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "backend_app_models_department_department",
-      "community": 7,
-      "community_name": "Database Session and Auth Core",
+      "community": 60,
+      "community_name": "Community 60",
       "norm_label": "department"
     },
     {
@@ -4167,8 +4024,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_models_department_py_sqlmodel",
-      "community": 7,
-      "community_name": "Database Session and Auth Core",
+      "community": 60,
+      "community_name": "Community 60",
       "norm_label": "sqlmodel"
     },
     {
@@ -4321,8 +4178,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_models_gate_pass",
-      "community": 4,
-      "community_name": "Consumables Data Model",
+      "community": 29,
+      "community_name": "Purchase Request Routes",
       "norm_label": "gate_pass.py"
     },
     {
@@ -4332,8 +4189,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "backend_app_models_gate_pass_gatepass",
-      "community": 4,
-      "community_name": "Consumables Data Model",
+      "community": 29,
+      "community_name": "Purchase Request Routes",
       "norm_label": "gatepass"
     },
     {
@@ -4343,8 +4200,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_models_gate_pass_py_sqlmodel",
-      "community": 4,
-      "community_name": "Consumables Data Model",
+      "community": 29,
+      "community_name": "Purchase Request Routes",
       "norm_label": "sqlmodel"
     },
     {
@@ -4387,8 +4244,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_models_gate_pass_item",
-      "community": 4,
-      "community_name": "Consumables Data Model",
+      "community": 29,
+      "community_name": "Purchase Request Routes",
       "norm_label": "gate_pass_item.py"
     },
     {
@@ -4398,8 +4255,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "backend_app_models_gate_pass_item_gatepassitem",
-      "community": 4,
-      "community_name": "Consumables Data Model",
+      "community": 29,
+      "community_name": "Purchase Request Routes",
       "norm_label": "gatepassitem"
     },
     {
@@ -4409,8 +4266,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_models_gate_pass_item_py_sqlmodel",
-      "community": 4,
-      "community_name": "Consumables Data Model",
+      "community": 29,
+      "community_name": "Purchase Request Routes",
       "norm_label": "sqlmodel"
     },
     {
@@ -5124,8 +4981,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_models_receipt_item",
-      "community": 22,
-      "community_name": "Receipts and Requests Model",
+      "community": 149,
+      "community_name": "Community 149",
       "norm_label": "receipt_item.py"
     },
     {
@@ -5135,8 +4992,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "backend_app_models_receipt_item_receiptitem",
-      "community": 22,
-      "community_name": "Receipts and Requests Model",
+      "community": 149,
+      "community_name": "Community 149",
       "norm_label": "receiptitem"
     },
     {
@@ -5146,8 +5003,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_models_receipt_item_py_sqlmodel",
-      "community": 22,
-      "community_name": "Receipts and Requests Model",
+      "community": 149,
+      "community_name": "Community 149",
       "norm_label": "sqlmodel"
     },
     {
@@ -5157,8 +5014,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "backend_app_models_receipt_item_rationale_7",
-      "community": 22,
-      "community_name": "Receipts and Requests Model",
+      "community": 149,
+      "community_name": "Community 149",
       "norm_label": "line item for a receipt \u2014 links to a requestitem and records delivered/signed-of"
     },
     {
@@ -5773,8 +5630,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_models_unit",
-      "community": 194,
-      "community_name": "bom.py",
+      "community": 2,
+      "community_name": "Departments and Inventory History",
       "norm_label": "unit.py"
     },
     {
@@ -5784,8 +5641,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "backend_app_models_unit_unit",
-      "community": 194,
-      "community_name": "bom.py",
+      "community": 2,
+      "community_name": "Departments and Inventory History",
       "norm_label": "unit"
     },
     {
@@ -5795,8 +5652,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_models_unit_py_sqlmodel",
-      "community": 194,
-      "community_name": "bom.py",
+      "community": 2,
+      "community_name": "Departments and Inventory History",
       "norm_label": "sqlmodel"
     },
     {
@@ -5806,8 +5663,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_models_user",
-      "community": 37,
-      "community_name": "Community 37",
+      "community": 60,
+      "community_name": "Community 60",
       "norm_label": "user.py"
     },
     {
@@ -5817,8 +5674,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "backend_app_models_user_user",
-      "community": 37,
-      "community_name": "Community 37",
+      "community": 60,
+      "community_name": "Community 60",
       "norm_label": "user"
     },
     {
@@ -5828,8 +5685,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_models_user_py_sqlmodel",
-      "community": 37,
-      "community_name": "Community 37",
+      "community": 60,
+      "community_name": "Community 60",
       "norm_label": "sqlmodel"
     },
     {
@@ -6488,8 +6345,8 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "backend_app_routers_auth_loginrequest",
-      "community": 64,
-      "community_name": "Community 64",
+      "community": 60,
+      "community_name": "Community 60",
       "norm_label": "loginrequest"
     },
     {
@@ -6499,8 +6356,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_auth_py_basemodel",
-      "community": 64,
-      "community_name": "Community 64",
+      "community": 60,
+      "community_name": "Community 60",
       "norm_label": "basemodel"
     },
     {
@@ -6510,8 +6367,8 @@
       "source_location": "L39",
       "_origin": "ast",
       "id": "backend_app_routers_auth_tokenresponse",
-      "community": 64,
-      "community_name": "Community 64",
+      "community": 60,
+      "community_name": "Community 60",
       "norm_label": "tokenresponse"
     },
     {
@@ -6521,8 +6378,8 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "backend_app_routers_auth_usermeresponse",
-      "community": 64,
-      "community_name": "Community 64",
+      "community": 60,
+      "community_name": "Community 60",
       "norm_label": "usermeresponse"
     },
     {
@@ -7830,8 +7687,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes",
-      "community": 4,
-      "community_name": "Consumables Data Model",
+      "community": 29,
+      "community_name": "Purchase Request Routes",
       "norm_label": "gate_passes.py"
     },
     {
@@ -7841,8 +7698,8 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_next_gp_number",
-      "community": 4,
-      "community_name": "Consumables Data Model",
+      "community": 29,
+      "community_name": "Purchase Request Routes",
       "norm_label": "_next_gp_number()"
     },
     {
@@ -7852,8 +7709,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_py_session",
-      "community": 4,
-      "community_name": "Consumables Data Model",
+      "community": 29,
+      "community_name": "Purchase Request Routes",
       "norm_label": "session"
     },
     {
@@ -7863,8 +7720,8 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_party_type",
-      "community": 4,
-      "community_name": "Consumables Data Model",
+      "community": 29,
+      "community_name": "Purchase Request Routes",
       "norm_label": "_party_type()"
     },
     {
@@ -7874,8 +7731,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "gatepass",
-      "community": 4,
-      "community_name": "Consumables Data Model",
+      "community": 29,
+      "community_name": "Purchase Request Routes",
       "norm_label": "gatepass"
     },
     {
@@ -7885,8 +7742,8 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_assign_purchase_order",
-      "community": 4,
-      "community_name": "Consumables Data Model",
+      "community": 29,
+      "community_name": "Purchase Request Routes",
       "norm_label": "_assign_purchase_order()"
     },
     {
@@ -7896,8 +7753,8 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_sanitize_purchase_refs",
-      "community": 4,
-      "community_name": "Consumables Data Model",
+      "community": 29,
+      "community_name": "Purchase Request Routes",
       "norm_label": "_sanitize_purchase_refs()"
     },
     {
@@ -7907,8 +7764,8 @@
       "source_location": "L64",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_list_gate_passes",
-      "community": 4,
-      "community_name": "Consumables Data Model",
+      "community": 29,
+      "community_name": "Purchase Request Routes",
       "norm_label": "list_gate_passes()"
     },
     {
@@ -7918,8 +7775,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_py_depends",
-      "community": 4,
-      "community_name": "Consumables Data Model",
+      "community": 29,
+      "community_name": "Purchase Request Routes",
       "norm_label": "depends"
     },
     {
@@ -7929,8 +7786,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_py_user",
-      "community": 4,
-      "community_name": "Consumables Data Model",
+      "community": 29,
+      "community_name": "Purchase Request Routes",
       "norm_label": "user"
     },
     {
@@ -7940,8 +7797,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_py_any",
-      "community": 4,
-      "community_name": "Consumables Data Model",
+      "community": 29,
+      "community_name": "Purchase Request Routes",
       "norm_label": "any"
     },
     {
@@ -7951,8 +7808,8 @@
       "source_location": "L102",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_create_gate_pass",
-      "community": 4,
-      "community_name": "Consumables Data Model",
+      "community": 29,
+      "community_name": "Purchase Request Routes",
       "norm_label": "create_gate_pass()"
     },
     {
@@ -7962,8 +7819,8 @@
       "source_location": "L179",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_get_gate_pass",
-      "community": 4,
-      "community_name": "Consumables Data Model",
+      "community": 29,
+      "community_name": "Purchase Request Routes",
       "norm_label": "get_gate_pass()"
     },
     {
@@ -7973,8 +7830,8 @@
       "source_location": "L193",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_update_gate_pass",
-      "community": 4,
-      "community_name": "Consumables Data Model",
+      "community": 29,
+      "community_name": "Purchase Request Routes",
       "norm_label": "update_gate_pass()"
     },
     {
@@ -7984,8 +7841,8 @@
       "source_location": "L296",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_delete_gate_pass",
-      "community": 4,
-      "community_name": "Consumables Data Model",
+      "community": 29,
+      "community_name": "Purchase Request Routes",
       "norm_label": "delete_gate_pass()"
     },
     {
@@ -7995,8 +7852,8 @@
       "source_location": "L315",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_get_gate_pass_history",
-      "community": 4,
-      "community_name": "Consumables Data Model",
+      "community": 29,
+      "community_name": "Purchase Request Routes",
       "norm_label": "get_gate_pass_history()"
     },
     {
@@ -8006,8 +7863,8 @@
       "source_location": "L351",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_require_access",
-      "community": 4,
-      "community_name": "Consumables Data Model",
+      "community": 29,
+      "community_name": "Purchase Request Routes",
       "norm_label": "_require_access()"
     },
     {
@@ -8017,8 +7874,8 @@
       "source_location": "L359",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_add_gp_history",
-      "community": 4,
-      "community_name": "Consumables Data Model",
+      "community": 29,
+      "community_name": "Purchase Request Routes",
       "norm_label": "_add_gp_history()"
     },
     {
@@ -8028,8 +7885,8 @@
       "source_location": "L382",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_to_dict",
-      "community": 4,
-      "community_name": "Consumables Data Model",
+      "community": 29,
+      "community_name": "Purchase Request Routes",
       "norm_label": "_to_dict()"
     },
     {
@@ -8039,8 +7896,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_rationale_1",
-      "community": 4,
-      "community_name": "Consumables Data Model",
+      "community": 29,
+      "community_name": "Purchase Request Routes",
       "norm_label": "gate pass router.  get    /api/v1/gate-passes        \u2014 list gate passes post   /"
     },
     {
@@ -8974,8 +8831,8 @@
       "source_location": "L188",
       "_origin": "ast",
       "id": "backend_app_routers_inventory_inventoryitemresponse",
-      "community": 37,
-      "community_name": "Community 37",
+      "community": 12,
+      "community_name": "Auth and Inventory Module",
       "norm_label": "inventoryitemresponse"
     },
     {
@@ -8996,8 +8853,8 @@
       "source_location": "L222",
       "_origin": "ast",
       "id": "backend_app_routers_inventory_inventoryitemdetailresponse",
-      "community": 37,
-      "community_name": "Community 37",
+      "community": 12,
+      "community_name": "Auth and Inventory Module",
       "norm_label": "inventoryitemdetailresponse"
     },
     {
@@ -9238,8 +9095,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_routers_marketing_requests",
-      "community": 109,
-      "community_name": "Community 109",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "marketing_requests.py"
     },
     {
@@ -9249,8 +9106,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "backend_app_routers_marketing_requests_list_marketing_requests",
-      "community": 109,
-      "community_name": "Community 109",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "list_marketing_requests()"
     },
     {
@@ -9260,8 +9117,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_marketing_requests_py_session",
-      "community": 109,
-      "community_name": "Community 109",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "session"
     },
     {
@@ -9271,8 +9128,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_marketing_requests_py_user",
-      "community": 109,
-      "community_name": "Community 109",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "user"
     },
     {
@@ -9282,8 +9139,8 @@
       "source_location": "L50",
       "_origin": "ast",
       "id": "backend_app_routers_marketing_requests_create_marketing_request",
-      "community": 109,
-      "community_name": "Community 109",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "create_marketing_request()"
     },
     {
@@ -9293,8 +9150,8 @@
       "source_location": "L57",
       "_origin": "ast",
       "id": "backend_app_routers_marketing_requests_get_marketing_request",
-      "community": 109,
-      "community_name": "Community 109",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "get_marketing_request()"
     },
     {
@@ -9304,8 +9161,8 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "backend_app_routers_marketing_requests_update_marketing_request",
-      "community": 109,
-      "community_name": "Community 109",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "update_marketing_request()"
     },
     {
@@ -9315,8 +9172,8 @@
       "source_location": "L67",
       "_origin": "ast",
       "id": "backend_app_routers_marketing_requests_delete_marketing_request",
-      "community": 109,
-      "community_name": "Community 109",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "delete_marketing_request()"
     },
     {
@@ -9326,8 +9183,8 @@
       "source_location": "L72",
       "_origin": "ast",
       "id": "backend_app_routers_marketing_requests_set_marketing_status",
-      "community": 109,
-      "community_name": "Community 109",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "set_marketing_status()"
     },
     {
@@ -9337,8 +9194,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_routers_marketing_requests_rationale_1",
-      "community": 109,
-      "community_name": "Community 109",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "shim router for /api/v1/marketing-requests.  delegates to the unified /api/v1/re"
     },
     {
@@ -9348,8 +9205,8 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "backend_app_routers_marketing_requests_rationale_36",
-      "community": 109,
-      "community_name": "Community 109",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "list customer_dispatch requests.      fetches the single allowed type. (same pat"
     },
     {
@@ -9425,8 +9282,8 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "backend_app_routers_notifications_create_notification",
-      "community": 20,
-      "community_name": "Request Items and Router",
+      "community": 16,
+      "community_name": "Combobox UI Component",
       "norm_label": "create_notification()"
     },
     {
@@ -9524,8 +9381,8 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "backend_app_routers_notifications_rationale_60",
-      "community": 20,
-      "community_name": "Request Items and Router",
+      "community": 16,
+      "community_name": "Combobox UI Component",
       "norm_label": "create a notification for a user. called from other routers."
     },
     {
@@ -9557,8 +9414,8 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "backend_app_routers_production_weight_to_grams",
-      "community": 12,
-      "community_name": "Auth and Inventory Module",
+      "community": 7,
+      "community_name": "Database Session and Auth Core",
       "norm_label": "_weight_to_grams()"
     },
     {
@@ -9711,8 +9568,8 @@
       "source_location": "L292",
       "_origin": "ast",
       "id": "backend_app_routers_production_consume_bom_materials",
-      "community": 194,
-      "community_name": "bom.py",
+      "community": 7,
+      "community_name": "Database Session and Auth Core",
       "norm_label": "_consume_bom_materials()"
     },
     {
@@ -10019,8 +9876,8 @@
       "source_location": "L874",
       "_origin": "ast",
       "id": "backend_app_routers_production_bom_preview",
-      "community": 12,
-      "community_name": "Auth and Inventory Module",
+      "community": 7,
+      "community_name": "Database Session and Auth Core",
       "norm_label": "bom_preview()"
     },
     {
@@ -10470,8 +10327,8 @@
       "source_location": "L298",
       "_origin": "ast",
       "id": "backend_app_routers_production_rationale_298",
-      "community": 194,
-      "community_name": "bom.py",
+      "community": 7,
+      "community_name": "Database Session and Auth Core",
       "norm_label": "deduct raw materials from inventory based on bom when production reports output."
     },
     {
@@ -10514,8 +10371,8 @@
       "source_location": "L880",
       "_origin": "ast",
       "id": "backend_app_routers_production_rationale_880",
-      "community": 12,
-      "community_name": "Auth and Inventory Module",
+      "community": 7,
+      "community_name": "Database Session and Auth Core",
       "norm_label": "return materials needed for a given product and planned quantity.      looks up"
     },
     {
@@ -11229,8 +11086,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_routers_reconciliation",
-      "community": 49,
-      "community_name": "Community 49",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "reconciliation.py"
     },
     {
@@ -11240,8 +11097,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "backend_app_routers_reconciliation_reconcile_inventory",
-      "community": 1,
-      "community_name": "Spare Parts Data Model",
+      "community": 43,
+      "community_name": "Community 43",
       "norm_label": "reconcile_inventory()"
     },
     {
@@ -11251,8 +11108,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_reconciliation_py_sessiondep",
-      "community": 1,
-      "community_name": "Spare Parts Data Model",
+      "community": 43,
+      "community_name": "Community 43",
       "norm_label": "sessiondep"
     },
     {
@@ -11262,8 +11119,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_reconciliation_py_adminuser",
-      "community": 1,
-      "community_name": "Spare Parts Data Model",
+      "community": 43,
+      "community_name": "Community 43",
       "norm_label": "adminuser"
     },
     {
@@ -11273,8 +11130,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_routers_reconciliation_rationale_1",
-      "community": 49,
-      "community_name": "Community 49",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "administrative, read-only inventory reconciliation api."
     },
     {
@@ -11482,8 +11339,8 @@
       "source_location": "L568",
       "_origin": "ast",
       "id": "backend_app_routers_requests_review_request",
-      "community": 20,
-      "community_name": "Request Items and Router",
+      "community": 16,
+      "community_name": "Combobox UI Component",
       "norm_label": "review_request()"
     },
     {
@@ -11647,8 +11504,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_routers_requests_helpers",
-      "community": 20,
-      "community_name": "Request Items and Router",
+      "community": 16,
+      "community_name": "Combobox UI Component",
       "norm_label": "requests_helpers.py"
     },
     {
@@ -11658,8 +11515,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "backend_app_routers_requests_helpers_prefix_for",
-      "community": 20,
-      "community_name": "Request Items and Router",
+      "community": 16,
+      "community_name": "Combobox UI Component",
       "norm_label": "_prefix_for()"
     },
     {
@@ -11680,8 +11537,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_requests_helpers_py_session",
-      "community": 20,
-      "community_name": "Request Items and Router",
+      "community": 16,
+      "community_name": "Combobox UI Component",
       "norm_label": "session"
     },
     {
@@ -11702,8 +11559,8 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "backend_app_routers_requests_helpers_build_department_label_map",
-      "community": 20,
-      "community_name": "Request Items and Router",
+      "community": 16,
+      "community_name": "Combobox UI Component",
       "norm_label": "build_department_label_map()"
     },
     {
@@ -11713,8 +11570,8 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "backend_app_routers_requests_helpers_label_for_code",
-      "community": 20,
-      "community_name": "Request Items and Router",
+      "community": 16,
+      "community_name": "Combobox UI Component",
       "norm_label": "label_for_code()"
     },
     {
@@ -11724,8 +11581,8 @@
       "source_location": "L54",
       "_origin": "ast",
       "id": "backend_app_routers_requests_helpers_generate_sn",
-      "community": 20,
-      "community_name": "Request Items and Router",
+      "community": 16,
+      "community_name": "Combobox UI Component",
       "norm_label": "generate_sn()"
     },
     {
@@ -11757,8 +11614,8 @@
       "source_location": "L87",
       "_origin": "ast",
       "id": "backend_app_routers_requests_helpers_notify_department_users",
-      "community": 20,
-      "community_name": "Request Items and Router",
+      "community": 16,
+      "community_name": "Combobox UI Component",
       "norm_label": "notify_department_users()"
     },
     {
@@ -11768,8 +11625,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_routers_requests_helpers_rationale_1",
-      "community": 20,
-      "community_name": "Request Items and Router",
+      "community": 16,
+      "community_name": "Combobox UI Component",
       "norm_label": "helpers used by both the new /requests router and the legacy shims."
     },
     {
@@ -11790,8 +11647,8 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "backend_app_routers_requests_helpers_rationale_37",
-      "community": 20,
-      "community_name": "Request Items and Router",
+      "community": 16,
+      "community_name": "Combobox UI Component",
       "norm_label": "return {code: \"code \u2014 name\"} for all active departments. used to attach     a hu"
     },
     {
@@ -11801,8 +11658,8 @@
       "source_location": "L47",
       "_origin": "ast",
       "id": "backend_app_routers_requests_helpers_rationale_47",
-      "community": 20,
-      "community_name": "Request Items and Router",
+      "community": 16,
+      "community_name": "Combobox UI Component",
       "norm_label": "resolve a department code to its display label, falling back to the     raw valu"
     },
     {
@@ -11812,8 +11669,8 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "backend_app_routers_requests_helpers_rationale_55",
-      "community": 20,
-      "community_name": "Request Items and Router",
+      "community": 16,
+      "community_name": "Combobox UI Component",
       "norm_label": "generate the next serial number transactionally."
     },
     {
@@ -11823,8 +11680,8 @@
       "source_location": "L95",
       "_origin": "ast",
       "id": "backend_app_routers_requests_helpers_rationale_95",
-      "community": 20,
-      "community_name": "Request Items and Router",
+      "community": 16,
+      "community_name": "Combobox UI Component",
       "norm_label": "create a notification for every active user belonging to the department     whos"
     },
     {
@@ -13330,8 +13187,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_routers_units",
-      "community": 194,
-      "community_name": "bom.py",
+      "community": 2,
+      "community_name": "Departments and Inventory History",
       "norm_label": "units.py"
     },
     {
@@ -13341,8 +13198,8 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "backend_app_routers_units_unitcreate",
-      "community": 194,
-      "community_name": "bom.py",
+      "community": 2,
+      "community_name": "Departments and Inventory History",
       "norm_label": "unitcreate"
     },
     {
@@ -13352,8 +13209,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_units_py_basemodel",
-      "community": 194,
-      "community_name": "bom.py",
+      "community": 2,
+      "community_name": "Departments and Inventory History",
       "norm_label": "basemodel"
     },
     {
@@ -13363,8 +13220,8 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "backend_app_routers_units_unitrename",
-      "community": 194,
-      "community_name": "bom.py",
+      "community": 2,
+      "community_name": "Departments and Inventory History",
       "norm_label": "unitrename"
     },
     {
@@ -13374,8 +13231,8 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "backend_app_routers_units_unitresponse",
-      "community": 194,
-      "community_name": "bom.py",
+      "community": 2,
+      "community_name": "Departments and Inventory History",
       "norm_label": "unitresponse"
     },
     {
@@ -13385,8 +13242,8 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "backend_app_routers_units_usagecountresponse",
-      "community": 194,
-      "community_name": "bom.py",
+      "community": 2,
+      "community_name": "Departments and Inventory History",
       "norm_label": "usagecountresponse"
     },
     {
@@ -13396,8 +13253,8 @@
       "source_location": "L49",
       "_origin": "ast",
       "id": "backend_app_routers_units_list_units",
-      "community": 194,
-      "community_name": "bom.py",
+      "community": 2,
+      "community_name": "Departments and Inventory History",
       "norm_label": "list_units()"
     },
     {
@@ -13407,8 +13264,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_units_py_session",
-      "community": 194,
-      "community_name": "bom.py",
+      "community": 2,
+      "community_name": "Departments and Inventory History",
       "norm_label": "session"
     },
     {
@@ -13418,8 +13275,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_units_py_depends",
-      "community": 194,
-      "community_name": "bom.py",
+      "community": 2,
+      "community_name": "Departments and Inventory History",
       "norm_label": "depends"
     },
     {
@@ -13429,8 +13286,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_units_py_user",
-      "community": 194,
-      "community_name": "bom.py",
+      "community": 2,
+      "community_name": "Departments and Inventory History",
       "norm_label": "user"
     },
     {
@@ -13440,8 +13297,8 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "backend_app_routers_units_create_unit",
-      "community": 194,
-      "community_name": "bom.py",
+      "community": 2,
+      "community_name": "Departments and Inventory History",
       "norm_label": "create_unit()"
     },
     {
@@ -13451,8 +13308,8 @@
       "source_location": "L80",
       "_origin": "ast",
       "id": "backend_app_routers_units_rename_unit",
-      "community": 194,
-      "community_name": "bom.py",
+      "community": 2,
+      "community_name": "Departments and Inventory History",
       "norm_label": "rename_unit()"
     },
     {
@@ -13462,8 +13319,8 @@
       "source_location": "L103",
       "_origin": "ast",
       "id": "backend_app_routers_units_get_unit_usage_count",
-      "community": 194,
-      "community_name": "bom.py",
+      "community": 2,
+      "community_name": "Departments and Inventory History",
       "norm_label": "get_unit_usage_count()"
     },
     {
@@ -13473,8 +13330,8 @@
       "source_location": "L122",
       "_origin": "ast",
       "id": "backend_app_routers_units_delete_unit",
-      "community": 194,
-      "community_name": "bom.py",
+      "community": 2,
+      "community_name": "Departments and Inventory History",
       "norm_label": "delete_unit()"
     },
     {
@@ -14507,8 +14364,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_schemas_reconciliation",
-      "community": 1,
-      "community_name": "Spare Parts Data Model",
+      "community": 43,
+      "community_name": "Community 43",
       "norm_label": "reconciliation.py"
     },
     {
@@ -14518,8 +14375,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "backend_app_schemas_reconciliation_reconciliationissue",
-      "community": 1,
-      "community_name": "Spare Parts Data Model",
+      "community": 43,
+      "community_name": "Community 43",
       "norm_label": "reconciliationissue"
     },
     {
@@ -14529,8 +14386,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_schemas_reconciliation_py_basemodel",
-      "community": 1,
-      "community_name": "Spare Parts Data Model",
+      "community": 43,
+      "community_name": "Community 43",
       "norm_label": "basemodel"
     },
     {
@@ -14540,8 +14397,8 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "backend_app_schemas_reconciliation_reconciliationsummary",
-      "community": 1,
-      "community_name": "Spare Parts Data Model",
+      "community": 43,
+      "community_name": "Community 43",
       "norm_label": "reconciliationsummary"
     },
     {
@@ -14551,8 +14408,8 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "backend_app_schemas_reconciliation_inventoryreconciliationreport",
-      "community": 1,
-      "community_name": "Spare Parts Data Model",
+      "community": 43,
+      "community_name": "Community 43",
       "norm_label": "inventoryreconciliationreport"
     },
     {
@@ -14639,8 +14496,8 @@
       "source_location": "L101",
       "_origin": "ast",
       "id": "backend_app_schemas_request_requestcreate",
-      "community": 65,
-      "community_name": "Community 65",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "requestcreate"
     },
     {
@@ -14650,8 +14507,8 @@
       "source_location": "L111",
       "_origin": "ast",
       "id": "backend_app_schemas_request_requestcreate_validate_type_specific",
-      "community": 65,
-      "community_name": "Community 65",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "._validate_type_specific()"
     },
     {
@@ -14661,8 +14518,8 @@
       "source_location": "L123",
       "_origin": "ast",
       "id": "backend_app_schemas_request_requestupdate",
-      "community": 65,
-      "community_name": "Community 65",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "requestupdate"
     },
     {
@@ -14705,8 +14562,8 @@
       "source_location": "L202",
       "_origin": "ast",
       "id": "backend_app_schemas_request_requestreviewaction",
-      "community": 65,
-      "community_name": "Community 65",
+      "community": 16,
+      "community_name": "Combobox UI Component",
       "norm_label": "requestreviewaction"
     },
     {
@@ -14727,8 +14584,8 @@
       "source_location": "L215",
       "_origin": "ast",
       "id": "backend_app_schemas_request_requeststatusupdate",
-      "community": 65,
-      "community_name": "Community 65",
+      "community": 47,
+      "community_name": "Community 47",
       "norm_label": "requeststatusupdate"
     },
     {
@@ -14826,8 +14683,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_services_inventory_reconciliation",
-      "community": 1,
-      "community_name": "Spare Parts Data Model",
+      "community": 43,
+      "community_name": "Community 43",
       "norm_label": "inventory_reconciliation.py"
     },
     {
@@ -14837,8 +14694,8 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "backend_app_services_inventory_reconciliation_build_inventory_reconciliation",
-      "community": 1,
-      "community_name": "Spare Parts Data Model",
+      "community": 43,
+      "community_name": "Community 43",
       "norm_label": "build_inventory_reconciliation()"
     },
     {
@@ -14848,8 +14705,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_services_inventory_reconciliation_py_session",
-      "community": 1,
-      "community_name": "Spare Parts Data Model",
+      "community": 43,
+      "community_name": "Community 43",
       "norm_label": "session"
     },
     {
@@ -14859,8 +14716,8 @@
       "source_location": "L143",
       "_origin": "ast",
       "id": "backend_app_services_inventory_reconciliation_check_simple_domain",
-      "community": 1,
-      "community_name": "Spare Parts Data Model",
+      "community": 43,
+      "community_name": "Community 43",
       "norm_label": "_check_simple_domain()"
     },
     {
@@ -14870,8 +14727,8 @@
       "source_location": "L196",
       "_origin": "ast",
       "id": "backend_app_services_inventory_reconciliation_check_spares",
-      "community": 1,
-      "community_name": "Spare Parts Data Model",
+      "community": 43,
+      "community_name": "Community 43",
       "norm_label": "_check_spares()"
     },
     {
@@ -14881,8 +14738,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_services_inventory_reconciliation_py_spareitem",
-      "community": 1,
-      "community_name": "Spare Parts Data Model",
+      "community": 43,
+      "community_name": "Community 43",
       "norm_label": "spareitem"
     },
     {
@@ -14892,8 +14749,8 @@
       "source_location": "L270",
       "_origin": "ast",
       "id": "backend_app_services_inventory_reconciliation_check_request_evidence",
-      "community": 1,
-      "community_name": "Spare Parts Data Model",
+      "community": 43,
+      "community_name": "Community 43",
       "norm_label": "_check_request_evidence()"
     },
     {
@@ -14903,8 +14760,8 @@
       "source_location": "L314",
       "_origin": "ast",
       "id": "backend_app_services_inventory_reconciliation_check_dispatch_evidence",
-      "community": 1,
-      "community_name": "Spare Parts Data Model",
+      "community": 43,
+      "community_name": "Community 43",
       "norm_label": "_check_dispatch_evidence()"
     },
     {
@@ -14914,8 +14771,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_services_inventory_reconciliation_py_dispatch",
-      "community": 1,
-      "community_name": "Spare Parts Data Model",
+      "community": 43,
+      "community_name": "Community 43",
       "norm_label": "dispatch"
     },
     {
@@ -14925,8 +14782,8 @@
       "source_location": "L338",
       "_origin": "ast",
       "id": "backend_app_services_inventory_reconciliation_active_values",
-      "community": 1,
-      "community_name": "Spare Parts Data Model",
+      "community": 43,
+      "community_name": "Community 43",
       "norm_label": "_active_values()"
     },
     {
@@ -14936,8 +14793,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_services_inventory_reconciliation_py_inventoryitem",
-      "community": 1,
-      "community_name": "Spare Parts Data Model",
+      "community": 43,
+      "community_name": "Community 43",
       "norm_label": "inventoryitem"
     },
     {
@@ -14947,8 +14804,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_services_inventory_reconciliation_py_consumable",
-      "community": 1,
-      "community_name": "Spare Parts Data Model",
+      "community": 43,
+      "community_name": "Community 43",
       "norm_label": "consumable"
     },
     {
@@ -14958,8 +14815,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_services_inventory_reconciliation_py_weederitem",
-      "community": 1,
-      "community_name": "Spare Parts Data Model",
+      "community": 43,
+      "community_name": "Community 43",
       "norm_label": "weederitem"
     },
     {
@@ -14969,8 +14826,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_services_inventory_reconciliation_py_attachmentitem",
-      "community": 1,
-      "community_name": "Spare Parts Data Model",
+      "community": 43,
+      "community_name": "Community 43",
       "norm_label": "attachmentitem"
     },
     {
@@ -14980,8 +14837,8 @@
       "source_location": "L371",
       "_origin": "ast",
       "id": "backend_app_services_inventory_reconciliation_issue",
-      "community": 1,
-      "community_name": "Spare Parts Data Model",
+      "community": 43,
+      "community_name": "Community 43",
       "norm_label": "_issue()"
     },
     {
@@ -14991,8 +14848,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_services_inventory_reconciliation_rationale_1",
-      "community": 1,
-      "community_name": "Spare Parts Data Model",
+      "community": 43,
+      "community_name": "Community 43",
       "norm_label": "read-only inventory consistency checks across all stock domains."
     },
     {
@@ -15002,8 +14859,8 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "backend_app_services_inventory_reconciliation_rationale_32",
-      "community": 1,
-      "community_name": "Spare Parts Data Model",
+      "community": 43,
+      "community_name": "Community 43",
       "norm_label": "inspect inventory invariants without flushing or committing the session."
     },
     {
@@ -15013,8 +14870,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_services_request_inventory",
-      "community": 43,
-      "community_name": "Community 43",
+      "community": 1,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "request_inventory.py"
     },
     {
@@ -15024,8 +14881,8 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "backend_app_services_request_inventory_stockdeduction",
-      "community": 43,
-      "community_name": "Community 43",
+      "community": 60,
+      "community_name": "Community 60",
       "norm_label": "stockdeduction"
     },
     {
@@ -15035,8 +14892,8 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "backend_app_services_request_inventory_deduct_request_stock",
-      "community": 43,
-      "community_name": "Community 43",
+      "community": 1,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "deduct_request_stock()"
     },
     {
@@ -15046,8 +14903,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_services_request_inventory_py_session",
-      "community": 43,
-      "community_name": "Community 43",
+      "community": 1,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "session"
     },
     {
@@ -15057,8 +14914,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_services_request_inventory_py_user",
-      "community": 43,
-      "community_name": "Community 43",
+      "community": 1,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "user"
     },
     {
@@ -15068,8 +14925,8 @@
       "source_location": "L72",
       "_origin": "ast",
       "id": "backend_app_services_request_inventory_resolve",
-      "community": 43,
-      "community_name": "Community 43",
+      "community": 1,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "_resolve()"
     },
     {
@@ -15079,8 +14936,8 @@
       "source_location": "L99",
       "_origin": "ast",
       "id": "backend_app_services_request_inventory_quantity",
-      "community": 43,
-      "community_name": "Community 43",
+      "community": 1,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "_quantity()"
     },
     {
@@ -15090,8 +14947,8 @@
       "source_location": "L105",
       "_origin": "ast",
       "id": "backend_app_services_request_inventory_deduct",
-      "community": 43,
-      "community_name": "Community 43",
+      "community": 1,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "_deduct()"
     },
     {
@@ -15101,8 +14958,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_services_request_inventory_py_datetime",
-      "community": 43,
-      "community_name": "Community 43",
+      "community": 1,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "datetime"
     },
     {
@@ -15112,8 +14969,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_services_request_inventory_rationale_1",
-      "community": 43,
-      "community_name": "Community 43",
+      "community": 1,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "inventory validation and deduction for fulfilled requests and dispatches."
     },
     {
@@ -15123,8 +14980,8 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "backend_app_services_request_inventory_rationale_37",
-      "community": 43,
-      "community_name": "Community 43",
+      "community": 1,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "validate all lines first, then deduct them in the caller's transaction."
     },
     {
@@ -15134,8 +14991,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_services_units",
-      "community": 49,
-      "community_name": "Community 49",
+      "community": 29,
+      "community_name": "Purchase Request Routes",
       "norm_label": "units.py"
     },
     {
@@ -15145,8 +15002,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "backend_app_services_units_resolve_unit_id",
-      "community": 94,
-      "community_name": "Community 94",
+      "community": 29,
+      "community_name": "Purchase Request Routes",
       "norm_label": "resolve_unit_id()"
     },
     {
@@ -15156,8 +15013,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_services_units_py_session",
-      "community": 94,
-      "community_name": "Community 94",
+      "community": 29,
+      "community_name": "Purchase Request Routes",
       "norm_label": "session"
     },
     {
@@ -15167,8 +15024,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_services_units_rationale_1",
-      "community": 49,
-      "community_name": "Community 49",
+      "community": 29,
+      "community_name": "Purchase Request Routes",
       "norm_label": "unit reference normalization for legacy and current clients."
     },
     {
@@ -15178,8 +15035,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_services_workflow",
-      "community": 94,
-      "community_name": "Community 94",
+      "community": 29,
+      "community_name": "Purchase Request Routes",
       "norm_label": "workflow.py"
     },
     {
@@ -15189,8 +15046,8 @@
       "source_location": "L50",
       "_origin": "ast",
       "id": "backend_app_services_workflow_ensure_transition",
-      "community": 94,
-      "community_name": "Community 94",
+      "community": 29,
+      "community_name": "Purchase Request Routes",
       "norm_label": "ensure_transition()"
     },
     {
@@ -15200,8 +15057,8 @@
       "source_location": "L65",
       "_origin": "ast",
       "id": "backend_app_services_workflow_ensure_inventory_identity",
-      "community": 94,
-      "community_name": "Community 94",
+      "community": 29,
+      "community_name": "Purchase Request Routes",
       "norm_label": "ensure_inventory_identity()"
     },
     {
@@ -15211,8 +15068,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_services_workflow_rationale_1",
-      "community": 94,
-      "community_name": "Community 94",
+      "community": 29,
+      "community_name": "Purchase Request Routes",
       "norm_label": "shared workflow status and stock-identity rules."
     },
     {
@@ -16677,8 +16534,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_tests_test_inventory_leaf_deductions",
-      "community": 43,
-      "community_name": "Community 43",
+      "community": 60,
+      "community_name": "Community 60",
       "norm_label": "test_inventory_leaf_deductions.py"
     },
     {
@@ -16688,8 +16545,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "backend_tests_test_inventory_leaf_deductions_setup_spare_with_variants",
-      "community": 43,
-      "community_name": "Community 43",
+      "community": 60,
+      "community_name": "Community 60",
       "norm_label": "_setup_spare_with_variants()"
     },
     {
@@ -16699,8 +16556,8 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "backend_tests_test_inventory_leaf_deductions_setup_weeder_with_items",
-      "community": 43,
-      "community_name": "Community 43",
+      "community": 14,
+      "community_name": "Weeder Category Model",
       "norm_label": "_setup_weeder_with_items()"
     },
     {
@@ -16710,8 +16567,8 @@
       "source_location": "L93",
       "_origin": "ast",
       "id": "backend_tests_test_inventory_leaf_deductions_test_deduct_from_spare_variant_a_leaves_b_unchanged",
-      "community": 43,
-      "community_name": "Community 43",
+      "community": 60,
+      "community_name": "Community 60",
       "norm_label": "test_deduct_from_spare_variant_a_leaves_b_unchanged()"
     },
     {
@@ -16721,8 +16578,8 @@
       "source_location": "L118",
       "_origin": "ast",
       "id": "backend_tests_test_inventory_leaf_deductions_test_deduct_from_weeder_item_leaves_sibling_unchanged",
-      "community": 43,
-      "community_name": "Community 43",
+      "community": 60,
+      "community_name": "Community 60",
       "norm_label": "test_deduct_from_weeder_item_leaves_sibling_unchanged()"
     },
     {
@@ -16732,8 +16589,8 @@
       "source_location": "L142",
       "_origin": "ast",
       "id": "backend_tests_test_inventory_leaf_deductions_test_parent_aggregate_recomputed_after_leaf_deduction",
-      "community": 43,
-      "community_name": "Community 43",
+      "community": 60,
+      "community_name": "Community 60",
       "norm_label": "test_parent_aggregate_recomputed_after_leaf_deduction()"
     },
     {
@@ -16743,8 +16600,8 @@
       "source_location": "L170",
       "_origin": "ast",
       "id": "backend_tests_test_inventory_leaf_deductions_test_insufficient_stock_on_selected_leaf_rejects_all",
-      "community": 43,
-      "community_name": "Community 43",
+      "community": 60,
+      "community_name": "Community 60",
       "norm_label": "test_insufficient_stock_on_selected_leaf_rejects_all()"
     },
     {
@@ -16754,8 +16611,8 @@
       "source_location": "L198",
       "_origin": "ast",
       "id": "backend_tests_test_inventory_leaf_deductions_test_deduction_targets_leaf_not_parent_id",
-      "community": 43,
-      "community_name": "Community 43",
+      "community": 60,
+      "community_name": "Community 60",
       "norm_label": "test_deduction_targets_leaf_not_parent_id()"
     },
     {
@@ -16765,8 +16622,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_tests_test_inventory_leaf_deductions_rationale_1",
-      "community": 43,
-      "community_name": "Community 43",
+      "community": 60,
+      "community_name": "Community 60",
       "norm_label": "tests for leaf-only stock deduction invariants."
     },
     {
@@ -16776,8 +16633,8 @@
       "source_location": "L94",
       "_origin": "ast",
       "id": "backend_tests_test_inventory_leaf_deductions_rationale_94",
-      "community": 43,
-      "community_name": "Community 43",
+      "community": 60,
+      "community_name": "Community 60",
       "norm_label": "deducting from variant a must not affect variant b."
     },
     {
@@ -16787,8 +16644,8 @@
       "source_location": "L119",
       "_origin": "ast",
       "id": "backend_tests_test_inventory_leaf_deductions_rationale_119",
-      "community": 43,
-      "community_name": "Community 43",
+      "community": 60,
+      "community_name": "Community 60",
       "norm_label": "deducting from weeder item a must not affect weeder item b."
     },
     {
@@ -16798,8 +16655,8 @@
       "source_location": "L143",
       "_origin": "ast",
       "id": "backend_tests_test_inventory_leaf_deductions_rationale_143",
-      "community": 43,
-      "community_name": "Community 43",
+      "community": 60,
+      "community_name": "Community 60",
       "norm_label": "after leaf deduction, parent spareitem.recorded_qty must equal sum of active var"
     },
     {
@@ -16809,8 +16666,8 @@
       "source_location": "L171",
       "_origin": "ast",
       "id": "backend_tests_test_inventory_leaf_deductions_rationale_171",
-      "community": 43,
-      "community_name": "Community 43",
+      "community": 60,
+      "community_name": "Community 60",
       "norm_label": "if selected leaf has insufficient stock, the entire deduction must be rejected."
     },
     {
@@ -16820,8 +16677,8 @@
       "source_location": "L199",
       "_origin": "ast",
       "id": "backend_tests_test_inventory_leaf_deductions_rationale_199",
-      "community": 43,
-      "community_name": "Community 43",
+      "community": 60,
+      "community_name": "Community 60",
       "norm_label": "deduction must use the leaf variant id, not the parent spare id."
     },
     {
@@ -16856,50 +16713,6 @@
       "community": 66,
       "community_name": "Community 66",
       "norm_label": "test_reconciliation_requires_admin()"
-    },
-    {
-      "label": "test_legacy_schema_request_repair_migration.py",
-      "file_type": "code",
-      "source_file": "backend/tests/test_legacy_schema_request_repair_migration.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_tests_test_legacy_schema_request_repair_migration",
-      "community": 142,
-      "community_name": "Community 142",
-      "norm_label": "test_legacy_schema_request_repair_migration.py"
-    },
-    {
-      "label": "_config()",
-      "file_type": "code",
-      "source_file": "backend/tests/test_legacy_schema_request_repair_migration.py",
-      "source_location": "L12",
-      "_origin": "ast",
-      "id": "backend_tests_test_legacy_schema_request_repair_migration_config",
-      "community": 142,
-      "community_name": "Community 142",
-      "norm_label": "_config()"
-    },
-    {
-      "label": "test_repair_maps_units_without_changing_active_quantity()",
-      "file_type": "code",
-      "source_file": "backend/tests/test_legacy_schema_request_repair_migration.py",
-      "source_location": "L18",
-      "_origin": "ast",
-      "id": "backend_tests_test_legacy_schema_request_repair_migration_test_repair_maps_units_without_changing_active_quantity",
-      "community": 142,
-      "community_name": "Community 142",
-      "norm_label": "test_repair_maps_units_without_changing_active_quantity()"
-    },
-    {
-      "label": "test_repair_restores_legacy_purchase_requests()",
-      "file_type": "code",
-      "source_file": "backend/tests/test_legacy_schema_request_repair_migration.py",
-      "source_location": "L56",
-      "_origin": "ast",
-      "id": "backend_tests_test_legacy_schema_request_repair_migration_test_repair_restores_legacy_purchase_requests",
-      "community": 142,
-      "community_name": "Community 142",
-      "norm_label": "test_repair_restores_legacy_purchase_requests()"
     },
     {
       "label": "test_production_status_cascade.py",
@@ -17986,8 +17799,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "backend_tests_test_request_units_search_history_links_test_request_preserves_inventory_unit_and_is_searchable",
-      "community": 194,
-      "community_name": "bom.py",
+      "community": 2,
+      "community_name": "Departments and Inventory History",
       "norm_label": "test_request_preserves_inventory_unit_and_is_searchable()"
     },
     {
@@ -18503,8 +18316,8 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "frontend_app_dashboard_admin_bom_new_page_newbomform",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 59,
+      "community_name": "_migrate_grn_v2",
       "norm_label": "newbomform()"
     },
     {
@@ -18591,8 +18404,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_app_dashboard_admin_departments_new_page",
-      "community": 6,
-      "community_name": "Linkable Purchase Requests",
+      "community": 5,
+      "community_name": "Inventory Edit Pages",
       "norm_label": "page.tsx"
     },
     {
@@ -18646,8 +18459,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_app_dashboard_admin_settings_page",
-      "community": 6,
-      "community_name": "Linkable Purchase Requests",
+      "community": 5,
+      "community_name": "Inventory Edit Pages",
       "norm_label": "page.tsx"
     },
     {
@@ -18657,8 +18470,8 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "frontend_app_dashboard_admin_settings_page_companyinfo",
-      "community": 6,
-      "community_name": "Linkable Purchase Requests",
+      "community": 5,
+      "community_name": "Inventory Edit Pages",
       "norm_label": "companyinfo"
     },
     {
@@ -18668,8 +18481,8 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "frontend_app_dashboard_admin_settings_page_unititem",
-      "community": 6,
-      "community_name": "Linkable Purchase Requests",
+      "community": 5,
+      "community_name": "Inventory Edit Pages",
       "norm_label": "unititem"
     },
     {
@@ -18679,8 +18492,8 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "frontend_app_dashboard_admin_settings_page_blank",
-      "community": 6,
-      "community_name": "Linkable Purchase Requests",
+      "community": 5,
+      "community_name": "Inventory Edit Pages",
       "norm_label": "blank"
     },
     {
@@ -18690,8 +18503,8 @@
       "source_location": "L59",
       "_origin": "ast",
       "id": "frontend_app_dashboard_admin_settings_page_settingspage",
-      "community": 6,
-      "community_name": "Linkable Purchase Requests",
+      "community": 5,
+      "community_name": "Inventory Edit Pages",
       "norm_label": "settingspage()"
     },
     {
@@ -18756,8 +18569,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_app_dashboard_admin_users_new_page",
-      "community": 6,
-      "community_name": "Linkable Purchase Requests",
+      "community": 5,
+      "community_name": "Inventory Edit Pages",
       "norm_label": "page.tsx"
     },
     {
@@ -18767,8 +18580,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "frontend_app_dashboard_admin_users_new_page_deptref",
-      "community": 6,
-      "community_name": "Linkable Purchase Requests",
+      "community": 5,
+      "community_name": "Inventory Edit Pages",
       "norm_label": "deptref"
     },
     {
@@ -18778,8 +18591,8 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "frontend_app_dashboard_admin_users_new_page_blank",
-      "community": 6,
-      "community_name": "Linkable Purchase Requests",
+      "community": 5,
+      "community_name": "Inventory Edit Pages",
       "norm_label": "blank"
     },
     {
@@ -18789,8 +18602,8 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "frontend_app_dashboard_admin_users_new_page_newuserpage",
-      "community": 6,
-      "community_name": "Linkable Purchase Requests",
+      "community": 5,
+      "community_name": "Inventory Edit Pages",
       "norm_label": "newuserpage()"
     },
     {
@@ -18866,8 +18679,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_app_dashboard_dispatch_page",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 109,
+      "community_name": "Community 109",
       "norm_label": "page.tsx"
     },
     {
@@ -18877,8 +18690,8 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "frontend_app_dashboard_dispatch_page_dispatchapiitem",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 109,
+      "community_name": "Community 109",
       "norm_label": "dispatchapiitem"
     },
     {
@@ -18888,8 +18701,8 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "frontend_app_dashboard_dispatch_page_dispatch",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 109,
+      "community_name": "Community 109",
       "norm_label": "dispatch"
     },
     {
@@ -18899,8 +18712,8 @@
       "source_location": "L53",
       "_origin": "ast",
       "id": "frontend_app_dashboard_dispatch_page_dispatchitemform",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 109,
+      "community_name": "Community 109",
       "norm_label": "dispatchitemform"
     },
     {
@@ -18910,8 +18723,8 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "frontend_app_dashboard_dispatch_page_dispatchformstate",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 109,
+      "community_name": "Community 109",
       "norm_label": "dispatchformstate"
     },
     {
@@ -18921,8 +18734,8 @@
       "source_location": "L76",
       "_origin": "ast",
       "id": "frontend_app_dashboard_dispatch_page_companyinfo",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 109,
+      "community_name": "Community 109",
       "norm_label": "companyinfo"
     },
     {
@@ -18932,8 +18745,8 @@
       "source_location": "L88",
       "_origin": "ast",
       "id": "frontend_app_dashboard_dispatch_page_nameoption",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 109,
+      "community_name": "Community 109",
       "norm_label": "nameoption"
     },
     {
@@ -18943,8 +18756,8 @@
       "source_location": "L89",
       "_origin": "ast",
       "id": "frontend_app_dashboard_dispatch_page_receiptoption",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 109,
+      "community_name": "Community 109",
       "norm_label": "receiptoption"
     },
     {
@@ -18954,8 +18767,8 @@
       "source_location": "L100",
       "_origin": "ast",
       "id": "frontend_app_dashboard_dispatch_page_dispatchhistoryentry",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 109,
+      "community_name": "Community 109",
       "norm_label": "dispatchhistoryentry"
     },
     {
@@ -18965,8 +18778,8 @@
       "source_location": "L113",
       "_origin": "ast",
       "id": "frontend_app_dashboard_dispatch_page_status_colors",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 109,
+      "community_name": "Community 109",
       "norm_label": "status_colors"
     },
     {
@@ -18976,8 +18789,8 @@
       "source_location": "L119",
       "_origin": "ast",
       "id": "frontend_app_dashboard_dispatch_page_statuses",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 109,
+      "community_name": "Community 109",
       "norm_label": "statuses"
     },
     {
@@ -18987,8 +18800,8 @@
       "source_location": "L121",
       "_origin": "ast",
       "id": "frontend_app_dashboard_dispatch_page_dispatch_inv_types",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 109,
+      "community_name": "Community 109",
       "norm_label": "dispatch_inv_types"
     },
     {
@@ -18998,8 +18811,8 @@
       "source_location": "L132",
       "_origin": "ast",
       "id": "frontend_app_dashboard_dispatch_page_inventorytypelabel",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 109,
+      "community_name": "Community 109",
       "norm_label": "inventorytypelabel()"
     },
     {
@@ -19009,8 +18822,8 @@
       "source_location": "L138",
       "_origin": "ast",
       "id": "frontend_app_dashboard_dispatch_page_blankdispatchitem",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 109,
+      "community_name": "Community 109",
       "norm_label": "blankdispatchitem()"
     },
     {
@@ -19020,8 +18833,8 @@
       "source_location": "L145",
       "_origin": "ast",
       "id": "frontend_app_dashboard_dispatch_page_blank_form",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 109,
+      "community_name": "Community 109",
       "norm_label": "blank_form()"
     },
     {
@@ -19031,8 +18844,8 @@
       "source_location": "L159",
       "_origin": "ast",
       "id": "frontend_app_dashboard_dispatch_page_dispatchpage",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 109,
+      "community_name": "Community 109",
       "norm_label": "dispatchpage()"
     },
     {
@@ -19042,8 +18855,8 @@
       "source_location": "L640",
       "_origin": "ast",
       "id": "frontend_app_dashboard_dispatch_page_dispatchform",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 109,
+      "community_name": "Community 109",
       "norm_label": "dispatchform()"
     },
     {
@@ -19053,8 +18866,8 @@
       "source_location": "L896",
       "_origin": "ast",
       "id": "frontend_app_dashboard_dispatch_page_invitem",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 109,
+      "community_name": "Community 109",
       "norm_label": "invitem"
     },
     {
@@ -19064,8 +18877,8 @@
       "source_location": "L898",
       "_origin": "ast",
       "id": "frontend_app_dashboard_dispatch_page_dispatchinvcombobox",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 109,
+      "community_name": "Community 109",
       "norm_label": "dispatchinvcombobox()"
     },
     {
@@ -19493,8 +19306,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_app_dashboard_history_page",
-      "community": 2,
-      "community_name": "Departments and Inventory History",
+      "community": 33,
+      "community_name": "Community 33",
       "norm_label": "page.tsx"
     },
     {
@@ -19504,8 +19317,8 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "frontend_app_dashboard_history_page_historyitem",
-      "community": 2,
-      "community_name": "Departments and Inventory History",
+      "community": 33,
+      "community_name": "Community 33",
       "norm_label": "historyitem"
     },
     {
@@ -19515,8 +19328,8 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "frontend_app_dashboard_history_page_historypage",
-      "community": 2,
-      "community_name": "Departments and Inventory History",
+      "community": 33,
+      "community_name": "Community 33",
       "norm_label": "historypage"
     },
     {
@@ -19526,8 +19339,8 @@
       "source_location": "L54",
       "_origin": "ast",
       "id": "frontend_app_dashboard_history_page_tabstate",
-      "community": 2,
-      "community_name": "Departments and Inventory History",
+      "community": 33,
+      "community_name": "Community 33",
       "norm_label": "tabstate"
     },
     {
@@ -19537,8 +19350,8 @@
       "source_location": "L65",
       "_origin": "ast",
       "id": "frontend_app_dashboard_history_page_tabs",
-      "community": 2,
-      "community_name": "Departments and Inventory History",
+      "community": 33,
+      "community_name": "Community 33",
       "norm_label": "tabs"
     },
     {
@@ -19548,8 +19361,8 @@
       "source_location": "L82",
       "_origin": "ast",
       "id": "frontend_app_dashboard_history_page_tabkey",
-      "community": 2,
-      "community_name": "Departments and Inventory History",
+      "community": 33,
+      "community_name": "Community 33",
       "norm_label": "tabkey"
     },
     {
@@ -19559,8 +19372,8 @@
       "source_location": "L86",
       "_origin": "ast",
       "id": "frontend_app_dashboard_history_page_initial_tab_state",
-      "community": 2,
-      "community_name": "Departments and Inventory History",
+      "community": 33,
+      "community_name": "Community 33",
       "norm_label": "initial_tab_state"
     },
     {
@@ -19570,8 +19383,8 @@
       "source_location": "L95",
       "_origin": "ast",
       "id": "frontend_app_dashboard_history_page_fmtdate",
-      "community": 2,
-      "community_name": "Departments and Inventory History",
+      "community": 33,
+      "community_name": "Community 33",
       "norm_label": "fmtdate()"
     },
     {
@@ -19581,8 +19394,8 @@
       "source_location": "L104",
       "_origin": "ast",
       "id": "frontend_app_dashboard_history_page_changetypebadge",
-      "community": 2,
-      "community_name": "Departments and Inventory History",
+      "community": 33,
+      "community_name": "Community 33",
       "norm_label": "changetypebadge()"
     },
     {
@@ -19592,8 +19405,8 @@
       "source_location": "L120",
       "_origin": "ast",
       "id": "frontend_app_dashboard_history_page_deltabadge",
-      "community": 2,
-      "community_name": "Departments and Inventory History",
+      "community": 33,
+      "community_name": "Community 33",
       "norm_label": "deltabadge()"
     },
     {
@@ -19603,8 +19416,8 @@
       "source_location": "L132",
       "_origin": "ast",
       "id": "frontend_app_dashboard_history_page_inventorycolumns",
-      "community": 2,
-      "community_name": "Departments and Inventory History",
+      "community": 33,
+      "community_name": "Community 33",
       "norm_label": "inventorycolumns()"
     },
     {
@@ -19614,8 +19427,8 @@
       "source_location": "L147",
       "_origin": "ast",
       "id": "frontend_app_dashboard_history_page_requestcolumns",
-      "community": 2,
-      "community_name": "Departments and Inventory History",
+      "community": 33,
+      "community_name": "Community 33",
       "norm_label": "requestcolumns()"
     },
     {
@@ -19625,8 +19438,8 @@
       "source_location": "L162",
       "_origin": "ast",
       "id": "frontend_app_dashboard_history_page_schedulecolumns",
-      "community": 2,
-      "community_name": "Departments and Inventory History",
+      "community": 33,
+      "community_name": "Community 33",
       "norm_label": "schedulecolumns()"
     },
     {
@@ -19636,8 +19449,8 @@
       "source_location": "L176",
       "_origin": "ast",
       "id": "frontend_app_dashboard_history_page_qtycolumns",
-      "community": 2,
-      "community_name": "Departments and Inventory History",
+      "community": 33,
+      "community_name": "Community 33",
       "norm_label": "qtycolumns()"
     },
     {
@@ -19647,8 +19460,8 @@
       "source_location": "L194",
       "_origin": "ast",
       "id": "frontend_app_dashboard_history_page_headers",
-      "community": 2,
-      "community_name": "Departments and Inventory History",
+      "community": 33,
+      "community_name": "Community 33",
       "norm_label": "headers"
     },
     {
@@ -19658,8 +19471,8 @@
       "source_location": "L211",
       "_origin": "ast",
       "id": "frontend_app_dashboard_history_page_rowcells",
-      "community": 2,
-      "community_name": "Departments and Inventory History",
+      "community": 33,
+      "community_name": "Community 33",
       "norm_label": "rowcells()"
     },
     {
@@ -19669,8 +19482,8 @@
       "source_location": "L231",
       "_origin": "ast",
       "id": "frontend_app_dashboard_history_page_skeletonrows",
-      "community": 2,
-      "community_name": "Departments and Inventory History",
+      "community": 33,
+      "community_name": "Community 33",
       "norm_label": "skeletonrows()"
     },
     {
@@ -19680,8 +19493,8 @@
       "source_location": "L249",
       "_origin": "ast",
       "id": "frontend_app_dashboard_history_page_historycard",
-      "community": 2,
-      "community_name": "Departments and Inventory History",
+      "community": 33,
+      "community_name": "Community 33",
       "norm_label": "historycard()"
     },
     {
@@ -19746,8 +19559,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_id_page",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 112,
+      "community_name": "get_vendor_detail",
       "norm_label": "page.tsx"
     },
     {
@@ -19757,8 +19570,8 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_id_page_bomusage",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 112,
+      "community_name": "get_vendor_detail",
       "norm_label": "bomusage"
     },
     {
@@ -19768,8 +19581,8 @@
       "source_location": "L38",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_id_page_bomrequirement",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 112,
+      "community_name": "get_vendor_detail",
       "norm_label": "bomrequirement"
     },
     {
@@ -19779,8 +19592,8 @@
       "source_location": "L53",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_id_page_scheduleentry",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 112,
+      "community_name": "get_vendor_detail",
       "norm_label": "scheduleentry"
     },
     {
@@ -19790,8 +19603,8 @@
       "source_location": "L64",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_id_page_itemdetail",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 112,
+      "community_name": "get_vendor_detail",
       "norm_label": "itemdetail"
     },
     {
@@ -19801,8 +19614,8 @@
       "source_location": "L95",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_id_page_type_label",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 112,
+      "community_name": "get_vendor_detail",
       "norm_label": "type_label"
     },
     {
@@ -19812,8 +19625,8 @@
       "source_location": "L101",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_id_page_type_color",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 112,
+      "community_name": "get_vendor_detail",
       "norm_label": "type_color"
     },
     {
@@ -19823,8 +19636,8 @@
       "source_location": "L107",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_id_page_status_badge",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 112,
+      "community_name": "get_vendor_detail",
       "norm_label": "status_badge"
     },
     {
@@ -19834,8 +19647,8 @@
       "source_location": "L115",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_id_page_status_label",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 112,
+      "community_name": "get_vendor_detail",
       "norm_label": "status_label"
     },
     {
@@ -19845,8 +19658,8 @@
       "source_location": "L120",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_id_page_fmt",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 112,
+      "community_name": "get_vendor_detail",
       "norm_label": "fmt()"
     },
     {
@@ -19856,8 +19669,8 @@
       "source_location": "L124",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_id_page_stat",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 112,
+      "community_name": "get_vendor_detail",
       "norm_label": "stat()"
     },
     {
@@ -19867,8 +19680,8 @@
       "source_location": "L134",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_id_page_sectionheader",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 112,
+      "community_name": "get_vendor_detail",
       "norm_label": "sectionheader()"
     },
     {
@@ -19878,8 +19691,8 @@
       "source_location": "L145",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_id_page_inventorydetailpage",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 112,
+      "community_name": "get_vendor_detail",
       "norm_label": "inventorydetailpage()"
     },
     {
@@ -19889,8 +19702,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_components_inventorytypepage",
-      "community": 0,
-      "community_name": "Admin Dashboard Pages",
+      "community": 234,
+      "community_name": "page.tsx",
       "norm_label": "inventorytypepage.tsx"
     },
     {
@@ -19900,8 +19713,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_components_inventorytypepage_inventoryitem",
-      "community": 0,
-      "community_name": "Admin Dashboard Pages",
+      "community": 234,
+      "community_name": "page.tsx",
       "norm_label": "inventoryitem"
     },
     {
@@ -19911,8 +19724,8 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_components_inventorytypepage_paginatedinventory",
-      "community": 0,
-      "community_name": "Admin Dashboard Pages",
+      "community": 234,
+      "community_name": "page.tsx",
       "norm_label": "paginatedinventory"
     },
     {
@@ -19922,8 +19735,8 @@
       "source_location": "L54",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_components_inventorytypepage_historyentry",
-      "community": 0,
-      "community_name": "Admin Dashboard Pages",
+      "community": 234,
+      "community_name": "page.tsx",
       "norm_label": "historyentry"
     },
     {
@@ -19933,8 +19746,8 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_components_inventorytypepage_scheduleitem",
-      "community": 0,
-      "community_name": "Admin Dashboard Pages",
+      "community": 234,
+      "community_name": "page.tsx",
       "norm_label": "scheduleitem"
     },
     {
@@ -19944,8 +19757,8 @@
       "source_location": "L73",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_components_inventorytypepage_paginatedschedules",
-      "community": 0,
-      "community_name": "Admin Dashboard Pages",
+      "community": 234,
+      "community_name": "page.tsx",
       "norm_label": "paginatedschedules"
     },
     {
@@ -19955,8 +19768,8 @@
       "source_location": "L79",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_components_inventorytypepage_change_labels",
-      "community": 0,
-      "community_name": "Admin Dashboard Pages",
+      "community": 234,
+      "community_name": "page.tsx",
       "norm_label": "change_labels"
     },
     {
@@ -19966,8 +19779,8 @@
       "source_location": "L87",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_components_inventorytypepage_fmtqty",
-      "community": 0,
-      "community_name": "Admin Dashboard Pages",
+      "community": 234,
+      "community_name": "page.tsx",
       "norm_label": "fmtqty()"
     },
     {
@@ -19977,8 +19790,8 @@
       "source_location": "L92",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_components_inventorytypepage_fmtdate",
-      "community": 0,
-      "community_name": "Admin Dashboard Pages",
+      "community": 234,
+      "community_name": "page.tsx",
       "norm_label": "fmtdate()"
     },
     {
@@ -19988,8 +19801,8 @@
       "source_location": "L98",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_components_inventorytypepage_fmtdatetime",
-      "community": 0,
-      "community_name": "Admin Dashboard Pages",
+      "community": 234,
+      "community_name": "page.tsx",
       "norm_label": "fmtdatetime()"
     },
     {
@@ -19999,8 +19812,8 @@
       "source_location": "L105",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_components_inventorytypepage_islow",
-      "community": 0,
-      "community_name": "Admin Dashboard Pages",
+      "community": 234,
+      "community_name": "page.tsx",
       "norm_label": "islow()"
     },
     {
@@ -20010,8 +19823,8 @@
       "source_location": "L108",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_components_inventorytypepage_isshortfall",
-      "community": 0,
-      "community_name": "Admin Dashboard Pages",
+      "community": 234,
+      "community_name": "page.tsx",
       "norm_label": "isshortfall()"
     },
     {
@@ -20021,8 +19834,8 @@
       "source_location": "L116",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_components_inventorytypepage_props",
-      "community": 0,
-      "community_name": "Admin Dashboard Pages",
+      "community": 234,
+      "community_name": "page.tsx",
       "norm_label": "props"
     },
     {
@@ -20032,8 +19845,8 @@
       "source_location": "L129",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_components_inventorytypepage_inventorytypepage",
-      "community": 0,
-      "community_name": "Admin Dashboard Pages",
+      "community": 234,
+      "community_name": "page.tsx",
       "norm_label": "inventorytypepage()"
     },
     {
@@ -20494,8 +20307,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_new_page",
-      "community": 112,
-      "community_name": "get_vendor_detail",
+      "community": 5,
+      "community_name": "Inventory Edit Pages",
       "norm_label": "page.tsx"
     },
     {
@@ -20505,8 +20318,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_new_page_storage_types",
-      "community": 112,
-      "community_name": "get_vendor_detail",
+      "community": 5,
+      "community_name": "Inventory Edit Pages",
       "norm_label": "storage_types"
     },
     {
@@ -20516,8 +20329,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_new_page_sfg_storage_types",
-      "community": 112,
-      "community_name": "get_vendor_detail",
+      "community": 5,
+      "community_name": "Inventory Edit Pages",
       "norm_label": "sfg_storage_types"
     },
     {
@@ -20527,8 +20340,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_new_page_valid_types",
-      "community": 112,
-      "community_name": "get_vendor_detail",
+      "community": 5,
+      "community_name": "Inventory Edit Pages",
       "norm_label": "valid_types"
     },
     {
@@ -20538,8 +20351,8 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_new_page_itemtype",
-      "community": 112,
-      "community_name": "get_vendor_detail",
+      "community": 5,
+      "community_name": "Inventory Edit Pages",
       "norm_label": "itemtype"
     },
     {
@@ -20549,8 +20362,8 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_new_page_type_labels",
-      "community": 112,
-      "community_name": "get_vendor_detail",
+      "community": 5,
+      "community_name": "Inventory Edit Pages",
       "norm_label": "type_labels"
     },
     {
@@ -20560,8 +20373,8 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_new_page_type_pages",
-      "community": 112,
-      "community_name": "get_vendor_detail",
+      "community": 5,
+      "community_name": "Inventory Edit Pages",
       "norm_label": "type_pages"
     },
     {
@@ -20571,8 +20384,8 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_new_page_blank",
-      "community": 112,
-      "community_name": "get_vendor_detail",
+      "community": 5,
+      "community_name": "Inventory Edit Pages",
       "norm_label": "blank"
     },
     {
@@ -20582,8 +20395,8 @@
       "source_location": "L48",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_new_page_newinventoryinner",
-      "community": 112,
-      "community_name": "get_vendor_detail",
+      "community": 5,
+      "community_name": "Inventory Edit Pages",
       "norm_label": "newinventoryinner()"
     },
     {
@@ -20593,8 +20406,8 @@
       "source_location": "L371",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_new_page_newinventorypage",
-      "community": 112,
-      "community_name": "get_vendor_detail",
+      "community": 5,
+      "community_name": "Inventory Edit Pages",
       "norm_label": "newinventorypage()"
     },
     {
@@ -20758,8 +20571,8 @@
       "source_location": "L129",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_page_inventorylanding",
-      "community": 53,
-      "community_name": "Community 53",
+      "community": 6,
+      "community_name": "Linkable Purchase Requests",
       "norm_label": "inventorylanding()"
     },
     {
@@ -20868,8 +20681,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_semi_finished_page",
-      "community": 149,
-      "community_name": "Community 149",
+      "community": 234,
+      "community_name": "page.tsx",
       "norm_label": "page.tsx"
     },
     {
@@ -20879,8 +20692,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_semi_finished_page_metadata",
-      "community": 149,
-      "community_name": "Community 149",
+      "community": 234,
+      "community_name": "page.tsx",
       "norm_label": "metadata"
     },
     {
@@ -20890,8 +20703,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_semi_finished_page_semifinishedpage",
-      "community": 149,
-      "community_name": "Community 149",
+      "community": 234,
+      "community_name": "page.tsx",
       "norm_label": "semifinishedpage()"
     },
     {
@@ -20967,8 +20780,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_spares_new_page",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 5,
+      "community_name": "Inventory Edit Pages",
       "norm_label": "page.tsx"
     },
     {
@@ -20989,8 +20802,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_spares_page",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 0,
+      "community_name": "Admin Dashboard Pages",
       "norm_label": "page.tsx"
     },
     {
@@ -21000,8 +20813,8 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_spares_page_sparecategory",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 0,
+      "community_name": "Admin Dashboard Pages",
       "norm_label": "sparecategory"
     },
     {
@@ -21011,8 +20824,8 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_spares_page_sparesubcategory",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 0,
+      "community_name": "Admin Dashboard Pages",
       "norm_label": "sparesubcategory"
     },
     {
@@ -21022,8 +20835,8 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_spares_page_spareitem",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 0,
+      "community_name": "Admin Dashboard Pages",
       "norm_label": "spareitem"
     },
     {
@@ -21033,8 +20846,8 @@
       "source_location": "L51",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_spares_page_spareitemhistoryentry",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 0,
+      "community_name": "Admin Dashboard Pages",
       "norm_label": "spareitemhistoryentry"
     },
     {
@@ -21044,8 +20857,8 @@
       "source_location": "L57",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_spares_page_sparevariant",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 0,
+      "community_name": "Admin Dashboard Pages",
       "norm_label": "sparevariant"
     },
     {
@@ -21055,8 +20868,8 @@
       "source_location": "L67",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_spares_page_storage_types",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 0,
+      "community_name": "Admin Dashboard Pages",
       "norm_label": "storage_types"
     },
     {
@@ -21066,8 +20879,8 @@
       "source_location": "L68",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_spares_page_blank_item",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 0,
+      "community_name": "Admin Dashboard Pages",
       "norm_label": "blank_item"
     },
     {
@@ -21077,8 +20890,8 @@
       "source_location": "L73",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_spares_page_blank_sub",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 0,
+      "community_name": "Admin Dashboard Pages",
       "norm_label": "blank_sub"
     },
     {
@@ -21088,8 +20901,8 @@
       "source_location": "L75",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_spares_page_fmtqty",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 0,
+      "community_name": "Admin Dashboard Pages",
       "norm_label": "fmtqty()"
     },
     {
@@ -21099,8 +20912,8 @@
       "source_location": "L76",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_spares_page_fmtrate",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 0,
+      "community_name": "Admin Dashboard Pages",
       "norm_label": "fmtrate()"
     },
     {
@@ -21110,8 +20923,8 @@
       "source_location": "L80",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_spares_page_islow",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 0,
+      "community_name": "Admin Dashboard Pages",
       "norm_label": "islow()"
     },
     {
@@ -21121,8 +20934,8 @@
       "source_location": "L85",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_spares_page_catspage",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 0,
+      "community_name": "Admin Dashboard Pages",
       "norm_label": "catspage"
     },
     {
@@ -21132,8 +20945,8 @@
       "source_location": "L86",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_spares_page_itemspage",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 0,
+      "community_name": "Admin Dashboard Pages",
       "norm_label": "itemspage"
     },
     {
@@ -21143,8 +20956,8 @@
       "source_location": "L93",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_spares_page_highlight",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 0,
+      "community_name": "Admin Dashboard Pages",
       "norm_label": "highlight()"
     },
     {
@@ -21154,8 +20967,8 @@
       "source_location": "L102",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_spares_page_sparespage",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 0,
+      "community_name": "Admin Dashboard Pages",
       "norm_label": "sparespage()"
     },
     {
@@ -21165,8 +20978,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_stock_alerts_page",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 134,
+      "community_name": "Community 134",
       "norm_label": "page.tsx"
     },
     {
@@ -21176,8 +20989,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_stock_alerts_page_tabs",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 134,
+      "community_name": "Community 134",
       "norm_label": "tabs"
     },
     {
@@ -21187,8 +21000,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_stock_alerts_page_tabkey",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 134,
+      "community_name": "Community 134",
       "norm_label": "tabkey"
     },
     {
@@ -21198,8 +21011,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_stock_alerts_page_sparelowstockitem",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 134,
+      "community_name": "Community 134",
       "norm_label": "sparelowstockitem"
     },
     {
@@ -21209,8 +21022,8 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_stock_alerts_page_consumablelowstockitem",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 134,
+      "community_name": "Community 134",
       "norm_label": "consumablelowstockitem"
     },
     {
@@ -21220,8 +21033,8 @@
       "source_location": "L48",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_stock_alerts_page_attachmentlowstockitem",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 134,
+      "community_name": "Community 134",
       "norm_label": "attachmentlowstockitem"
     },
     {
@@ -21231,8 +21044,8 @@
       "source_location": "L56",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_stock_alerts_page_weederlowstockitem",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 134,
+      "community_name": "Community 134",
       "norm_label": "weederlowstockitem"
     },
     {
@@ -21242,8 +21055,8 @@
       "source_location": "L64",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_stock_alerts_page_inventorylowitem",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 134,
+      "community_name": "Community 134",
       "norm_label": "inventorylowitem"
     },
     {
@@ -21253,8 +21066,8 @@
       "source_location": "L74",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_stock_alerts_page_paginatedinventory",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 134,
+      "community_name": "Community 134",
       "norm_label": "paginatedinventory"
     },
     {
@@ -21264,8 +21077,8 @@
       "source_location": "L80",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_stock_alerts_page_companyinfo",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 134,
+      "community_name": "Community 134",
       "norm_label": "companyinfo"
     },
     {
@@ -21275,8 +21088,8 @@
       "source_location": "L92",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_stock_alerts_page_unifiedrow",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 134,
+      "community_name": "Community 134",
       "norm_label": "unifiedrow"
     },
     {
@@ -21286,8 +21099,8 @@
       "source_location": "L106",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_stock_alerts_page_type_config",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 134,
+      "community_name": "Community 134",
       "norm_label": "type_config"
     },
     {
@@ -21297,8 +21110,8 @@
       "source_location": "L116",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_stock_alerts_page_typebadge",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 134,
+      "community_name": "Community 134",
       "norm_label": "typebadge()"
     },
     {
@@ -21308,8 +21121,8 @@
       "source_location": "L132",
       "_origin": "ast",
       "id": "frontend_app_dashboard_inventory_stock_alerts_page_stockalertspage",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 134,
+      "community_name": "Community 134",
       "norm_label": "stockalertspage()"
     },
     {
@@ -21891,8 +21704,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_app_dashboard_production_planning_page",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 0,
+      "community_name": "Admin Dashboard Pages",
       "norm_label": "page.tsx"
     },
     {
@@ -21902,8 +21715,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "frontend_app_dashboard_production_planning_page_processitem",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 0,
+      "community_name": "Admin Dashboard Pages",
       "norm_label": "processitem"
     },
     {
@@ -21913,8 +21726,8 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "frontend_app_dashboard_production_planning_page_productionplan",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 0,
+      "community_name": "Admin Dashboard Pages",
       "norm_label": "productionplan"
     },
     {
@@ -21924,8 +21737,8 @@
       "source_location": "L53",
       "_origin": "ast",
       "id": "frontend_app_dashboard_production_planning_page_paginatedplans",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 0,
+      "community_name": "Admin Dashboard Pages",
       "norm_label": "paginatedplans"
     },
     {
@@ -21935,8 +21748,8 @@
       "source_location": "L63",
       "_origin": "ast",
       "id": "frontend_app_dashboard_production_planning_page_status_badge",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 0,
+      "community_name": "Admin Dashboard Pages",
       "norm_label": "status_badge"
     },
     {
@@ -21946,8 +21759,8 @@
       "source_location": "L70",
       "_origin": "ast",
       "id": "frontend_app_dashboard_production_planning_page_status_color",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 0,
+      "community_name": "Admin Dashboard Pages",
       "norm_label": "status_color"
     },
     {
@@ -21957,8 +21770,8 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "frontend_app_dashboard_production_planning_page_status_labels",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 0,
+      "community_name": "Admin Dashboard Pages",
       "norm_label": "status_labels"
     },
     {
@@ -21968,8 +21781,8 @@
       "source_location": "L84",
       "_origin": "ast",
       "id": "frontend_app_dashboard_production_planning_page_filter_tabs",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 0,
+      "community_name": "Admin Dashboard Pages",
       "norm_label": "filter_tabs"
     },
     {
@@ -21979,8 +21792,8 @@
       "source_location": "L94",
       "_origin": "ast",
       "id": "frontend_app_dashboard_production_planning_page_planningpageinner",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 0,
+      "community_name": "Admin Dashboard Pages",
       "norm_label": "planningpageinner()"
     },
     {
@@ -21990,8 +21803,8 @@
       "source_location": "L481",
       "_origin": "ast",
       "id": "frontend_app_dashboard_production_planning_page_planninglistpage",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 0,
+      "community_name": "Admin Dashboard Pages",
       "norm_label": "planninglistpage()"
     },
     {
@@ -22496,8 +22309,8 @@
       "source_location": "L107",
       "_origin": "ast",
       "id": "frontend_app_dashboard_production_processing_page_processingpageinner",
-      "community": 0,
-      "community_name": "Admin Dashboard Pages",
+      "community": 5,
+      "community_name": "Inventory Edit Pages",
       "norm_label": "processingpageinner()"
     },
     {
@@ -22881,8 +22694,8 @@
       "source_location": "L185",
       "_origin": "ast",
       "id": "frontend_app_dashboard_purchase_orders_page_purchaseorderspage",
-      "community": 164,
-      "community_name": "input-group.tsx",
+      "community": 6,
+      "community_name": "Linkable Purchase Requests",
       "norm_label": "purchaseorderspage()"
     },
     {
@@ -23860,8 +23673,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_app_login_page",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 5,
+      "community_name": "Inventory Edit Pages",
       "norm_label": "page.tsx"
     },
     {
@@ -23871,8 +23684,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "frontend_app_login_page_loginpage",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 5,
+      "community_name": "Inventory Edit Pages",
       "norm_label": "loginpage()"
     },
     {
@@ -24223,8 +24036,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_components_auth_guard",
-      "community": 6,
-      "community_name": "Linkable Purchase Requests",
+      "community": 134,
+      "community_name": "Community 134",
       "norm_label": "auth-guard.tsx"
     },
     {
@@ -24234,8 +24047,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "frontend_components_auth_guard_authguard",
-      "community": 6,
-      "community_name": "Linkable Purchase Requests",
+      "community": 134,
+      "community_name": "Community 134",
       "norm_label": "authguard()"
     },
     {
@@ -24388,8 +24201,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_components_empty_state",
-      "community": 62,
-      "community_name": "Community 62",
+      "community": 244,
+      "community_name": "popover.tsx",
       "norm_label": "empty-state.tsx"
     },
     {
@@ -24399,8 +24212,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "frontend_components_empty_state_emptystateprops",
-      "community": 62,
-      "community_name": "Community 62",
+      "community": 244,
+      "community_name": "popover.tsx",
       "norm_label": "emptystateprops"
     },
     {
@@ -24410,8 +24223,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "frontend_components_empty_state_emptystate",
-      "community": 62,
-      "community_name": "Community 62",
+      "community": 244,
+      "community_name": "popover.tsx",
       "norm_label": "emptystate()"
     },
     {
@@ -24597,8 +24410,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_components_layout_page_shell",
-      "community": 62,
-      "community_name": "Community 62",
+      "community": 244,
+      "community_name": "popover.tsx",
       "norm_label": "page-shell.tsx"
     },
     {
@@ -24608,8 +24421,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "frontend_components_layout_page_shell_pageshellprops",
-      "community": 62,
-      "community_name": "Community 62",
+      "community": 244,
+      "community_name": "popover.tsx",
       "norm_label": "pageshellprops"
     },
     {
@@ -24619,8 +24432,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "frontend_components_layout_page_shell_pageshell",
-      "community": 62,
-      "community_name": "Community 62",
+      "community": 244,
+      "community_name": "popover.tsx",
       "norm_label": "pageshell()"
     },
     {
@@ -24773,8 +24586,8 @@
       "source_location": "L48",
       "_origin": "ast",
       "id": "frontend_components_requests_request_detail_dialog_requestdetaildialogprops",
-      "community": 33,
-      "community_name": "Community 33",
+      "community": 6,
+      "community_name": "Linkable Purchase Requests",
       "norm_label": "requestdetaildialogprops"
     },
     {
@@ -24894,8 +24707,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_components_requests_request_form",
-      "community": 33,
-      "community_name": "Community 33",
+      "community": 221,
+      "community_name": "customer-dispatch-block.tsx",
       "norm_label": "request-form.tsx"
     },
     {
@@ -24905,8 +24718,8 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "frontend_components_requests_request_form_deptref",
-      "community": 33,
-      "community_name": "Community 33",
+      "community": 221,
+      "community_name": "customer-dispatch-block.tsx",
       "norm_label": "deptref"
     },
     {
@@ -24916,8 +24729,8 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "frontend_components_requests_request_form_inventoryitem",
-      "community": 33,
-      "community_name": "Community 33",
+      "community": 221,
+      "community_name": "customer-dispatch-block.tsx",
       "norm_label": "inventoryitem"
     },
     {
@@ -24927,8 +24740,8 @@
       "source_location": "L50",
       "_origin": "ast",
       "id": "frontend_components_requests_request_form_apirecord",
-      "community": 33,
-      "community_name": "Community 33",
+      "community": 221,
+      "community_name": "customer-dispatch-block.tsx",
       "norm_label": "apirecord"
     },
     {
@@ -24938,8 +24751,8 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "frontend_components_requests_request_form_textvalue",
-      "community": 33,
-      "community_name": "Community 33",
+      "community": 221,
+      "community_name": "customer-dispatch-block.tsx",
       "norm_label": "textvalue()"
     },
     {
@@ -24949,8 +24762,8 @@
       "source_location": "L56",
       "_origin": "ast",
       "id": "frontend_components_requests_request_form_numbervalue",
-      "community": 33,
-      "community_name": "Community 33",
+      "community": 221,
+      "community_name": "customer-dispatch-block.tsx",
       "norm_label": "numbervalue()"
     },
     {
@@ -24960,8 +24773,8 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "frontend_components_requests_request_form_itemrows",
-      "community": 33,
-      "community_name": "Community 33",
+      "community": 221,
+      "community_name": "customer-dispatch-block.tsx",
       "norm_label": "itemrows()"
     },
     {
@@ -24971,8 +24784,8 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "frontend_components_requests_request_form_supported_requestable_types",
-      "community": 33,
-      "community_name": "Community 33",
+      "community": 221,
+      "community_name": "customer-dispatch-block.tsx",
       "norm_label": "supported_requestable_types"
     },
     {
@@ -24982,8 +24795,8 @@
       "source_location": "L76",
       "_origin": "ast",
       "id": "frontend_components_requests_request_form_requestableitemtype",
-      "community": 33,
-      "community_name": "Community 33",
+      "community": 221,
+      "community_name": "customer-dispatch-block.tsx",
       "norm_label": "requestableitemtype"
     },
     {
@@ -24993,8 +24806,8 @@
       "source_location": "L78",
       "_origin": "ast",
       "id": "frontend_components_requests_request_form_item_type_labels",
-      "community": 33,
-      "community_name": "Community 33",
+      "community": 221,
+      "community_name": "customer-dispatch-block.tsx",
       "norm_label": "item_type_labels"
     },
     {
@@ -25004,8 +24817,8 @@
       "source_location": "L88",
       "_origin": "ast",
       "id": "frontend_components_requests_request_form_fetchinventoryitems",
-      "community": 33,
-      "community_name": "Community 33",
+      "community": 221,
+      "community_name": "customer-dispatch-block.tsx",
       "norm_label": "fetchinventoryitems()"
     },
     {
@@ -25015,8 +24828,8 @@
       "source_location": "L142",
       "_origin": "ast",
       "id": "frontend_components_requests_request_form_default_item",
-      "community": 33,
-      "community_name": "Community 33",
+      "community": 221,
+      "community_name": "customer-dispatch-block.tsx",
       "norm_label": "default_item"
     },
     {
@@ -25037,8 +24850,8 @@
       "source_location": "L152",
       "_origin": "ast",
       "id": "frontend_components_requests_request_form_getpermittedtypes",
-      "community": 33,
-      "community_name": "Community 33",
+      "community": 221,
+      "community_name": "customer-dispatch-block.tsx",
       "norm_label": "getpermittedtypes()"
     },
     {
@@ -25048,8 +24861,8 @@
       "source_location": "L167",
       "_origin": "ast",
       "id": "frontend_components_requests_request_form_normalizeitemtype",
-      "community": 33,
-      "community_name": "Community 33",
+      "community": 221,
+      "community_name": "customer-dispatch-block.tsx",
       "norm_label": "normalizeitemtype()"
     },
     {
@@ -25059,8 +24872,8 @@
       "source_location": "L184",
       "_origin": "ast",
       "id": "frontend_components_requests_request_form_requestform",
-      "community": 33,
-      "community_name": "Community 33",
+      "community": 221,
+      "community_name": "customer-dispatch-block.tsx",
       "norm_label": "requestform()"
     },
     {
@@ -25070,8 +24883,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_components_requests_type_tabs",
-      "community": 33,
-      "community_name": "Community 33",
+      "community": 142,
+      "community_name": "Community 142",
       "norm_label": "type-tabs.tsx"
     },
     {
@@ -25081,8 +24894,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "frontend_components_requests_type_tabs_typetabsvalue",
-      "community": 33,
-      "community_name": "Community 33",
+      "community": 142,
+      "community_name": "Community 142",
       "norm_label": "typetabsvalue"
     },
     {
@@ -25092,8 +24905,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "frontend_components_requests_type_tabs_typetabsprops",
-      "community": 33,
-      "community_name": "Community 33",
+      "community": 142,
+      "community_name": "Community 142",
       "norm_label": "typetabsprops"
     },
     {
@@ -25103,8 +24916,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "frontend_components_requests_type_tabs_tabs",
-      "community": 33,
-      "community_name": "Community 33",
+      "community": 142,
+      "community_name": "Community 142",
       "norm_label": "tabs"
     },
     {
@@ -25114,8 +24927,8 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "frontend_components_requests_type_tabs_typetabs",
-      "community": 33,
-      "community_name": "Community 33",
+      "community": 142,
+      "community_name": "Community 142",
       "norm_label": "typetabs()"
     },
     {
@@ -25477,8 +25290,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_components_ui_button",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 0,
+      "community_name": "Admin Dashboard Pages",
       "norm_label": "button.tsx"
     },
     {
@@ -25488,8 +25301,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "frontend_components_ui_button_buttonvariants",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 0,
+      "community_name": "Admin Dashboard Pages",
       "norm_label": "buttonvariants"
     },
     {
@@ -25499,8 +25312,8 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "frontend_components_ui_button_button",
-      "community": 5,
-      "community_name": "Inventory Edit Pages",
+      "community": 0,
+      "community_name": "Admin Dashboard Pages",
       "norm_label": "button()"
     },
     {
@@ -25796,8 +25609,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "frontend_components_ui_dialog_dialog",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 33,
+      "community_name": "Community 33",
       "norm_label": "dialog()"
     },
     {
@@ -26313,8 +26126,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_components_ui_input",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 5,
+      "community_name": "Inventory Edit Pages",
       "norm_label": "input.tsx"
     },
     {
@@ -26324,8 +26137,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "frontend_components_ui_input_input",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 5,
+      "community_name": "Inventory Edit Pages",
       "norm_label": "input()"
     },
     {
@@ -26335,8 +26148,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_components_ui_label",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 5,
+      "community_name": "Inventory Edit Pages",
       "norm_label": "label.tsx"
     },
     {
@@ -26346,8 +26159,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "frontend_components_ui_label_label",
-      "community": 59,
-      "community_name": "_migrate_grn_v2",
+      "community": 5,
+      "community_name": "Inventory Edit Pages",
       "norm_label": "label()"
     },
     {
@@ -26676,8 +26489,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_components_ui_sheet",
-      "community": 53,
-      "community_name": "Community 53",
+      "community": 136,
+      "community_name": "page.tsx",
       "norm_label": "sheet.tsx"
     },
     {
@@ -26698,8 +26511,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "frontend_components_ui_sheet_sheettrigger",
-      "community": 53,
-      "community_name": "Community 53",
+      "community": 136,
+      "community_name": "page.tsx",
       "norm_label": "sheettrigger()"
     },
     {
@@ -26709,8 +26522,8 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "frontend_components_ui_sheet_sheetclose",
-      "community": 53,
-      "community_name": "Community 53",
+      "community": 136,
+      "community_name": "page.tsx",
       "norm_label": "sheetclose()"
     },
     {
@@ -26720,8 +26533,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "frontend_components_ui_sheet_sheetportal",
-      "community": 53,
-      "community_name": "Community 53",
+      "community": 136,
+      "community_name": "page.tsx",
       "norm_label": "sheetportal()"
     },
     {
@@ -26731,8 +26544,8 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "frontend_components_ui_sheet_sheetoverlay",
-      "community": 53,
-      "community_name": "Community 53",
+      "community": 136,
+      "community_name": "page.tsx",
       "norm_label": "sheetoverlay()"
     },
     {
@@ -26764,8 +26577,8 @@
       "source_location": "L99",
       "_origin": "ast",
       "id": "frontend_components_ui_sheet_sheetfooter",
-      "community": 53,
-      "community_name": "Community 53",
+      "community": 136,
+      "community_name": "page.tsx",
       "norm_label": "sheetfooter()"
     },
     {
@@ -26786,8 +26599,8 @@
       "source_location": "L125",
       "_origin": "ast",
       "id": "frontend_components_ui_sheet_sheetdescription",
-      "community": 53,
-      "community_name": "Community 53",
+      "community": 136,
+      "community_name": "page.tsx",
       "norm_label": "sheetdescription()"
     },
     {
@@ -26918,8 +26731,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_components_ui_tabs",
-      "community": 134,
-      "community_name": "Community 134",
+      "community": 62,
+      "community_name": "Community 62",
       "norm_label": "tabs.tsx"
     },
     {
@@ -26929,8 +26742,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "frontend_components_ui_tabs_tabs",
-      "community": 134,
-      "community_name": "Community 134",
+      "community": 62,
+      "community_name": "Community 62",
       "norm_label": "tabs()"
     },
     {
@@ -26940,8 +26753,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "frontend_components_ui_tabs_tabslistvariants",
-      "community": 134,
-      "community_name": "Community 134",
+      "community": 62,
+      "community_name": "Community 62",
       "norm_label": "tabslistvariants"
     },
     {
@@ -26951,8 +26764,8 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "frontend_components_ui_tabs_tabslist",
-      "community": 134,
-      "community_name": "Community 134",
+      "community": 62,
+      "community_name": "Community 62",
       "norm_label": "tabslist()"
     },
     {
@@ -26962,8 +26775,8 @@
       "source_location": "L58",
       "_origin": "ast",
       "id": "frontend_components_ui_tabs_tabstrigger",
-      "community": 134,
-      "community_name": "Community 134",
+      "community": 62,
+      "community_name": "Community 62",
       "norm_label": "tabstrigger()"
     },
     {
@@ -26973,8 +26786,8 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "frontend_components_ui_tabs_tabscontent",
-      "community": 134,
-      "community_name": "Community 134",
+      "community": 62,
+      "community_name": "Community 62",
       "norm_label": "tabscontent()"
     },
     {
@@ -27083,8 +26896,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_components_ui_tooltip",
-      "community": 136,
-      "community_name": "page.tsx",
+      "community": 244,
+      "community_name": "popover.tsx",
       "norm_label": "tooltip.tsx"
     },
     {
@@ -27094,8 +26907,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "frontend_components_ui_tooltip_tooltipprovider",
-      "community": 136,
-      "community_name": "page.tsx",
+      "community": 244,
+      "community_name": "popover.tsx",
       "norm_label": "tooltipprovider()"
     },
     {
@@ -27105,8 +26918,8 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "frontend_components_ui_tooltip_tooltip",
-      "community": 136,
-      "community_name": "page.tsx",
+      "community": 244,
+      "community_name": "popover.tsx",
       "norm_label": "tooltip()"
     },
     {
@@ -27116,8 +26929,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "frontend_components_ui_tooltip_tooltiptrigger",
-      "community": 136,
-      "community_name": "page.tsx",
+      "community": 244,
+      "community_name": "popover.tsx",
       "norm_label": "tooltiptrigger()"
     },
     {
@@ -27127,8 +26940,8 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "frontend_components_ui_tooltip_tooltipcontent",
-      "community": 136,
-      "community_name": "page.tsx",
+      "community": 244,
+      "community_name": "popover.tsx",
       "norm_label": "tooltipcontent()"
     },
     {
@@ -27391,8 +27204,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_lib_api",
-      "community": 6,
-      "community_name": "Linkable Purchase Requests",
+      "community": 134,
+      "community_name": "Community 134",
       "norm_label": "api.ts"
     },
     {
@@ -27402,8 +27215,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "frontend_lib_api_fetchoptions",
-      "community": 6,
-      "community_name": "Linkable Purchase Requests",
+      "community": 134,
+      "community_name": "Community 134",
       "norm_label": "fetchoptions"
     },
     {
@@ -27413,8 +27226,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "frontend_lib_api_apifetch",
-      "community": 6,
-      "community_name": "Linkable Purchase Requests",
+      "community": 134,
+      "community_name": "Community 134",
       "norm_label": "apifetch()"
     },
     {
@@ -27435,8 +27248,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_lib_auth",
-      "community": 6,
-      "community_name": "Linkable Purchase Requests",
+      "community": 134,
+      "community_name": "Community 134",
       "norm_label": "auth.ts"
     },
     {
@@ -27446,8 +27259,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "frontend_lib_auth_getaccesstoken",
-      "community": 6,
-      "community_name": "Linkable Purchase Requests",
+      "community": 134,
+      "community_name": "Community 134",
       "norm_label": "getaccesstoken()"
     },
     {
@@ -27457,8 +27270,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "frontend_lib_auth_setaccesstoken",
-      "community": 6,
-      "community_name": "Linkable Purchase Requests",
+      "community": 134,
+      "community_name": "Community 134",
       "norm_label": "setaccesstoken()"
     },
     {
@@ -27468,8 +27281,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "frontend_lib_auth_clearaccesstoken",
-      "community": 6,
-      "community_name": "Linkable Purchase Requests",
+      "community": 134,
+      "community_name": "Community 134",
       "norm_label": "clearaccesstoken()"
     },
     {
@@ -27479,8 +27292,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "frontend_lib_auth_isauthenticated",
-      "community": 6,
-      "community_name": "Linkable Purchase Requests",
+      "community": 134,
+      "community_name": "Community 134",
       "norm_label": "isauthenticated()"
     },
     {
@@ -27490,8 +27303,8 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "frontend_lib_auth_apilogin",
-      "community": 6,
-      "community_name": "Linkable Purchase Requests",
+      "community": 134,
+      "community_name": "Community 134",
       "norm_label": "apilogin()"
     },
     {
@@ -27512,8 +27325,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_lib_print_report",
-      "community": 110,
-      "community_name": "Community 110",
+      "community": 33,
+      "community_name": "Community 33",
       "norm_label": "print-report.ts"
     },
     {
@@ -27523,8 +27336,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "frontend_lib_print_report_printmode",
-      "community": 110,
-      "community_name": "Community 110",
+      "community": 33,
+      "community_name": "Community 33",
       "norm_label": "printmode"
     },
     {
@@ -27534,8 +27347,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "frontend_lib_print_report_printoptions",
-      "community": 110,
-      "community_name": "Community 110",
+      "community": 33,
+      "community_name": "Community 33",
       "norm_label": "printoptions"
     },
     {
@@ -27545,8 +27358,8 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "frontend_lib_print_report_companyprintinfo",
-      "community": 110,
-      "community_name": "Community 110",
+      "community": 33,
+      "community_name": "Community 33",
       "norm_label": "companyprintinfo"
     },
     {
@@ -27556,8 +27369,8 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "frontend_lib_print_report_loadcompanyprintinfo",
-      "community": 110,
-      "community_name": "Community 110",
+      "community": 33,
+      "community_name": "Community 33",
       "norm_label": "loadcompanyprintinfo()"
     },
     {
@@ -27567,8 +27380,8 @@
       "source_location": "L38",
       "_origin": "ast",
       "id": "frontend_lib_print_report_escapehtml",
-      "community": 110,
-      "community_name": "Community 110",
+      "community": 33,
+      "community_name": "Community 33",
       "norm_label": "escapehtml()"
     },
     {
@@ -27578,8 +27391,8 @@
       "source_location": "L48",
       "_origin": "ast",
       "id": "frontend_lib_print_report_companyprintheaderhtml",
-      "community": 110,
-      "community_name": "Community 110",
+      "community": 33,
+      "community_name": "Community 33",
       "norm_label": "companyprintheaderhtml()"
     },
     {
@@ -27589,8 +27402,8 @@
       "source_location": "L74",
       "_origin": "ast",
       "id": "frontend_lib_print_report_getcompanyprintheaderhtml",
-      "community": 110,
-      "community_name": "Community 110",
+      "community": 33,
+      "community_name": "Community 33",
       "norm_label": "getcompanyprintheaderhtml()"
     },
     {
@@ -27600,8 +27413,8 @@
       "source_location": "L79",
       "_origin": "ast",
       "id": "frontend_lib_print_report_fetchallpages",
-      "community": 110,
-      "community_name": "Community 110",
+      "community": 0,
+      "community_name": "Admin Dashboard Pages",
       "norm_label": "fetchallpages()"
     },
     {
@@ -27622,8 +27435,8 @@
       "source_location": "L118",
       "_origin": "ast",
       "id": "frontend_lib_print_report_renderprintwindow",
-      "community": 110,
-      "community_name": "Community 110",
+      "community": 33,
+      "community_name": "Community 33",
       "norm_label": "renderprintwindow()"
     },
     {
@@ -27732,8 +27545,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "frontend_lib_requests_requestitem",
-      "community": 33,
-      "community_name": "Community 33",
+      "community": 221,
+      "community_name": "customer-dispatch-block.tsx",
       "norm_label": "requestitem"
     },
     {
@@ -27908,8 +27721,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "frontend_lib_user_all_inventory_types",
-      "community": 53,
-      "community_name": "Community 53",
+      "community": 6,
+      "community_name": "Linkable Purchase Requests",
       "norm_label": "all_inventory_types"
     },
     {
@@ -27930,8 +27743,8 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "frontend_lib_user_inventory_type_labels",
-      "community": 6,
-      "community_name": "Linkable Purchase Requests",
+      "community": 5,
+      "community_name": "Inventory Edit Pages",
       "norm_label": "inventory_type_labels"
     },
     {
@@ -27941,8 +27754,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "frontend_lib_user_currentuser",
-      "community": 33,
-      "community_name": "Community 33",
+      "community": 6,
+      "community_name": "Linkable Purchase Requests",
       "norm_label": "currentuser"
     },
     {
@@ -27952,8 +27765,8 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "frontend_lib_user_setcurrentuser",
-      "community": 164,
-      "community_name": "input-group.tsx",
+      "community": 6,
+      "community_name": "Linkable Purchase Requests",
       "norm_label": "setcurrentuser()"
     },
     {
@@ -27996,8 +27809,8 @@
       "source_location": "L87",
       "_origin": "ast",
       "id": "frontend_lib_user_isadmin",
-      "community": 33,
-      "community_name": "Community 33",
+      "community": 6,
+      "community_name": "Linkable Purchase Requests",
       "norm_label": "isadmin()"
     },
     {
@@ -28073,8 +27886,8 @@
       "source_location": "L134",
       "_origin": "ast",
       "id": "frontend_lib_user_caneditinventory",
-      "community": 0,
-      "community_name": "Admin Dashboard Pages",
+      "community": 6,
+      "community_name": "Linkable Purchase Requests",
       "norm_label": "caneditinventory()"
     },
     {
@@ -28106,8 +27919,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_lib_utils",
-      "community": 6,
-      "community_name": "Linkable Purchase Requests",
+      "community": 244,
+      "community_name": "popover.tsx",
       "norm_label": "utils.ts"
     },
     {
@@ -38638,379 +38451,6 @@
       "_origin": "ast",
       "source": "backend_alembic_versions_0016_request_item_units",
       "target": "backend_alembic_versions_0016_request_item_units_upgrade",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L58",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0017_repair_legacy_schema_and_requests",
-      "target": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_add_column",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L46",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0017_repair_legacy_schema_and_requests",
-      "target": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_columns",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L280",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0017_repair_legacy_schema_and_requests",
-      "target": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_downgrade",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L52",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0017_repair_legacy_schema_and_requests",
-      "target": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_indexes",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L108",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0017_repair_legacy_schema_and_requests",
-      "target": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_repair_job_cards",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L202",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0017_repair_legacy_schema_and_requests",
-      "target": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_repair_receipts",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L63",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0017_repair_legacy_schema_and_requests",
-      "target": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_repair_unit_columns",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L115",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0017_repair_legacy_schema_and_requests",
-      "target": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_restore_purchase_requests",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L42",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0017_repair_legacy_schema_and_requests",
-      "target": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_tables",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L273",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0017_repair_legacy_schema_and_requests",
-      "target": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_upgrade",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L1",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_rationale_1",
-      "target": "backend_alembic_versions_0017_repair_legacy_schema_and_requests",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L59",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_add_column",
-      "target": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_tables",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L47",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_columns",
-      "target": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_tables",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L53",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_indexes",
-      "target": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_tables",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L204",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_repair_receipts",
-      "target": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_tables",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L65",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_repair_unit_columns",
-      "target": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_tables",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L118",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_restore_purchase_requests",
-      "target": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_tables",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L59",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_add_column",
-      "target": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_columns",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L207",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_repair_receipts",
-      "target": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_columns",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L77",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_repair_unit_columns",
-      "target": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_columns",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L230",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_repair_receipts",
-      "target": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_indexes",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "references",
-      "context": "parameter_type",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L58",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_add_column",
-      "target": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_py_column",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L109",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_repair_job_cards",
-      "target": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_add_column",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L208",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_repair_receipts",
-      "target": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_add_column",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L93",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_repair_unit_columns",
-      "target": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_add_column",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L111",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_repair_job_cards",
-      "target": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_py_column",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L208",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_repair_receipts",
-      "target": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_py_column",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L68",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_repair_unit_columns",
-      "target": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_py_column",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L274",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_upgrade",
-      "target": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_repair_unit_columns",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L275",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_upgrade",
-      "target": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_repair_job_cards",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L276",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_upgrade",
-      "target": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_restore_purchase_requests",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
-      "source_location": "L277",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_upgrade",
-      "target": "backend_alembic_versions_0017_repair_legacy_schema_and_requests_repair_receipts",
       "confidence_score": 1.0
     },
     {
@@ -96511,63 +95951,6 @@
       "_origin": "ast",
       "source": "backend_tests_test_inventory_reconciliation",
       "target": "backend_tests_test_inventory_reconciliation_test_reconciliation_requires_admin",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/tests/test_legacy_schema_request_repair_migration.py",
-      "source_location": "L12",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_tests_test_legacy_schema_request_repair_migration",
-      "target": "backend_tests_test_legacy_schema_request_repair_migration_config",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/tests/test_legacy_schema_request_repair_migration.py",
-      "source_location": "L18",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_tests_test_legacy_schema_request_repair_migration",
-      "target": "backend_tests_test_legacy_schema_request_repair_migration_test_repair_maps_units_without_changing_active_quantity",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/tests/test_legacy_schema_request_repair_migration.py",
-      "source_location": "L56",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_tests_test_legacy_schema_request_repair_migration",
-      "target": "backend_tests_test_legacy_schema_request_repair_migration_test_repair_restores_legacy_purchase_requests",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/tests/test_legacy_schema_request_repair_migration.py",
-      "source_location": "L38",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_tests_test_legacy_schema_request_repair_migration_test_repair_maps_units_without_changing_active_quantity",
-      "target": "backend_tests_test_legacy_schema_request_repair_migration_config",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/tests/test_legacy_schema_request_repair_migration.py",
-      "source_location": "L76",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_tests_test_legacy_schema_request_repair_migration_test_repair_restores_legacy_purchase_requests",
-      "target": "backend_tests_test_legacy_schema_request_repair_migration_config",
       "confidence_score": 1.0
     },
     {

@@ -1695,8 +1695,8 @@
     "semantic_hash": ""
   },
   "backend/tests/test_startup_migrations.py": {
-    "mtime": 1786458235.6134748,
-    "ast_hash": "015a83a564d809f34cade42728978a9a",
+    "mtime": 1786363649.7230656,
+    "ast_hash": "b4446130940c6233c66ff8868305bf63",
     "semantic_hash": ""
   },
   "backend/alembic/versions/0015_clear_inactive_inventory_stock.py": {
@@ -1732,16 +1732,6 @@
   "backend/tests/test_request_item_units_migration.py": {
     "mtime": 1786422953.4182537,
     "ast_hash": "1d499823f3b5b1b93aea6f03c9b09636",
-    "semantic_hash": ""
-  },
-  "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py": {
-    "mtime": 1786458301.5734913,
-    "ast_hash": "198615bb5a97590eaaed7324e522604e",
-    "semantic_hash": ""
-  },
-  "backend/tests/test_legacy_schema_request_repair_migration.py": {
-    "mtime": 1786458448.4740763,
-    "ast_hash": "1abab42691a8e3d60a50194333ec70b8",
     "semantic_hash": ""
   }
 }

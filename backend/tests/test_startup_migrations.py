@@ -36,14 +36,14 @@ def test_legacy_database_stamps_covered_revision_then_upgrades(monkeypatch):
 def test_upgrade_checkpoints_each_revision(monkeypatch):
     state = {"revision": "0014"}
     calls: list[str] = []
-    next_revision = {"0014": "0015", "0015": "0016"}
+    next_revision = {"0014": "0015", "0015": "0016", "0016": "0017"}
 
     monkeypatch.setattr(database, "_alembic_config", lambda: object())
     monkeypatch.setattr(database, "_current_alembic_revision", lambda: state["revision"])
     monkeypatch.setattr(
         ScriptDirectory,
         "from_config",
-        lambda _config: SimpleNamespace(get_current_head=lambda: "0016"),
+        lambda _config: SimpleNamespace(get_current_head=lambda: "0017"),
     )
 
     def upgrade(_config, target):
@@ -55,8 +55,8 @@ def test_upgrade_checkpoints_each_revision(monkeypatch):
 
     database.run_alembic_upgrade()
 
-    assert calls == ["0014", "0015"]
-    assert state["revision"] == "0016"
+    assert calls == ["0014", "0015", "0016"]
+    assert state["revision"] == "0017"
 
 
 def test_upgrade_stops_when_revision_does_not_advance(monkeypatch):
@@ -65,7 +65,7 @@ def test_upgrade_stops_when_revision_does_not_advance(monkeypatch):
     monkeypatch.setattr(
         ScriptDirectory,
         "from_config",
-        lambda _config: SimpleNamespace(get_current_head=lambda: "0016"),
+        lambda _config: SimpleNamespace(get_current_head=lambda: "0017"),
     )
     monkeypatch.setattr(command, "upgrade", lambda _config, _target: None)
 
