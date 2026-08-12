@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from app.core.timezone import now
 from typing import Optional
 
 from sqlmodel import Field, SQLModel
@@ -24,4 +25,4 @@ class InventoryItem(SQLModel, table=True):
     weight_value: Optional[float] = Field(default=None)               # weight of one unit
     weight_unit_id: Optional[int] = Field(default=None, foreign_key="unit.id")
     is_active: bool = Field(default=True)
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: now())

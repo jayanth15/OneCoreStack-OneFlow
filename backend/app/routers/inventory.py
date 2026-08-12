@@ -6,6 +6,7 @@
 - GET /{id}/history  (admin+ only)
 """
 from datetime import datetime, timezone
+from app.core.timezone import now
 from typing import Annotated, Any, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -13,6 +14,7 @@ from pydantic import BaseModel, field_validator
 from sqlmodel import Session, func, select
 
 from app.core.database import get_session
+from app.core.inventory_permissions import require_inventory_edit
 from app.dependencies.auth import get_current_user, is_admin_or_above
 from app.models.bom_item import BomItem
 from app.models.inventory import InventoryItem
@@ -47,6 +49,12 @@ def _user_inventory_types(user: User) -> Optional[set[str]]:
         return None
     types = {t.strip() for t in raw.split(",") if t.strip()}
     return types & VALID_TYPES
+
+
+
+
+def _require_inventory_edit(user: User, item_type: str) -> None:
+    require_inventory_edit(user, item_type)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -130,6 +138,54 @@ def _compute_extra(
             extra["customer_names"] = ", ".join(customers)
 
     return extra
+
+
+def _compute_extras(session: Session, items: list[InventoryItem]) -> dict[int, dict[str, Any]]:
+    """Batch version of :func:`_compute_extra` for list endpoints (avoids N+1)."""
+    extras: dict[int, dict[str, Any]] = {
+        item.id: {"linked_schedule_count": 0, "customer_names": None, "required_qty": None}
+        for item in items if item.id is not None
+    }
+    rm_items = [i for i in items if i.item_type == "raw_material" and i.id is not None]
+    fg_items = [i for i in items if i.item_type in ("finished_good", "semi_finished")]
+
+    schedules = list(session.exec(
+        select(Schedule).where(
+            Schedule.status.in_(list(ACTIVE_SCHEDULE_STATUSES)),  # type: ignore[union-attr]
+            Schedule.is_active == True,  # noqa: E712
+        )
+    ).all())
+
+    if rm_items:
+        rm_ids = [i.id for i in rm_items]
+        bom_entries = list(session.exec(
+            select(BomItem).where(
+                BomItem.raw_material_id.in_(rm_ids),  # type: ignore[union-attr]
+                BomItem.is_active == True,  # noqa: E712
+            )
+        ).all())
+        schedules_by_product: dict[str, list[Schedule]] = {}
+        for s in schedules:
+            schedules_by_product.setdefault(s.description, []).append(s)
+        seen_schedule_ids: dict[int, set[int]] = {i.id: set() for i in rm_items}  # type: ignore[misc]
+        for bom in bom_entries:
+            extra = extras.get(bom.raw_material_id)
+            if extra is None:
+                continue
+            for s in schedules_by_product.get(bom.product_name, []):
+                extra["required_qty"] = (extra["required_qty"] or 0.0) + s.scheduled_qty * bom.qty_per_unit
+                seen_schedule_ids[bom.raw_material_id].add(s.id)  # type: ignore[arg-type]
+        for i in rm_items:
+            extras[i.id]["linked_schedule_count"] = len(seen_schedule_ids[i.id])
+            if extras[i.id]["required_qty"] is None:
+                extras[i.id]["required_qty"] = 0.0
+
+    for item in fg_items:
+        matched = [s for s in schedules if s.description == item.name]
+        extras[item.id]["linked_schedule_count"] = len(matched)
+        if matched:
+            extras[item.id]["customer_names"] = ", ".join(sorted({s.customer_name for s in matched}))
+    return extras
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -329,9 +385,10 @@ def list_items(
     unit_map = {u.id: u.name for u in session.exec(select(Unit).where(Unit.id.in_(all_unit_ids))).all()} if all_unit_ids else {}
     weight_unit_map = {u.id: u.name for u in session.exec(select(Unit).where(Unit.id.in_(all_weight_unit_ids))).all()} if all_weight_unit_ids else {}
 
+    extras = _compute_extras(session, items)
     result = []
     for item in items:
-        extra = _compute_extra(session, item)
+        extra = extras.get(item.id) or {}
         d = {
             "id": item.id,
             "code": item.code,
@@ -362,6 +419,7 @@ def create_item(
     session: Annotated[Session, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, Any]:
+    _require_inventory_edit(current_user, body.item_type)
     existing = session.exec(
         select(InventoryItem).where(InventoryItem.code == body.code.upper())
     ).first()
@@ -385,7 +443,7 @@ def create_item(
         weight_value=body.weight_value,
         weight_unit_id=body.weight_unit_id,
         is_active=body.is_active,
-        updated_at=datetime.now(tz=timezone.utc),
+        updated_at=now(),
     )
     session.add(item)
     session.flush()
@@ -439,6 +497,8 @@ def update_item(
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
 
+    _require_inventory_edit(current_user, body.item_type if body.item_type is not None else item.item_type)
+
     admin = is_admin_or_above(current_user)
     qty_before = item.quantity_on_hand
 
@@ -482,7 +542,7 @@ def update_item(
     if body.weight_unit_id is not None:
         item.weight_unit_id = body.weight_unit_id
 
-    item.updated_at = datetime.now(tz=timezone.utc)
+    item.updated_at = now()
 
     _write_history(
         session, item, "edit", current_user.id,
@@ -518,10 +578,11 @@ def deactivate_item(
     item = session.get(InventoryItem, item_id)
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
+    _require_inventory_edit(current_user, item.item_type)
     qty_before = item.quantity_on_hand
     item.is_active = False
     item.quantity_on_hand = 0.0
-    item.updated_at = datetime.now(tz=timezone.utc)
+    item.updated_at = now()
     _write_history(session, item, "set", current_user.id, qty_before=qty_before, qty_after=0.0,
                    notes="Item deactivated; residual stock cleared", username=current_user.username)
     session.add(item)
@@ -539,6 +600,7 @@ def adjust_stock(
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
 
+    _require_inventory_edit(current_user, item.item_type)
     admin = is_admin_or_above(current_user)
     qty_before = item.quantity_on_hand
 
@@ -546,13 +608,19 @@ def adjust_stock(
         item.quantity_on_hand += body.quantity
         change_type = "add"
     elif body.adjustment_type == "subtract":
-        item.quantity_on_hand = max(0.0, item.quantity_on_hand - body.quantity)
+        new_qty = item.quantity_on_hand - body.quantity
+        if new_qty < 0:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Cannot subtract {body.quantity}: only {item.quantity_on_hand} on hand",
+            )
+        item.quantity_on_hand = new_qty
         change_type = "subtract"
     else:
         item.quantity_on_hand = body.quantity
         change_type = "set"
 
-    item.updated_at = datetime.now(tz=timezone.utc)
+    item.updated_at = now()
     _write_history(
         session, item, change_type, current_user.id,
         qty_before=qty_before, qty_after=item.quantity_on_hand,
@@ -602,15 +670,25 @@ def get_history(
     ).all())
 
     from app.models.user import User as UserModel  # local import
+    user_ids = {e.changed_by_user_id for e in entries if e.changed_by_user_id}
+    users_by_id = {
+        u.id: u
+        for u in session.exec(select(UserModel).where(UserModel.id.in_(user_ids))).all()  # type: ignore[union-attr]
+    } if user_ids else {}
+    schedule_ids = {e.schedule_id for e in entries if e.schedule_id}
+    schedules_by_id = {
+        s.id: s
+        for s in session.exec(select(Schedule).where(Schedule.id.in_(schedule_ids))).all()  # type: ignore[union-attr]
+    } if schedule_ids else {}
     result = []
     for e in entries:
         username = None
         if e.changed_by_user_id:
-            u = session.get(UserModel, e.changed_by_user_id)
+            u = users_by_id.get(e.changed_by_user_id)
             username = u.username if u else None
         sch_number = None
         if e.schedule_id:
-            s = session.get(Schedule, e.schedule_id)
+            s = schedules_by_id.get(e.schedule_id)
             sch_number = s.schedule_number if s else None
         result.append({
             **e.__dict__,
@@ -648,8 +726,9 @@ def upload_drawing(
     item = session.get(InventoryItem, item_id)
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
+    _require_inventory_edit(current_user, item.item_type)
     item.design_drawing_pdf = body.get("design_drawing_pdf") or None
-    item.updated_at = datetime.now(tz=timezone.utc)
+    item.updated_at = now()
     session.add(item)
     session.commit()
     return {"has_design_drawing": item.design_drawing_pdf is not None}

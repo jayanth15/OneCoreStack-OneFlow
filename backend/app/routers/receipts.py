@@ -5,6 +5,7 @@ Signoff: requester or admin signs off → receipt.status → signed_off (or disp
 Dispute: requester marks receipt as disputed
 """
 from datetime import datetime, timezone
+from app.core.timezone import now
 from typing import Annotated, Any, Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status as http_status
@@ -32,6 +33,7 @@ from app.schemas.receipt import (
     ReceiptSignoff, ReceiptDispute,
 )
 from app.routers.notifications import create_notification
+from app.services.document_numbers import allocate_document_number
 from app.services.request_inventory import StockDeduction, deduct_request_stock
 
 router = APIRouter(prefix="/api/v1/receipts", tags=["receipts"])
@@ -64,27 +66,42 @@ def _user_can_signoff(user: User, req: Request) -> bool:
 
 
 def _next_receipt_number(session: Session) -> str:
-    year = datetime.now(tz=timezone.utc).year
-    prefix = f"RCP-{year}-"
-    rows = session.exec(select(Receipt.receipt_number).where(Receipt.receipt_number.like(f"{prefix}%"))).all()
-    max_seq = 0
-    for sn in rows:
-        try:
-            seq = int(sn.split("-")[-1])
-            if seq > max_seq:
-                max_seq = seq
-        except (ValueError, IndexError):
-            continue
-    return f"{prefix}{max_seq + 1:04d}"
+    return allocate_document_number(
+        session,
+        key="receipt",
+        prefix="RCP",
+        existing_model=Receipt,
+        number_field="receipt_number",
+        include_year=True,
+        width=4,
+    )
 
 
 def _build_receipt_read(receipt: Receipt, session: Session) -> dict:
     items = session.exec(select(ReceiptItem).where(ReceiptItem.receipt_id == receipt.id)).all()
+    unit_ids = {it.unit_id for it in items if it.unit_id}
+    units_by_id = {
+        u.id: u
+        for u in session.exec(select(Unit).where(Unit.id.in_(unit_ids))).all()  # type: ignore[union-attr]
+    } if unit_ids else {}
+    req = session.get(Request, receipt.request_id)
+    target_departments = _target_department_codes(req, session) if req else []
+    return _build_receipt_read_with(receipt, list(items), units_by_id, req, target_departments, session)
+
+
+def _build_receipt_read_with(
+    receipt: Receipt,
+    items: list[ReceiptItem],
+    units_by_id: dict[int, Unit],
+    req: Request | None,
+    target_departments: list[str],
+    session: Session,
+) -> dict:
     item_list = []
     for it in items:
         unit_name = None
-        if it.unit_id and session:
-            u = session.get(Unit, it.unit_id)
+        if it.unit_id:
+            u = units_by_id.get(it.unit_id)
             unit_name = u.name if u else None
         item_list.append({
             "id": it.id,
@@ -103,8 +120,6 @@ def _build_receipt_read(receipt: Receipt, session: Session) -> dict:
             "condition": it.condition,
         })
     label_map = build_department_label_map(session)
-    req = session.get(Request, receipt.request_id)
-    target_departments = _target_department_codes(req, session) if req else []
     return {
         "id": receipt.id,
         "receipt_number": receipt.receipt_number,
@@ -144,6 +159,23 @@ def _target_department_codes(req: Request | None, session: Session) -> list[str]
         seen.add(req.department)
     items = session.exec(select(RequestItem.department).where(RequestItem.request_id == req.id)).all()
     for code in items:
+        if code and code not in seen:
+            codes.append(code)
+            seen.add(code)
+    return codes
+
+
+def _target_department_codes_from_items(req: Request | None, items: list[RequestItem]) -> list[str]:
+    """Like :func:`_target_department_codes` but with preloaded items."""
+    if not req:
+        return []
+    codes: list[str] = []
+    seen: set[str] = set()
+    if req.department:
+        codes.append(req.department)
+        seen.add(req.department)
+    for item in items:
+        code = item.department
         if code and code not in seen:
             codes.append(code)
             seen.add(code)
@@ -403,7 +435,40 @@ def list_receipts(
         stmt = stmt.join(Request, Request.id == Receipt.request_id).where(or_(*conditions))
 
     receipts = session.exec(stmt.offset(offset).limit(limit)).all()
-    return [_build_receipt_read(r, session) for r in receipts]
+
+    # Batch-load items, units, requests and target-department items for the page
+    receipt_ids = [r.id for r in receipts if r.id is not None]
+    items_by_receipt: dict[int, list[ReceiptItem]] = {}
+    if receipt_ids:
+        for it in session.exec(select(ReceiptItem).where(ReceiptItem.receipt_id.in_(receipt_ids))).all():
+            items_by_receipt.setdefault(it.receipt_id, []).append(it)
+    unit_ids = {it.unit_id for items in items_by_receipt.values() for it in items if it.unit_id}
+    units_by_id = {
+        u.id: u
+        for u in session.exec(select(Unit).where(Unit.id.in_(unit_ids))).all()  # type: ignore[union-attr]
+    } if unit_ids else {}
+    request_ids = [r.request_id for r in receipts if r.request_id is not None]
+    requests_by_id = {
+        req.id: req
+        for req in session.exec(select(Request).where(Request.id.in_(request_ids))).all()  # type: ignore[union-attr]
+    } if request_ids else {}
+    req_items_by_request: dict[int, list[RequestItem]] = {}
+    if request_ids:
+        for item in session.exec(select(RequestItem).where(RequestItem.request_id.in_(request_ids))).all():
+            req_items_by_request.setdefault(item.request_id, []).append(item)
+
+    out = []
+    for r in receipts:
+        req = requests_by_id.get(r.request_id) if r.request_id else None
+        out.append(_build_receipt_read_with(
+            r,
+            items_by_receipt.get(r.id or 0, []),
+            units_by_id,
+            req,
+            _target_department_codes_from_items(req, req_items_by_request.get(r.request_id or 0, [])),
+            session,
+        ))
+    return out
 
 
 @router.get("/dispatchable")
@@ -499,7 +564,7 @@ def signoff_receipt(
     receipt.status = "signed_off"
     receipt.signed_off_by_user_id = current_user.id
     receipt.signed_off_by_username = current_user.username
-    receipt.signed_off_at = datetime.now(tz=timezone.utc)
+    receipt.signed_off_at = now()
     session.add(receipt)
 
     # Copy delivered quantities to signed_off on receipt items
@@ -540,7 +605,7 @@ def signoff_receipt(
         req.status = "received"
         req.acknowledged_by_user_id = current_user.id
         req.acknowledged_by_username = current_user.username
-        req.acknowledged_at = datetime.now(tz=timezone.utc)
+        req.acknowledged_at = now()
         req.acknowledgment_note = body.notes
         session.add(req)
         log_history(session, req.id, changed_by_user_id=current_user.id, changed_by_username=current_user.username,
@@ -572,7 +637,7 @@ def dispute_receipt(
         raise HTTPException(status_code=403, detail="Only the requester or an admin can dispute a receipt")
 
     receipt.status = "disputed"
-    receipt.disputed_at = datetime.now(tz=timezone.utc)
+    receipt.disputed_at = now()
     receipt.dispute_note = body.note
     session.add(receipt)
 
@@ -583,6 +648,17 @@ def dispute_receipt(
 
     log_history(session, req.id, changed_by_user_id=current_user.id, changed_by_username=current_user.username,
                 change_type="receipt_disputed", note=body.note or f"Receipt {receipt.receipt_number} disputed")
+
+    # Notify the fulfiller that their receipt was disputed
+    if receipt.created_by_user_id and receipt.created_by_user_id != current_user.id:
+        create_notification(
+            session,
+            user_id=receipt.created_by_user_id,
+            notif_type="receipt_disputed",
+            title=f"Receipt {receipt.receipt_number} disputed",
+            body=(body.note or f"Receipt {receipt.receipt_number} for request {req.sn_no} was disputed by {current_user.username}."),
+            request_id=req.id,
+        )
 
     session.commit()
     session.refresh(receipt)

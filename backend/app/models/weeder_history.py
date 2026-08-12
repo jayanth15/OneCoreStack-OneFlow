@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from app.core.timezone import now
 from typing import Optional
 
 from sqlmodel import Field, SQLModel
@@ -13,7 +14,7 @@ class WeederHistory(SQLModel, table=True):
     changed_by_user_id: Optional[int] = Field(default=None, foreign_key="users.id")
     changed_by_username: Optional[str] = None   # denormalised for fast display
     changed_at: datetime = Field(
-        default_factory=lambda: datetime.now(tz=timezone.utc), index=True
+        default_factory=lambda: now(), index=True
     )
 
     # "add" | "subtract" | "set"

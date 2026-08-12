@@ -9,7 +9,7 @@ function PurchaseRequestsLegacyPage() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    navigate({ href: "/dashboard/requests?tab=internal", replace: true })
+    navigate({ href: "/dashboard/requests?tab=vendor_purchase", replace: true })
   }, [navigate])
 
   return null

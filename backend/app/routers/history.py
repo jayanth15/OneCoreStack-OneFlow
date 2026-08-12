@@ -1,5 +1,5 @@
 """Aggregate history browser — admin only."""
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import re
 from typing import Annotated, Optional
 
@@ -9,6 +9,7 @@ from sqlalchemy import String
 from sqlmodel import Session, and_, func, or_, select
 
 from app.core.database import get_session
+from app.core.timezone import APP_TZ
 from app.dependencies.auth import get_current_user, is_admin_or_above
 from app.models.attachment_history import AttachmentHistory
 from app.models.attachment_item import AttachmentItem
@@ -95,9 +96,12 @@ def _parse_dt(s: Optional[str]) -> Optional[datetime]:
     if not s:
         return None
     try:
-        return datetime.fromisoformat(s).replace(tzinfo=timezone.utc)
+        dt = datetime.fromisoformat(s)
     except ValueError:
         return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=APP_TZ)
+    return dt
 
 
 def _iso(dt: datetime) -> str:
@@ -134,11 +138,24 @@ def _stock_document_links(session: Session, rows: list) -> dict[int, dict]:
         receipt_by_request.setdefault(receipt.request_id, receipt)
 
     result: dict[int, dict] = {}
+    missing_request_ids = {
+        receipt.request_id
+        for receipt in receipts
+        if receipt.request_id and not request_by_sn.get("") and receipt.request_id not in {
+            r.id for r in requests
+        }
+    }
+    extra_requests = (
+        session.exec(select(Request).where(Request.id.in_(missing_request_ids))).all()  # type: ignore[union-attr]
+        if missing_request_ids
+        else []
+    )
+    extra_by_id = {r.id: r for r in extra_requests}
     for row_id, (request_ref, receipt_ref) in row_refs.items():
         request = request_by_sn.get(request_ref or "")
         receipt = receipt_by_number.get(receipt_ref or "") or (receipt_by_request.get(request.id) if request and request.id else None)
-        if not request and receipt:
-            request = session.get(Request, receipt.request_id)
+        if not request and receipt and receipt.request_id:
+            request = extra_by_id.get(receipt.request_id)
         result[row_id] = {
             "request_id": request.id if request else None,
             "request_sn_no": request.sn_no if request else request_ref,
@@ -228,10 +245,12 @@ def _page_result(items: list[HistoryItem], total: int, page: int, page_size: int
 
 
 def _apply_filters(q, model, start_dt, end_dt, changed_by, entity_name=""):  # type: ignore[no-untyped-def]
+    # SQLite stores datetimes as "YYYY-MM-DD HH:MM:SS.ffffff" strings (no offset),
+    # so compare against the same format instead of ISO "T"-separated strings.
     if start_dt:
-        q = q.where(model.changed_at >= start_dt.isoformat())
+        q = q.where(model.changed_at >= start_dt.strftime("%Y-%m-%d %H:%M:%S"))
     if end_dt:
-        q = q.where(model.changed_at <= end_dt.isoformat())
+        q = q.where(model.changed_at < (end_dt + timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S"))
     if changed_by:
         q = q.where(model.changed_by_username.like(f"%{changed_by}%"))  # type: ignore[union-attr]
     return q

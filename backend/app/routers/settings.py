@@ -6,6 +6,7 @@ import os
 import sqlite3
 import tempfile
 from datetime import datetime, timezone
+from app.core.timezone import now
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -144,7 +145,7 @@ def create_backup(background: BackgroundTasks) -> FileResponse:
         raise HTTPException(status_code=404, detail="Database file not found.")
 
     # Build timestamped backup filename
-    ts = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
+    ts = now().strftime("%Y%m%d_%H%M%S")
     filename = f"oneflow_backup_{ts}.db"
 
     # Write to a system temp file so we can stream it back

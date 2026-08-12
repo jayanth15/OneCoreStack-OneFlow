@@ -27,6 +27,7 @@ Item endpoints (within a sub-category):
   POST   /api/v1/spares/items/{item_id}/adjust
 """
 from datetime import datetime, timezone
+from app.core.timezone import APP_TZ, now
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -35,6 +36,7 @@ from sqlalchemy import or_
 from sqlmodel import Session, func, select
 
 from app.core.database import get_session
+from app.core.inventory_permissions import require_inventory_edit
 from app.dependencies.auth import get_current_user, require_admin
 from app.models.spare_category import SpareCategory
 from app.models.spare_sub_category import SpareSubCategory
@@ -71,8 +73,8 @@ class CategoryOut(BaseModel):
     item_count: int = 0
     low_stock_count: int = 0
     total_value: Optional[float] = None
-    created_at: str
-    updated_at: str
+    created_at: Optional[str]
+    updated_at: Optional[str]
 
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -97,8 +99,8 @@ class SubCategoryOut(BaseModel):
     item_count: int = 0
     low_stock_count: int = 0
     total_value: Optional[float] = None
-    created_at: str
-    updated_at: str
+    created_at: Optional[str]
+    updated_at: Optional[str]
 
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -150,8 +152,8 @@ class ItemOut(BaseModel):
     total_value: Optional[float] = None
     image_base64: Optional[str]
     is_active: bool
-    created_at: str
-    updated_at: str
+    created_at: Optional[str]
+    updated_at: Optional[str]
     variant_matched: bool = False  # True when found via variant search
 
 class AdjustRequest(BaseModel):
@@ -212,8 +214,8 @@ class VariantOut(BaseModel):
     timeline_days: Optional[int]
     reorder_level: float
     is_active: bool
-    created_at: str
-    updated_at: str
+    created_at: Optional[str]
+    updated_at: Optional[str]
 
 
 class SearchItemOut(BaseModel):
@@ -245,6 +247,8 @@ class VariantSearchOut(BaseModel):
     part_number: Optional[str]
     category_name: str
     sub_category_name: Optional[str]
+    unit_id: Optional[int] = None
+    unit_name: Optional[str] = None
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -267,9 +271,9 @@ def _item_or_404(session: Session, item_id: int) -> SpareItem:
         raise HTTPException(status_code=404, detail="Spare item not found")
     return obj
 
-def _dt_iso(val: "datetime | None") -> str:
+def _dt_iso(val: "datetime | None") -> str | None:
     if val is None:
-        return datetime.now(tz=timezone.utc).isoformat()
+        return None
     if isinstance(val, str):
         return val
     return val.isoformat()
@@ -467,7 +471,7 @@ def update_category(cat_id: int, body: CategoryUpdate, session: SessionDep, _: A
     if body.name is not None: cat.name = body.name.strip()
     if body.description is not None: cat.description = body.description
     if body.is_active is not None: cat.is_active = body.is_active
-    cat.updated_at = datetime.now(tz=timezone.utc)
+    cat.updated_at = now()
     session.add(cat); session.commit(); session.refresh(cat)
     return _category_out(session, cat)
 
@@ -476,7 +480,7 @@ def update_category(cat_id: int, body: CategoryUpdate, session: SessionDep, _: A
 def delete_category(cat_id: int, session: SessionDep, _: AdminUser) -> None:
     cat = _cat_or_404(session, cat_id)
     cat.is_active = False
-    cat.updated_at = datetime.now(tz=timezone.utc)
+    cat.updated_at = now()
     session.add(cat); session.commit()
 
 
@@ -529,7 +533,7 @@ def update_sub_category(
     if body.description is not None: sub.description = body.description
     if body.image_base64 is not None: sub.image_base64 = body.image_base64
     if body.is_active is not None: sub.is_active = body.is_active
-    sub.updated_at = datetime.now(tz=timezone.utc)
+    sub.updated_at = now()
     session.add(sub); session.commit(); session.refresh(sub)
     return _sub_out(session, sub)
 
@@ -538,7 +542,7 @@ def update_sub_category(
 def delete_sub_category(sub_id: int, session: SessionDep, _: AdminUser) -> None:
     sub = _sub_or_404(session, sub_id)
     sub.is_active = False
-    sub.updated_at = datetime.now(tz=timezone.utc)
+    sub.updated_at = now()
     session.add(sub); session.commit()
 
 
@@ -655,7 +659,7 @@ def update_item(item_id: int, body: ItemUpdate, session: SessionDep, _: AdminUse
     item = _item_or_404(session, item_id)
     for field, value in body.model_dump(exclude_none=True).items():
         setattr(item, field, value)
-    item.updated_at = datetime.now(tz=timezone.utc)
+    item.updated_at = now()
     session.add(item); session.commit(); session.refresh(item)
     return _item_out(item, has_variants=_has_active_variants(session, item.id), session=session)
 
@@ -666,7 +670,7 @@ def delete_item(item_id: int, session: SessionDep, current_user: AdminUser) -> N
     qty_before = item.recorded_qty
     item.is_active = False
     item.recorded_qty = 0.0
-    item.updated_at = datetime.now(tz=timezone.utc)
+    item.updated_at = now()
     session.add(item)
     session.add(SpareItemHistory(
         spare_item_id=item.id,
@@ -687,6 +691,7 @@ def adjust_item_stock(
     item_id: int, body: AdjustRequest, session: SessionDep, current_user: CurrentUser,
 ) -> ItemOut:
     item = _item_or_404(session, item_id)
+    require_inventory_edit(current_user, "spare")
     if body.quantity < 0:
         raise HTTPException(status_code=422, detail="Adjustment quantity cannot be negative")
     if body.adjustment_type in ("add", "subtract") and body.quantity == 0:
@@ -704,13 +709,19 @@ def adjust_item_stock(
     if body.adjustment_type == "add":
         item.recorded_qty += body.quantity
     elif body.adjustment_type == "subtract":
-        item.recorded_qty = max(0.0, item.recorded_qty - body.quantity)
+        new_qty = item.recorded_qty - body.quantity
+        if new_qty < 0:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Cannot subtract {body.quantity}: only {item.recorded_qty} on hand",
+            )
+        item.recorded_qty = new_qty
     elif body.adjustment_type == "set":
         item.recorded_qty = body.quantity
     else:
         raise HTTPException(status_code=400, detail="adjustment_type must be add|subtract|set")
     qty_after = item.recorded_qty
-    item.updated_at = datetime.now(tz=timezone.utc)
+    item.updated_at = now()
     session.add(item)
     # Keep the parent aggregate and its own leaf variants consistent. A parent-level
     # adjustment is scoped to this item only; sibling items and sub-categories are
@@ -773,7 +784,7 @@ def get_item_history(
     ).all()
     def _dt(d: datetime) -> str:
         if isinstance(d, str): return d
-        if d.tzinfo is None: d = d.replace(tzinfo=timezone.utc)
+        if d.tzinfo is None: d = d.replace(tzinfo=APP_TZ)
         return d.isoformat()
     return [
         ItemHistoryOut(
@@ -795,7 +806,7 @@ def get_item_history(
 
 # ── Variant endpoints ─────────────────────────────────────────────────────────
 
-def _sync_item_from_variants(session: Session, item: SpareItem) -> None:
+def _sync_item_from_variants(session: Session, item: SpareItem, commit: bool = True) -> None:
     """Recompute item.recorded_qty and item.rate from its active variants.
 
     This keeps the aggregation columns (used by _category_out / _sub_out) accurate
@@ -809,10 +820,11 @@ def _sync_item_from_variants(session: Session, item: SpareItem) -> None:
     ).all()
     if not rows:
         item.recorded_qty = 0
-        item.updated_at = datetime.now(tz=timezone.utc)
+        item.updated_at = now()
         session.add(item)
-        session.commit()
-        session.refresh(item)
+        if commit:
+            session.commit()
+            session.refresh(item)
         return
     total_qty = sum(v.qty for v in rows)
     # total value = sum of (qty × rate) for variants that have a rate
@@ -821,17 +833,18 @@ def _sync_item_from_variants(session: Session, item: SpareItem) -> None:
     eff_rate = round(total_val / total_qty, 4) if total_qty > 0 and total_val > 0 else None
     item.recorded_qty = total_qty
     item.rate = eff_rate
-    item.updated_at = datetime.now(tz=timezone.utc)
+    item.updated_at = now()
     session.add(item)
-    session.commit()
-    session.refresh(item)
+    if commit:
+        session.commit()
+        session.refresh(item)
 
 
 def _variant_out(v: SpareItemVariant) -> VariantOut:
-    def _dt(d: "datetime | str | None") -> str:
-        if d is None: return datetime.now(tz=timezone.utc).isoformat()
+    def _dt(d: "datetime | str | None") -> str | None:
+        if d is None: return None
         if isinstance(d, str): return d
-        if d.tzinfo is None: d = d.replace(tzinfo=timezone.utc)
+        if d.tzinfo is None: d = d.replace(tzinfo=APP_TZ)
         return d.isoformat()
     return VariantOut(
         id=v.id,  # type: ignore[arg-type]
@@ -902,7 +915,7 @@ def create_variant(
 ) -> VariantOut:
     item = _item_or_404(session, item_id)
     qty_before = item.recorded_qty
-    now = datetime.now(tz=timezone.utc)
+    now_ts = now()
     v = SpareItemVariant(
         spare_item_id=item_id,
         serial_number=body.serial_number,
@@ -914,10 +927,10 @@ def create_variant(
         rate=body.rate,
         timeline_days=body.timeline_days,
         reorder_level=body.reorder_level,
-        created_at=now, updated_at=now,
+        created_at=now_ts, updated_at=now_ts,
     )
-    session.add(v); session.commit(); session.refresh(v)
-    _sync_item_from_variants(session, item)
+    session.add(v); session.flush()
+    _sync_item_from_variants(session, item, commit=False)
     qty_after = item.recorded_qty
     # Build a human-readable label for the new variant
     v_parts = [p for p in [body.variant_color, body.serial_number] if p]
@@ -927,7 +940,7 @@ def create_variant(
         spare_item_variant_id=v.id,
         changed_by_user_id=current_user.id,  # type: ignore[arg-type]
         changed_by_username=current_user.username,
-        changed_at=now,
+        changed_at=now_ts,
         change_type="add_variant",
         qty_before=0,
         qty_after=v.qty,
@@ -936,6 +949,7 @@ def create_variant(
         variant_label=v_label,
     )
     session.add(hist); session.commit()
+    session.refresh(v)
     return _variant_out(v)
 
 
@@ -955,9 +969,9 @@ def update_variant(
     v_label = " / ".join(v_parts) if v_parts else f"Variant #{v.id}"
     for field, value in body.model_dump(exclude_none=True).items():
         setattr(v, field, value)
-    v.updated_at = datetime.now(tz=timezone.utc)
-    session.add(v); session.commit(); session.refresh(v)
-    _sync_item_from_variants(session, parent)
+    v.updated_at = now()
+    session.add(v); session.flush()
+    _sync_item_from_variants(session, parent, commit=False)
     qty_after = parent.recorded_qty
     if v.qty != variant_qty_before:
         hist = SpareItemHistory(
@@ -965,7 +979,7 @@ def update_variant(
             spare_item_variant_id=v.id,
             changed_by_user_id=current_user.id,  # type: ignore[arg-type]
             changed_by_username=current_user.username,
-            changed_at=datetime.now(tz=timezone.utc),
+            changed_at=now(),
             change_type="edit",
             qty_before=variant_qty_before,
             qty_after=v.qty,
@@ -974,7 +988,8 @@ def update_variant(
             variant_label=v_label,
         )
         session.add(hist)
-        session.commit()
+    session.commit()
+    session.refresh(v)
     return _variant_out(v)
 
 
@@ -991,16 +1006,16 @@ def delete_variant(variant_id: int, session: SessionDep, current_user: AdminUser
     v_label = " / ".join(v_parts) if v_parts else f"Variant #{v.id}"
     v.is_active = False
     v.qty = 0.0
-    v.updated_at = datetime.now(tz=timezone.utc)
-    session.add(v); session.commit()
-    _sync_item_from_variants(session, parent)
+    v.updated_at = now()
+    session.add(v); session.flush()
+    _sync_item_from_variants(session, parent, commit=False)
     qty_after = parent.recorded_qty
     hist = SpareItemHistory(
         spare_item_id=parent_item_id,
         spare_item_variant_id=v.id,
         changed_by_user_id=current_user.id,  # type: ignore[arg-type]
         changed_by_username=current_user.username,
-        changed_at=datetime.now(tz=timezone.utc),
+        changed_at=now(),
         change_type="remove_variant",
         qty_before=variant_qty_before,
         qty_after=0,
@@ -1021,6 +1036,7 @@ def adjust_variant_stock(
     if not v or not v.is_active:
         raise HTTPException(status_code=404, detail="Variant not found")
     parent = _item_or_404(session, v.spare_item_id)
+    require_inventory_edit(current_user, "spare")
     if body.quantity < 0:
         raise HTTPException(status_code=422, detail="Adjustment quantity cannot be negative")
     if body.adjustment_type in ("add", "subtract") and body.quantity == 0:
@@ -1030,12 +1046,18 @@ def adjust_variant_stock(
     if body.adjustment_type == "add":
         v.qty = v.qty + body.quantity
     elif body.adjustment_type == "subtract":
-        v.qty = max(0.0, v.qty - body.quantity)
+        new_qty = v.qty - body.quantity
+        if new_qty < 0:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Cannot subtract {body.quantity}: only {v.qty} on hand for this variant",
+            )
+        v.qty = new_qty
     elif body.adjustment_type == "set":
         v.qty = body.quantity
     else:
         raise HTTPException(status_code=400, detail="adjustment_type must be add|subtract|set")
-    v.updated_at = datetime.now(tz=timezone.utc)
+    v.updated_at = now()
     session.add(v)
     session.commit()
     session.refresh(v)
@@ -1071,65 +1093,89 @@ def search_variants(
     limit: int = Query(default=12, ge=1, le=50),
 ) -> list[VariantSearchOut]:
     """Search active variants with category/sub-category context — for the Create Request combobox."""
-    stmt = select(SpareItemVariant).where(SpareItemVariant.is_active == True)  # noqa: E712
+    stmt = (
+        select(SpareItemVariant)
+        .join(SpareItem, SpareItemVariant.spare_item_id == SpareItem.id)
+        .where(
+            SpareItemVariant.is_active == True,  # noqa: E712
+            SpareItem.is_active == True,  # noqa: E712
+        )
+    )
     if q.strip():
         pat = f"%{q.strip()}%"
-        matching_item_ids = select(SpareItem.id).where(
-            SpareItem.is_active == True,  # noqa: E712
-            or_(SpareItem.name.ilike(pat), SpareItem.part_number.ilike(pat)),
-        )
         stmt = stmt.where(or_(
-            SpareItemVariant.serial_number.ilike(pat),
-            SpareItemVariant.variant_color.ilike(pat),
-            SpareItemVariant.spare_item_id.in_(matching_item_ids),
+            SpareItemVariant.serial_number.ilike(pat),  # type: ignore[union-attr]
+            SpareItemVariant.variant_color.ilike(pat),  # type: ignore[union-attr]
+            SpareItem.name.ilike(pat),  # type: ignore[union-attr]
+            SpareItem.part_number.ilike(pat),  # type: ignore[union-attr]
         ))
-    else:
-        # No query — return most recent variants so dropdown isn't empty on focus
-        stmt = stmt.order_by(SpareItemVariant.id.desc())
-    stmt = stmt.limit(limit)
-    variants = session.exec(stmt).all()
-
-    item_cache: dict[int, SpareItem | None] = {}
-    sub_cache: dict[int, SpareSubCategory | None] = {}
-    cat_cache: dict[int, SpareCategory | None] = {}
+    stmt = stmt.order_by(SpareItemVariant.id.desc())  # type: ignore[union-attr]
 
     results: list[VariantSearchOut] = []
-    for v in variants:
-        if v.spare_item_id not in item_cache:
-            item_cache[v.spare_item_id] = session.get(SpareItem, v.spare_item_id)
-        item = item_cache[v.spare_item_id]
-        if not item or not item.is_active:
-            continue
+    offset = 0
+    seen: set[int] = set()
+    while len(results) < limit:
+        batch = list(session.exec(stmt.offset(offset).limit(limit)).all())
+        if not batch:
+            break
+        offset += len(batch)
+        item_ids = {v.spare_item_id for v in batch}
+        sub_ids = set()
+        cat_ids = set()
+        items = {
+            it.id: it
+            for it in session.exec(select(SpareItem).where(SpareItem.id.in_(item_ids))).all()  # type: ignore[union-attr]
+        }
+        for it in items.values():
+            if it.sub_category_id:
+                sub_ids.add(it.sub_category_id)
+            if it.category_id:
+                cat_ids.add(it.category_id)
+        subs = {
+            s.id: s
+            for s in session.exec(select(SpareSubCategory).where(SpareSubCategory.id.in_(sub_ids))).all()  # type: ignore[union-attr]
+        } if sub_ids else {}
+        cats = {
+            c.id: c
+            for c in session.exec(select(SpareCategory).where(SpareCategory.id.in_(cat_ids))).all()  # type: ignore[union-attr]
+        } if cat_ids else {}
+        unit_ids = {it.unit_id for it in items.values() if it.unit_id}
+        units = {
+            u.id: u
+            for u in session.exec(select(Unit).where(Unit.id.in_(unit_ids))).all()  # type: ignore[union-attr]
+        } if unit_ids else {}
 
-        sub: SpareSubCategory | None = None
-        if item.sub_category_id:
-            if item.sub_category_id not in sub_cache:
-                sub_cache[item.sub_category_id] = session.get(SpareSubCategory, item.sub_category_id)
-            sub = sub_cache[item.sub_category_id]
+        for v in batch:
+            if v.id in seen:
+                continue
+            seen.add(v.id)
+            item = items.get(v.spare_item_id)
+            if not item or not item.is_active:
+                continue
+            sub = subs.get(item.sub_category_id) if item.sub_category_id else None
             if sub and not sub.is_active:
                 continue
-
-        cat: SpareCategory | None = None
-        if item.category_id:
-            if item.category_id not in cat_cache:
-                cat_cache[item.category_id] = session.get(SpareCategory, item.category_id)
-            cat = cat_cache[item.category_id]
+            cat = cats.get(item.category_id) if item.category_id else None
             if cat and not cat.is_active:
                 continue
-
-        results.append(VariantSearchOut(
-            variant_id=v.id,  # type: ignore[arg-type]
-            serial_number=v.serial_number,
-            variant_color=v.variant_color,
-            image_base64=v.image_base64,
-            timeline_days=getattr(v, "timeline_days", None),
-            qty=v.qty,
-            item_id=item.id,  # type: ignore[arg-type]
-            item_name=item.name,
-            part_number=item.part_number,
-            category_name=cat.name if cat else "—",
-            sub_category_name=sub.name if sub else None,
-        ))
+            unit = units.get(item.unit_id) if item.unit_id else None
+            results.append(VariantSearchOut(
+                variant_id=v.id,  # type: ignore[arg-type]
+                serial_number=v.serial_number,
+                variant_color=v.variant_color,
+                image_base64=v.image_base64,
+                timeline_days=getattr(v, "timeline_days", None),
+                qty=v.qty,
+                item_id=item.id,  # type: ignore[arg-type]
+                item_name=item.name,
+                part_number=item.part_number,
+                category_name=cat.name if cat else "—",
+                sub_category_name=sub.name if sub else None,
+                unit_id=item.unit_id,
+                unit_name=unit.name if unit else None,
+            ))
+            if len(results) >= limit:
+                break
     return results
 
 

@@ -13,12 +13,12 @@ interface CustomerOption { id: number; name: string }
 interface FGItem { id: number; name: string; code: string; unit: string; quantity_on_hand: number }
 
 interface RmRequirement {
-  raw_material_id: number
-  raw_material_name: string
-  raw_material_unit: string
+  item_id: number
+  name: string
+  unit_name: string | null
   qty_per_unit: number
-  required_qty: number
-  available_qty: number
+  required: number
+  available: number
   shortfall: number
 }
 interface Availability {
@@ -286,11 +286,11 @@ function NewSchedulePage() {
                     {/* Mobile cards */}
                     <div className="md:hidden space-y-2">
                       {availability.rm_requirements.map((r, i) => (
-                        <div key={r.raw_material_id ?? i} className="rounded-lg border p-2.5 flex flex-col gap-1 text-xs">
-                          <p className="font-medium">{r.raw_material_name}</p>
+                        <div key={r.item_id ?? i} className="rounded-lg border p-2.5 flex flex-col gap-1 text-xs">
+                          <p className="font-medium">{r.name}</p>
                           <div className="grid grid-cols-3 gap-x-3 text-xs">
-                            <div><span className="text-muted-foreground">Have:</span> {r.available_qty} {r.raw_material_unit}</div>
-                            <div><span className="text-muted-foreground">Need:</span> {r.required_qty} {r.raw_material_unit}</div>
+                            <div><span className="text-muted-foreground">Have:</span> {r.available} {r.unit_name}</div>
+                            <div><span className="text-muted-foreground">Need:</span> {r.required} {r.unit_name}</div>
                             <div>{r.shortfall > 0
                               ? <span className="text-destructive font-medium">Short: {r.shortfall}</span>
                               : <span className="text-success">OK</span>}
@@ -312,10 +312,10 @@ function NewSchedulePage() {
                         </thead>
                         <tbody>
                           {availability.rm_requirements.map((r, i) => (
-                            <tr key={r.raw_material_id ?? i} className="border-b last:border-0">
-                              <td className="py-1 pr-3">{r.raw_material_name}</td>
-                              <td className="text-right py-1 pr-3">{r.available_qty}&nbsp;{r.raw_material_unit}</td>
-                              <td className="text-right py-1 pr-3">{r.required_qty}&nbsp;{r.raw_material_unit}</td>
+                            <tr key={r.item_id ?? i} className="border-b last:border-0">
+                              <td className="py-1 pr-3">{r.name}</td>
+                              <td className="text-right py-1 pr-3">{r.available}&nbsp;{r.unit_name}</td>
+                              <td className="text-right py-1 pr-3">{r.required}&nbsp;{r.unit_name}</td>
                               <td className="text-right py-1">
                                 {r.shortfall > 0
                                   ? <span className="text-destructive flex items-center justify-end gap-1"><TrendingDown className="size-3" />{r.shortfall}</span>

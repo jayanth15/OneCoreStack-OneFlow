@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { createFileRoute } from "@tanstack/react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { apiFetchJson } from "@/lib/api"
 import { z } from "zod"
 import { PageHeader } from "@/components/layout/page-header"
 import { Button } from "@/components/ui/button"
@@ -91,14 +92,17 @@ function ReceiptsPage() {
 
   // ── Fetch ───────────────────────────────────────────────────────────────────
 
-  const listUrl = `/api/v1/receipts?limit=${PAGE_SIZE}&offset=${(page - 1) * PAGE_SIZE}`
+  const fetchLimit = PAGE_SIZE + 1
+  const listUrl = `/api/v1/receipts?limit=${fetchLimit}&offset=${(page - 1) * PAGE_SIZE}`
 
   const listQuery = useQuery({
     queryKey: [listUrl],
     staleTime: 0,
   })
 
-  // Auto-select a receipt when arriving via ?receipt=<id> or ?request=<id>
+  // Auto-select a receipt when arriving via ?receipt=<id> or ?request=<id>.
+  // First look in the loaded page; if not found, fetch it directly so deep
+  // links work even when the receipt is on a later page.
   useEffect(() => {
     const rows = listQuery.data as Receipt[] | undefined
     if (!rows) return
@@ -107,7 +111,17 @@ function ReceiptsPage() {
       (receipt != null && r.id === receipt)
       || (request != null && r.request_id === request)
     ))
-    if (match) setSelected(match)
+    if (match) {
+      setSelected(match)
+      return
+    }
+    if (receipt != null) {
+      apiFetchJson<Receipt>(`/api/v1/receipts/${receipt}`)
+        .then((r) => setSelected(r))
+        .catch(() => {
+          /* not found — ignore */
+        })
+    }
   }, [listQuery.data, receipt, request])
 
   const signoffMutation = useMutation({
@@ -122,9 +136,10 @@ function ReceiptsPage() {
     },
   })
 
-  const rows = (listQuery.data as Receipt[] | undefined) ?? []
+  const allRows = (listQuery.data as Receipt[] | undefined) ?? []
+  const rows = allRows.slice(0, PAGE_SIZE)
   const loading = listQuery.isLoading || listQuery.isFetching
-  const hasNextPage = rows.length === PAGE_SIZE
+  const hasNextPage = allRows.length > PAGE_SIZE
   const hasPreviousPage = page > 1
 
   function printReceipt(r: Receipt) {

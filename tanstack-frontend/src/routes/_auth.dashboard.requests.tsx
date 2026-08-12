@@ -73,6 +73,7 @@ function requestDirectionForUser(request: RequestListItem, user: CurrentUser) {
 const VALID_TABS: TypeTabsValue[] = ["all", "inbox", "internal_transfer", "vendor_purchase", "customer_dispatch"]
 const TAB_ALIASES: Record<string, TypeTabsValue> = {
   internal: "internal_transfer",
+  customer: "customer_dispatch",
 }
 
 function normalizeTab(raw: string | undefined): TypeTabsValue {
@@ -155,9 +156,10 @@ function RequestsPage() {
 
   // ── Fetch ───────────────────────────────────────────────────────────────────
 
+  const fetchLimit = PAGE_SIZE + 1
   const listUrl = tab === "inbox"
-    ? `/api/v1/requests/inbox?limit=${PAGE_SIZE}&offset=${(pageNum - 1) * PAGE_SIZE}${searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : ""}`
-    : `/api/v1/requests?limit=${PAGE_SIZE}&offset=${(pageNum - 1) * PAGE_SIZE}${tab !== "all" ? `&request_type=${tab}` : ""}${searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : ""}`
+    ? `/api/v1/requests/inbox?limit=${fetchLimit}&offset=${(pageNum - 1) * PAGE_SIZE}${searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : ""}`
+    : `/api/v1/requests?limit=${fetchLimit}&offset=${(pageNum - 1) * PAGE_SIZE}${tab !== "all" ? `&request_type=${tab}` : ""}${searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : ""}`
 
   const listQuery = useQuery({
     queryKey: [listUrl],
@@ -167,6 +169,12 @@ function RequestsPage() {
 
   const countsQuery = useQuery({
     queryKey: ["/api/v1/requests?limit=500&offset=0"],
+    enabled: hydrated,
+    staleTime: 0,
+  })
+
+  const inboxCountsQuery = useQuery({
+    queryKey: ["/api/v1/requests/inbox?limit=500&offset=0"],
     enabled: hydrated,
     staleTime: 0,
   })
@@ -238,13 +246,16 @@ function RequestsPage() {
   }
 
   const allRows = countsQuery.data as RequestListItem[] | null
+  const inboxRows = inboxCountsQuery.data as RequestListItem[] | null
   const counts: Partial<Record<TypeTabsValue, number>> = { all: allRows?.length ?? 0 }
   for (const r of allRows ?? []) {
     counts[r.request_type as TypeTabsValue] = (counts[r.request_type as TypeTabsValue] ?? 0) + 1
   }
+  counts.inbox = inboxRows?.length ?? 0
   const data = listQuery.data as RequestListItem[] | undefined
+  const rows = (data ?? []).slice(0, PAGE_SIZE)
   const loading = listQuery.isLoading
-  const hasNextPage = (data?.length ?? 0) === PAGE_SIZE
+  const hasNextPage = (data?.length ?? 0) > PAGE_SIZE
   const hasPreviousPage = pageNum > 1
   const isAdminUser = user.role === "admin" || user.role === "super_admin"
   const purchaseRequestAllowed = isAdminUser || user.purchase_access || (departments ?? []).some(
@@ -406,12 +417,12 @@ function RequestsPage() {
 
       {loading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
-      ) : !data || data.length === 0 ? (
+      ) : rows.length === 0 ? (
         <Card><CardContent className="p-6 text-center text-muted-foreground">No requests yet.</CardContent></Card>
       ) : (
         <div className="space-y-3">
           <ul className="space-y-2">
-            {data.map((r) => (
+            {rows.map((r) => (
               <li key={r.id} className={r.id === highlightId ? 'ring-2 ring-primary rounded-md' : ''}>
                 <button
                   onClick={() => setDetailId(r.id)}

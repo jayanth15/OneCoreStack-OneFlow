@@ -1,5 +1,6 @@
 """Concurrency-safe business document numbering."""
 from datetime import datetime, timezone
+from app.core.timezone import now
 
 from sqlmodel import Session, select
 
@@ -18,7 +19,7 @@ def allocate_document_number(
 ) -> str:
     """Allocate the next number inside the caller's database transaction."""
     effective_prefix = (
-        f"{prefix}-{datetime.now(tz=timezone.utc).year}"
+        f"{prefix}-{now().year}"
         if include_year
         else prefix
     )

@@ -6,6 +6,8 @@ from pydantic import BaseModel, field_validator
 from sqlmodel import Session, func, select
 
 from app.core.database import get_session
+from app.core.timezone import now
+from app.services.document_numbers import allocate_document_number
 from app.dependencies.auth import get_current_user, require_admin
 from app.models.bom_item import BomItem
 from app.models.unit import Unit
@@ -26,8 +28,7 @@ _SCHEDULE_RANK = {"pending": 0, "confirmed": 1, "in_production": 2, "completed":
 
 
 def _next_schedule_number(session: Session) -> str:
-    count = session.exec(select(func.count()).select_from(Schedule)).one()
-    return f"SCH-{count + 1:04d}"
+    return allocate_document_number(session, key="schedule", prefix="SCH", existing_model=Schedule, number_field="schedule_number")
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -134,7 +135,7 @@ def list_schedules(
     page_size: int = 20,
 ) -> PaginatedSchedules:
     page = max(1, page)
-    page_size = max(1, min(page_size, 100))
+    page_size = max(1, min(page_size, 500))
 
     q = select(Schedule)
     if not include_inactive:
@@ -192,7 +193,7 @@ def create_schedule(
     schedule = Schedule(
         schedule_number=_next_schedule_number(session),
         customer_id=customer.id if customer else None,
-        created_at=datetime.now(timezone.utc),
+        created_at=now(),
         **body.model_dump(),
     )
     session.add(schedule)

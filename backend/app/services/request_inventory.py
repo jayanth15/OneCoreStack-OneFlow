@@ -2,6 +2,7 @@
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from app.core.timezone import now
 
 from fastapi import HTTPException
 from sqlmodel import Session, select
@@ -60,9 +61,9 @@ def deduct_request_stock(
             detail="Insufficient inventory. " + "; ".join(shortages),
         )
 
-    now = datetime.now(tz=timezone.utc)
+    now_ts = now()
     for key, required in totals.items():
-        _deduct(session, key[0], resolved[key], required, current_user, note, now)
+        _deduct(session, key[0], resolved[key], required, current_user, note, now_ts)
     session.flush()
 
 

@@ -1,5 +1,6 @@
 """Notifications router."""
 from datetime import datetime, timezone
+from app.core.timezone import now
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -76,8 +77,12 @@ def create_notification(
 def list_notifications(
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
+    limit: int = 50,
+    offset: int = 0,
 ) -> list[NotificationOut]:
     """Return unread notifications whose linked request still exists."""
+    limit = max(1, min(limit, 200))
+    offset = max(0, offset)
     stmt = (
         select(Notification)
         .join(Request, Notification.request_id == Request.id, isouter=True)
@@ -87,7 +92,8 @@ def list_notifications(
             or_(Notification.request_id == None, Request.is_active == True),  # noqa: E711,E712
         )
         .order_by(Notification.created_at.desc())  # type: ignore[union-attr]
-        .limit(50)
+        .offset(offset)
+        .limit(limit)
     )
     notifications = session.exec(stmt).all()
     return [_out(n) for n in notifications]
@@ -123,7 +129,7 @@ def mark_read(
         raise HTTPException(status_code=404, detail="Notification not found")
     if not n.is_read:
         n.is_read = True
-        n.read_at = datetime.now(tz=timezone.utc)
+        n.read_at = now()
         session.add(n)
         session.commit()
         session.refresh(n)
@@ -135,7 +141,7 @@ def mark_all_read(
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
 ) -> UnreadCount:
-    now = datetime.now(tz=timezone.utc)
+    now_ts = now()
     unread = session.exec(
         select(Notification).where(
             Notification.user_id == current_user.id,
@@ -144,7 +150,7 @@ def mark_all_read(
     ).all()
     for n in unread:
         n.is_read = True
-        n.read_at = now
+        n.read_at = now_ts
         session.add(n)
     session.commit()
     return UnreadCount(count=0)

@@ -10,13 +10,14 @@ GET    /api/v1/gate-passes/{id}/history — gate pass history
 """
 import json
 from datetime import datetime, timezone
+from app.core.timezone import now
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlmodel import Session, select
+from sqlmodel import Session, func, or_, select
 
 from app.core.database import get_session
-from app.dependencies.auth import get_current_user
+from app.dependencies.auth import get_current_user, require_gate_pass_access
 from app.models.gate_pass import GatePass
 from app.models.gate_pass_history import GatePassHistory
 from app.services.document_numbers import allocate_document_number
@@ -70,23 +71,21 @@ def list_gate_passes(
     page_size: int = 50,
 ) -> dict[str, Any]:
     _require_access(current_user)
-    items = list(session.exec(
-        select(GatePass).where(GatePass.status != "deleted").order_by(GatePass.id.desc())
-    ).all())  # type: ignore[union-attr]
-
+    q = select(GatePass).where(GatePass.status != "deleted")  # type: ignore[union-attr]
     if pass_type:
-        items = [g for g in items if g.pass_type == pass_type]
+        q = q.where(GatePass.pass_type == pass_type)  # type: ignore[union-attr]
     if search:
-        s = search.lower()
-        items = [g for g in items
-                 if s in (g.gate_pass_number or "").lower()
-                 or s in (g.vendor_name or "").lower()
-                 or s in (g.supplier_name or "").lower()
-                 or s in (g.material or "").lower()]
-
-    total = len(items)
-    start = (page - 1) * page_size
-    page_gps = items[start: start + page_size]
+        s = f"%{search.strip()}%"
+        q = q.where(or_(
+            GatePass.gate_pass_number.ilike(s),  # type: ignore[union-attr]
+            GatePass.vendor_name.ilike(s),  # type: ignore[union-attr]
+            GatePass.supplier_name.ilike(s),  # type: ignore[union-attr]
+            GatePass.material.ilike(s),  # type: ignore[union-attr]
+        ))
+    total = session.exec(select(func.count()).select_from(q.subquery())).one()
+    page = max(1, page)
+    page_size = max(1, min(page_size, 200))
+    page_gps = list(session.exec(q.order_by(GatePass.id.desc()).offset((page - 1) * page_size).limit(page_size)).all())  # type: ignore[union-attr]
 
     # Batch-load items
     gp_ids = [g.id for g in page_gps if g.id is not None]
@@ -95,7 +94,18 @@ def list_gate_passes(
     for gi in all_gp_items:
         items_by_gp.setdefault(gi.gate_pass_id, []).append(gi)
 
-    return {"items": [_to_dict(g, items_by_gp.get(g.id, []), session) for g in page_gps], "total": total, "page": page, "page_size": page_size}
+    unit_ids = {gi.unit_id for gi in all_gp_items if gi.unit_id} | {g.unit_id for g in page_gps if g.unit_id}
+    units_by_id = {
+        u.id: u
+        for u in session.exec(select(Unit).where(Unit.id.in_(unit_ids))).all()  # type: ignore[union-attr]
+    } if unit_ids else {}
+
+    return {
+        "items": [_to_dict(g, items_by_gp.get(g.id, []), units_by_id=units_by_id) for g in page_gps],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -141,7 +151,7 @@ def create_gate_pass(
         dispatch_id=body.get("dispatch_id"),
         grn_id=body.get("grn_id"),
         created_by=current_user.username,
-        created_at=datetime.now(timezone.utc).isoformat(),
+        created_at=now().isoformat(),
     )
     party_type = _party_type(gp)
     if (party_type == "vendor" and not (gp.vendor_id or gp.vendor_name)) or (party_type == "supplier" and not (gp.supplier_id or gp.supplier_name)):
@@ -349,11 +359,7 @@ def get_gate_pass_history(
 
 
 def _require_access(user: User) -> None:
-    if user.role in ("admin", "super_admin"):
-        return
-    if getattr(user, "gate_pass_access", False):
-        return
-    raise HTTPException(status_code=403, detail="Gate pass access required")
+    require_gate_pass_access(user)
 
 
 def _add_gp_history(
@@ -371,7 +377,7 @@ def _add_gp_history(
         gate_pass_id=gp.id,  # type: ignore[arg-type]
         changed_by_user_id=changed_by_user_id,
         changed_by_username=changed_by_username,
-        changed_at=datetime.now(timezone.utc),
+        changed_at=now(),
         change_type=change_type,
         old_status=old_status,
         new_status=new_status,
@@ -379,18 +385,26 @@ def _add_gp_history(
     ))
 
 
-def _to_dict(g: GatePass, items: list[GatePassItem] | None = None, session: Session | None = None) -> dict[str, Any]:
+def _to_dict(g: GatePass, items: list[GatePassItem] | None = None, session: Session | None = None, units_by_id: dict[int, Unit] | None = None) -> dict[str, Any]:
     header_unit_name = None
-    if g.unit_id and session:
-        u = session.get(Unit, g.unit_id)
-        header_unit_name = u.name if u else None
+    if g.unit_id:
+        if units_by_id is not None:
+            u = units_by_id.get(g.unit_id)
+            header_unit_name = u.name if u else None
+        elif session:
+            u = session.get(Unit, g.unit_id)
+            header_unit_name = u.name if u else None
     item_list = []
     if items:
         for i in items:
             i_unit_name = None
-            if i.unit_id and session:
-                u = session.get(Unit, i.unit_id)
-                i_unit_name = u.name if u else None
+            if i.unit_id:
+                if units_by_id is not None:
+                    u = units_by_id.get(i.unit_id)
+                    i_unit_name = u.name if u else None
+                elif session:
+                    u = session.get(Unit, i.unit_id)
+                    i_unit_name = u.name if u else None
             item_list.append({
                 "id": i.id,
                 "item_name": i.item_name,

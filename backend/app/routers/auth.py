@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from app.core.timezone import now
 from typing import Annotated, Optional
 
 import jwt
@@ -9,6 +10,7 @@ from sqlmodel import Session, select
 from app.core.config import settings
 from app.core.database import get_session
 from app.core.rate_limit import enforce_rate_limit
+from app.core.timezone import as_app_tz
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -103,7 +105,7 @@ def login(
     db_token = RefreshToken(
         user_id=user.id,
         token_hash=hash_token(refresh_token),
-        expires_at=datetime.now(tz=timezone.utc) + timedelta(days=settings.refresh_token_expire_days),
+        expires_at=now() + timedelta(days=settings.refresh_token_expire_days),
     )
     session.add(db_token)
     session.commit()
@@ -146,7 +148,7 @@ def refresh(
         )
     ).first()
 
-    if not db_token or db_token.expires_at.replace(tzinfo=timezone.utc) < datetime.now(tz=timezone.utc):
+    if not db_token or as_app_tz(db_token.expires_at) < now():
         raise exc
 
     # Rotate: revoke old token, issue new one
@@ -157,7 +159,7 @@ def refresh(
     new_db_token = RefreshToken(
         user_id=user_id,
         token_hash=hash_token(new_refresh),
-        expires_at=datetime.now(tz=timezone.utc) + timedelta(days=settings.refresh_token_expire_days),
+        expires_at=now() + timedelta(days=settings.refresh_token_expire_days),
     )
     session.add(new_db_token)
     session.commit()

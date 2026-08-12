@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useRef, useEffect, useState } from "react"
 import { Link, useLocation } from "@tanstack/react-router"
 import {
   LayoutDashboard,
@@ -22,7 +22,6 @@ import {
 import { cn } from "@/lib/utils"
 import { getCurrentUser, refreshCurrentUser } from "@/lib/user"
 import { apiFetchJson } from "@/lib/api"
-import { requestsApi } from "@/lib/requests"
 
 interface NavItem {
   label: string
@@ -63,6 +62,7 @@ export function DesktopSidebar() {
   const [notifCount, setNotifCount] = useState(0)
   const [requestCount, setRequestCount] = useState(0)
 
+  const applyUserRef = useRef<(user: ReturnType<typeof getCurrentUser>) => void>(() => {})
   useEffect(() => {
     function applyUser(user: ReturnType<typeof getCurrentUser>) {
       if (!user) return
@@ -72,19 +72,29 @@ export function DesktopSidebar() {
       setGatePassAccess(user.gate_pass_access ?? false)
       setPurchaseAccess(user.purchase_access ?? false)
     }
+    applyUserRef.current = applyUser
     applyUser(getCurrentUser())
     refreshCurrentUser().then(applyUser)
-  }, [pathname])
+  }, [])
+
+  // Refresh the user snapshot on focus instead of every route change.
+  useEffect(() => {
+    function onFocus() {
+      refreshCurrentUser().then(() => applyUserRef.current?.(getCurrentUser()))
+    }
+    window.addEventListener("focus", onFocus)
+    return () => window.removeEventListener("focus", onFocus)
+  }, [])
 
   useEffect(() => {
     async function fetchCounts() {
       try {
         const [notif, reqs] = await Promise.all([
           apiFetchJson<{ count: number }>("/api/v1/notifications/unread-count"),
-          requestsApi.inbox(),
+          apiFetchJson<{ count: number }>("/api/v1/requests/inbox-count"),
         ])
         setNotifCount(notif.count)
-        setRequestCount(reqs.length)
+        setRequestCount(reqs.count ?? 0)
       } catch {
         /* ignore */
       }

@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from app.core.timezone import now
 from typing import Optional
 
 from sqlmodel import Field, SQLModel
@@ -18,7 +19,7 @@ class Receipt(SQLModel, table=True):
 
     created_by_user_id: Optional[int] = Field(default=None, foreign_key="users.id")
     created_by_username: Optional[str] = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: now())
 
     signed_off_by_user_id: Optional[int] = Field(default=None, foreign_key="users.id")
     signed_off_by_username: Optional[str] = None

@@ -285,7 +285,7 @@ function CycleCountPage() {
 
   // Lightweight per-type counts for the chips (fetched once).
   const chipsQuery = useQuery({
-    queryKey: ["/api/v1/inventory/counts?scope=cycle-count-chips"],
+    queryKey: ["cycle-count-chips"],
     queryFn: loadChipCounts,
     staleTime: Infinity,
   })

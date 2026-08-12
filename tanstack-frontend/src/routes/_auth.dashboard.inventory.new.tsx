@@ -108,7 +108,7 @@ function NewInventoryPage() {
             <p className="text-sm font-medium">No units configured</p>
             <p className="text-xs text-muted-foreground">
               Please add units in{" "}
-              <a href="/dashboard/settings/units" className="text-primary underline">Settings → Units</a>{" "}
+              <a href="/dashboard/admin/settings" className="text-primary underline">Settings → Units</a>{" "}
               before creating inventory items.
             </p>
           </div>

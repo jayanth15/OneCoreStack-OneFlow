@@ -13,6 +13,7 @@ Endpoints:
   DELETE /api/v1/attachments/{id}/document — delete PDF document
 """
 from datetime import datetime, timezone
+from app.core.timezone import APP_TZ, now
 from pathlib import Path
 import re
 from typing import Annotated, Any, Optional
@@ -23,6 +24,7 @@ from sqlalchemy import or_
 from sqlmodel import Session, func, select
 
 from app.core.database import get_session
+from app.core.inventory_permissions import require_inventory_edit
 from app.dependencies.auth import get_current_user, require_admin
 from app.models.attachment_document import AttachmentDocument
 from app.models.attachment_item import AttachmentItem
@@ -92,15 +94,15 @@ class AttachmentOut(BaseModel):
     image_base64: Optional[str]
     has_document: bool
     is_active: bool
-    created_at: str
-    updated_at: str
+    created_at: Optional[str]
+    updated_at: Optional[str]
 
 
-def _dt(d: datetime | None) -> str:
+def _dt(d: datetime | None) -> str | None:
     if d is None:
-        return datetime.now(tz=timezone.utc).isoformat()
+        return None
     if d.tzinfo is None:
-        d = d.replace(tzinfo=timezone.utc)
+        d = d.replace(tzinfo=APP_TZ)
     return d.isoformat()
 
 
@@ -157,7 +159,7 @@ def list_attachments(
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 def create_attachment(body: AttachmentCreate, session: SessionDep, _: AdminUser) -> AttachmentOut:
-    now = datetime.now(tz=timezone.utc)
+    now_ts = now()
     a = AttachmentItem(
         sn_no=body.sn_no or None,
         description=body.description or None,
@@ -167,8 +169,8 @@ def create_attachment(body: AttachmentCreate, session: SessionDep, _: AdminUser)
         storage_location=body.storage_location or None,
         timeline_days=body.timeline_days,
         image_base64=body.image_base64,
-        created_at=now,
-        updated_at=now,
+        created_at=now_ts,
+        updated_at=now_ts,
     )
     session.add(a)
     session.commit()
@@ -207,7 +209,7 @@ def update_attachment(item_id: int, body: AttachmentUpdate, session: SessionDep,
         a.image_base64 = body.image_base64 or None
     if body.is_active is not None:
         a.is_active = body.is_active
-    a.updated_at = datetime.now(tz=timezone.utc)
+    a.updated_at = now()
     session.add(a)
     session.commit()
     session.refresh(a)
@@ -222,7 +224,7 @@ def delete_attachment(item_id: int, session: SessionDep, current_user: AdminUser
     qty_before = a.qty
     a.is_active = False
     a.qty = 0.0
-    a.updated_at = datetime.now(tz=timezone.utc)
+    a.updated_at = now()
     session.add(a)
     session.add(AttachmentHistory(
         attachment_id=item_id,
@@ -245,17 +247,24 @@ def adjust_attachment_stock(
     a = session.get(AttachmentItem, item_id)
     if not a:
         raise HTTPException(status_code=404, detail="Attachment not found")
+    require_inventory_edit(current_user, "attachment")
     qty_before = a.qty
     if body.adjustment_type == "add":
         a.qty += body.quantity
     elif body.adjustment_type == "subtract":
-        a.qty = max(0.0, a.qty - body.quantity)
+        new_qty = a.qty - body.quantity
+        if new_qty < 0:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Cannot subtract {body.quantity}: only {a.qty} on hand",
+            )
+        a.qty = new_qty
     elif body.adjustment_type == "set":
         a.qty = body.quantity
     else:
         raise HTTPException(status_code=400, detail="adjustment_type must be add|subtract|set")
     qty_after = a.qty
-    a.updated_at = datetime.now(tz=timezone.utc)
+    a.updated_at = now()
     session.add(a)
     hist = AttachmentHistory(
         attachment_id=item_id,

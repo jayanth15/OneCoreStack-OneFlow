@@ -99,7 +99,7 @@ def create_supplier(
         address=(body.get("address") or "").strip() or None,
         notes=(body.get("notes") or "").strip() or None,
         is_active=True,
-        created_at=datetime.now(timezone.utc).isoformat(),
+        created_at=now().isoformat(),
     )
     session.add(supplier)
     session.commit()
@@ -252,7 +252,7 @@ def add_supplier_job(
         unit_id=body.get("unit_id"),
         notes=(body.get("notes") or "").strip() or None,
         is_active=True,
-        created_at=datetime.now(timezone.utc).isoformat(),
+        created_at=now().isoformat(),
     )
     session.add(job)
     session.commit()
@@ -340,7 +340,7 @@ def add_supplier_material(
         rate=body.get("rate"),
         notes=(body.get("notes") or "").strip() or None,
         is_active=True,
-        created_at=datetime.now(timezone.utc).isoformat(),
+        created_at=now().isoformat(),
     )
     session.add(mat)
     session.commit()

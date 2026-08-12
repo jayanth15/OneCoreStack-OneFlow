@@ -531,25 +531,29 @@ function ConsumablesPage() {
                         <span>{fmtDate(item.updated_at)}</span>
                       </div>
                     </div>
-                    {admin && (
-                      <div className="flex gap-1 shrink-0">
-                        <Button variant="ghost" size="icon" className="size-8" title="Add Stock" onClick={() => openAdjust(item, "add")}>
-                          <PackagePlus className="size-3.5 text-success" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="size-8" title="Remove Stock" onClick={() => openAdjust(item, "subtract")}>
-                          <PackageMinus className="size-3.5 text-warning" />
-                        </Button>
+                    <div className="flex gap-1 shrink-0">
+                      <Button variant="ghost" size="icon" className="size-8" title="Add Stock" onClick={() => openAdjust(item, "add")}>
+                        <PackagePlus className="size-3.5 text-success" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="size-8" title="Remove Stock" onClick={() => openAdjust(item, "subtract")}>
+                        <PackageMinus className="size-3.5 text-warning" />
+                      </Button>
+                      {admin && (
                         <Button variant="ghost" size="icon" className="size-8" title="History" onClick={() => openHistory(item)}>
                           <History className="size-3.5 text-muted-foreground" />
                         </Button>
+                      )}
+                      {admin && (
                         <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(item)}>
                           <Pencil className="size-3.5" />
                         </Button>
+                      )}
+                      {admin && (
                         <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive" onClick={() => setDeleteId(item.id)}>
                           <Trash2 className="size-3.5" />
                         </Button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

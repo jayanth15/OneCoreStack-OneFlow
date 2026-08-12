@@ -79,6 +79,7 @@ export async function fetchAllPages<T>(
   pageSize: number = 200,
 ): Promise<T[]> {
   const all: T[] = [];
+  const seenIds = new Set<unknown>();
   let page = 1;
   let total = 0;
   let fetched = 0;
@@ -91,8 +92,11 @@ export async function fetchAllPages<T>(
     const items = resp.items ?? [];
     if (items.length === 0) break;
     for (const item of items) {
-      const seen = all.find((existing) => existing === item || (existing as Record<string, unknown>).id === (item as Record<string, unknown>).id);
-      if (!seen) {
+      const id = (item as Record<string, unknown>).id;
+      if (id === null || id === undefined) {
+        all.push(item);
+      } else if (!seenIds.has(id)) {
+        seenIds.add(id);
         all.push(item);
       }
     }

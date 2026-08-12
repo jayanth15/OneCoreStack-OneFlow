@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from app.core.timezone import now
 from typing import Optional
 
 from sqlmodel import Field, SQLModel
@@ -11,7 +12,7 @@ class DispatchHistory(SQLModel, table=True):
     dispatch_id: int = Field(index=True)
 
     changed_by_username: Optional[str] = Field(default=None)
-    changed_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))
+    changed_at: datetime = Field(default_factory=lambda: now())
 
     # What changed
     change_type: str = Field(default="status_change")   # created | status_change | updated

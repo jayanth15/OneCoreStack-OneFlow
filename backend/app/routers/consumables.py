@@ -8,6 +8,7 @@ Endpoints:
   DELETE /api/v1/consumables/{id}     — soft-delete (set is_active=False)
 """
 from datetime import datetime, timezone
+from app.core.timezone import APP_TZ, now
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -16,6 +17,7 @@ from sqlalchemy import or_
 from sqlmodel import Session, func, select
 
 from app.core.database import get_session
+from app.core.inventory_permissions import require_inventory_edit
 from app.dependencies.auth import get_current_user, require_admin
 from app.models.consumable import Consumable
 from app.models.consumable_history import ConsumableHistory
@@ -89,16 +91,16 @@ class ConsumableOut(BaseModel):
     timeline_days: Optional[int]
     image_base64: Optional[str]
     is_active: bool
-    created_at: str
-    updated_at: str
+    created_at: Optional[str]
+    updated_at: Optional[str]
 
 
 def _out(c: Consumable) -> ConsumableOut:
-    def _dt(d: datetime | None) -> str:
+    def _dt(d: datetime | None) -> str | None:
         if d is None:
-            return datetime.now(tz=timezone.utc).isoformat()
+            return None
         if d.tzinfo is None:
-            d = d.replace(tzinfo=timezone.utc)
+            d = d.replace(tzinfo=APP_TZ)
         return d.isoformat()
 
     return ConsumableOut(
@@ -155,7 +157,7 @@ def list_consumables(
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 def create_consumable(body: ConsumableCreate, session: SessionDep, _: AdminUser) -> ConsumableOut:
-    now = datetime.now(tz=timezone.utc)
+    now_ts = now()
     c = Consumable(
         name=body.name.strip(),
         code=body.code or None,
@@ -167,8 +169,8 @@ def create_consumable(body: ConsumableCreate, session: SessionDep, _: AdminUser)
         reorder_level=body.reorder_level,
         timeline_days=body.timeline_days,
         image_base64=body.image_base64,
-        created_at=now,
-        updated_at=now,
+        created_at=now_ts,
+        updated_at=now_ts,
     )
     session.add(c)
     session.commit()
@@ -211,7 +213,7 @@ def update_consumable(item_id: int, body: ConsumableUpdate, session: SessionDep,
         c.image_base64 = body.image_base64 or None
     if body.is_active is not None:
         c.is_active = body.is_active
-    c.updated_at = datetime.now(tz=timezone.utc)
+    c.updated_at = now()
     session.add(c)
     session.commit()
     session.refresh(c)
@@ -226,7 +228,7 @@ def delete_consumable(item_id: int, session: SessionDep, current_user: AdminUser
     qty_before = c.qty
     c.is_active = False
     c.qty = 0.0
-    c.updated_at = datetime.now(tz=timezone.utc)
+    c.updated_at = now()
     session.add(c)
     session.add(ConsumableHistory(
         consumable_id=item_id,
@@ -249,17 +251,24 @@ def adjust_consumable_stock(
     c = session.get(Consumable, item_id)
     if not c:
         raise HTTPException(status_code=404, detail="Consumable not found")
+    require_inventory_edit(current_user, "consumable")
     qty_before = c.qty
     if body.adjustment_type == "add":
         c.qty += body.quantity
     elif body.adjustment_type == "subtract":
-        c.qty = max(0.0, c.qty - body.quantity)
+        new_qty = c.qty - body.quantity
+        if new_qty < 0:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Cannot subtract {body.quantity}: only {c.qty} on hand",
+            )
+        c.qty = new_qty
     elif body.adjustment_type == "set":
         c.qty = body.quantity
     else:
         raise HTTPException(status_code=400, detail="adjustment_type must be add|subtract|set")
     qty_after = c.qty
-    c.updated_at = datetime.now(tz=timezone.utc)
+    c.updated_at = now()
     session.add(c)
     hist = ConsumableHistory(
         consumable_id=item_id,
@@ -295,7 +304,7 @@ def get_consumable_history(
     ).all()
     def _dt(d: datetime) -> str:
         if d.tzinfo is None:
-            d = d.replace(tzinfo=timezone.utc)
+            d = d.replace(tzinfo=APP_TZ)
         return d.isoformat()
     return [
         HistoryOut(

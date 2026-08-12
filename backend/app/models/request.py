@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from app.core.timezone import now
 from typing import Optional
 
 from sqlmodel import Field, SQLModel
@@ -51,8 +52,8 @@ class Request(SQLModel, table=True):
     # Authoring
     requested_by_user_id: Optional[int] = Field(default=None, foreign_key="users.id")
     requested_by_username: Optional[str] = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: now())
+    updated_at: datetime = Field(default_factory=lambda: now())
 
     # Review (admin approve/reject)
     reviewed_by_user_id: Optional[int] = Field(default=None, foreign_key="users.id")

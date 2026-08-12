@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from app.core.timezone import now
 from typing import Optional
 
 from sqlmodel import Field, SQLModel
@@ -12,4 +13,4 @@ class RefreshToken(SQLModel, table=True):
     token_hash: str = Field(index=True)
     expires_at: datetime
     revoked: bool = Field(default=False)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: now())

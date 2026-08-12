@@ -21,6 +21,7 @@ Flat item endpoints (backwards-compatible):
   GET    /api/v1/weeders/{item_id}/history        — change history
 """
 from datetime import datetime, timezone
+from app.core.timezone import APP_TZ, now
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -29,6 +30,7 @@ from sqlalchemy import or_
 from sqlmodel import Session, func, select
 
 from app.core.database import get_session
+from app.core.inventory_permissions import require_inventory_edit
 from app.dependencies.auth import get_current_user, require_admin
 from app.models.weeder_category import WeederCategory
 from app.models.weeder_item import WeederItem
@@ -127,15 +129,15 @@ class WeederOut(BaseModel):
     timeline_days: Optional[int]
     image_base64: Optional[str]
     is_active: bool
-    created_at: str
-    updated_at: str
+    created_at: Optional[str]
+    updated_at: Optional[str]
 
 
-def _dt(d: "datetime | None") -> str:
+def _dt(d: "datetime | None") -> str | None:
     if d is None:
-        return datetime.now(tz=timezone.utc).isoformat()
+        return None
     if d.tzinfo is None:
-        d = d.replace(tzinfo=timezone.utc)
+        d = d.replace(tzinfo=APP_TZ)
     return d.isoformat()
 
 
@@ -198,13 +200,13 @@ def list_categories(
 
 @router.post("/categories", status_code=status.HTTP_201_CREATED)
 def create_category(body: WeederCategoryCreate, session: SessionDep, _: AdminUser) -> WeederCategoryOut:
-    now = datetime.now(tz=timezone.utc)
+    now_ts = now()
     cat = WeederCategory(
         name=body.name.strip(),
         description=body.description or None,
         image_base64=body.image_base64,
-        created_at=now,
-        updated_at=now,
+        created_at=now_ts,
+        updated_at=now_ts,
     )
     session.add(cat)
     session.commit()
@@ -239,7 +241,7 @@ def update_category(cat_id: int, body: WeederCategoryUpdate, session: SessionDep
         cat.image_base64 = body.image_base64 or None
     if body.is_active is not None:
         cat.is_active = body.is_active
-    cat.updated_at = datetime.now(tz=timezone.utc)
+    cat.updated_at = now()
     session.add(cat)
     session.commit()
     session.refresh(cat)
@@ -258,7 +260,7 @@ def delete_category(cat_id: int, session: SessionDep, _: AdminUser) -> None:
     if not cat:
         raise HTTPException(status_code=404, detail="Category not found")
     cat.is_active = False
-    cat.updated_at = datetime.now(tz=timezone.utc)
+    cat.updated_at = now()
     session.add(cat)
     session.commit()
 
@@ -302,7 +304,7 @@ def create_category_item(cat_id: int, body: WeederCreate, session: SessionDep, _
     cat = session.get(WeederCategory, cat_id)
     if not cat:
         raise HTTPException(status_code=404, detail="Category not found")
-    now = datetime.now(tz=timezone.utc)
+    now_ts = now()
     w = WeederItem(
         category_id=cat_id,
         name=body.name or None,
@@ -314,8 +316,8 @@ def create_category_item(cat_id: int, body: WeederCreate, session: SessionDep, _
         storage_location=body.storage_location or None,
         timeline_days=body.timeline_days,
         image_base64=body.image_base64,
-        created_at=now,
-        updated_at=now,
+        created_at=now_ts,
+        updated_at=now_ts,
     )
     session.add(w)
     session.commit()
@@ -346,6 +348,7 @@ def list_weeders(
             WeederItem.name.ilike(pat),              # type: ignore[union-attr]
             WeederItem.description.ilike(pat),      # type: ignore[union-attr]
             WeederItem.storage_location.ilike(pat), # type: ignore[union-attr]
+            WeederItem.sn_no.ilike(pat),            # type: ignore[union-attr]
         ))
     total = session.exec(select(func.count()).select_from(q.subquery())).one()
     items = session.exec(q.order_by(WeederItem.sn_no).offset((page - 1) * page_size).limit(page_size)).all()
@@ -360,7 +363,7 @@ def list_weeders(
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 def create_weeder(body: WeederCreate, session: SessionDep, _: AdminUser) -> WeederOut:
-    now = datetime.now(tz=timezone.utc)
+    now_ts = now()
     w = WeederItem(
         category_id=body.category_id,
         name=body.name or None,
@@ -372,8 +375,8 @@ def create_weeder(body: WeederCreate, session: SessionDep, _: AdminUser) -> Weed
         storage_location=body.storage_location or None,
         timeline_days=body.timeline_days,
         image_base64=body.image_base64,
-        created_at=now,
-        updated_at=now,
+        created_at=now_ts,
+        updated_at=now_ts,
     )
     session.add(w)
     session.commit()
@@ -416,7 +419,7 @@ def update_weeder(item_id: int, body: WeederUpdate, session: SessionDep, _: Admi
         w.image_base64 = body.image_base64 or None
     if body.is_active is not None:
         w.is_active = body.is_active
-    w.updated_at = datetime.now(tz=timezone.utc)
+    w.updated_at = now()
     session.add(w)
     session.commit()
     session.refresh(w)
@@ -431,7 +434,7 @@ def delete_weeder(item_id: int, session: SessionDep, current_user: AdminUser) ->
     qty_before = w.qty
     w.is_active = False
     w.qty = 0.0
-    w.updated_at = datetime.now(tz=timezone.utc)
+    w.updated_at = now()
     session.add(w)
     session.add(WeederHistory(
         weeder_id=item_id,
@@ -454,17 +457,24 @@ def adjust_weeder_stock(
     w = session.get(WeederItem, item_id)
     if not w:
         raise HTTPException(status_code=404, detail="Weeder not found")
+    require_inventory_edit(current_user, "weeder")
     qty_before = w.qty
     if body.adjustment_type == "add":
         w.qty += body.quantity
     elif body.adjustment_type == "subtract":
-        w.qty = max(0.0, w.qty - body.quantity)
+        new_qty = w.qty - body.quantity
+        if new_qty < 0:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Cannot subtract {body.quantity}: only {w.qty} on hand",
+            )
+        w.qty = new_qty
     elif body.adjustment_type == "set":
         w.qty = body.quantity
     else:
         raise HTTPException(status_code=400, detail="adjustment_type must be add|subtract|set")
     qty_after = w.qty
-    w.updated_at = datetime.now(tz=timezone.utc)
+    w.updated_at = now()
     session.add(w)
     hist = WeederHistory(
         weeder_id=item_id,

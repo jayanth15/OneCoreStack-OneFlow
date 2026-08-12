@@ -269,7 +269,7 @@ function VendorDetailPage() {
                     : null
 
                   return (
-                    <div key={p.product_name} className={`rounded-lg border p-4 ${urgent ? "border-warning/20 bg-warning/15/40" : ""}`}>
+                    <div key={p.product_name} className={`rounded-lg border p-4 ${urgent ? "border-warning/20 bg-warning/15" : ""}`}>
                       <div className="flex items-start gap-3 flex-wrap">
                         {/* Product name + FG link */}
                         <div className="flex-1 min-w-0">
@@ -527,7 +527,7 @@ function VendorDetailPage() {
               const inProd = data.schedules.filter(s => s.status === "in_production")
               if (inProd.length === 0) return null
               return (
-                <div className="rounded-xl border-2 border-warning/20 bg-warning/15/50 p-5">
+                <div className="rounded-xl border-2 border-warning/20 bg-warning/15 p-5">
                   <SectionHeader icon={Clock} title={`Current Jobs (${inProd.length})`} />
                   <div className="space-y-2">
                     {inProd.map(s => {

@@ -358,7 +358,7 @@ function ProductionOrderDetailPage() {
             )}
 
             {/* FG explanation note */}
-            <div className="rounded-lg border border-dashed bg-success/10/50 p-3 text-xs text-muted-foreground">
+            <div className="rounded-lg border border-dashed bg-success/10 p-3 text-xs text-muted-foreground">
               <span className="font-medium text-success">FG Completed = MIN(produced) across all processes.</span>{" "}
               A unit is only finished when it has passed through every process step.
               {order.planned_qty != null && effectiveQty < order.planned_qty && (

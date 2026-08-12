@@ -5,11 +5,12 @@ Old /api/v1/purchase-requests and /api/v1/marketing-requests routers
 are thin shims around this code.
 """
 from datetime import datetime, timezone
+from app.core.timezone import now
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import delete as sqlalchemy_delete, or_
-from sqlmodel import Session, select
+from sqlmodel import Session, func, select
 
 from app.core.database import get_session
 from app.dependencies.auth import get_current_user
@@ -147,6 +148,31 @@ def _target_department_codes(req: Request, session: Session) -> list[str]:
     return codes
 
 
+def _target_department_codes_from_items(req: Request, items: list[RequestItem]) -> list[str]:
+    """Like :func:`_target_department_codes` but using preloaded items (no query)."""
+    codes: list[str] = []
+    seen: set[str] = set()
+    if req.department:
+        codes.append(req.department)
+        seen.add(req.department)
+    for item in items:
+        code = item.department
+        if code and code not in seen:
+            codes.append(code)
+            seen.add(code)
+    return codes
+
+
+def _load_items_by_request(session: Session, request_ids: list[int]) -> dict[int, list[RequestItem]]:
+    """Batch-load line items for a set of requests (avoids N+1)."""
+    items_by_req: dict[int, list[RequestItem]] = {}
+    if not request_ids:
+        return items_by_req
+    for item in session.exec(select(RequestItem).where(RequestItem.request_id.in_(request_ids))).all():
+        items_by_req.setdefault(item.request_id, []).append(item)
+    return items_by_req
+
+
 def _acceptance_departments(
     user: User,
     req: Request,
@@ -258,6 +284,7 @@ def list_requests(
     stmt = stmt.order_by(Request.created_at.desc()).offset(offset).limit(limit)
     rows = session.exec(stmt).all()
     label_map = build_department_label_map(session)
+    items_by_req = _load_items_by_request(session, [r.id for r in rows if r.id])
     return [
         RequestListRead(
             id=r.id, sn_no=r.sn_no, request_type=r.request_type,
@@ -265,10 +292,10 @@ def list_requests(
             from_department_label=label_for_code(r.from_department, label_map),
             department=r.department,
             department_label=label_for_code(r.department, label_map),
-            target_departments=_target_department_codes(r, session),
+            target_departments=_target_department_codes_from_items(r, items_by_req.get(r.id or 0, [])),
             target_department_labels=[
                 label_for_code(code, label_map) or code
-                for code in _target_department_codes(r, session)
+                for code in _target_department_codes_from_items(r, items_by_req.get(r.id or 0, []))
             ],
             from_whom=r.from_whom, quantity=r.quantity, status=r.status,
             requested_by_username=r.requested_by_username, created_at=r.created_at,
@@ -283,6 +310,33 @@ def list_requests(
 
 
 # --- inbox (dept-targeted "needs my action") ---
+
+@router.get("/inbox-count")
+def inbox_count(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Lightweight unread-inbox count for nav badges (no full rows fetched)."""
+    user_depts = get_user_departments(session, current_user.id)  # type: ignore[arg-type]
+    stmt = select(func.count()).select_from(Request).where(
+        Request.is_active == True,  # noqa: E712
+        Request.status.in_(["approved", "in_progress", "awaiting_signoff"]),
+        Request.request_type != REQUEST_TYPE_CUSTOMER_DISPATCH,
+    )
+    if current_user.role not in ("admin", "super_admin"):
+        dept_codes = [d.code for d in user_depts]
+        if not dept_codes:
+            return {"count": 0}
+        item_request_ids = select(RequestItem.request_id).where(RequestItem.department.in_(dept_codes))  # type: ignore[arg-type]
+        stmt = stmt.where(
+            Request.request_type != REQUEST_TYPE_VENDOR_PURCHASE,  # type: ignore[union-attr]
+            or_(
+                Request.department.in_(dept_codes),  # type: ignore[arg-type]
+                Request.id.in_(item_request_ids),  # type: ignore[arg-type]
+            ),
+        )
+    return {"count": session.exec(stmt).one()}
+
 
 @router.get("/inbox", response_model=List[RequestListRead])
 def list_inbox(
@@ -315,30 +369,33 @@ def list_inbox(
         dept_codes = [d.code for d in user_depts]
         if not dept_codes:
             return []
+        # Eligibility is pushed into SQL so pagination is applied AFTER filtering:
+        # - vendor_purchase requests are admin-only
+        # - internal_transfer: header dept or any line-item dept must match the user's depts
         item_request_ids = select(RequestItem.request_id).where(RequestItem.department.in_(dept_codes))  # type: ignore[arg-type]
-        stmt = stmt.where(or_(
-            Request.department.in_(dept_codes),  # type: ignore[arg-type]
-            Request.id.in_(item_request_ids),  # type: ignore[arg-type]
-        ))
+        stmt = stmt.where(
+            Request.request_type != REQUEST_TYPE_VENDOR_PURCHASE,  # type: ignore[union-attr]
+            or_(
+                Request.department.in_(dept_codes),  # type: ignore[arg-type]
+                Request.id.in_(item_request_ids),  # type: ignore[arg-type]
+            ),
+        )
     rows = session.exec(stmt.order_by(Request.created_at.desc()).offset(offset).limit(limit)).all()
     label_map = build_department_label_map(session)
+    items_by_req = _load_items_by_request(session, [r.id for r in rows if r.id])
     out = []
     for r in rows:
-        if current_user.role in ("admin", "super_admin"):
-            pass
-        else:
-            if not _user_can_accept(current_user, r, session, user_depts):
-                continue
+        target_codes = _target_department_codes_from_items(r, items_by_req.get(r.id or 0, []))
         out.append(RequestListRead(
             id=r.id, sn_no=r.sn_no, request_type=r.request_type,
             from_department=r.from_department,
             from_department_label=label_for_code(r.from_department, label_map),
             department=r.department,
             department_label=label_for_code(r.department, label_map),
-            target_departments=_target_department_codes(r, session),
+            target_departments=target_codes,
             target_department_labels=[
                 label_for_code(code, label_map) or code
-                for code in _target_department_codes(r, session)
+                for code in target_codes
             ],
             from_whom=r.from_whom, quantity=r.quantity, status=r.status,
             requested_by_username=r.requested_by_username, created_at=r.created_at,
@@ -359,9 +416,9 @@ def create_request(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
-    if not _user_can_see_type(current_user, payload.request_type, get_user_departments(session, current_user.id)):  # type: ignore[arg-type]
-        raise HTTPException(status_code=403, detail=f"Not allowed to create {payload.request_type} requests")
     user_departments = get_user_departments(session, current_user.id)  # type: ignore[arg-type]
+    if not _user_can_see_type(current_user, payload.request_type, user_departments):
+        raise HTTPException(status_code=403, detail=f"Not allowed to create {payload.request_type} requests")
     if payload.request_type == REQUEST_TYPE_VENDOR_PURCHASE and not _user_can_create_purchase_request(current_user, user_departments):
         raise HTTPException(status_code=403, detail="Your department is not configured for purchase requests")
 
@@ -512,7 +569,7 @@ def update_request(
                 setattr(dispatch, field, new_val)
         req.quantity = payload.dispatch.quantity or req.quantity
 
-    req.updated_at = datetime.now(tz=timezone.utc)
+    req.updated_at = now()
     for f, o, n in changes:
         log_history(session, req.id, changed_by_user_id=current_user.id, changed_by_username=current_user.username,
                     change_type="edited", field_name=f, old_value=str(o) if o else None, new_value=str(n) if n else None)
@@ -535,6 +592,11 @@ def delete_request(
         raise HTTPException(status_code=404, detail="Request not found")
     if current_user.role not in ("admin", "super_admin"):
         raise HTTPException(status_code=403, detail="Only admins can cancel requests")
+    if req.status in ("received", "awaiting_signoff", "delivered"):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot cancel a request in status '{req.status}'; stock has already been deducted. Return the stock instead.",
+        )
     req.is_active = False
     req.status = "cancelled"
     session.exec(sqlalchemy_delete(Notification).where(Notification.request_id == req.id))
@@ -634,7 +696,7 @@ def review_request(
     req.status = "approved" if payload.decision == "approve" else "not_approved"
     req.reviewed_by_user_id = current_user.id
     req.reviewed_by_username = current_user.username
-    req.reviewed_at = datetime.now(tz=timezone.utc)
+    req.reviewed_at = now()
     req.review_note = payload.note
 
     log_history(session, req.id, changed_by_user_id=current_user.id, changed_by_username=current_user.username,
@@ -737,7 +799,7 @@ def accept_fulfilment(
     if department_items and all(item.item_status is not None for item in department_items):
         raise HTTPException(status_code=409, detail="This department has already accepted the request")
 
-    accepted_at = datetime.now(tz=timezone.utc)
+    accepted_at = now()
     for item in department_items:
         if item.item_status is not None:
             continue
@@ -877,13 +939,13 @@ def deliver_request(
     all_items_delivered = all(
         item.item_status in ("delivered", "rejected") for item in req_items
     )
-    now = datetime.now(tz=timezone.utc)
+    now_ts = now()
     req.status = "awaiting_signoff" if all_items_delivered else "in_progress"
     req.delivered_by_user_id = current_user.id
     req.delivered_by_username = current_user.username
-    req.delivered_at = now
+    req.delivered_at = now_ts
     req.delivery_note = payload.delivery_note
-    req.updated_at = now
+    req.updated_at = now_ts
 
     log_history(
         session, req.id,
@@ -953,7 +1015,7 @@ def accept_item(
         }.get(item.item_status, f"already reached status {item.item_status!r}")
         raise HTTPException(status_code=409, detail=f"This item has {state_label}")
 
-    accepted_at = datetime.now(tz=timezone.utc)
+    accepted_at = now()
     old_item_status = item.item_status
     item.item_status = "in_progress" if payload.decision == "accept" else "rejected"
     item.accepted_by_username = current_user.username
@@ -1072,7 +1134,7 @@ def set_status(
         )
 
     req.status = payload.new_status
-    req.updated_at = datetime.now(tz=timezone.utc)
+    req.updated_at = now()
     log_history(session, req.id, changed_by_user_id=current_user.id, changed_by_username=current_user.username,
                 change_type="status_change", field_name="status", old_value=old_status, new_value=payload.new_status, note=payload.note)
     session.commit()
@@ -1113,15 +1175,16 @@ def _build_read(
     label_map = build_department_label_map(session)
     unit_ids = {item.unit_id for item in items if item.unit_id}
     unit_names = {unit.id: unit.name for unit in session.exec(select(Unit).where(Unit.id.in_(unit_ids))).all()} if unit_ids else {}  # type: ignore[union-attr]
+    target_codes = _target_department_codes_from_items(req, items)
     return RequestRead(
         id=req.id, sn_no=req.sn_no, request_type=req.request_type,
         from_department=req.from_department,
         department=req.department,
         department_label=label_for_code(req.department, label_map),
-        target_departments=_target_department_codes(req, session),
+        target_departments=target_codes,
         target_department_labels=[
             label_for_code(code, label_map) or code
-            for code in _target_department_codes(req, session)
+            for code in target_codes
         ],
         acceptance_departments=(
             _acceptance_departments(

@@ -20,7 +20,7 @@ import {
   PlusIcon, Pencil, Trash2, AlertTriangle, Wrench, ChevronRight, ChevronDown,
   Search, Printer, PackagePlus, PackageMinus, ImageIcon, Layers, Eye, History, ChevronsDown,
 } from "lucide-react"
-import { fetchAllPages, getCompanyPrintHeaderHtml, openPrintWindow } from "@/lib/print-report"
+import { fetchAllPages, openPrintWindow } from "@/lib/print-report"
 
 export const Route = createFileRoute("/_auth/dashboard/inventory/spares")({
   component: SparesPage,
@@ -873,78 +873,69 @@ function SparesPage() {
   }
 
   async function printCycleCount() {
-    const win = window.open("", "_blank")
-    if (!win) return
-    const companyHeader = await getCompanyPrintHeaderHtml()
-
     // Fetch all data from API for the print — don't rely on UI state
     const allCats = await apiFetchJson<{ items: { id: number; name: string }[] }>(
       "/api/v1/spares/categories?page_size=200"
     ).catch(() => ({ items: [] }))
-    const rows: string[] = []
+    const rows: Record<string, unknown>[] = []
 
     for (const cat of (allCats.items || [])) {
       const subs = await apiFetchJson<{ id: number; name: string }[]>(
         `/api/v1/spares/categories/${cat.id}/sub-categories?page_size=200`
       ).catch(() => [])
-      for (const sub of (Array.isArray(subs) ? subs : [])) {
-        const items = await apiFetchJson<{ items: { id: number; name: string; recorded_qty: number }[] }>(
-          `/api/v1/spares/sub-categories/${sub.id}/items?page_size=200&include_inactive=false`
-        ).catch(() => ({ items: [] }))
-        for (const item of (items.items || [])) {
-          const variants = await apiFetchJson<{ variant_color: string | null; serial_number: string | null; qty: number }[]>(
-            `/api/v1/spares/items/${item.id}/variants`
-          ).catch(() => [])
-          const variantList = Array.isArray(variants) ? variants : []
+      const subList = Array.isArray(subs) ? subs : []
+      const itemsPerSub = await Promise.all(
+        subList.map((sub) =>
+          apiFetchJson<{ items: { id: number; name: string; recorded_qty: number }[] }>(
+            `/api/v1/spares/sub-categories/${sub.id}/items?page_size=200&include_inactive=false`
+          ).catch(() => ({ items: [] })),
+        ),
+      )
+      for (let s = 0; s < subList.length; s += 1) {
+        const sub = subList[s]
+        const items = (itemsPerSub[s]?.items || [])
+        const variantsPerItem = await Promise.all(
+          items.map((item) =>
+            apiFetchJson<{ variant_color: string | null; serial_number: string | null; qty: number }[]>(
+              `/api/v1/spares/items/${item.id}/variants`
+            ).catch(() => []),
+          ),
+        )
+        for (let i = 0; i < items.length; i += 1) {
+          const item = items[i]
+          const variantList = Array.isArray(variantsPerItem[i]) ? variantsPerItem[i] : []
           if (variantList.length > 0) {
-            variantList.forEach((v: { variant_color: string | null; serial_number: string | null; qty: number }) => {
-              rows.push(`<tr>
-                <td>${cat.name}</td>
-                <td>${sub.name}</td>
-                <td>${item.name}</td>
-                <td>${v.variant_color || v.serial_number || '\u2014'}</td>
-                <td style="text-align:center">${v.qty}</td>
-                <td style="text-align:center"><span class="counted">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td>
-              </tr>`)
+            variantList.forEach((v) => {
+              rows.push({
+                "Category": cat.name,
+                "Sub-Category": sub.name,
+                "Item": item.name,
+                "Variant": v.variant_color || v.serial_number || "\u2014",
+                "Current Qty": v.qty,
+                "Counted Qty": "",
+              })
             })
           } else {
-            rows.push(`<tr>
-              <td>${cat.name}</td>
-              <td>${sub.name}</td>
-              <td>${item.name}</td>
-              <td>\u2014</td>
-              <td style="text-align:center">${item.recorded_qty}</td>
-              <td style="text-align:center"><span class="counted">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td>
-            </tr>`)
+            rows.push({
+              "Category": cat.name,
+              "Sub-Category": sub.name,
+              "Item": item.name,
+              "Variant": "\u2014",
+              "Current Qty": item.recorded_qty,
+              "Counted Qty": "",
+            })
           }
         }
       }
     }
 
-    win.document.write(`<html><head><title>Spares Cycle Count</title>
-      <style>
-        body{font-family:Arial,sans-serif;padding:20px;}
-        table{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px;}
-        th,td{border:1px solid #999;padding:6px;text-align:left;}
-        th{background:#e5e5e5;}
-        .counted{border-bottom:2px solid #333;min-width:80px;display:inline-block;}
-      </style></head><body>
-      ${companyHeader}
-      <h2 style="text-align:center;">Spares Cycle Count</h2>
-      <p style="text-align:center;">Date: ${new Date().toLocaleDateString()}</p>
-      <table>
-        <thead><tr>
-          <th>Category</th><th>Sub-Category</th><th>Item</th><th>Variant</th>
-          <th>Current Qty</th><th>Counted Qty</th>
-        </tr></thead>
-        <tbody>${rows.join('')}</tbody>
-      </table>
-      <p style="text-align:center;margin-top:30px;font-style:italic;font-size:11px;">
-        Counted by: _________________ &nbsp;&nbsp;&nbsp; Date: _______________
-      </p>
-      </body></html>`)
-    win.document.close()
-    win.print()
+    openPrintWindow({
+      title: "Spares Cycle Count",
+      subtitle: `Date: ${new Date().toLocaleDateString("en-IN")}`,
+      mode: "cycle-count",
+      columns: ["Category", "Sub-Category", "Item", "Variant", "Current Qty", "Counted Qty"],
+      rows,
+    })
   }
 
   // ── Render ────────────────────────────────────────────────────────────────────

@@ -190,7 +190,7 @@ function WorkerReportDetail({ w }: { w: WorkerTimeSummary }) {
 
       {/* Shared-cards note */}
       {w.shared_card_count > 0 && (
-        <div className="rounded-lg border border-primary/20 bg-primary/10/50 px-4 py-2.5 text-xs text-primary flex items-center gap-2">
+        <div className="rounded-lg border border-primary/20 bg-primary/10 px-4 py-2.5 text-xs text-primary flex items-center gap-2">
           <Users className="size-3.5 shrink-0" />
           <span>
             {w.shared_card_count} job card{w.shared_card_count !== 1 ? "s" : ""} were shared with other workers.
@@ -470,6 +470,15 @@ function TimeReportPage() {
     fetchReport(selectedWorkerId, dateFrom || undefined, dateTo || undefined)
   }
 
+  function esc(value: unknown): string {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;")
+  }
+
   async function printWorkerReport() {
     if (!singleWorker) return
     const win = window.open("", "_blank", "width=900,height=700")
@@ -482,19 +491,19 @@ function TimeReportPage() {
     const totalDays = w.work_dates.length
 
     const dateRows = w.by_date
-      .map((d) => `<tr><td>${fmtDate(d.date)}</td><td style="text-align:right">${d.hours.toFixed(1)}</td><td style="text-align:right">${d.qty_produced % 1 === 0 ? d.qty_produced : d.qty_produced.toFixed(1)}</td><td style="text-align:right">${d.card_count}</td></tr>`)
+      .map((d) => `<tr><td>${esc(fmtDate(d.date))}</td><td style="text-align:right">${d.hours.toFixed(1)}</td><td style="text-align:right">${d.qty_produced % 1 === 0 ? d.qty_produced : d.qty_produced.toFixed(1)}</td><td style="text-align:right">${d.card_count}</td></tr>`)
       .join("")
 
     const processRows = w.by_process
-      .map((p) => `<tr><td>${p.process_name}</td><td style="text-align:right">${p.hours.toFixed(1)}</td><td style="text-align:right">${p.qty_produced % 1 === 0 ? p.qty_produced : p.qty_produced.toFixed(1)}</td><td style="text-align:right">${p.card_count}</td></tr>`)
+      .map((p) => `<tr><td>${esc(p.process_name)}</td><td style="text-align:right">${p.hours.toFixed(1)}</td><td style="text-align:right">${p.qty_produced % 1 === 0 ? p.qty_produced : p.qty_produced.toFixed(1)}</td><td style="text-align:right">${p.card_count}</td></tr>`)
       .join("")
 
     const orderRows = w.by_order
-      .map((o) => `<tr><td>${o.order_number}</td><td style="text-align:right">${o.hours.toFixed(1)}</td><td style="text-align:right">${o.qty_produced % 1 === 0 ? o.qty_produced : o.qty_produced.toFixed(1)}</td><td style="text-align:right">${o.card_count}</td></tr>`)
+      .map((o) => `<tr><td>${esc(o.order_number)}</td><td style="text-align:right">${o.hours.toFixed(1)}</td><td style="text-align:right">${o.qty_produced % 1 === 0 ? o.qty_produced : o.qty_produced.toFixed(1)}</td><td style="text-align:right">${o.card_count}</td></tr>`)
       .join("")
 
     const machineRows = w.by_machine
-      .map((m) => `<tr><td>${m.machine_name}</td><td style="text-align:right">${m.hours.toFixed(1)}</td><td style="text-align:right">${m.qty_produced % 1 === 0 ? m.qty_produced : m.qty_produced.toFixed(1)}</td><td style="text-align:right">${m.card_count}</td></tr>`)
+      .map((m) => `<tr><td>${esc(m.machine_name)}</td><td style="text-align:right">${m.hours.toFixed(1)}</td><td style="text-align:right">${m.qty_produced % 1 === 0 ? m.qty_produced : m.qty_produced.toFixed(1)}</td><td style="text-align:right">${m.card_count}</td></tr>`)
       .join("")
 
     const section = (title: string, rows: string, headers: string) => rows
@@ -518,8 +527,8 @@ function TimeReportPage() {
   @media print{body{margin:16px}}
 </style></head><body>
 ${companyHeader}
-<h1 style="font-size:20px;margin:0">${w.username}</h1>
-<p style="color:#6b7280;margin:2px 0 8px;font-size:13px">${dateRange}</p>
+<h1 style="font-size:20px;margin:0">${esc(w.username)}</h1>
+<p style="color:#6b7280;margin:2px 0 8px;font-size:13px">${esc(dateRange)}</p>
 <div class="cards">
   <div class="card"><div class="card-label">Total Hours</div><div class="card-value">${w.total_hours.toFixed(1)} h</div><div class="card-sub">${w.job_card_count} job card${w.job_card_count !== 1 ? "s" : ""}</div></div>
   <div class="card"><div class="card-label">Qty Produced</div><div class="card-value">${w.total_qty_produced % 1 === 0 ? w.total_qty_produced : w.total_qty_produced.toFixed(1)}</div><div class="card-sub">across ${w.process_names.length} process${w.process_names.length !== 1 ? "es" : ""}</div></div>

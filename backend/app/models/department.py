@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from app.core.timezone import now
 from typing import Optional
 
 from sqlmodel import Field, SQLModel
@@ -16,4 +17,4 @@ class Department(SQLModel, table=True):
     # visibility). Replaces the old hardcoded "marketing"/"sales" check.
     handles_customer_dispatch: bool = Field(default=False)
     can_create_purchase_request: bool = Field(default=False)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: now())

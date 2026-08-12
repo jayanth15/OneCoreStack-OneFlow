@@ -1,11 +1,11 @@
 # Graph Report - OneFlow  (2026-08-12)
 
 ## Corpus Check
-- 447 files · ~451,626 words
+- 447 files · ~451,629 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 4464 nodes · 11215 edges · 314 communities (211 shown, 103 thin omitted)
+- 4464 nodes · 11215 edges · 313 communities (210 shown, 103 thin omitted)
 - Extraction: 83% EXTRACTED · 17% INFERRED · 0% AMBIGUOUS · INFERRED: 1873 edges (avg confidence: 0.63)
 - Token cost: 0 input · 0 output
 
@@ -292,7 +292,6 @@
 - _auth.dashboard.purchase-requests.tsx
 - pwa-debug.tsx
 - setup.tsx
-- @base-ui/react
 - @hugeicons/react
 - _migrate_job_card_worker_id
 - _migrate_po_vendor_fields
@@ -343,7 +342,7 @@
 - **Request Delivery Workflow (request -> procurement PO / logistics receipt -> inventory)** — okf_requests_request-system, okf_procurement_procurement-system, okf_logistics_logistics-system, okf_inventory_inventory-system [EXTRACTED 0.95]
 - **Production BOM consumes raw materials and credits finished goods to inventory** — okf_production_production-system, okf_inventory_inventory-system, okf_procurement_procurement-system [EXTRACTED 0.95]
 
-## Communities (314 total, 103 thin omitted)
+## Communities (313 total, 103 thin omitted)
 
 ### Community 0 - "Admin Dashboard Pages"
 Cohesion: 0.04
@@ -394,8 +393,8 @@ Cohesion: 0.07
 Nodes (28): DialogDescription(), DialogOverlay(), DialogTrigger(), CreateReceiptPayload, Receipt, ReceiptItem, receiptsApi, ReceiptStatus (+20 more)
 
 ### Community 12 - "Auth and Inventory Module"
-Cohesion: 0.22
-Nodes (29): get_current_user(), Session, adjust_stock(), _compute_extra(), create_item(), deactivate_item(), get_drawing(), get_history() (+21 more)
+Cohesion: 0.14
+Nodes (39): get_current_user(), Session, InventoryItem, SQLModel, adjust_stock(), AdjustStockBody, _compute_extra(), create_item() (+31 more)
 
 ### Community 13 - "Purchase Request Item Model"
 Cohesion: 0.07
@@ -454,8 +453,8 @@ Cohesion: 0.07
 Nodes (28): compilerOptions, allowJs, esModuleInterop, incremental, isolatedModules, jsx, lib, module (+20 more)
 
 ### Community 28 - "Stock Adjustment Module"
-Cohesion: 0.11
-Nodes (63): BomItem, SQLModel, Bill of Materials — maps a product name to required raw materials.      product_, InventoryHistory, SQLModel, Audit trail for every stock change on an InventoryItem.      Written on: create,, InventoryItem, SQLModel (+55 more)
+Cohesion: 0.14
+Nodes (50): BomItem, SQLModel, Bill of Materials — maps a product name to required raw materials.      product_, InventoryHistory, SQLModel, Audit trail for every stock change on an InventoryItem.      Written on: create,, JobCardHistory, SQLModel (+42 more)
 
 ### Community 29 - "Purchase Request Routes"
 Cohesion: 0.17
@@ -531,7 +530,7 @@ Nodes (20): CycleCountPage(), CycleRow, EMPTY_PAGE, fetchCount(), fmtLocation(),
 
 ### Community 48 - "Community 48"
 Cohesion: 0.11
-Nodes (19): @ducanh2912/next-pwa, dependencies, class-variance-authority, @ducanh2912/next-pwa, @hugeicons/react, lucide-react, next, radix-ui (+11 more)
+Nodes (19): @ducanh2912/next-pwa, dependencies, @base-ui/react, class-variance-authority, @ducanh2912/next-pwa, @hugeicons/react, lucide-react, radix-ui (+11 more)
 
 ### Community 49 - "Community 49"
 Cohesion: 0.29
@@ -870,8 +869,8 @@ Cohesion: 0.83
 Nodes (3): auth(), test_gate_pass_detail_and_transition_guard(), test_po_identity_flows_into_grn_and_grn_drives_po_status()
 
 ### Community 194 - "bom.py"
-Cohesion: 0.23
-Nodes (17): BomCloneBody, BomItemCreate, BomItemResponse, BomItemUpdate, clone_bom(), create_bom_item(), delete_bom_item(), get_bom_item() (+9 more)
+Cohesion: 0.14
+Nodes (33): SQLModel, Unit, BomCloneBody, BomItemCreate, BomItemResponse, BomItemUpdate, clone_bom(), create_bom_item() (+25 more)
 
 ### Community 195 - "card.tsx"
 Cohesion: 0.83
@@ -1069,10 +1068,6 @@ Nodes (15): SQLModel, SpareCategory, SQLModel, SpareItem, test_cleanup_migration
 Cohesion: 0.25
 Nodes (14): _build_pr_id_to_new_req_id(), _generate_sn(), main(), _map_status(), migrate_marketing_requests(), migrate_purchase_requests(), migrate_receipts(), Session (+6 more)
 
-### Community 270 - "@hugeicons/react"
-Cohesion: 0.34
-Nodes (13): create_unit(), delete_unit(), get_unit_usage_count(), list_units(), BaseModel, Depends, Session, User (+5 more)
-
 ### Community 283 - "_seed_customers_from_schedules"
 Cohesion: 0.35
 Nodes (11): create_purchase_request(), delete_purchase_request(), get_purchase_request(), list_purchase_requests(), Session, User, Shim router for /api/v1/purchase-requests.  Delegates to the unified /api/v1/req, List internal_transfer + vendor_purchase requests.      Fetches each type separa (+3 more)
@@ -1097,11 +1092,11 @@ Nodes (3): SQLModel, Change log entry for a Request., RequestHistory
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `get_session()` connect `Database Session and Auth Core` to `Departments and Inventory History`, `Community 131`, `Consumables Data Model`, `Community 133`, `Auth and Inventory Module`, `@hugeicons/react`, `Supplier Job Model`, `Legacy Migrations and Scheduling`, `Receipts and Requests Model`, `Stock Adjustment Module`, `Purchase Request Routes`, `Community 34`, `Community 37`, `Community 39`, `Community 49`, `Community 52`, `Community 60`, `Community 64`, `bom.py`, `page.tsx`?**
+- **Why does `get_session()` connect `Database Session and Auth Core` to `Departments and Inventory History`, `Community 131`, `Consumables Data Model`, `Community 133`, `Auth and Inventory Module`, `Supplier Job Model`, `Legacy Migrations and Scheduling`, `Receipts and Requests Model`, `Stock Adjustment Module`, `Purchase Request Routes`, `Community 34`, `Community 37`, `Community 39`, `Community 49`, `Community 52`, `Community 60`, `Community 64`, `bom.py`, `page.tsx`?**
   _High betweenness centrality (0.022) - this node is a cross-community bridge._
 - **Why does `_seed_customers_from_schedules()` connect `_seed_customers_from_schedules` to `Departments and Inventory History`, `page.tsx`, `Legacy Migrations and Scheduling`, `Community 55`, `Community 154`?**
   _High betweenness centrality (0.022) - this node is a cross-community bridge._
-- **Why does `User` connect `Stock Adjustment Module` to `Spare Parts Data Model`, `Departments and Inventory History`, `Community 131`, `Consumables Data Model`, `_migrate_po_vendor_fields`, `Database Session and Auth Core`, `Auth and Inventory Module`, `@hugeicons/react`, `Weeder Category Model`, `Legacy Migrations and Scheduling`, `Request Items and Router`, `Community 34`, `Community 49`, `Community 60`, `Community 64`, `bom.py`, `Community 66`, `Community 94`, `_migrate_dispatch_history_table`, `test_multi_department_request_creates_department_receipts`, `Community 124`, `main.py`, `test_multi_department_request_creates_department_receipts`?**
+- **Why does `User` connect `Stock Adjustment Module` to `Spare Parts Data Model`, `Departments and Inventory History`, `Community 131`, `Consumables Data Model`, `_migrate_po_vendor_fields`, `Database Session and Auth Core`, `Auth and Inventory Module`, `Weeder Category Model`, `Legacy Migrations and Scheduling`, `Request Items and Router`, `Community 34`, `Community 49`, `Community 60`, `Community 64`, `bom.py`, `Community 66`, `Community 94`, `_migrate_dispatch_history_table`, `test_multi_department_request_creates_department_receipts`, `Community 124`, `main.py`, `test_multi_department_request_creates_department_receipts`?**
   _High betweenness centrality (0.017) - this node is a cross-community bridge._
 - **Are the 142 inferred relationships involving `User` (e.g. with `get_current_user()` and `_auto_seed_if_empty()`) actually correct?**
   _`User` has 142 INFERRED edges - model-reasoned connections that need verification._

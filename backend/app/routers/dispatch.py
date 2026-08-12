@@ -8,13 +8,14 @@ PUT    /api/v1/dispatch/{id}   — update dispatch
 DELETE /api/v1/dispatch/{id}   — cancel/delete dispatch
 """
 from datetime import datetime, timezone
+from app.core.timezone import now
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel import Session, select
+from sqlmodel import Session, func, or_, select
 
 from app.core.database import get_session
-from app.dependencies.auth import get_current_user
+from app.dependencies.auth import get_current_user, require_dispatch_access
 from app.models.dispatch import Dispatch
 from app.models.dispatch_history import DispatchHistory
 from app.models.dispatch_item import DispatchItem
@@ -54,21 +55,20 @@ def list_dispatches(
 ) -> dict[str, Any]:
     """List dispatches. Accessible to users with dispatch_access or admin."""
     _require_dispatch_access(current_user)
-    q = select(Dispatch).where(Dispatch.status != "deleted").order_by(Dispatch.id.desc())  # type: ignore[union-attr]
-    dispatches = list(session.exec(q).all())
-
+    q = select(Dispatch).where(Dispatch.status != "deleted")  # type: ignore[union-attr]
     if status_filter:
-        dispatches = [d for d in dispatches if d.status == status_filter]
+        q = q.where(Dispatch.status == status_filter)  # type: ignore[union-attr]
     if search:
-        s = search.lower()
-        dispatches = [d for d in dispatches
-                      if s in (d.dispatch_number or "").lower()
-                      or s in (d.vendor_name or "").lower()
-                      or s in (d.product_name or "").lower()]
-
-    total = len(dispatches)
-    start = (page - 1) * page_size
-    page_dispatches = dispatches[start: start + page_size]
+        s = f"%{search.strip()}%"
+        q = q.where(or_(
+            Dispatch.dispatch_number.ilike(s),  # type: ignore[union-attr]
+            Dispatch.vendor_name.ilike(s),  # type: ignore[union-attr]
+            Dispatch.product_name.ilike(s),  # type: ignore[union-attr]
+        ))
+    total = session.exec(select(func.count()).select_from(q.subquery())).one()
+    page = max(1, page)
+    page_size = max(1, min(page_size, 200))
+    page_dispatches = list(session.exec(q.order_by(Dispatch.id.desc()).offset((page - 1) * page_size).limit(page_size)).all())  # type: ignore[union-attr]
 
     # Batch-load items for this page
     dispatch_ids = [d.id for d in page_dispatches if d.id is not None]
@@ -77,7 +77,18 @@ def list_dispatches(
     for di in all_items:
         items_by_dispatch.setdefault(di.dispatch_id, []).append(di)
 
-    return {"items": [_to_dict(d, items_by_dispatch.get(d.id, []), session) for d in page_dispatches], "total": total, "page": page, "page_size": page_size}
+    unit_ids = {di.unit_id for di in all_items if di.unit_id} | {d.unit_id for d in page_dispatches if d.unit_id}
+    units_by_id = {
+        u.id: u
+        for u in session.exec(select(Unit).where(Unit.id.in_(unit_ids))).all()  # type: ignore[union-attr]
+    } if unit_ids else {}
+
+    return {
+        "items": [_to_dict(d, items_by_dispatch.get(d.id, []), units_by_id=units_by_id) for d in page_dispatches],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -138,7 +149,7 @@ def create_dispatch(
         notes=(body.get("notes") or "").strip() or None,
         status="pending",
         created_by=current_user.username,
-        created_at=datetime.now(timezone.utc).isoformat(),
+        created_at=now().isoformat(),
     )
     if body.get("receipt_id"):
         receipt = _get_dispatch_receipt(session, body["receipt_id"])
@@ -164,6 +175,14 @@ def create_dispatch(
         session.add(di)
         di_list.append(di)
 
+    session.add(DispatchHistory(
+        dispatch_id=dispatch.id,  # type: ignore[arg-type]
+        changed_by_username=current_user.username,
+        change_type="created",
+        old_status=None,
+        new_status="pending",
+        notes=f"Dispatch created ({dispatch.party_type})",
+    ))
     session.commit()
     session.refresh(dispatch)
     saved_items = list(session.exec(select(DispatchItem).where(DispatchItem.dispatch_id == dispatch.id)).all())
@@ -347,6 +366,14 @@ def update_dispatch(
         old_status=old_status,
         new_status=target_status,
     ))
+    session.add(DispatchHistory(
+        dispatch_id=dispatch.id,  # type: ignore[arg-type]
+        changed_by_username=current_user.username,
+        change_type="created",
+        old_status=None,
+        new_status="pending",
+        notes=f"Dispatch created ({dispatch.party_type})",
+    ))
     session.commit()
     session.refresh(dispatch)
     saved_items = list(session.exec(select(DispatchItem).where(DispatchItem.dispatch_id == dispatch.id)).all())
@@ -370,6 +397,17 @@ def delete_dispatch(
     _release_linked_request(session, dispatch.request_id)
     dispatch.status = "deleted"
     session.add(dispatch)
+    if dispatch.request_id:
+        req = session.get(Request, dispatch.request_id)
+        if req and req.requested_by_user_id:
+            create_notification(
+                session,
+                user_id=req.requested_by_user_id,
+                notif_type="dispatch_deleted",
+                title=f"Dispatch {dispatch.dispatch_number} cancelled",
+                body=f"Dispatch {dispatch.dispatch_number} linked to your request {req.sn_no} was cancelled.",
+                request_id=req.id,
+            )
     session.add(DispatchHistory(
         dispatch_id=dispatch.id,  # type: ignore[arg-type]
         changed_by_username=current_user.username,
@@ -419,11 +457,7 @@ def get_dispatch_history(
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _require_dispatch_access(user: User) -> None:
-    if user.role in ("admin", "super_admin"):
-        return
-    if getattr(user, "dispatch_access", False):
-        return
-    raise HTTPException(status_code=403, detail="Dispatch access required")
+    require_dispatch_access(user)
 
 
 def _linked_request(
@@ -511,7 +545,7 @@ def _sync_linked_request(
 ) -> None:
     if not req or req.request_type != REQUEST_TYPE_CUSTOMER_DISPATCH:
         return
-    now = datetime.now(tz=timezone.utc)
+    now_ts = now()
     effective_status = target_status or dispatch.status
 
     if effective_status in ("dispatched", "delivered") and req.status != "received":
@@ -519,8 +553,8 @@ def _sync_linked_request(
         req.status = "received"
         req.delivered_by_user_id = current_user.id
         req.delivered_by_username = current_user.username
-        req.delivered_at = now
-        req.updated_at = now
+        req.delivered_at = now_ts
+        req.updated_at = now_ts
         log_history(
             session, req.id,
             changed_by_user_id=current_user.id,
@@ -542,7 +576,7 @@ def _sync_linked_request(
             )
     elif effective_status == "pending" and req.status == "approved":
         req.status = "in_progress"
-        req.updated_at = now
+        req.updated_at = now_ts
         log_history(
             session, req.id,
             changed_by_user_id=current_user.id,
@@ -598,8 +632,8 @@ def _deduct_oem_dispatch_stock(
         session, deductions, current_user,
         note=f"OEM dispatch {dispatch.dispatch_number}",
     )
-    now = datetime.now(tz=timezone.utc)
-    dispatch.inventory_deducted_at = now
+    now_ts = now()
+    dispatch.inventory_deducted_at = now_ts
     dispatch.inventory_deducted_by_user_id = current_user.id
     dispatch.inventory_deducted_by_username = current_user.username
     session.add(dispatch)
@@ -616,22 +650,30 @@ def _release_linked_request(session: Session, request_id: int | None) -> None:
         and req.status == "in_progress"
     ):
         req.status = "approved"
-        req.updated_at = datetime.now(tz=timezone.utc)
+        req.updated_at = now()
         session.add(req)
 
 
-def _to_dict(d: Dispatch, items: list[DispatchItem] | None = None, session: Session | None = None) -> dict[str, Any]:
+def _to_dict(d: Dispatch, items: list[DispatchItem] | None = None, session: Session | None = None, units_by_id: dict[int, Unit] | None = None) -> dict[str, Any]:
     header_unit_name = None
-    if d.unit_id and session:
-        u = session.get(Unit, d.unit_id)
-        header_unit_name = u.name if u else None
+    if d.unit_id:
+        if units_by_id is not None:
+            u = units_by_id.get(d.unit_id)
+            header_unit_name = u.name if u else None
+        elif session:
+            u = session.get(Unit, d.unit_id)
+            header_unit_name = u.name if u else None
     item_list = []
     if items:
         for i in items:
             i_unit_name = None
-            if i.unit_id and session:
-                u = session.get(Unit, i.unit_id)
-                i_unit_name = u.name if u else None
+            if i.unit_id:
+                if units_by_id is not None:
+                    u = units_by_id.get(i.unit_id)
+                    i_unit_name = u.name if u else None
+                elif session:
+                    u = session.get(Unit, i.unit_id)
+                    i_unit_name = u.name if u else None
             item_list.append({
                 "id": i.id,
                 "item_name": i.item_name,

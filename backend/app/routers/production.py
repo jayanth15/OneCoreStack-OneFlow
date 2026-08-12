@@ -1,5 +1,6 @@
 import json
 from datetime import datetime, timezone
+from app.core.timezone import now
 from typing import Annotated, Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -21,6 +22,7 @@ from app.models.schedule import Schedule
 from app.models.unit import Unit
 from app.models.user import User
 from app.models.user_department import UserDepartment
+from app.services.document_numbers import allocate_document_number
 
 router = APIRouter(
     prefix="/api/v1/production",
@@ -49,18 +51,15 @@ def _weight_to_grams(value: float | None, unit: str | None) -> float:
     return value * WEIGHT_TO_GRAM.get(unit, 1.0)
 
 def _next_plan_number(session: Session) -> str:
-    count = session.exec(select(func.count()).select_from(ProductionPlan)).one()
-    return f"PP-{count + 1:04d}"
+    return allocate_document_number(session, key="production_plan", prefix="PP", existing_model=ProductionPlan, number_field="plan_number")
 
 
 def _next_order_number(session: Session) -> str:
-    count = session.exec(select(func.count()).select_from(ProductionOrder)).one()
-    return f"PO-{count + 1:04d}"
+    return allocate_document_number(session, key="production_order", prefix="PO", existing_model=ProductionOrder, number_field="order_number")
 
 
 def _next_card_number(session: Session) -> str:
-    count = session.exec(select(func.count()).select_from(JobCard)).one()
-    return f"JC-{count + 1:04d}"
+    return allocate_document_number(session, key="job_card", prefix="JC", existing_model=JobCard, number_field="card_number")
 
 
 def _calculated_hours_from_produced_qty(
@@ -95,7 +94,7 @@ def _record_job_card_created(
     job: JobCard, user_id: int | None, session: Session, username: str | None = None,
 ) -> None:
     """Write a single 'created' history row capturing the initial snapshot."""
-    now = datetime.now(tz=timezone.utc)
+    now_ts = now()
     for field in _JOB_CARD_TRACKED_FIELDS:
         val = getattr(job, field, None)
         if val is not None:
@@ -103,7 +102,7 @@ def _record_job_card_created(
                 job_card_id=job.id,  # type: ignore[arg-type]
                 changed_by_user_id=user_id,
                 changed_by_username=username,
-                changed_at=now,
+                changed_at=now_ts,
                 change_type="created",
                 field_name=field,
                 old_value=None,
@@ -119,7 +118,7 @@ def _record_job_card_changes(
     username: str | None = None,
 ) -> None:
     """Compare old_snapshot dict to job's current state, write one row per changed field."""
-    now = datetime.now(tz=timezone.utc)
+    now_ts = now()
     for field in _JOB_CARD_TRACKED_FIELDS:
         old_val = old_snapshot.get(field)
         new_val = str(getattr(job, field)) if getattr(job, field, None) is not None else None
@@ -128,7 +127,7 @@ def _record_job_card_changes(
                 job_card_id=job.id,  # type: ignore[arg-type]
                 changed_by_user_id=user_id,
                 changed_by_username=username,
-                changed_at=now,
+                changed_at=now_ts,
                 change_type="updated",
                 field_name=field,
                 old_value=old_val,
@@ -314,8 +313,17 @@ def _consume_bom_materials(
             continue
         deduction = round(b.qty_per_unit * qty_delta, 4)
         qty_before = item.quantity_on_hand
-        item.quantity_on_hand = max(0.0, round(qty_before - deduction, 4))
-        item.updated_at = datetime.now(tz=timezone.utc)
+        new_qty = round(qty_before - deduction, 4)
+        if new_qty < 0:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Insufficient stock for raw material '{item.name}': "
+                    f"need {deduction}, only {qty_before} on hand"
+                ),
+            )
+        item.quantity_on_hand = new_qty
+        item.updated_at = now()
         session.add(item)
 
         # Audit trail — RM consumption
@@ -324,7 +332,7 @@ def _consume_bom_materials(
             change_type="subtract",
             quantity_before=qty_before,
             quantity_after=item.quantity_on_hand,
-            quantity_delta=item.quantity_on_hand - qty_before,
+            quantity_delta=-deduction,
             schedule_id=schedule_id,
             notes=f"BOM consumption: {qty_delta} units of {product_name} produced",
         ))
@@ -357,7 +365,7 @@ def _consume_bom_materials(
 
             scrap_before = scrap_item.quantity_on_hand
             scrap_item.quantity_on_hand = round(scrap_before + scrap_qty, 4)
-            scrap_item.updated_at = datetime.now(tz=timezone.utc)
+            scrap_item.updated_at = now()
             session.add(scrap_item)
 
             session.add(InventoryHistory(
@@ -371,9 +379,48 @@ def _consume_bom_materials(
             ))
 
 
+def _restore_bom_materials(
+    product_name: str,
+    qty_delta: float,
+    schedule_id: Optional[int],
+    session: Session,
+) -> None:
+    """Return raw materials to inventory when reported production output drops.
+
+    qty_delta = decrease in qty_produced on a job card (positive value).
+    Restores (qty_delta × qty_per_unit) of each RM in the BOM.
+    """
+    if qty_delta <= 0:
+        return
+
+    bom_entries = list(session.exec(
+        select(BomItem)
+        .where(BomItem.product_name == product_name, BomItem.is_active == True)  # noqa: E712
+    ).all())
+
+    for b in bom_entries:
+        item = session.get(InventoryItem, b.raw_material_id)
+        if not item or not item.is_active:
+            continue
+        restore = round(b.qty_per_unit * qty_delta, 4)
+        qty_before = item.quantity_on_hand
+        item.quantity_on_hand = round(qty_before + restore, 4)
+        item.updated_at = now()
+        session.add(item)
+
+        session.add(InventoryHistory(
+            inventory_item_id=item.id,
+            change_type="add",
+            quantity_before=qty_before,
+            quantity_after=item.quantity_on_hand,
+            quantity_delta=restore,
+            schedule_id=schedule_id,
+            notes=f"BOM restoration: {qty_delta} units of {product_name} de-produced",
+        ))
+
+
 def _recalc_fg_for_order(order: ProductionOrder, session: Session) -> None:
     """Incrementally update FG inventory based on process-aware production.
-
     A finished good is only complete when it has passed through ALL process
     steps.  Therefore:
 
@@ -421,6 +468,9 @@ def _recalc_fg_for_order(order: ProductionOrder, session: Session) -> None:
 
     # Persist effective_qty on the order regardless of FG item existing
     order.effective_qty = new_effective
+    # Always mark the credited baseline so a later-created FG item only
+    # receives the incremental delta (no accumulated one-shot dump).
+    order.fg_credited = new_effective
     session.add(order)
 
     if delta == 0:
@@ -447,11 +497,8 @@ def _recalc_fg_for_order(order: ProductionOrder, session: Session) -> None:
 
     qty_before = fg_item.quantity_on_hand
     fg_item.quantity_on_hand = round(max(0.0, qty_before + delta), 4)
-    fg_item.updated_at = datetime.now(tz=timezone.utc)
+    fg_item.updated_at = now()
     session.add(fg_item)
-
-    order.fg_credited = new_effective
-    session.add(order)
 
     change_type = "add" if delta > 0 else "subtract"
     session.add(InventoryHistory(
@@ -601,6 +648,14 @@ def _process_with_unit(p: ProductionProcess, session: Session) -> ProcessRespons
     return pr
 
 
+def _process_with_unit_map(p: ProductionProcess, units_by_id: dict[int, Unit]) -> ProcessResponse:
+    pr = ProcessResponse.model_validate(p)
+    if p.material_unit_id:
+        u = units_by_id.get(p.material_unit_id)
+        pr.material_unit_name = u.name if u else None
+    return pr
+
+
 def _to_plan_response(plan: ProductionPlan, session: Session) -> PlanResponse:
     """Build a PlanResponse, enriching with linked Schedule data and processes."""
     sched: Optional[Schedule] = None
@@ -613,6 +668,21 @@ def _to_plan_response(plan: ProductionPlan, session: Session) -> PlanResponse:
         .order_by(ProductionProcess.sequence, ProductionProcess.id)  # type: ignore[union-attr]
     ).all())
 
+    unit_ids = {p.material_unit_id for p in processes if p.material_unit_id}
+    units_by_id = {
+        u.id: u
+        for u in session.exec(select(Unit).where(Unit.id.in_(unit_ids))).all()  # type: ignore[union-attr]
+    } if unit_ids else {}
+    return _to_plan_response_with(plan, sched, processes, units_by_id)
+
+
+def _to_plan_response_with(
+    plan: ProductionPlan,
+    sched: Optional[Schedule],
+    processes: list[ProductionProcess],
+    units_by_id: dict[int, Unit],
+) -> PlanResponse:
+
     return PlanResponse(
         id=plan.id,  # type: ignore[arg-type]
         plan_number=plan.plan_number,
@@ -624,7 +694,7 @@ def _to_plan_response(plan: ProductionPlan, session: Session) -> PlanResponse:
         notes=plan.notes,
         status=plan.status,
         is_active=plan.is_active,
-        processes=[_process_with_unit(p, session) for p in processes],
+        processes=[_process_with_unit_map(p, units_by_id) for p in processes],
         # Schedule enrichment
         schedule_number=sched.schedule_number if sched else None,
         customer_name=sched.customer_name if sched else None,
@@ -678,7 +748,29 @@ def list_plans(
             .limit(page_size)
         ).all()
     )
-    items = [_to_plan_response(p, session) for p in rows]
+    plan_ids = [p.id for p in rows if p.id is not None]
+    sched_ids = [p.schedule_id for p in rows if p.schedule_id is not None]
+    schedules_by_id = {
+        s.id: s
+        for s in session.exec(select(Schedule).where(Schedule.id.in_(sched_ids))).all()  # type: ignore[union-attr]
+    } if sched_ids else {}
+    processes_by_plan: dict[int, list[ProductionProcess]] = {}
+    if plan_ids:
+        for proc in session.exec(
+            select(ProductionProcess)
+            .where(ProductionProcess.plan_id.in_(plan_ids))
+            .order_by(ProductionProcess.sequence, ProductionProcess.id)  # type: ignore[union-attr]
+        ).all():
+            processes_by_plan.setdefault(proc.plan_id, []).append(proc)
+    unit_ids = {p.material_unit_id for procs in processes_by_plan.values() for p in procs if p.material_unit_id}
+    units_by_id = {
+        u.id: u
+        for u in session.exec(select(Unit).where(Unit.id.in_(unit_ids))).all()  # type: ignore[union-attr]
+    } if unit_ids else {}
+    items = [
+        _to_plan_response_with(p, schedules_by_id.get(p.schedule_id), processes_by_plan.get(p.id or 0, []), units_by_id)
+        for p in rows
+    ]
     return PaginatedPlans(items=items, total=total, page=page, page_size=page_size, pages=pages)
 
 
@@ -1069,6 +1161,34 @@ def _to_order_response(order: ProductionOrder, session: Session) -> OrderRespons
         .order_by(JobCard.id)  # type: ignore[union-attr]
     ).all())
 
+    unit_ids = {p.material_unit_id for p in processes if p.material_unit_id}
+    units_by_id = {
+        u.id: u
+        for u in session.exec(select(Unit).where(Unit.id.in_(unit_ids))).all()  # type: ignore[union-attr]
+    } if unit_ids else {}
+    return _to_order_response_with(
+        order,
+        plan,
+        {sched.id: sched} if sched else {},
+        {order.production_plan_id: processes} if plan else {},
+        cards,
+        units_by_id,
+    )
+
+
+def _to_order_response_with(
+    order: ProductionOrder,
+    plan: Optional[ProductionPlan],
+    schedules_by_id: dict[int, Schedule],
+    processes_by_plan: dict[int, list[ProductionProcess]],
+    cards: list[JobCard],
+    units_by_id: dict[int, Unit],
+) -> OrderResponse:
+    sched: Optional[Schedule] = None
+    if plan and plan.schedule_id is not None:
+        sched = schedules_by_id.get(plan.schedule_id)
+    processes = processes_by_plan.get(order.production_plan_id, []) if plan else []
+
     return OrderResponse(
         id=order.id,  # type: ignore[arg-type]
         order_number=order.order_number,
@@ -1087,7 +1207,7 @@ def _to_order_response(order: ProductionOrder, session: Session) -> OrderRespons
         planned_qty=plan.planned_qty if plan else None,
         effective_qty=order.effective_qty,
         fg_credited=order.fg_credited,
-        processes=[_process_with_unit(p, session) for p in processes],
+        processes=[_process_with_unit_map(p, units_by_id) for p in processes],
         job_cards=[JobCardResponse.model_validate(c) for c in cards],
     )
 
@@ -1125,7 +1245,49 @@ def list_orders(
             .limit(page_size)
         ).all()
     )
-    items = [_to_order_response(o, session) for o in rows]
+    order_ids = [o.id for o in rows if o.id is not None]
+    plan_ids = [o.production_plan_id for o in rows if o.production_plan_id is not None]
+    plans_by_id = {
+        p.id: p
+        for p in session.exec(select(ProductionPlan).where(ProductionPlan.id.in_(plan_ids))).all()  # type: ignore[union-attr]
+    } if plan_ids else {}
+    sched_ids = [p.schedule_id for p in plans_by_id.values() if p.schedule_id is not None]
+    schedules_by_id = {
+        s.id: s
+        for s in session.exec(select(Schedule).where(Schedule.id.in_(sched_ids))).all()  # type: ignore[union-attr]
+    } if sched_ids else {}
+    processes_by_plan: dict[int, list[ProductionProcess]] = {}
+    if plan_ids:
+        for proc in session.exec(
+            select(ProductionProcess)
+            .where(ProductionProcess.plan_id.in_(plan_ids))
+            .order_by(ProductionProcess.sequence, ProductionProcess.id)  # type: ignore[union-attr]
+        ).all():
+            processes_by_plan.setdefault(proc.plan_id, []).append(proc)
+    cards_by_order: dict[int, list[JobCard]] = {}
+    if order_ids:
+        for card in session.exec(
+            select(JobCard)
+            .where(JobCard.production_order_id.in_(order_ids), JobCard.is_active == True)  # noqa: E712
+            .order_by(JobCard.id)  # type: ignore[union-attr]
+        ).all():
+            cards_by_order.setdefault(card.production_order_id, []).append(card)
+    unit_ids = {p.material_unit_id for procs in processes_by_plan.values() for p in procs if p.material_unit_id}
+    units_by_id = {
+        u.id: u
+        for u in session.exec(select(Unit).where(Unit.id.in_(unit_ids))).all()  # type: ignore[union-attr]
+    } if unit_ids else {}
+    items = [
+        _to_order_response_with(
+            o,
+            plans_by_id.get(o.production_plan_id),
+            schedules_by_id,
+            processes_by_plan,
+            cards_by_order.get(o.id or 0, []),
+            units_by_id,
+        )
+        for o in rows
+    ]
     return PaginatedOrders(items=items, total=total, page=page, page_size=page_size, pages=pages)
 
 
@@ -1419,7 +1581,6 @@ def create_job(
 
 
 @router.get("/jobs/{job_id}", response_model=JobCardResponse)
-@router.get("/jobs/{job_id}", response_model=JobCardResponse)
 def get_job(
     job_id: int,
     session: Annotated[Session, Depends(get_session)],
@@ -1511,12 +1672,15 @@ def update_job(
     session.add(job)
     session.flush()
 
-    # BOM consumption on production increase
+    # BOM consumption on production increase / restoration on decrease
     qty_delta = job.qty_produced - old_qty_produced
-    if qty_delta > 0 and order:
+    if qty_delta != 0 and order:
         product_name, schedule_id = _get_product_name_for_order(order, session)
         if product_name:
-            _consume_bom_materials(product_name, qty_delta, schedule_id, session)
+            if qty_delta > 0:
+                _consume_bom_materials(product_name, qty_delta, schedule_id, session)
+            else:
+                _restore_bom_materials(product_name, -qty_delta, schedule_id, session)
 
     # Propagate status changes up (order → plan → schedule)
     if order and (job.status != old_status or qty_delta != 0):
@@ -1549,7 +1713,7 @@ def delete_job(
         job_card_id=job.id,  # type: ignore[arg-type]
         changed_by_user_id=current_user.id,
         changed_by_username=current_user.username,
-        changed_at=datetime.now(tz=timezone.utc),
+        changed_at=now(),
         change_type="deleted",
         field_name="is_active",
         old_value="True",
@@ -1609,6 +1773,7 @@ def update_process_actual_qty(
     # Distribute proportionally by qty_produced, or evenly
     total_estimated = sum(c.qty_produced for c in cards)
     for c in cards:
+        old_actual = c.actual_qty
         if total_estimated > 0:
             c.actual_qty = round(total_actual * (c.qty_produced / total_estimated), 2)
         else:
@@ -1618,10 +1783,10 @@ def update_process_actual_qty(
             job_card_id=c.id,  # type: ignore[arg-type]
             changed_by_user_id=current_user.id,
             changed_by_username=current_user.username,
-            changed_at=datetime.now(tz=timezone.utc),
+            changed_at=now(),
             change_type="updated",
             field_name="actual_qty",
-            old_value=str(c.actual_qty),  # approximate
+            old_value=str(old_actual),
             new_value=str(c.actual_qty),
         ))
         session.add(c)

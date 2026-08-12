@@ -23,9 +23,9 @@ export const Route = createFileRoute("/_auth/dashboard/admin/bom/$id/edit")({
 // Widens a literal path to `string` for routes not yet registered in the tree.
 const dynTo = (s: string) => s
 
-const FG_URL = "/api/v1/inventory?item_type=finished_good&page_size=500"
-const RM_URL = "/api/v1/inventory?item_type=raw_material&page_size=500"
-const SFG_URL = "/api/v1/inventory?item_type=semi_finished&page_size=500"
+const FG_URL = "/api/v1/inventory?item_type=finished_good&page_size=500&include_inactive=false"
+const RM_URL = "/api/v1/inventory?item_type=raw_material&page_size=500&include_inactive=false"
+const SFG_URL = "/api/v1/inventory?item_type=semi_finished&page_size=500&include_inactive=false"
 
 interface BomFormState {
   product_name: string

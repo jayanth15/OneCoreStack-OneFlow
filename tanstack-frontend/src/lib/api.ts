@@ -2,6 +2,31 @@ import { clearAccessToken, getAccessToken, setAccessToken } from "./auth";
 
 type FetchOptions = RequestInit & { skipRefresh?: boolean };
 
+// Single-flight refresh: concurrent 401s share one refresh attempt.
+// The backend rotates refresh tokens, so firing N refreshes at once would
+// revoke all but the first cookie and log the user out.
+let refreshPromise: Promise<boolean> | null = null;
+
+function refreshAccessToken(): Promise<boolean> {
+  if (!refreshPromise) {
+    refreshPromise = fetch("/api/v1/auth/refresh", {
+      method: "POST",
+      credentials: "include",
+    })
+      .then(async (res) => {
+        if (!res.ok) return false;
+        const data = await res.json();
+        setAccessToken(data.access_token);
+        return true;
+      })
+      .catch(() => false)
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
+}
+
 /**
  * Authenticated fetch wrapper.
  * – Attaches the Bearer access token on every request.
@@ -24,15 +49,10 @@ export async function apiFetch(url: string, options: FetchOptions = {}): Promise
   });
 
   if (res.status === 401 && !skipRefresh) {
-    // Attempt silent refresh
-    const refreshRes = await fetch("/api/v1/auth/refresh", {
-      method: "POST",
-      credentials: "include",
-    });
+    // Attempt silent refresh (shared across concurrent 401s)
+    const refreshed = await refreshAccessToken();
 
-    if (refreshRes.ok) {
-      const data = await refreshRes.json();
-      setAccessToken(data.access_token);
+    if (refreshed) {
       // Retry original request once with new token
       return apiFetch(url, { ...options, skipRefresh: true });
     } else {

@@ -51,7 +51,7 @@ function LoginPage() {
         })
       }
 
-      router.navigate({ href: "/dashboard" })
+      router.navigate({ href: "/dashboard", replace: true })
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Login failed")
     } finally {

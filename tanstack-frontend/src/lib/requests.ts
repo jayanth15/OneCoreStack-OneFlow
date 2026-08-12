@@ -142,7 +142,6 @@ export const requestsApi = {
     if (params?.department) search.set("department", params.department);
     if (params?.search) search.set("search", params.search);
     if (params?.only_active !== undefined) search.set("only_active", String(params.only_active));
-    if (params?.search) search.set("search", params.search);
     if (params?.limit !== undefined) search.set("limit", String(params.limit));
     if (params?.offset !== undefined) search.set("offset", String(params.offset));
     const qs = search.toString();

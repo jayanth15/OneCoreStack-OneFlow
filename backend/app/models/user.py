@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from app.core.timezone import now
 from typing import Optional
 
 from sqlmodel import Field, SQLModel
@@ -39,4 +40,4 @@ class User(SQLModel, table=True):
     gate_pass_access: bool = Field(default=False)
     purchase_access: bool = Field(default=False)
     photo_base64: Optional[str] = Field(default=None)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: now())

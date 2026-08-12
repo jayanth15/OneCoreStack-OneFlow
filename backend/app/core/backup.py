@@ -25,6 +25,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from app.core.config import settings
+from app.core.timezone import now as app_now
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +56,7 @@ def perform_backup() -> Path:
 
     Returns the path of the backup file created.
     """
-    now = datetime.now()
+    now = app_now()
     dest_dir = _backup_dir_for(now)
     dest_dir.mkdir(parents=True, exist_ok=True)
     dest_file = dest_dir / "oneflow.db"
@@ -84,7 +85,7 @@ def cleanup_old_backups(retention_days: int = 90) -> None:
     if not base.exists():
         return
 
-    cutoff = datetime.now() - timedelta(days=retention_days)
+    cutoff = app_now() - timedelta(days=retention_days)
 
     for year_dir in sorted(base.iterdir()):
         if not year_dir.is_dir():
@@ -133,7 +134,7 @@ def cleanup_old_backups(retention_days: int = 90) -> None:
 
 def _seconds_until_next_1730() -> float:
     """Return the number of seconds until the next 17:30:00 (today or tomorrow)."""
-    now = datetime.now()
+    now = app_now()
     target = now.replace(hour=17, minute=30, second=0, microsecond=0)
     if now >= target:
         target += timedelta(days=1)
@@ -161,7 +162,7 @@ def _arm_timer() -> None:
     t.daemon = True  # won't block process shutdown
     t.name = "oneflow-db-backup"
     t.start()
-    next_run = datetime.now() + timedelta(seconds=delay)
+    next_run = app_now() + timedelta(seconds=delay)
     logger.info(
         "DB backup scheduled: next run at %s (in %.0f s)",
         next_run.strftime("%Y-%m-%d %H:%M:%S"),

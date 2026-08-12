@@ -4508,8 +4508,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_models_inventory",
-      "community": 28,
-      "community_name": "Stock Adjustment Module",
+      "community": 12,
+      "community_name": "Auth and Inventory Module",
       "norm_label": "inventory.py"
     },
     {
@@ -4519,8 +4519,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "backend_app_models_inventory_inventoryitem",
-      "community": 28,
-      "community_name": "Stock Adjustment Module",
+      "community": 12,
+      "community_name": "Auth and Inventory Module",
       "norm_label": "inventoryitem"
     },
     {
@@ -4530,8 +4530,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_models_inventory_py_sqlmodel",
-      "community": 28,
-      "community_name": "Stock Adjustment Module",
+      "community": 12,
+      "community_name": "Auth and Inventory Module",
       "norm_label": "sqlmodel"
     },
     {
@@ -5773,8 +5773,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_models_unit",
-      "community": 28,
-      "community_name": "Stock Adjustment Module",
+      "community": 194,
+      "community_name": "bom.py",
       "norm_label": "unit.py"
     },
     {
@@ -5784,8 +5784,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "backend_app_models_unit_unit",
-      "community": 28,
-      "community_name": "Stock Adjustment Module",
+      "community": 194,
+      "community_name": "bom.py",
       "norm_label": "unit"
     },
     {
@@ -5795,8 +5795,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_models_unit_py_sqlmodel",
-      "community": 28,
-      "community_name": "Stock Adjustment Module",
+      "community": 194,
+      "community_name": "bom.py",
       "norm_label": "sqlmodel"
     },
     {
@@ -8952,8 +8952,8 @@
       "source_location": "L138",
       "_origin": "ast",
       "id": "backend_app_routers_inventory_inventoryitemcreate",
-      "community": 28,
-      "community_name": "Stock Adjustment Module",
+      "community": 12,
+      "community_name": "Auth and Inventory Module",
       "norm_label": "inventoryitemcreate"
     },
     {
@@ -8963,8 +8963,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_inventory_py_basemodel",
-      "community": 28,
-      "community_name": "Stock Adjustment Module",
+      "community": 12,
+      "community_name": "Auth and Inventory Module",
       "norm_label": "basemodel"
     },
     {
@@ -8974,8 +8974,8 @@
       "source_location": "L157",
       "_origin": "ast",
       "id": "backend_app_routers_inventory_inventoryitemcreate_validate_type",
-      "community": 28,
-      "community_name": "Stock Adjustment Module",
+      "community": 12,
+      "community_name": "Auth and Inventory Module",
       "norm_label": ".validate_type()"
     },
     {
@@ -8985,8 +8985,8 @@
       "source_location": "L163",
       "_origin": "ast",
       "id": "backend_app_routers_inventory_inventoryitemupdate",
-      "community": 28,
-      "community_name": "Stock Adjustment Module",
+      "community": 12,
+      "community_name": "Auth and Inventory Module",
       "norm_label": "inventoryitemupdate"
     },
     {
@@ -8996,8 +8996,8 @@
       "source_location": "L182",
       "_origin": "ast",
       "id": "backend_app_routers_inventory_inventoryitemupdate_validate_type",
-      "community": 28,
-      "community_name": "Stock Adjustment Module",
+      "community": 12,
+      "community_name": "Auth and Inventory Module",
       "norm_label": ".validate_type()"
     },
     {
@@ -9007,8 +9007,8 @@
       "source_location": "L188",
       "_origin": "ast",
       "id": "backend_app_routers_inventory_inventoryitemresponse",
-      "community": 28,
-      "community_name": "Stock Adjustment Module",
+      "community": 12,
+      "community_name": "Auth and Inventory Module",
       "norm_label": "inventoryitemresponse"
     },
     {
@@ -9018,8 +9018,8 @@
       "source_location": "L214",
       "_origin": "ast",
       "id": "backend_app_routers_inventory_paginatedinventoryresponse",
-      "community": 28,
-      "community_name": "Stock Adjustment Module",
+      "community": 12,
+      "community_name": "Auth and Inventory Module",
       "norm_label": "paginatedinventoryresponse"
     },
     {
@@ -9029,8 +9029,8 @@
       "source_location": "L222",
       "_origin": "ast",
       "id": "backend_app_routers_inventory_inventoryitemdetailresponse",
-      "community": 28,
-      "community_name": "Stock Adjustment Module",
+      "community": 12,
+      "community_name": "Auth and Inventory Module",
       "norm_label": "inventoryitemdetailresponse"
     },
     {
@@ -9040,8 +9040,8 @@
       "source_location": "L226",
       "_origin": "ast",
       "id": "backend_app_routers_inventory_adjuststockbody",
-      "community": 28,
-      "community_name": "Stock Adjustment Module",
+      "community": 12,
+      "community_name": "Auth and Inventory Module",
       "norm_label": "adjuststockbody"
     },
     {
@@ -9051,8 +9051,8 @@
       "source_location": "L234",
       "_origin": "ast",
       "id": "backend_app_routers_inventory_adjuststockbody_quantity_non_negative",
-      "community": 28,
-      "community_name": "Stock Adjustment Module",
+      "community": 12,
+      "community_name": "Auth and Inventory Module",
       "norm_label": ".quantity_non_negative()"
     },
     {
@@ -9062,8 +9062,8 @@
       "source_location": "L240",
       "_origin": "ast",
       "id": "backend_app_routers_inventory_historyentryresponse",
-      "community": 28,
-      "community_name": "Stock Adjustment Module",
+      "community": 12,
+      "community_name": "Auth and Inventory Module",
       "norm_label": "historyentryresponse"
     },
     {
@@ -13374,8 +13374,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_routers_units",
-      "community": 270,
-      "community_name": "@hugeicons/react",
+      "community": 194,
+      "community_name": "bom.py",
       "norm_label": "units.py"
     },
     {
@@ -13385,8 +13385,8 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "backend_app_routers_units_unitcreate",
-      "community": 270,
-      "community_name": "@hugeicons/react",
+      "community": 194,
+      "community_name": "bom.py",
       "norm_label": "unitcreate"
     },
     {
@@ -13396,8 +13396,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_units_py_basemodel",
-      "community": 270,
-      "community_name": "@hugeicons/react",
+      "community": 194,
+      "community_name": "bom.py",
       "norm_label": "basemodel"
     },
     {
@@ -13407,8 +13407,8 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "backend_app_routers_units_unitrename",
-      "community": 270,
-      "community_name": "@hugeicons/react",
+      "community": 194,
+      "community_name": "bom.py",
       "norm_label": "unitrename"
     },
     {
@@ -13418,8 +13418,8 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "backend_app_routers_units_unitresponse",
-      "community": 270,
-      "community_name": "@hugeicons/react",
+      "community": 194,
+      "community_name": "bom.py",
       "norm_label": "unitresponse"
     },
     {
@@ -13429,8 +13429,8 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "backend_app_routers_units_usagecountresponse",
-      "community": 270,
-      "community_name": "@hugeicons/react",
+      "community": 194,
+      "community_name": "bom.py",
       "norm_label": "usagecountresponse"
     },
     {
@@ -13440,8 +13440,8 @@
       "source_location": "L49",
       "_origin": "ast",
       "id": "backend_app_routers_units_list_units",
-      "community": 270,
-      "community_name": "@hugeicons/react",
+      "community": 194,
+      "community_name": "bom.py",
       "norm_label": "list_units()"
     },
     {
@@ -13451,8 +13451,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_units_py_session",
-      "community": 270,
-      "community_name": "@hugeicons/react",
+      "community": 194,
+      "community_name": "bom.py",
       "norm_label": "session"
     },
     {
@@ -13462,8 +13462,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_units_py_depends",
-      "community": 270,
-      "community_name": "@hugeicons/react",
+      "community": 194,
+      "community_name": "bom.py",
       "norm_label": "depends"
     },
     {
@@ -13473,8 +13473,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_units_py_user",
-      "community": 270,
-      "community_name": "@hugeicons/react",
+      "community": 194,
+      "community_name": "bom.py",
       "norm_label": "user"
     },
     {
@@ -13484,8 +13484,8 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "backend_app_routers_units_create_unit",
-      "community": 270,
-      "community_name": "@hugeicons/react",
+      "community": 194,
+      "community_name": "bom.py",
       "norm_label": "create_unit()"
     },
     {
@@ -13495,8 +13495,8 @@
       "source_location": "L80",
       "_origin": "ast",
       "id": "backend_app_routers_units_rename_unit",
-      "community": 270,
-      "community_name": "@hugeicons/react",
+      "community": 194,
+      "community_name": "bom.py",
       "norm_label": "rename_unit()"
     },
     {
@@ -13506,8 +13506,8 @@
       "source_location": "L103",
       "_origin": "ast",
       "id": "backend_app_routers_units_get_unit_usage_count",
-      "community": 270,
-      "community_name": "@hugeicons/react",
+      "community": 194,
+      "community_name": "bom.py",
       "norm_label": "get_unit_usage_count()"
     },
     {
@@ -13517,8 +13517,8 @@
       "source_location": "L122",
       "_origin": "ast",
       "id": "backend_app_routers_units_delete_unit",
-      "community": 270,
-      "community_name": "@hugeicons/react",
+      "community": 194,
+      "community_name": "bom.py",
       "norm_label": "delete_unit()"
     },
     {
@@ -18041,8 +18041,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "backend_tests_test_request_units_search_history_links_test_request_preserves_inventory_unit_and_is_searchable",
-      "community": 28,
-      "community_name": "Stock Adjustment Module",
+      "community": 194,
+      "community_name": "bom.py",
       "norm_label": "test_request_preserves_inventory_unit_and_is_searchable()"
     },
     {
@@ -28348,8 +28348,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "frontend_package_dependencies_base_ui_react",
-      "community": 302,
-      "community_name": "@base-ui/react",
+      "community": 48,
+      "community_name": "Community 48",
       "norm_label": "@base-ui/react"
     },
     {
@@ -28359,8 +28359,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "frontend_package_json_base_ui_react",
-      "community": 302,
-      "community_name": "@base-ui/react",
+      "community": 48,
+      "community_name": "Community 48",
       "norm_label": "@base-ui/react"
     },
     {
@@ -28524,8 +28524,8 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "frontend_package_dependencies_next",
-      "community": 48,
-      "community_name": "Community 48",
+      "community": 270,
+      "community_name": "@hugeicons/react",
       "norm_label": "next"
     },
     {
@@ -28535,8 +28535,8 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "next",
-      "community": 48,
-      "community_name": "Community 48",
+      "community": 270,
+      "community_name": "@hugeicons/react",
       "norm_label": "next"
     },
     {
@@ -33530,7 +33530,7 @@
       "label": "Tabs()",
       "file_type": "code",
       "source_file": "tanstack-frontend/src/components/ui/tabs.tsx",
-      "source_location": "L6",
+      "source_location": "L7",
       "_origin": "ast",
       "id": "tanstack_frontend_src_components_ui_tabs_tabs",
       "community": 121,
@@ -33541,7 +33541,7 @@
       "label": "tabsListVariants",
       "file_type": "code",
       "source_file": "tanstack-frontend/src/components/ui/tabs.tsx",
-      "source_location": "L24",
+      "source_location": "L25",
       "_origin": "ast",
       "id": "tanstack_frontend_src_components_ui_tabs_tabslistvariants",
       "community": 121,
@@ -33552,7 +33552,7 @@
       "label": "TabsList()",
       "file_type": "code",
       "source_file": "tanstack-frontend/src/components/ui/tabs.tsx",
-      "source_location": "L39",
+      "source_location": "L40",
       "_origin": "ast",
       "id": "tanstack_frontend_src_components_ui_tabs_tabslist",
       "community": 121,
@@ -33563,7 +33563,7 @@
       "label": "TabsTrigger()",
       "file_type": "code",
       "source_file": "tanstack-frontend/src/components/ui/tabs.tsx",
-      "source_location": "L54",
+      "source_location": "L55",
       "_origin": "ast",
       "id": "tanstack_frontend_src_components_ui_tabs_tabstrigger",
       "community": 121,
@@ -33574,7 +33574,7 @@
       "label": "TabsContent()",
       "file_type": "code",
       "source_file": "tanstack-frontend/src/components/ui/tabs.tsx",
-      "source_location": "L70",
+      "source_location": "L71",
       "_origin": "ast",
       "id": "tanstack_frontend_src_components_ui_tabs_tabscontent",
       "community": 121,
@@ -156789,7 +156789,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tanstack-frontend/src/components/ui/tabs.tsx",
-      "source_location": "L6",
+      "source_location": "L7",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tanstack_frontend_src_components_ui_tabs",
@@ -156800,7 +156800,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tanstack-frontend/src/components/ui/tabs.tsx",
-      "source_location": "L70",
+      "source_location": "L71",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tanstack_frontend_src_components_ui_tabs",
@@ -156811,7 +156811,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tanstack-frontend/src/components/ui/tabs.tsx",
-      "source_location": "L39",
+      "source_location": "L40",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tanstack_frontend_src_components_ui_tabs",
@@ -156822,7 +156822,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tanstack-frontend/src/components/ui/tabs.tsx",
-      "source_location": "L24",
+      "source_location": "L25",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tanstack_frontend_src_components_ui_tabs",
@@ -156833,7 +156833,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tanstack-frontend/src/components/ui/tabs.tsx",
-      "source_location": "L54",
+      "source_location": "L55",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tanstack_frontend_src_components_ui_tabs",
@@ -156845,7 +156845,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tanstack-frontend/src/components/ui/tabs.tsx",
-      "source_location": "L4",
+      "source_location": "L5",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tanstack_frontend_src_components_ui_tabs",
@@ -156857,7 +156857,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tanstack-frontend/src/components/ui/tabs.tsx",
-      "source_location": "L4",
+      "source_location": "L5",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tanstack_frontend_src_components_ui_tabs",
@@ -156882,7 +156882,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tanstack-frontend/src/components/ui/tabs.tsx",
-      "source_location": "L15",
+      "source_location": "L16",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tanstack_frontend_src_components_ui_tabs_tabs",
@@ -156905,7 +156905,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tanstack-frontend/src/components/ui/tabs.tsx",
-      "source_location": "L48",
+      "source_location": "L49",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tanstack_frontend_src_components_ui_tabs_tabslist",
@@ -156918,7 +156918,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tanstack-frontend/src/components/ui/tabs.tsx",
-      "source_location": "L48",
+      "source_location": "L49",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tanstack_frontend_src_components_ui_tabs_tabslist",
@@ -156942,7 +156942,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tanstack-frontend/src/components/ui/tabs.tsx",
-      "source_location": "L58",
+      "source_location": "L59",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tanstack_frontend_src_components_ui_tabs_tabstrigger",
@@ -156966,7 +156966,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tanstack-frontend/src/components/ui/tabs.tsx",
-      "source_location": "L74",
+      "source_location": "L75",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tanstack_frontend_src_components_ui_tabs_tabscontent",

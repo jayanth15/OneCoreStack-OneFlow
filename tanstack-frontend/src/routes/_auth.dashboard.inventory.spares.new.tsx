@@ -47,7 +47,7 @@ function NewSpareCategoryPage() {
       })
       navigate({ href: "/dashboard/inventory/spares" })
     } catch (err: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to create category")
+      setError(err instanceof Error ? err.message : "Failed to create category")
       setSaving(false)
     }
   }

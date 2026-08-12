@@ -221,18 +221,26 @@ function InventoryLanding() {
     weeders: "weeder",
   }
 
-  const countConfigs = LANDING_CARDS.map((c) => ({
+  // Only real inventory-type cards have a countable endpoint; cycle-count and
+  // stock-alerts cards are navigation links (no bogus API calls for them).
+  const countCardIds = new Set([
+    "finished_good",
+    "raw_material",
+    "semi_finished",
+    "scrap",
+    "spares",
+    "consumables",
+    "attachments",
+    "weeders",
+  ])
+
+  const countConfigs = LANDING_CARDS.filter((c) => countCardIds.has(c.id)).map((c) => ({
     id: c.id,
     url:
       c.id === "spares"
         ? "/api/v1/spares/categories"
         : `/api/v1/${c.id === "scrap" ? "inventory?item_type=scrap&page_size=1&include_inactive=false" : `${c.id === "consumables" ? "consumables" : c.id === "attachments" ? "attachments" : c.id === "weeders" ? "weeders" : `inventory?item_type=${c.id}&page_size=1&include_inactive=false`}`}`,
-    enabled:
-      c.id === "cycle_count"
-        ? ALL_INVENTORY_TYPES.some((t) => canAccessInventory(t))
-        : c.id === "stock_alerts"
-          ? true
-          : canAccessInventory(typeMap[c.id] ?? c.id),
+    enabled: canAccessInventory(typeMap[c.id] ?? c.id),
   }))
 
   const countQueries = useQueries({
@@ -250,7 +258,7 @@ function InventoryLanding() {
       out[c.id] = typeof data?.total === "number" ? data.total : null
     })
     return out
-  }, [countQueries, countConfigs])
+  }, [countQueries])
 
   const visibleCards = LANDING_CARDS.filter((c) => {
     if (c.id === "cycle_count") {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Link, createFileRoute } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
 import {
@@ -173,12 +173,24 @@ function SectionTitle({ children, right }: { children: React.ReactNode; right?: 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 function DashboardPage() {
-  const [admin] = useState(() => isAdminOrAbove())
-  const [user] = useState(() => getCurrentUser())
+  // Re-read the session snapshot when the tab regains focus or another tab
+  // updates storage, so permission refreshes are picked up.
+  const [refreshKey, setRefreshKey] = useState(0)
+  useEffect(() => {
+    const bump = () => setRefreshKey((k) => k + 1)
+    window.addEventListener("focus", bump)
+    window.addEventListener("storage", bump)
+    return () => {
+      window.removeEventListener("focus", bump)
+      window.removeEventListener("storage", bump)
+    }
+  }, [])
+  const user = useMemo(() => getCurrentUser(), [refreshKey])
 
-  const canGrn = !!user?.grn_access
-  const canDispatch = !!user?.dispatch_access
-  const canGatePass = !!user?.gate_pass_access
+  const admin = user ? user.role === "admin" || user.role === "super_admin" : isAdminOrAbove()
+  const canGrn = !!user?.grn_access || admin
+  const canDispatch = !!user?.dispatch_access || admin
+  const canGatePass = !!user?.gate_pass_access || admin
 
   const dashboardQuery = useQuery({
     queryKey: ["/api/v1/dashboard"],

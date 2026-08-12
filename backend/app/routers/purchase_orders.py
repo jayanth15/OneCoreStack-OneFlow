@@ -8,19 +8,21 @@ PUT    /api/v1/purchase-orders/{id}        — update PO header + items
 DELETE /api/v1/purchase-orders/{id}        — cancel PO
 """
 from datetime import datetime, timezone
+from app.core.timezone import now
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel import Session, select
+from sqlmodel import Session, func, or_, select
 
 from app.core.database import get_session
-from app.dependencies.auth import get_current_user
+from app.dependencies.auth import get_current_user, require_purchase_access
 from app.models.purchase_order import PurchaseOrder, PurchaseOrderItem
 from app.models.request import Request
 from app.models.request_item import RequestItem
 from app.models.unit import Unit
 from app.models.user import User
 from app.routers.requests_helpers import log_history
+from app.routers.notifications import create_notification
 from app.services.document_numbers import allocate_document_number
 from app.services.workflow import PURCHASE_ORDER_TRANSITIONS, ensure_inventory_identity, ensure_transition
 from app.services.units import resolve_unit_id
@@ -30,6 +32,10 @@ router = APIRouter(prefix="/api/v1/purchase-orders", tags=["purchase-orders"])
 
 def _next_po_number(session: Session) -> str:
     return allocate_document_number(session, key="purchase_order", prefix="PO", existing_model=PurchaseOrder, number_field="po_number")
+
+
+def _require_access(user: User) -> None:
+    require_purchase_access(user)
 
 
 def _sync_linked_purchase_request(session: Session, po: PurchaseOrder, current_user: User, old_status: str | None = None) -> None:
@@ -42,9 +48,9 @@ def _sync_linked_purchase_request(session: Session, po: PurchaseOrder, current_u
     req.status = "received"
     req.acknowledged_by_user_id = current_user.id
     req.acknowledged_by_username = current_user.username
-    req.acknowledged_at = datetime.now(tz=timezone.utc)
+    req.acknowledged_at = now()
     req.acknowledgment_note = f"Linked purchase order {po.po_number} received"
-    req.updated_at = datetime.now(tz=timezone.utc)
+    req.updated_at = now()
     session.add(req)
     log_history(
         session,
@@ -70,31 +76,38 @@ def list_pos(
     page_size: int = 50,
 ) -> dict[str, Any]:
     _require_access(current_user)
-    pos = list(session.exec(
-        select(PurchaseOrder).where(PurchaseOrder.status != "deleted").order_by(PurchaseOrder.id.desc())
-    ).all())  # type: ignore[union-attr]
-
+    q = select(PurchaseOrder).where(PurchaseOrder.status != "deleted")  # type: ignore[union-attr]
     if status_filter:
-        pos = [p for p in pos if p.status == status_filter]
+        q = q.where(PurchaseOrder.status == status_filter)  # type: ignore[union-attr]
     if vendor:
-        pos = [p for p in pos if p.vendor_name == vendor]
+        q = q.where(PurchaseOrder.vendor_name == vendor)  # type: ignore[union-attr]
     if search:
         s = search.lower()
-        pos = [p for p in pos
-               if s in (p.po_number or "").lower()
-               or s in (p.supplier_name or "").lower()]
+        q = q.where(
+            or_(
+                PurchaseOrder.po_number.ilike(f"%{s}%"),  # type: ignore[union-attr]
+                PurchaseOrder.supplier_name.ilike(f"%{s}%"),  # type: ignore[union-attr]
+            )
+        )
+    total = session.exec(select(func.count()).select_from(q.subquery())).one()
+    page = max(1, page)
+    page_size = max(1, min(page_size, 200))
+    pos = list(session.exec(q.order_by(PurchaseOrder.id.desc()).offset((page - 1) * page_size).limit(page_size)).all())  # type: ignore[union-attr]
 
-    total = len(pos)
-    start = (page - 1) * page_size
-    items_page = pos[start: start + page_size]
+    po_ids = [p.id for p in pos if p.id]
+    items_by_po: dict[int, list[PurchaseOrderItem]] = {}
+    if po_ids:
+        for item in session.exec(select(PurchaseOrderItem).where(PurchaseOrderItem.purchase_order_id.in_(po_ids))).all():  # type: ignore[union-attr]
+            items_by_po.setdefault(item.purchase_order_id, []).append(item)
+    unit_ids = {i.unit_id for items in items_by_po.values() for i in items if i.unit_id}
+    units_by_id = {
+        u.id: u
+        for u in session.exec(select(Unit).where(Unit.id.in_(unit_ids))).all()  # type: ignore[union-attr]
+    } if unit_ids else {}
 
-    # Get item counts
     result = []
-    for po in items_page:
-        po_items = session.exec(
-            select(PurchaseOrderItem).where(PurchaseOrderItem.purchase_order_id == po.id)
-        ).all()
-        result.append(_to_dict(po, list(po_items), session))
+    for po in pos:
+        result.append(_to_dict(po, items_by_po.get(po.id or 0, []), units_by_id=units_by_id))
     return {"items": result, "total": total, "page": page, "page_size": page_size}
 
 
@@ -144,6 +157,9 @@ def create_po(
         raise HTTPException(status_code=404, detail="Linked request not found")
     if linked_request and (linked_request.request_type != "vendor_purchase" or linked_request.status not in ("approved", "in_progress")):
         raise HTTPException(status_code=409, detail="Only approved vendor-purchase requests can be linked to a purchase order")
+    status_value = (body.get("status") or "draft")
+    if status_value not in ("draft", "approved"):
+        raise HTTPException(status_code=422, detail="New purchase orders can only be created as 'draft' or 'approved'; receipt status is derived from GRNs")
     if linked_request:
         request_items = list(session.exec(select(RequestItem).where(RequestItem.request_id == linked_request.id)).all())
         submitted = {item.get("request_item_id"): item for item in items if item.get("request_item_id")}
@@ -170,9 +186,9 @@ def create_po(
         po_date=(body.get("po_date") or "").strip() or None,
         expected_delivery=(body.get("expected_delivery") or "").strip() or None,
         notes=(body.get("notes") or "").strip() or None,
-        status=body.get("status") or "draft",
+        status=status_value,
         created_by=current_user.username,
-        created_at=datetime.now(timezone.utc).isoformat(),
+        created_at=now().isoformat(),
         purchase_request_id=body.get("purchase_request_id"),
         purchase_request_number=(body.get("purchase_request_number") or "").strip() or None,
     )
@@ -258,9 +274,6 @@ def update_po(
 
     # Replace items if provided
     if "items" in body:
-        session.exec(  # type: ignore[arg-type]
-            select(PurchaseOrderItem).where(PurchaseOrderItem.purchase_order_id == po_id)
-        )
         # Delete existing items
         existing = list(session.exec(
             select(PurchaseOrderItem).where(PurchaseOrderItem.purchase_order_id == po_id)
@@ -311,27 +324,34 @@ def cancel_po(
         raise HTTPException(status_code=409, detail="Approved or received purchase orders cannot be deleted; cancel them through the workflow")
     po.status = "deleted"
     session.add(po)
+    if po.purchase_request_id:
+        req = session.get(Request, po.purchase_request_id)
+        if req and req.requested_by_user_id:
+            create_notification(
+                session,
+                user_id=req.requested_by_user_id,
+                notif_type="purchase_order_deleted",
+                title=f"Purchase order {po.po_number} cancelled",
+                body=f"Purchase order {po.po_number} linked to your request {req.sn_no} was cancelled.",
+                request_id=req.id,
+            )
     session.commit()
 
 
-def _require_access(user: User) -> None:
-    if user.role in ("admin", "super_admin"):
-        return
-    if getattr(user, "purchase_access", False):
-        return
-    raise HTTPException(status_code=403, detail="Purchase order access required")
-
-
-def _to_dict(po: PurchaseOrder, items: list[PurchaseOrderItem], session: Session | None = None) -> dict[str, Any]:
+def _to_dict(po: PurchaseOrder, items: list[PurchaseOrderItem], session: Session | None = None, units_by_id: dict[int, Unit] | None = None) -> dict[str, Any]:
     total_value = sum(
         (i.quantity or 0) * (i.rate or 0) for i in items if i.rate is not None
     )
     item_list = []
     for i in items:
         i_unit_name = None
-        if i.unit_id and session:
-            u = session.get(Unit, i.unit_id)
-            i_unit_name = u.name if u else None
+        if i.unit_id:
+            if units_by_id is not None:
+                u = units_by_id.get(i.unit_id)
+                i_unit_name = u.name if u else None
+            elif session:
+                u = session.get(Unit, i.unit_id)
+                i_unit_name = u.name if u else None
         item_list.append({
             "id": i.id,
             "item_name": i.item_name,

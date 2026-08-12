@@ -241,7 +241,9 @@ export function RequestForm({
       .map((item) => normalizeItemType(item, permittedTypes, fallbackItemType))
       .filter((i) => i.item_name)
     if (filledItems.length === 0) {
-      // Silently prevent submit — user hasn't entered any items yet.
+      if (items.length > 0) {
+        alert("No items to submit — each item needs a name.")
+      }
       return
     }
     if (!isPurchaseRequest && filledItems.some((i) => !i.department)) {

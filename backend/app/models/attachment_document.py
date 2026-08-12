@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from app.core.timezone import now
 from typing import Optional
 
 from sqlalchemy import Column, LargeBinary
@@ -18,5 +19,5 @@ class AttachmentDocument(SQLModel, table=True):
     document_data: bytes = Field(sa_column=Column(LargeBinary, nullable=False))
     uploaded_by_user_id: Optional[int] = Field(default=None)
     uploaded_by_username: Optional[str] = None
-    uploaded_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))
+    uploaded_at: datetime = Field(default_factory=lambda: now())
     is_active: bool = Field(default=True)

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
 import { Bell, BellOff, CheckCheck, LogOut } from "lucide-react"
 import { apiFetchJson } from "@/lib/api"
@@ -201,6 +202,7 @@ function NotificationBell() {
 
 function UserMenu({ user }: { user: CurrentUser }) {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -227,6 +229,7 @@ function UserMenu({ user }: { user: CurrentUser }) {
 
   async function handleSignOut() {
     await apiLogout()
+    queryClient.clear()
     router.navigate({ href: "/login" })
   }
 

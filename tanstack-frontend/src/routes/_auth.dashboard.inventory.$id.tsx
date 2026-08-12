@@ -80,7 +80,7 @@ interface ItemDetail {
   updated_at: string
   rate: number | null
   weight_value: number | null
-  weight_unit: string | null
+  weight_unit_name: string | null
   image_base64: string | null
   vendor_name?: string | null
   has_design_drawing?: boolean
@@ -291,7 +291,7 @@ function InventoryDetailPage() {
                   {item.weight_value != null && (
                     <span className="flex items-center gap-1">
                       <Scale className="size-3.5" />
-                      Weight: <strong className="text-foreground">{item.weight_value} {item.weight_unit}</strong>
+                      Weight: <strong className="text-foreground">{item.weight_value} {item.weight_unit_name}</strong>
                     </span>
                   )}
                   {(item.item_type === "finished_good" || item.item_type === "semi_finished") && item.vendor_name && (

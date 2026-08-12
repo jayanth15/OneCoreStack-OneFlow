@@ -48,16 +48,19 @@ function useOutsidePointerDown(
   ref: React.RefObject<HTMLElement | null>,
   onOutside: () => void,
 ) {
+  // Keep the latest callback in a ref so the listener is only attached once.
+  const onOutsideRef = React.useRef(onOutside);
+  onOutsideRef.current = onOutside;
   React.useEffect(() => {
     function handler(e: PointerEvent) {
       const target = e.target as Node | null;
       if (target && ref.current && !ref.current.contains(target)) {
-        onOutside();
+        onOutsideRef.current();
       }
     }
     document.addEventListener("pointerdown", handler);
     return () => document.removeEventListener("pointerdown", handler);
-  }, [ref, onOutside]);
+  }, [ref]);
 }
 
 export function SearchCombobox<T>(props: SearchComboboxProps<T>) {

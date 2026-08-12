@@ -131,34 +131,59 @@ def get_dashboard(
         InventoryItem.quantity_on_hand <= InventoryItem.reorder_level,
     )
 
-    low_stock_spares = session.exec(
-        select(func.count()).where(
-            SpareItemVariant.is_active == True,  # noqa: E712
-            SpareItemVariant.reorder_level > 0,
-            SpareItemVariant.qty <= SpareItemVariant.reorder_level,
-        )
-    ).one()
-    low_stock_consumables = session.exec(
-        select(func.count()).where(
-            Consumable.is_active == True,  # noqa: E712
-            Consumable.reorder_level > 0,
-            Consumable.qty <= Consumable.reorder_level,
-        )
-    ).one()
-    low_stock_attachments = session.exec(
-        select(func.count()).where(
-            AttachmentItem.is_active == True,  # noqa: E712
-            AttachmentItem.reorder_level > 0,
-            AttachmentItem.qty <= AttachmentItem.reorder_level,
-        )
-    ).one()
-    low_stock_weeders = session.exec(
-        select(func.count()).where(
-            WeederItem.is_active == True,  # noqa: E712
-            WeederItem.reorder_level > 0,
-            WeederItem.qty <= WeederItem.reorder_level,
-        )
-    ).one()
+    # Aux-module low-stock counts follow the same visibility rule as the
+    # inventory cards: only counted when the user's inventory_access covers
+    # (or does not restrict) that module type.
+    def aux_allowed(aux_type: str) -> bool:
+        if allowed_types is None:
+            return True
+        raw = {
+            t.strip()
+            for t in (current_user.inventory_access or "").split(",")
+            if t.strip()
+        }
+        return aux_type in raw
+
+    low_stock_spares = (
+        session.exec(
+            select(func.count()).where(
+                SpareItemVariant.is_active == True,  # noqa: E712
+                SpareItemVariant.reorder_level > 0,
+                SpareItemVariant.qty <= SpareItemVariant.reorder_level,
+            )
+        ).one()
+        if aux_allowed("spare") else 0
+    )
+    low_stock_consumables = (
+        session.exec(
+            select(func.count()).where(
+                Consumable.is_active == True,  # noqa: E712
+                Consumable.reorder_level > 0,
+                Consumable.qty <= Consumable.reorder_level,
+            )
+        ).one()
+        if aux_allowed("consumable") else 0
+    )
+    low_stock_attachments = (
+        session.exec(
+            select(func.count()).where(
+                AttachmentItem.is_active == True,  # noqa: E712
+                AttachmentItem.reorder_level > 0,
+                AttachmentItem.qty <= AttachmentItem.reorder_level,
+            )
+        ).one()
+        if aux_allowed("attachment") else 0
+    )
+    low_stock_weeders = (
+        session.exec(
+            select(func.count()).where(
+                WeederItem.is_active == True,  # noqa: E712
+                WeederItem.reorder_level > 0,
+                WeederItem.qty <= WeederItem.reorder_level,
+            )
+        ).one()
+        if aux_allowed("weeder") else 0
+    )
     low_stock = low_stock_inv + low_stock_spares + low_stock_consumables + low_stock_attachments + low_stock_weeders
     total_vendors = session.exec(select(func.count()).select_from(Vendor)).one()
     total_schedules = session.exec(select(func.count()).where(Schedule.is_active == True)).one()  # noqa: E712
@@ -352,7 +377,7 @@ def get_inventory_summary(
     Single source of truth for the dashboard inventory cards. Values are only
     returned to admins (parity with the rest of the dashboard analytics).
     """
-    allowed_types = _user_inventory_types(current_user)
+    allowed_types = _raw_inventory_types(current_user)
     admin = is_admin_or_above(current_user)
 
     def allowed(t: str) -> bool:
@@ -513,42 +538,36 @@ def get_low_stock_summary(
         )
     ).all()
 
-    # Collect unique unit IDs from all spare items
-    all_si_ids = set()
-    for v in variant_rows:
-        all_si_ids.add(v.spare_item_id)
-    all_unit_ids = set()
-    for si_id in all_si_ids:
-        si = session.get(SpareItem, si_id)
-        if si and si.unit_id:
-            all_unit_ids.add(si.unit_id)
-    unit_map = {u.id: u.name for u in session.exec(select(Unit).where(Unit.id.in_(all_unit_ids))).all()} if all_unit_ids else {}
+    # Batch-load spare items, categories, sub-categories and units
+    all_si_ids = {v.spare_item_id for v in variant_rows}
+    items_by_id = {
+        si.id: si
+        for si in session.exec(select(SpareItem).where(SpareItem.id.in_(all_si_ids))).all()  # type: ignore[union-attr]
+    } if all_si_ids else {}
+    cat_ids = {si.category_id for si in items_by_id.values() if si.category_id}
+    sub_ids = {si.sub_category_id for si in items_by_id.values() if si.sub_category_id}
+    cats_by_id = {
+        c.id: c
+        for c in session.exec(select(SpareCategory).where(SpareCategory.id.in_(cat_ids))).all()  # type: ignore[union-attr]
+    } if cat_ids else {}
+    subs_by_id = {
+        s.id: s
+        for s in session.exec(select(SpareSubCategory).where(SpareSubCategory.id.in_(sub_ids))).all()  # type: ignore[union-attr]
+    } if sub_ids else {}
+    unit_ids = {si.unit_id for si in items_by_id.values() if si.unit_id}
+    unit_map = {u.id: u.name for u in session.exec(select(Unit).where(Unit.id.in_(unit_ids))).all()} if unit_ids else {}
 
-    cat_cache: dict = {}
-    sub_cache: dict = {}
-    item_cache: dict = {}
     spares_out = []
     for v in variant_rows:
-        if v.spare_item_id not in item_cache:
-            si = session.get(SpareItem, v.spare_item_id)
-            item_cache[v.spare_item_id] = si
-        si = item_cache.get(v.spare_item_id)
+        si = items_by_id.get(v.spare_item_id)
         if not si or not si.is_active:
             continue
-        if si.category_id not in cat_cache:
-            c = session.get(SpareCategory, si.category_id)
-            cat_cache[si.category_id] = c
-        cat = cat_cache.get(si.category_id)
+        cat = cats_by_id.get(si.category_id) if si.category_id else None
         if cat and not cat.is_active:
             continue
-        sub = None
-        if si.sub_category_id:
-            if si.sub_category_id not in sub_cache:
-                sc = session.get(SpareSubCategory, si.sub_category_id)
-                sub_cache[si.sub_category_id] = sc
-            sub = sub_cache.get(si.sub_category_id)
-            if sub and not sub.is_active:
-                continue
+        sub = subs_by_id.get(si.sub_category_id) if si.sub_category_id else None
+        if sub and not sub.is_active:
+            continue
         # Build variant label: prefer color, fallback to serial/part number
         variant_name = v.variant_color or v.serial_number or f"Variant #{v.id}"
         spares_out.append(SpareLowStockItem(

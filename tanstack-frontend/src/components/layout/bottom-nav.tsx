@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { Link, useLocation, useRouter } from "@tanstack/react-router"
 import {
   LayoutDashboard,
@@ -27,9 +28,9 @@ import {
 import { usePwaInstall } from "@/hooks/use-pwa-install"
 import { cn } from "@/lib/utils"
 import { getCurrentUser, ALL_INVENTORY_TYPES, refreshCurrentUser } from "@/lib/user"
+import { apiFetchJson } from "@/lib/api"
 import type { CurrentUser } from "@/lib/user"
 import { apiLogout } from "@/lib/auth"
-import { requestsApi } from "@/lib/requests"
 import { UserAvatar } from "@/components/layout/top-bar"
 
 interface NavItem {
@@ -62,6 +63,7 @@ const ADMIN_MORE_NAV: NavItem[] = [
 ]
 
 export function BottomNav() {
+  const queryClient = useQueryClient()
   const { pathname } = useLocation()
   const router = useRouter()
   const [moreOpen, setMoreOpen] = useState(false)
@@ -77,10 +79,8 @@ export function BottomNav() {
   useEffect(() => {
     async function fetchCounts() {
       try {
-        const [reqs] = await Promise.all([
-          requestsApi.inbox(),
-        ])
-        setRequestCount(reqs.length)
+        const res = await apiFetchJson<{ count: number }>("/api/v1/requests/inbox-count")
+        setRequestCount(res.count ?? 0)
       } catch {
         /* ignore */
       }
@@ -90,6 +90,7 @@ export function BottomNav() {
     return () => clearInterval(interval)
   }, [])
 
+  const applyUserRef = useRef<(u: CurrentUser | null) => void>(() => {})
   useEffect(() => {
     function applyUser(u: CurrentUser | null) {
       setUser(u)
@@ -99,9 +100,22 @@ export function BottomNav() {
       setGatePassAccess(u?.gate_pass_access ?? false)
       setPurchaseAccess(u?.purchase_access ?? false)
     }
+    applyUserRef.current = applyUser
     applyUser(getCurrentUser())
     refreshCurrentUser().then(applyUser)
-  }, [pathname])
+  }, [])
+
+  // Refresh the user snapshot when the tab regains focus (avoids an
+  // /auth/me request on every route change).
+  useEffect(() => {
+    function onFocus() {
+      refreshCurrentUser().then(() => {
+        applyUserRef.current?.(getCurrentUser())
+      })
+    }
+    window.addEventListener("focus", onFocus)
+    return () => window.removeEventListener("focus", onFocus)
+  }, [])
 
   // close more menu on route change
   useEffect(() => {
@@ -110,6 +124,7 @@ export function BottomNav() {
 
   async function handleSignOut() {
     await apiLogout()
+    queryClient.clear()
     router.navigate({ href: "/login" })
   }
 

@@ -1,6 +1,7 @@
 """Read-only inventory consistency checks across all stock domains."""
 from collections import Counter
 from datetime import datetime, timezone
+from app.core.timezone import now
 from math import isclose
 
 from sqlmodel import Session, select
@@ -125,7 +126,7 @@ def build_inventory_reconciliation(session: Session) -> InventoryReconciliationR
         "completed_dispatches": len(dispatches),
     }
     return InventoryReconciliationReport(
-        generated_at=datetime.now(tz=timezone.utc),
+        generated_at=now(),
         summary=ReconciliationSummary(
             issue_count=len(issues),
             critical_count=counts["critical"],

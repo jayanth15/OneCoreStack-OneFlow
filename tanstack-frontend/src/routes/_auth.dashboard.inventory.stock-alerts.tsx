@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { apiFetchJson } from "@/lib/api"
+import { openPrintWindow } from "@/lib/print-report"
 import {
   AlertTriangle, Printer, Package, Wrench, RefreshCw, Box, Layers, FlaskConical, Paperclip, Scissors, List,
 } from "lucide-react"
@@ -293,67 +294,27 @@ function StockAlertsPage() {
   }
 
   function handlePrint() {
-    // Build company header block
     const co = companyInfo
-    const coHtml = (co && co.company_name) ? `
-      <div style="margin-bottom:18px;border-bottom:2px solid #e4e4e7;padding-bottom:14px">
-        <div style="font-size:20px;font-weight:800;color:#111">${co.company_name}</div>
-        ${co.company_address ? `<div style="font-size:12px;color:#555;margin-top:2px">${co.company_address}${co.company_city ? ', ' + co.company_city : ''}${co.company_state ? ', ' + co.company_state : ''}${co.company_pincode ? ' - ' + co.company_pincode : ''}</div>` : ''}
-        <div style="font-size:11px;color:#777;margin-top:4px;display:flex;gap:18px;flex-wrap:wrap">
-          ${co.company_phone ? `<span>&#128222; ${co.company_phone}</span>` : ''}
-          ${co.company_email ? `<span>&#9993; ${co.company_email}</span>` : ''}
-          ${co.company_gstin ? `<span>GSTIN: ${co.company_gstin}</span>` : ''}
-        </div>
-      </div>` : ''
-    const style = `
-      <style>
-        body { font-family: system-ui, sans-serif; margin: 0; padding: 24px; color: #111; }
-        h1 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
-        .sub { font-size: 12px; color: #666; margin-bottom: 20px; }
-        table { width: 100%; border-collapse: collapse; font-size: 12px; }
-        th { background: #f4f4f5; text-align: left; padding: 8px 10px; border: 1px solid #e4e4e7; font-weight: 600; }
-        td { padding: 7px 10px; border: 1px solid #e4e4e7; }
-        .type-spare { color: #7c3aed; font-weight: 600; }
-        .type-consumable { color: #1d4ed8; font-weight: 600; }
-        .type-raw_material { color: #c2410c; font-weight: 600; }
-        .type-finished_good { color: #0f766e; font-weight: 600; }
-        .type-semi_finished { color: #4338ca; font-weight: 600; }
-        .low { color: #b45309; font-weight: 600; }
-        .qty-needed { color: #15803d; font-weight: 600; }
-        @media print { @page { margin: 20mm; } }
-      </style>`
-    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">${style}</head><body>
-      ${coHtml}
-      <h1>&#9888; Stock Alert / Purchase Request</h1>
-      <div class="sub">Generated on ${new Date().toLocaleString("en-IN")} &nbsp;|&nbsp; ${selectedRows.length} item${selectedRows.length !== 1 ? "s" : ""}</div>
-      <table>
-        <thead><tr>
-          <th>#</th><th>Type</th><th>Name / Code</th><th>Category</th>
-          <th style="text-align:right">Current Qty</th>
-          <th style="text-align:right">Reorder Level</th>
-          <th style="text-align:right">Qty Needed</th>
-        </tr></thead>
-        <tbody>
-          ${selectedRows.map((r, i) => `
-            <tr>
-              <td>${i + 1}</td>
-              <td class="type-${r.type}">${
-                r.type === "spare" ? "Spare" :
-                r.type === "consumable" ? "Consumable" :
-                r.type === "raw_material" ? "Raw Material" :
-                r.type === "finished_good" ? "Finished Good" : "Semi Finished"
-              }</td>
-              <td><strong>${r.name}</strong>${r.variant_name ? `<br><span style="color:#7c3aed;font-weight:600">${r.variant_name}</span>` : ""}${r.code ? `<br><span style="color:#666;font-family:monospace">${r.code}</span>` : ""}</td>
-              <td style="color:#666">${r.category}</td>
-              <td style="text-align:right" class="low">${r.qty % 1 === 0 ? r.qty.toFixed(0) : r.qty.toFixed(2)}${r.unit ? " " + r.unit : ""}</td>
-              <td style="text-align:right;color:#666">${r.reorder_level}${r.unit ? " " + r.unit : ""}</td>
-              <td style="text-align:right" class="qty-needed">${qtyNeeded[r.key] || "—"}</td>
-            </tr>`).join("")}
-        </tbody>
-      </table>
-    </body></html>`
-    const w = window.open("", "_blank", "width=900,height=700")
-    if (w) { w.document.write(html); w.document.close(); w.focus(); w.print() }
+    openPrintWindow({
+      title: "Stock Alert / Purchase Request",
+      subtitle: `Generated on ${new Date().toLocaleString("en-IN")}  |  ${selectedRows.length} item${selectedRows.length !== 1 ? "s" : ""}`,
+      companyName: co?.company_name || undefined,
+      companyAddress: [co?.company_address, co?.company_city, co?.company_state, co?.company_pincode].filter(Boolean).join(", ") || undefined,
+      mode: "audit-snapshot",
+      documentLabel: "Stock Alert",
+      columns: ["#", "Type", "Name", "Variant", "Code", "Category", "Current Qty", "Reorder Level", "Qty Needed"],
+      rows: selectedRows.map((r, i) => ({
+        "#": i + 1,
+        "Type": TYPE_CONFIG[r.type].label,
+        "Name": r.name,
+        "Variant": r.variant_name ?? "",
+        "Code": r.code ?? "",
+        "Category": r.category,
+        "Current Qty": `${r.qty % 1 === 0 ? r.qty.toFixed(0) : r.qty.toFixed(2)}${r.unit ? " " + r.unit : ""}`,
+        "Reorder Level": `${r.reorder_level}${r.unit ? " " + r.unit : ""}`,
+        "Qty Needed": qtyNeeded[r.key] || "—",
+      })),
+    })
   }
 
   const fmtQty = (n: number, unit?: string) => {
@@ -483,7 +444,7 @@ function StockAlertsPage() {
                 </thead>
                 <tbody className="divide-y">
                   {displayRows.map(r => (
-                    <tr key={r.key} className={`transition-colors ${selected.has(r.key) ? "bg-warning/15/50" : "hover:bg-muted/20"}`}>
+                    <tr key={r.key} className={`transition-colors ${selected.has(r.key) ? "bg-warning/15" : "hover:bg-muted/20"}`}>
                       <td className="px-3 py-3 text-center">
                         <input type="checkbox" checked={selected.has(r.key)} onChange={() => toggle(r.key)}
                           className="size-4 rounded border-input accent-primary" />
@@ -522,7 +483,7 @@ function StockAlertsPage() {
             {/* Mobile cards */}
             <div className="md:hidden space-y-2">
               {displayRows.map(r => (
-                <div key={r.key} className={`rounded-lg border p-3 space-y-2 ${selected.has(r.key) ? "border-amber-300 bg-warning/15/50" : "bg-card"}`}>
+                <div key={r.key} className={`rounded-lg border p-3 space-y-2 ${selected.has(r.key) ? "border-amber-300 bg-warning/15" : "bg-card"}`}>
                   <div className="flex items-start gap-2">
                     <input type="checkbox" checked={selected.has(r.key)} onChange={() => toggle(r.key)}
                       className="mt-0.5 size-4 rounded border-input accent-primary shrink-0" />

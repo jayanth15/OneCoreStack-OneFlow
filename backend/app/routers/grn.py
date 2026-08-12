@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from app.core.timezone import now
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -6,7 +7,7 @@ from pydantic import BaseModel, Field as PydanticField
 from sqlmodel import Session, func, or_, select
 
 from app.core.database import get_session
-from app.dependencies.auth import get_current_user
+from app.dependencies.auth import get_current_user, require_grn_access
 from app.models.grn import GRNRecord
 from app.models.grn_item import GRNItem
 from app.models.inventory import InventoryItem
@@ -16,6 +17,7 @@ from app.models.purchase_order import PurchaseOrder, PurchaseOrderItem
 from app.models.request import Request
 from app.models.request_item import RequestItem
 from app.routers.requests_helpers import log_history
+from app.routers.notifications import create_notification
 from app.models.unit import Unit
 from app.models.user import User
 
@@ -28,11 +30,6 @@ router = APIRouter(
 
 SessionDep = Annotated[Session, Depends(get_session)]
 CurrentUser = Annotated[User, Depends(get_current_user)]
-
-
-def _require_grn_access(user: User) -> None:
-    if not (user.grn_access or user.role in ("admin", "super_admin")):
-        raise HTTPException(status_code=403, detail="GRN access required")
 
 
 def _next_grn_number(session: Session) -> str:
@@ -187,10 +184,30 @@ class LinkablePROut(BaseModel):
 
 def _build_grn_out(session: Session, grn: GRNRecord) -> GRNOut:
     items = list(session.exec(select(GRNItem).where(GRNItem.grn_id == grn.id)).all())
+    unit_ids = {i.unit_id for i in items if i.unit_id}
+    units_by_id = {
+        u.id: u
+        for u in session.exec(select(Unit).where(Unit.id.in_(unit_ids))).all()  # type: ignore[union-attr]
+    } if unit_ids else {}
+    prs_by_id: dict[int, PurchaseRequest] = {}
+    if grn.purchase_request_id:
+        pr = session.get(PurchaseRequest, grn.purchase_request_id)
+        if pr:
+            prs_by_id[pr.id] = pr  # type: ignore[assignment]
+    return _build_grn_out_batch(grn, items, units_by_id, prs_by_id)
+
+
+def _build_grn_out_batch(
+    grn: GRNRecord,
+    items: list[GRNItem],
+    units_by_id: dict[int, Unit],
+    prs_by_id: dict[int, PurchaseRequest],
+) -> GRNOut:
+    """Assemble a GRNOut without per-item/per-PR database queries."""
     out = GRNOut.model_validate(grn)
     resolved: list[GRNItemOut] = []
     for i in items:
-        unit = session.get(Unit, i.unit_id) if i.unit_id else None
+        unit = units_by_id.get(i.unit_id) if i.unit_id else None
         item_out = GRNItemOut.model_validate(i)
         item_out.unit_id = i.unit_id
         item_out.unit_name = unit.name if unit else None
@@ -198,7 +215,7 @@ def _build_grn_out(session: Session, grn: GRNRecord) -> GRNOut:
         resolved.append(item_out)
     out.items = resolved
     if grn.purchase_request_id:
-        pr = session.get(PurchaseRequest, grn.purchase_request_id)
+        pr = prs_by_id.get(grn.purchase_request_id)
         out.purchase_request_sn_no = pr.sn_no if pr else None
     return out
 
@@ -239,10 +256,11 @@ def _create_grn_items(session: Session, grn_id: int, items_body: list[GRNItemCre
 @router.get("/linkable-prs", response_model=list[LinkablePROut])
 def linkable_prs(
     session: SessionDep,
-    _: CurrentUser,
+    current_user: CurrentUser,
     search: Optional[str] = Query(default=None),
 ) -> list[LinkablePROut]:
     """Return approved + in_progress purchase requests for GRN linking."""
+    require_grn_access(current_user)
     q = select(PurchaseRequest).where(
         PurchaseRequest.is_active == True,  # noqa: E712
         or_(
@@ -259,15 +277,25 @@ def linkable_prs(
             )
         )
     rows = session.exec(q.order_by(PurchaseRequest.id.desc()).limit(30)).all()  # type: ignore[union-attr]
+    inv_ids = [r.inventory_item_id for r in rows if r.inventory_item_id]
+    inv_by_id = {
+        inv.id: inv
+        for inv in session.exec(select(InventoryItem).where(InventoryItem.id.in_(inv_ids))).all()  # type: ignore[union-attr]
+    } if inv_ids else {}
+    unit_ids = {inv.unit_id for inv in inv_by_id.values() if inv.unit_id}
+    unit_by_id = {
+        u.id: u
+        for u in session.exec(select(Unit).where(Unit.id.in_(unit_ids))).all()  # type: ignore[union-attr]
+    } if unit_ids else {}
     result = []
     for r in rows:
         unit_id: Optional[int] = None
         unit_name: Optional[str] = None
         if r.inventory_item_id:
-            inv = session.get(InventoryItem, r.inventory_item_id)
+            inv = inv_by_id.get(r.inventory_item_id)
             if inv:
                 unit_id = inv.unit_id
-                u = session.get(Unit, inv.unit_id) if inv.unit_id else None
+                u = unit_by_id.get(inv.unit_id) if inv.unit_id else None
                 unit_name = u.name if u else None
         result.append(LinkablePROut(
             id=r.id,  # type: ignore[arg-type]
@@ -288,9 +316,10 @@ def linkable_prs(
 def get_linkable_pr_items_endpoint(
     pr_id: int,
     session: SessionDep,
-    _: CurrentUser,
+    current_user: CurrentUser,
 ) -> list[LinkablePROut]:
     """Return line items for a linkable PR. 404 if PR is missing, soft-deleted, or not linkable."""
+    require_grn_access(current_user)
     from app.core.linkable_prs import get_linkable_pr_items as _get
     return _get(session, pr_id)
 
@@ -298,11 +327,12 @@ def get_linkable_pr_items_endpoint(
 @router.get("", response_model=PaginatedGRN)
 def list_grns(
     session: SessionDep,
-    _: CurrentUser,
+    current_user: CurrentUser,
     status_filter: Optional[str] = Query(default=None),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
 ) -> PaginatedGRN:
+    require_grn_access(current_user)
     q = select(GRNRecord).where(GRNRecord.is_active == True)  # noqa: E712
     if status_filter:
         q = q.where(GRNRecord.status == status_filter)
@@ -314,8 +344,23 @@ def list_grns(
             .limit(page_size)
         ).all()
     )
+    grn_ids = [g.id for g in rows if g.id]
+    items_by_grn: dict[int, list[GRNItem]] = {}
+    if grn_ids:
+        for it in session.exec(select(GRNItem).where(GRNItem.grn_id.in_(grn_ids))).all():
+            items_by_grn.setdefault(it.grn_id, []).append(it)
+    unit_ids = {i.unit_id for items in items_by_grn.values() for i in items if i.unit_id}
+    units_by_id = {
+        u.id: u
+        for u in session.exec(select(Unit).where(Unit.id.in_(unit_ids))).all()  # type: ignore[union-attr]
+    } if unit_ids else {}
+    pr_ids = [g.purchase_request_id for g in rows if g.purchase_request_id]
+    prs_by_id = {
+        pr.id: pr
+        for pr in session.exec(select(PurchaseRequest).where(PurchaseRequest.id.in_(pr_ids))).all()  # type: ignore[union-attr]
+    } if pr_ids else {}
     return PaginatedGRN(
-        items=[_build_grn_out(session, grn) for grn in rows],
+        items=[_build_grn_out_batch(grn, items_by_grn.get(grn.id or 0, []), units_by_id, prs_by_id) for grn in rows],
         total=total,
         page=page,
         page_size=page_size,
@@ -329,11 +374,11 @@ def create_grn(
     session: SessionDep,
     current_user: CurrentUser,
 ) -> GRNOut:
-    _require_grn_access(current_user)
+    require_grn_access(current_user)
     if not body.items:
         raise HTTPException(status_code=422, detail="At least one item is required")
 
-    now = datetime.now(tz=timezone.utc)
+    now_ts = now()
     purchase_order = session.get(PurchaseOrder, body.purchase_order_id) if body.purchase_order_id else None
     if body.purchase_order_id and not purchase_order:
         raise HTTPException(status_code=404, detail="Purchase order not found")
@@ -349,12 +394,17 @@ def create_grn(
                 source = matches[0] if len(matches) == 1 else None
             if source is None:
                 raise HTTPException(status_code=422, detail=f"GRN item {received.item_name or ''!r} is not linked to a line on {purchase_order.po_number}")
-            prior = session.exec(
+            prior_received = session.exec(
                 select(func.coalesce(func.sum(GRNItem.quantity_received), 0.0))
                 .join(GRNRecord, GRNRecord.id == GRNItem.grn_id)
                 .where(GRNItem.purchase_order_item_id == source.id, GRNRecord.is_active == True)  # noqa: E712
             ).one()
-            remaining = float(source.quantity) - float(prior or 0)
+            prior_returned = session.exec(
+                select(func.coalesce(func.sum(GRNItem.quantity_returned), 0.0))
+                .join(GRNRecord, GRNRecord.id == GRNItem.grn_id)
+                .where(GRNItem.purchase_order_item_id == source.id, GRNRecord.is_active == True)  # noqa: E712
+            ).one()
+            remaining = float(source.quantity) - float(prior_received or 0) + float(prior_returned or 0)
             if received.quantity_received > remaining + 1e-9:
                 raise HTTPException(status_code=409, detail=f"Cannot receive {received.quantity_received} of {source.item_name}; only {round(remaining, 4)} remains on the PO")
             received.purchase_order_item_id = source.id
@@ -387,8 +437,8 @@ def create_grn(
         po_number=purchase_order.po_number if purchase_order else (body.po_number or None),
         dc_number=body.dc_number or None,
         status="draft",
-        created_at=now,
-        updated_at=now,
+        created_at=now_ts,
+        updated_at=now_ts,
     )
     session.add(grn)
     session.flush()
@@ -404,8 +454,9 @@ def create_grn(
 def get_grn(
     grn_id: int,
     session: SessionDep,
-    _: CurrentUser,
+    current_user: CurrentUser,
 ) -> GRNOut:
+    require_grn_access(current_user)
     grn = session.get(GRNRecord, grn_id)
     if not grn or not grn.is_active:
         raise HTTPException(status_code=404, detail="GRN not found")
@@ -420,12 +471,12 @@ def update_grn(
     current_user: CurrentUser,
 ) -> GRNOut:
     """Update GRN header fields. Items can only be replaced when status is 'draft'."""
-    _require_grn_access(current_user)
+    require_grn_access(current_user)
     grn = session.get(GRNRecord, grn_id)
     if not grn or not grn.is_active:
         raise HTTPException(status_code=404, detail="GRN not found")
 
-    now = datetime.now(tz=timezone.utc)
+    now_ts = now()
 
     # Resolve inspected_by_username
     inspected_username = body.inspected_by_username
@@ -448,7 +499,7 @@ def update_grn(
     grn.dc_number = body.dc_number or None
     grn.inspected_by_user_id = body.inspected_by_user_id
     grn.inspected_by_username = inspected_username or None
-    grn.updated_at = now
+    grn.updated_at = now_ts
 
     # Replace items only when draft AND items were provided
     if body.items is not None:
@@ -485,7 +536,7 @@ def delete_grn(
     if grn.status != "draft":
         raise HTTPException(status_code=409, detail="A stock-affecting GRN cannot be deleted; return its items first")
     grn.is_active = False
-    grn.updated_at = datetime.now(tz=timezone.utc)
+    grn.updated_at = now()
     session.add(grn)
     session.commit()
 
@@ -498,14 +549,14 @@ def fill_items(
     current_user: CurrentUser,
 ) -> GRNOut:
     """Partially or fully move received items into inventory stock."""
-    _require_grn_access(current_user)
+    require_grn_access(current_user)
     grn = session.get(GRNRecord, grn_id)
     if not grn:
         raise HTTPException(status_code=404, detail="GRN not found")
     if grn.status == "stock_filled":
         raise HTTPException(status_code=422, detail="GRN is already fully stock filled")
 
-    now = datetime.now(tz=timezone.utc)
+    now_ts = now()
 
     for entry in body.items:
         if entry.quantity_to_fill <= 0:
@@ -528,13 +579,13 @@ def fill_items(
             if inv:
                 qty_before = inv.quantity_on_hand
                 inv.quantity_on_hand = round(qty_before + actual, 4)
-                inv.updated_at = now
+                inv.updated_at = now_ts
                 session.add(inv)
                 session.add(InventoryHistory(
                     inventory_item_id=inv.id,  # type: ignore[arg-type]
                     changed_by_user_id=current_user.id,  # type: ignore[arg-type]
                     changed_by_username=current_user.username,
-                    changed_at=now,
+                    changed_at=now_ts,
                     change_type="add",
                     quantity_before=qty_before,
                     quantity_after=inv.quantity_on_hand,
@@ -557,16 +608,25 @@ def fill_items(
                     req.status = "received"
                     req.acknowledged_by_user_id = current_user.id
                     req.acknowledged_by_username = current_user.username
-                    req.acknowledged_at = now
+                    req.acknowledged_at = now_ts
                     req.acknowledgment_note = f"Received through {grn.grn_number} for {po.po_number}"
-                    req.updated_at = now
+                    req.updated_at = now_ts
                     session.add(req)
                     log_history(session, req.id, changed_by_user_id=current_user.id, changed_by_username=current_user.username, change_type="grn_received", field_name="status", old_value=old_req_status, new_value="received", note=req.acknowledgment_note)
+                    if req.requested_by_user_id:
+                        create_notification(
+                            session,
+                            user_id=req.requested_by_user_id,
+                            notif_type="request_received",
+                            title=f"Request {req.sn_no} received via GRN",
+                            body=f"Your request {req.sn_no} was received through {grn.grn_number} ({po.po_number}).",
+                            request_id=req.id,
+                        )
     if new_status == "stock_filled":
         grn.stock_filled_by_user_id = current_user.id  # type: ignore[assignment]
         grn.stock_filled_by_username = current_user.username
-        grn.stock_filled_at = now
-    grn.updated_at = now
+        grn.stock_filled_at = now_ts
+    grn.updated_at = now_ts
     session.add(grn)
     session.commit()
     session.refresh(grn)
@@ -581,14 +641,14 @@ def return_items(
     current_user: CurrentUser,
 ) -> GRNOut:
     """Return previously filled quantities back from inventory."""
-    _require_grn_access(current_user)
+    require_grn_access(current_user)
     grn = session.get(GRNRecord, grn_id)
     if not grn:
         raise HTTPException(status_code=404, detail="GRN not found")
     if grn.status == "draft":
         raise HTTPException(status_code=422, detail="Nothing has been filled yet")
 
-    now = datetime.now(tz=timezone.utc)
+    now_ts = now()
 
     for entry in body.items:
         if entry.quantity_to_return <= 0:
@@ -610,14 +670,20 @@ def return_items(
             inv = session.get(InventoryItem, gi.inventory_item_id)
             if inv:
                 qty_before = inv.quantity_on_hand
-                inv.quantity_on_hand = max(0.0, round(qty_before - actual, 4))
-                inv.updated_at = now
+                new_qty = round(qty_before - actual, 4)
+                if new_qty < 0:
+                    raise HTTPException(
+                        status_code=409,
+                        detail=f"Cannot return {actual} of '{gi.item_name}': only {round(qty_before, 4)} on hand",
+                    )
+                inv.quantity_on_hand = new_qty
+                inv.updated_at = now_ts
                 session.add(inv)
                 session.add(InventoryHistory(
                     inventory_item_id=inv.id,  # type: ignore[arg-type]
                     changed_by_user_id=current_user.id,  # type: ignore[arg-type]
                     changed_by_username=current_user.username,
-                    changed_at=now,
+                    changed_at=now_ts,
                     change_type="remove",
                     quantity_before=qty_before,
                     quantity_after=inv.quantity_on_hand,
@@ -627,7 +693,7 @@ def return_items(
 
     all_items = list(session.exec(select(GRNItem).where(GRNItem.grn_id == grn_id)).all())
     grn.status = _recompute_status(all_items)
-    grn.updated_at = now
+    grn.updated_at = now_ts
     session.add(grn)
     session.commit()
     session.refresh(grn)
@@ -641,7 +707,7 @@ def mark_stock_filled(
     current_user: CurrentUser,
 ) -> GRNOut:
     """Backward-compat: fill all remaining quantities in one shot."""
-    _require_grn_access(current_user)
+    require_grn_access(current_user)
     grn = session.get(GRNRecord, grn_id)
     if not grn:
         raise HTTPException(status_code=404, detail="GRN not found")

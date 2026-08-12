@@ -5,6 +5,8 @@ import { PwaRegister } from "../components/layout/pwa-register"
 
 import appCss from "../styles.css?url"
 
+const isDev = import.meta.env.DEV
+
 export const Route = createRootRoute({
   head: () => ({
     meta: [
@@ -13,7 +15,7 @@ export const Route = createRootRoute({
       },
       {
         name: "viewport",
-        content: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no",
+        content: "width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes",
       },
       {
         title: "OneFlow",
@@ -68,17 +70,19 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <body>
         <PwaRegister />
         {children}
-        <TanStackDevtools
-          config={{
-            position: "bottom-right",
-          }}
-          plugins={[
-            {
-              name: "Tanstack Router",
-              render: <TanStackRouterDevtoolsPanel />,
-            },
-          ]}
-        />
+        {isDev && (
+          <TanStackDevtools
+            config={{
+              position: "bottom-right",
+            }}
+            plugins={[
+              {
+                name: "Tanstack Router",
+                render: <TanStackRouterDevtoolsPanel />,
+              },
+            ]}
+          />
+        )}
         <Scripts />
       </body>
     </html>

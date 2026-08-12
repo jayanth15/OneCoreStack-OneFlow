@@ -54,6 +54,8 @@ interface InventoryItem {
   id: number
   code: string
   name: string
+  unit_id?: number | null
+  unit_name?: string | null
 }
 
 type ApiRecord = Record<string, unknown>
@@ -131,7 +133,7 @@ async function fetchInventoryItems(type: string, q: string): Promise<InventoryIt
       const data = await apiFetchJson<unknown>(
         `/api/v1/inventory?item_type=${type}&page_size=50&include_inactive=false${searchParam}`,
       )
-      return itemRows(data).map((i) => ({ id: numberValue(i.id), code: textValue(i.code), name: textValue(i.name) }))
+      return itemRows(data).map((i) => ({ id: numberValue(i.id), code: textValue(i.code), name: textValue(i.name), unit_id: numberValue(i.unit_id) || null, unit_name: textValue(i.unit_name) || null }))
     }
     case "spare": {
       const data = await apiFetchJson<ApiRecord[]>(`/api/v1/spares/variants/search?limit=50${qParam}`)
@@ -139,11 +141,13 @@ async function fetchInventoryItems(type: string, q: string): Promise<InventoryIt
         id: numberValue(v.variant_id),
         code: textValue(v.part_number) || textValue(v.serial_number),
         name: textValue(v.item_name),
+        unit_id: numberValue(v.unit_id) || null,
+        unit_name: textValue(v.unit_name) || null,
       }))
     }
     case "consumable": {
       const data = await apiFetchJson<unknown>(`/api/v1/consumables?page_size=50${searchParam}`)
-      return itemRows(data).map((i) => ({ id: numberValue(i.id), code: textValue(i.code), name: textValue(i.name) }))
+      return itemRows(data).map((i) => ({ id: numberValue(i.id), code: textValue(i.code), name: textValue(i.name), unit_id: numberValue(i.unit_id) || null, unit_name: textValue(i.unit_name) || null }))
     }
     case "attachment": {
       const data = await apiFetchJson<unknown>(`/api/v1/attachments?page_size=50${searchParam}`)
@@ -830,7 +834,13 @@ function POForm({ form, saving, error, onChange, onSubmit, isCreate, purchaseReq
                     onSelect={(inv) => {
                       const newItems = form.items.map((it, i) => (
                         i === idx
-                          ? { ...it, item_name: inv.name, inventory_item_id: inv.id, notes: it.notes || inv.code }
+                          ? {
+                              ...it,
+                              item_name: inv.name,
+                              inventory_item_id: inv.id,
+                              unit: inv.unit_name ?? it.unit,
+                              notes: it.notes || inv.code,
+                            }
                           : it
                       ))
                       onChange({ ...form, items: newItems })

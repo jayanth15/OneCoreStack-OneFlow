@@ -6,7 +6,7 @@ from sqlmodel import Session, select
 
 from app.core.database import get_session
 from app.core.security import hash_password
-from app.dependencies.auth import require_admin
+from app.dependencies.auth import get_current_user, require_admin
 from app.models.department import Department
 from app.models.user import User
 from app.models.user_department import UserDepartment
@@ -217,10 +217,31 @@ def update_user(
     user_id: int,
     body: UserUpdate,
     session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> UserResponse:
     user = session.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+
+    # Prevent lockout: an admin cannot demote/deactivate themselves, and the
+    # last active admin cannot be demoted or deactivated.
+    demoting = body.role is not None and body.role != user.role
+    deactivating = body.is_active is False and user.is_active
+    if user.id == current_user.id and (demoting or deactivating):
+        raise HTTPException(status_code=409, detail="You cannot demote or deactivate your own account")
+    if user.role in ("admin", "super_admin") and (demoting or deactivating):
+        other_admins = session.exec(
+            select(User).where(
+                User.id != user.id,
+                User.role.in_(["admin", "super_admin"]),  # type: ignore[union-attr]
+                User.is_active == True,  # noqa: E712
+            )
+        ).first()
+        if not other_admins:
+            raise HTTPException(
+                status_code=409,
+                detail="Cannot demote or deactivate the last remaining admin",
+            )
 
     if body.username is not None:
         conflict = session.exec(
@@ -283,10 +304,26 @@ def update_user(
 def delete_user(
     user_id: int,
     session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> None:
     user = session.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    if user.id == current_user.id:
+        raise HTTPException(status_code=409, detail="You cannot deactivate your own account")
+    if user.role in ("admin", "super_admin") and user.is_active:
+        other_admins = session.exec(
+            select(User).where(
+                User.id != user.id,
+                User.role.in_(["admin", "super_admin"]),  # type: ignore[union-attr]
+                User.is_active == True,  # noqa: E712
+            )
+        ).first()
+        if not other_admins:
+            raise HTTPException(
+                status_code=409,
+                detail="Cannot deactivate the last remaining admin",
+            )
     user.is_active = False
     session.add(user)
     session.commit()
