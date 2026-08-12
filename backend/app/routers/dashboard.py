@@ -4,6 +4,7 @@ from typing import Annotated, Any, Optional
 
 from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel
+from sqlalchemy import case
 from sqlmodel import Session, func, select
 
 from app.core.database import get_session
@@ -18,6 +19,7 @@ from app.models.inventory_history import InventoryHistory
 from app.models.job_card import JobCard
 from app.models.production_order import ProductionOrder
 from app.models.production_plan import ProductionPlan
+from app.models.spare_item import SpareItem
 from app.models.spare_item_variant import SpareItemVariant
 from app.models.user import User
 from app.models.weeder_item import WeederItem
@@ -87,6 +89,16 @@ class DashboardResponse(BaseModel):
     recent_inventory: list[RecentInventoryActivity]
     recent_production: list[RecentProductionActivity]
     low_stock_items: list[LowStockItem]
+
+
+class InventoryTypeSummary(BaseModel):
+    count: int
+    low_stock: int
+    value: Optional[float] = None  # sum of active stock value; null for non-admin
+
+
+class InventorySummaryResponse(BaseModel):
+    types: dict[str, InventoryTypeSummary]
 
 
 # ── Endpoint ──────────────────────────────────────────────────────────────────
@@ -325,6 +337,158 @@ class LowStockSummary(BaseModel):
     consumables: list[ConsumableLowStockItem]
     attachments: list[AttachmentLowStockItem]
     weeders: list[WeederLowStockItem]
+
+
+# ── Active inventory summary (count / low stock / value per type) ─────────────
+
+
+@router.get("/inventory-summary", response_model=InventorySummaryResponse)
+def get_inventory_summary(
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> InventorySummaryResponse:
+    """Counts + low-stock + value for ACTIVE items, per inventory type.
+
+    Single source of truth for the dashboard inventory cards. Values are only
+    returned to admins (parity with the rest of the dashboard analytics).
+    """
+    allowed_types = _user_inventory_types(current_user)
+    admin = is_admin_or_above(current_user)
+
+    def allowed(t: str) -> bool:
+        return allowed_types is None or t in allowed_types
+
+    types: dict[str, InventoryTypeSummary] = {}
+
+    # ── Main inventory table (FG / RM / Semi) — one grouped query ──────────
+    inv_types = [t for t in ("finished_good", "raw_material", "semi_finished") if allowed(t)]
+    if inv_types:
+        low_expr = case(
+            (
+                (InventoryItem.reorder_level > 0)
+                & (InventoryItem.quantity_on_hand <= InventoryItem.reorder_level),
+                1,
+            ),
+            else_=0,
+        )
+        rows = session.exec(
+            select(
+                InventoryItem.item_type,
+                func.count(),
+                func.sum(low_expr),
+                func.sum(InventoryItem.quantity_on_hand * func.coalesce(InventoryItem.rate, 0)),
+            )
+            .where(
+                InventoryItem.is_active == True,  # noqa: E712
+                InventoryItem.item_type.in_(inv_types),
+            )
+            .group_by(InventoryItem.item_type)
+        ).all()
+        for r in rows:
+            types[r[0]] = InventoryTypeSummary(
+                count=r[1] or 0,
+                low_stock=r[2] or 0,
+                value=round(r[3] or 0, 2) if admin else None,
+            )
+
+    # ── Spares (items; value via active variants) ───────────────────────────
+    if allowed("spare"):
+        spare_low = case(
+            (
+                (SpareItem.reorder_level > 0)
+                & (SpareItem.recorded_qty <= SpareItem.reorder_level),
+                1,
+            ),
+            else_=0,
+        )
+        spare_count = session.exec(
+            select(func.count()).where(
+                SpareItem.is_active == True  # noqa: E712
+            )
+        ).one()
+        spare_low_count = session.exec(
+            select(func.sum(spare_low)).where(
+                SpareItem.is_active == True  # noqa: E712
+            )
+        ).one()
+        spare_value = session.exec(
+            select(
+                func.sum(
+                    SpareItemVariant.qty
+                    * func.coalesce(SpareItemVariant.rate, SpareItem.rate, 0)
+                )
+            )
+            .select_from(SpareItemVariant)
+            .join(SpareItem, SpareItemVariant.spare_item_id == SpareItem.id)
+            .where(
+                SpareItem.is_active == True,  # noqa: E712
+                SpareItemVariant.is_active == True,  # noqa: E712
+            )
+        ).one()
+        types["spare"] = InventoryTypeSummary(
+            count=spare_count or 0,
+            low_stock=spare_low_count or 0,
+            value=round(spare_value or 0, 2) if admin else None,
+        )
+
+    # ── Consumables / Attachments / Weeders — qty × rate_per_unit ───────────
+    def _simple_summary(model, low_expr, value_expr) -> InventoryTypeSummary:
+        count = session.exec(
+            select(func.count()).where(model.is_active == True)  # noqa: E712
+        ).one()
+        low = session.exec(
+            select(func.sum(low_expr)).where(model.is_active == True)  # noqa: E712
+        ).one()
+        value = session.exec(
+            select(func.sum(value_expr)).where(model.is_active == True)  # noqa: E712
+        ).one()
+        return InventoryTypeSummary(
+            count=count or 0,
+            low_stock=low or 0,
+            value=round(value or 0, 2) if admin else None,
+        )
+
+    if allowed("consumable"):
+        types["consumable"] = _simple_summary(
+            Consumable,
+            case(
+                (
+                    (Consumable.reorder_level > 0)
+                    & (Consumable.qty <= Consumable.reorder_level),
+                    1,
+                ),
+                else_=0,
+            ),
+            Consumable.qty * func.coalesce(Consumable.rate_per_unit, 0),
+        )
+    if allowed("attachment"):
+        types["attachment"] = _simple_summary(
+            AttachmentItem,
+            case(
+                (
+                    (AttachmentItem.reorder_level > 0)
+                    & (AttachmentItem.qty <= AttachmentItem.reorder_level),
+                    1,
+                ),
+                else_=0,
+            ),
+            AttachmentItem.qty * func.coalesce(AttachmentItem.rate_per_unit, 0),
+        )
+    if allowed("weeder"):
+        types["weeder"] = _simple_summary(
+            WeederItem,
+            case(
+                (
+                    (WeederItem.reorder_level > 0)
+                    & (WeederItem.qty <= WeederItem.reorder_level),
+                    1,
+                ),
+                else_=0,
+            ),
+            WeederItem.qty * func.coalesce(WeederItem.rate_per_unit, 0),
+        )
+
+    return InventorySummaryResponse(types=types)
 
 
 @router.get("/low-stock", response_model=LowStockSummary)

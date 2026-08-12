@@ -1,0 +1,1182 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import type { FormEvent } from "react"
+import { createFileRoute } from "@tanstack/react-router"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { PageHeader } from "@/components/layout/page-header"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog"
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { apiFetchJson } from "@/lib/api"
+import { getCurrentUser, isAdminOrAbove, refreshCurrentUser } from "@/lib/user"
+import { ClipboardList, Plus, Search, Eye, MoreVertical, X, Minus, Printer, Link2, Pencil, Trash2 } from "lucide-react"
+import { fetchAllPages, openPrintWindow } from "@/lib/print-report"
+
+export const Route = createFileRoute("/_auth/dashboard/gate-passes")({
+  component: GatePassesPage,
+})
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface GatePassAPIItem {
+  id: number;
+  item_name: string;
+  inv_type: string | null;
+  inv_item_id: number | null;
+  quantity: number;
+  unit: string | null;
+}
+
+interface GatePass {
+  id: number;
+  gate_pass_number: string;
+  pass_type: string;
+  party_type: "vendor" | "supplier";
+  vendor_name: string | null;
+  supplier_name: string | null;
+  material: string;
+  quantity: number;
+  unit: string | null;
+  purpose: string | null;
+  vehicle_number: string | null;
+  date: string | null;
+  notes: string | null;
+  status: string;
+  created_by: string | null;
+  created_at: string | null;
+  items: GatePassAPIItem[];
+  purchase_request_id: number | null;
+  purchase_request_number: string | null;
+  purchase_order_id: number | null;
+  purchase_order_number: string | null;
+}
+
+interface GatePassHistoryEntry {
+  id: number;
+  change_type: string;
+  changed_by_username: string | null;
+  changed_at: string;
+  old_status: string | null;
+  new_status: string | null;
+  details?: string[] | string | Record<string, unknown>;
+}
+
+interface GPItemForm {
+  _key: string;
+  inv_type: string;
+  inv_item_id: number | null;
+  item_name: string;
+  quantity: string;
+  unit: string;
+}
+
+interface GPFormState {
+  pass_type: "in" | "out";
+  party_type: "vendor" | "supplier";
+  vendor_name: string;
+  supplier_name: string;
+  items: GPItemForm[];
+  purpose: string;
+  vehicle_number: string;
+  date: string;
+  notes: string;
+  status: string;
+  purchase_request_id: number | null;
+  purchase_request_number: string;
+  purchase_order_id: number | null;
+  purchase_order_number: string;
+}
+
+interface CompanyInfo {
+  company_name: string;
+  company_address: string;
+  company_city: string;
+  company_state: string;
+  company_country: string;
+  company_pincode: string;
+  company_phone: string;
+  company_email: string;
+  company_gstin: string;
+}
+
+interface NameOption { id: number; name: string; }
+
+interface PurchaseOrderOption {
+  id: number;
+  po_number: string;
+  supplier_name: string | null;
+  vendor_name: string | null;
+  party_type: string;
+}
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const STATUS_COLORS: Record<string, string> = {
+  open:   "bg-success/10 text-success",
+  closed: "bg-muted text-muted-foreground",
+};
+
+const PASS_TYPE_COLORS: Record<string, string> = {
+  out: "bg-warning/15 text-warning",
+  in:  "bg-primary/10 text-primary",
+};
+
+const GP_INV_TYPES = [
+  { value: "finished_good", label: "Finished Goods" },
+  { value: "weeder",        label: "Weeder" },
+  { value: "attachment",    label: "Attachment" },
+  { value: "spare",         label: "Spares" },
+  { value: "consumable",    label: "Consumable" },
+  { value: "raw_material",  label: "Raw Material" },
+];
+
+function blankGPItem(): GPItemForm {
+  return {
+    _key: Math.random().toString(36).slice(2),
+    inv_type: "", inv_item_id: null, item_name: "", quantity: "", unit: "",
+  };
+}
+
+function BLANK_FORM(): GPFormState {
+  return {
+    pass_type: "out",
+    party_type: "vendor",
+    vendor_name: "", supplier_name: "",
+    items: [blankGPItem()],
+    purpose: "", vehicle_number: "", date: "", notes: "", status: "open",
+    purchase_request_id: null,
+    purchase_request_number: "",
+    purchase_order_id: null,
+    purchase_order_number: "",
+  };
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
+function GatePassesPage() {
+  const navigate = Route.useNavigate()
+  const queryClient = useQueryClient()
+
+  useEffect(() => {
+    async function verifyAccess() {
+      const cached = getCurrentUser();
+      if (!cached) { navigate({ href: "/login", replace: true }); return; }
+      const user = (await refreshCurrentUser()) ?? cached;
+      const admin = user.role === "admin" || user.role === "super_admin";
+      if (!admin && !user.gate_pass_access) navigate({ href: "/dashboard", replace: true });
+    }
+    void verifyAccess();
+  }, [navigate]);
+
+  const [search, setSearch] = useState("");
+  const [passTypeFilter, setPassTypeFilter] = useState("");
+
+  const [showCreate, setShowCreate] = useState(false);
+  const [createForm, setCreateForm] = useState<GPFormState>(BLANK_FORM());
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  const [editTarget, setEditTarget] = useState<GatePass | null>(null);
+  const [editForm, setEditForm] = useState<GPFormState>(BLANK_FORM());
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const [viewTarget, setViewTarget] = useState<GatePass | null>(null);
+  const [historyTarget, setHistoryTarget] = useState<GatePass | null>(null);
+  const [closingId, setClosingId] = useState<number | null>(null);
+
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // ── Fetch ───────────────────────────────────────────────────────────────────
+
+  const listUrl = useMemo(() => {
+    const params = new URLSearchParams();
+    if (search) params.set("search", search);
+    if (passTypeFilter) params.set("pass_type", passTypeFilter);
+    params.set("page_size", "100");
+    return `/api/v1/gate-passes?${params}`;
+  }, [search, passTypeFilter]);
+
+  const listQuery = useQuery({
+    queryKey: [listUrl],
+    staleTime: 0,
+  })
+
+  const companyQuery = useQuery({ queryKey: ["/api/v1/settings/company"] })
+  const vendorsQuery = useQuery({ queryKey: ["/api/v1/vendors/names"] })
+  const suppliersQuery = useQuery({ queryKey: ["/api/v1/suppliers/names"] })
+  const posQuery = useQuery({ queryKey: ["/api/v1/purchase-orders/linkable"] })
+
+  const historyQuery = useQuery({
+    queryKey: [
+      `/api/v1/gate-passes/${historyTarget?.id}/history?limit=200`,
+    ],
+    enabled: historyTarget !== null,
+    staleTime: 0,
+  })
+
+  // ── Mutations ───────────────────────────────────────────────────────────────
+
+  const createMutation = useMutation({
+    mutationFn: () =>
+      apiFetchJson("/api/v1/gate-passes", {
+        method: "POST",
+        body: JSON.stringify(buildPayload(createForm)),
+      }),
+    onSuccess: () => {
+      setShowCreate(false)
+      setCreateForm(BLANK_FORM())
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/gate-passes"] })
+    },
+    onError: (err: unknown) => {
+      setCreateError(err instanceof Error ? err.message : "Failed to create")
+    },
+  })
+
+  const editMutation = useMutation({
+    mutationFn: () =>
+      apiFetchJson(`/api/v1/gate-passes/${editTarget!.id}`, {
+        method: "PUT",
+        body: JSON.stringify(buildPayload(editForm)),
+      }),
+    onSuccess: () => {
+      setEditTarget(null)
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/gate-passes"] })
+    },
+    onError: (err: unknown) => {
+      setEditError(err instanceof Error ? err.message : "Failed to update")
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (gatePass: GatePass) =>
+      apiFetchJson(`/api/v1/gate-passes/${gatePass.id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      setViewTarget(null)
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/gate-passes"] })
+    },
+    onError: (error: unknown) => {
+      alert(error instanceof Error ? error.message : "Failed to delete gate pass")
+    },
+  })
+
+  const closeMutation = useMutation({
+    mutationFn: (id: number) =>
+      apiFetchJson(`/api/v1/gate-passes/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({ status: "closed" }),
+      }),
+    onSuccess: () => {
+      setViewTarget(null)
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/gate-passes"] })
+    },
+    onError: (e: unknown) => {
+      alert(e instanceof Error ? e.message : "Failed to close gate pass")
+    },
+  })
+
+  // ── Derived data ────────────────────────────────────────────────────────────
+
+  const companyInfo = companyQuery.data as CompanyInfo | null | undefined
+  const vendors = (vendorsQuery.data as NameOption[] | undefined) ?? []
+  const suppliers = (suppliersQuery.data as NameOption[] | undefined) ?? []
+  const purchaseOrders = Array.isArray(posQuery.data) ? (posQuery.data as PurchaseOrderOption[]) : []
+
+  const listData = listQuery.data as { items: GatePass[]; total: number } | undefined
+  const loading = listQuery.isLoading || listQuery.isFetching
+  const passes = listData?.items ?? []
+  const total = listData?.total ?? 0
+
+  const historyRows = (historyQuery.data as GatePassHistoryEntry[] | undefined) ?? []
+  const historyLoading = historyQuery.isLoading
+
+  const createSaving = createMutation.isPending
+  const editSaving = editMutation.isPending
+
+  function buildPayload(form: GPFormState) {
+    const vendor = vendors.find(v => v.name === form.vendor_name);
+    const supplier = suppliers.find(s => s.name === form.supplier_name);
+    const validItems = form.items.filter(it => it.item_name.trim());
+    const first = validItems[0];
+    return {
+      pass_type: form.pass_type,
+      party_type: form.party_type,
+      vendor_id: form.party_type === "vendor" ? (vendor?.id ?? null) : null,
+      vendor_name: form.party_type === "vendor" ? form.vendor_name || null : null,
+      supplier_id: form.party_type === "supplier" ? (supplier?.id ?? null) : null,
+      supplier_name: form.party_type === "supplier" ? form.supplier_name || null : null,
+      material: first?.item_name ?? "",
+      quantity: parseFloat(first?.quantity ?? "0") || 0,
+      unit: first?.unit || null,
+      purpose: form.purpose || null,
+      vehicle_number: form.vehicle_number || null,
+      date: form.date || null,
+      notes: form.notes || null,
+      status: form.status,
+      purchase_request_id: null,
+      purchase_request_number: null,
+      purchase_order_id: form.purchase_order_id,
+      purchase_order_number: form.purchase_order_number || null,
+      items: validItems.map(it => ({
+        item_name: it.item_name.trim(),
+        inv_type: it.inv_type || null,
+        inv_item_id: it.inv_item_id,
+        quantity: parseFloat(it.quantity) || 0,
+        unit: it.unit || null,
+      })),
+    };
+  }
+
+  function handleCreate(e: FormEvent) {
+    e.preventDefault();
+    const validItems = createForm.items.filter(it => it.item_name.trim());
+    if (validItems.length === 0) { setCreateError("At least one item is required"); return; }
+    setCreateError(null);
+    createMutation.mutate();
+  }
+
+  function openEdit(gp: GatePass) {
+    setEditTarget(gp);
+    const partyType: "vendor" | "supplier" = gp.supplier_name ? "supplier" : "vendor";
+    const formItems: GPItemForm[] =
+      gp.items && gp.items.length > 0
+        ? gp.items.map(i => ({
+            _key: Math.random().toString(36).slice(2),
+            inv_type: i.inv_type ?? "",
+            inv_item_id: i.inv_item_id,
+            item_name: i.item_name,
+            quantity: String(i.quantity),
+            unit: i.unit ?? "",
+          }))
+        : [{ ...blankGPItem(), item_name: gp.material || "", quantity: String(gp.quantity), unit: gp.unit ?? "" }];
+    setEditForm({
+      pass_type: (gp.pass_type as "in" | "out") ?? "out",
+      party_type: partyType,
+      vendor_name: gp.vendor_name ?? "",
+      supplier_name: gp.supplier_name ?? "",
+      items: formItems,
+      purpose: gp.purpose ?? "",
+      vehicle_number: gp.vehicle_number ?? "",
+      date: gp.date ?? "",
+      notes: gp.notes ?? "",
+      status: gp.status,
+      purchase_request_id: gp.purchase_request_id,
+      purchase_request_number: gp.purchase_request_number ?? "",
+      purchase_order_id: gp.purchase_order_id,
+      purchase_order_number: gp.purchase_order_number ?? "",
+    });
+    setEditError(null);
+    setViewTarget(null);
+  }
+
+  function handleEdit(e: FormEvent) {
+    e.preventDefault();
+    if (!editTarget) return;
+    const validItems = editForm.items.filter(it => it.item_name.trim());
+    if (validItems.length === 0) { setEditError("At least one item is required"); return; }
+    setEditError(null);
+    editMutation.mutate();
+  }
+
+  function deleteGatePass(gatePass: GatePass) {
+    if (!window.confirm(`Delete gate pass ${gatePass.gate_pass_number}? This action is restricted to admins.`)) return;
+    setClosingId(gatePass.id);
+    deleteMutation.mutate(gatePass, { onSettled: () => setClosingId(null) });
+  }
+
+  function closeGatePass(id: number) {
+    setClosingId(id);
+    closeMutation.mutate(id, { onSettled: () => setClosingId(null) });
+  }
+
+  function openHistory(gp: GatePass) {
+    setHistoryTarget(gp);
+  }
+
+  function printGatePassHistory() {
+    if (!historyTarget) return;
+    openPrintWindow({
+      title: "Gate Pass History — " + historyTarget.gate_pass_number,
+      subtitle: historyRows.length + " audit events",
+      companyName: companyInfo?.company_name,
+      mode: "audit-history",
+      columns: ["Action", "Timestamp", "User", "Status Change", "Details"],
+      rows: historyRows.map(row => ({
+        "Action": row.change_type.replaceAll("_", " "),
+        "Timestamp": new Date(row.changed_at).toLocaleString(),
+        "User": row.changed_by_username ?? "System",
+        "Status Change": row.old_status || row.new_status ? (row.old_status ?? "—") + " → " + (row.new_status ?? "—") : "",
+        "Details": row.details ? (typeof row.details === "string" ? row.details : JSON.stringify(row.details)) : "",
+      })),
+    });
+  }
+
+  function printGatePass(gp: GatePass) {
+    const items = gp.items && gp.items.length > 0 ? gp.items : [{ item_name: gp.material, quantity: gp.quantity, unit: gp.unit, inv_type: null }];
+    const partyName = gp.vendor_name ?? gp.supplier_name ?? "—";
+    const partyLabel = gp.supplier_name ? "Supplier" : "Vendor";
+    openPrintWindow({
+      title: `Gate Pass — ${gp.gate_pass_number}`,
+      subtitle: `${partyLabel}: ${partyName}`,
+      companyName: companyInfo?.company_name,
+      companyAddress: [companyInfo?.company_address, companyInfo?.company_city, companyInfo?.company_state].filter(Boolean).join(", "),
+      mode: "audit-snapshot",
+      documentLabel: "Gate Pass",
+      metadata: [
+        { label: "Status", value: gp.status.replaceAll("_", " ") },
+        { label: "Pass type", value: gp.pass_type === "out" ? "Outward" : "Inward" },
+        { label: partyLabel, value: partyName },
+        { label: "Date", value: gp.date ?? "—" },
+        { label: "Vehicle", value: gp.vehicle_number ?? "—" },
+        { label: "Purpose", value: gp.purpose ?? "—" },
+        { label: "Purchase request", value: gp.purchase_request_number ?? "—" },
+        { label: "Purchase order", value: gp.purchase_order_number ?? "—" },
+        { label: "Created by", value: gp.created_by ?? "—" },
+        { label: "Created at", value: gp.created_at ? new Date(gp.created_at).toLocaleString("en-IN") : "—" },
+        { label: "Notes", value: gp.notes ?? "—" },
+      ],
+      columns: ["#", "Item", "Qty", "Unit"],
+      rows: items.map((it, i) => ({
+        "#": String(i + 1),
+        "Item": it.item_name ?? "",
+        "Qty": String(it.quantity),
+        "Unit": it.unit ?? "",
+      })),
+      extraHeader: [
+        gp.purpose ? `Purpose: ${gp.purpose}` : "",
+        gp.vehicle_number ? `Vehicle: ${gp.vehicle_number}` : "",
+        gp.party_type === "vendor" && gp.purchase_order_number ? "Purchase: " + gp.purchase_order_number : "",
+      ].filter(Boolean).join(" | ") || undefined,
+    });
+  }
+
+  async function printAllGatePasses() {
+    const all = await fetchAllPages(async (page, pageSize) => {
+      const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
+      if (search) params.set("search", search);
+      if (passTypeFilter) params.set("pass_type", passTypeFilter);
+      const data = await apiFetchJson<{ items: GatePass[]; total: number }>(`/api/v1/gate-passes?${params}`);
+      return { items: data.items, total: data.total, page, page_size: pageSize, pages: Math.ceil(data.total / pageSize) };
+    });
+    openPrintWindow({
+      title: "Gate Passes History",
+      subtitle: `${all.length} record${all.length !== 1 ? "s" : ""}`,
+      companyName: companyInfo?.company_name,
+      mode: "audit-snapshot",
+      documentLabel: "Gate Pass Register",
+      columns: ["GP No.", "Type", "Party", "Items", "Date", "Vehicle", "Purpose", "Status", "Purchase Number"],
+      rows: all.map(gp => ({
+        "GP No.": gp.gate_pass_number,
+        "Type": gp.pass_type === "out" ? "Outward" : "Inward",
+        "Party": gp.vendor_name ?? gp.supplier_name ?? "—",
+        "Items": gp.items && gp.items.length > 0
+          ? (gp.items.length === 1 ? gp.items[0].item_name : `${gp.items.length} items`)
+          : gp.material,
+        "Date": gp.date ?? "",
+        "Vehicle": gp.vehicle_number ?? "",
+        "Purpose": gp.purpose ?? "",
+        "Status": gp.status,
+        "Purchase Number": gp.party_type === "vendor" ? (gp.purchase_order_number ?? "") : "",
+      })),
+    });
+  }
+
+  const adminUser = isAdminOrAbove();
+
+  return (
+    <>
+      <PageHeader
+        title="Gate Passes"
+        breadcrumbs={[{ label: "Gate Passes" }]}
+        actions={
+          <>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+              <Input ref={searchRef} className="pl-8 h-8 w-40 text-sm" placeholder="Search…"
+                value={search} onChange={(e) => setSearch(e.target.value)} />
+            </div>
+            <select value={passTypeFilter} onChange={(e) => setPassTypeFilter(e.target.value)}
+              className="h-8 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+              <option value="">All types</option>
+              <option value="out">Outward</option>
+              <option value="in">Inward</option>
+            </select>
+            <Button size="sm" onClick={() => { setCreateForm(BLANK_FORM()); setCreateError(null); setShowCreate(true); }}>
+              <Plus className="size-4 mr-1.5" />New Gate Pass
+            </Button>
+            <Button size="sm" variant="outline" onClick={printAllGatePasses} title="Print all gate passes">
+              <Printer className="size-4" />
+            </Button>
+          </>
+        }
+      />
+
+      {/* ── Create Dialog ── */}
+      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>New Gate Pass</DialogTitle></DialogHeader>
+          <GPForm form={createForm} vendors={vendors} suppliers={suppliers}
+            saving={createSaving} error={createError} onChange={setCreateForm}
+            onSubmit={handleCreate} isCreate purchaseOrders={purchaseOrders} />
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowCreate(false)} disabled={createSaving}>Cancel</Button>
+            <Button disabled={createSaving} onClick={handleCreate}>
+              {createSaving ? "Creating…" : "Create Gate Pass"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── View Dialog ── */}
+      <Dialog open={!!viewTarget} onOpenChange={(o) => { if (!o) setViewTarget(null); }}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ClipboardList className="size-4 text-success" />
+              {viewTarget?.gate_pass_number}
+            </DialogTitle>
+          </DialogHeader>
+          {viewTarget && (
+            <div className="px-4 pb-2 space-y-4">
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                <div>
+                  <p className="text-xs text-muted-foreground">Status</p>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[viewTarget.status] ?? "bg-muted text-muted-foreground"}`}>
+                    {viewTarget.status}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Type</p>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${PASS_TYPE_COLORS[viewTarget.pass_type] ?? "bg-muted text-muted-foreground"}`}>
+                    {viewTarget.pass_type === "out" ? "Outward" : "Inward"}
+                  </span>
+                </div>
+                {(viewTarget.vendor_name || viewTarget.supplier_name) && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">{viewTarget.supplier_name ? "Supplier" : "Vendor"}</p>
+                    <p className="font-medium">{viewTarget.vendor_name ?? viewTarget.supplier_name}</p>
+                  </div>
+                )}
+                {viewTarget.purpose && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Purpose</p>
+                    <p className="font-medium">{viewTarget.purpose}</p>
+                  </div>
+                )}
+                {viewTarget.date && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Date</p>
+                    <p className="font-medium">{viewTarget.date}</p>
+                  </div>
+                )}
+                {viewTarget.vehicle_number && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Vehicle</p>
+                    <p className="font-medium">{viewTarget.vehicle_number}</p>
+                  </div>
+                )}
+                {viewTarget.party_type === "vendor" && viewTarget.purchase_order_number && (
+                  <div>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Link2 className="size-3" />Purchase Number
+                    </p>
+                    <p className="font-medium text-primary">{viewTarget.purchase_order_number}</p>
+                  </div>
+                )}
+                {viewTarget.notes && (
+                  <div className="col-span-2">
+                    <p className="text-xs text-muted-foreground">Notes</p>
+                    <p className="font-medium">{viewTarget.notes}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Items */}
+              {viewTarget.items && viewTarget.items.length > 0 ? (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                    Items ({viewTarget.items.length})
+                  </p>
+                  <div className="space-y-2">
+                    {viewTarget.items.map((item, idx) => (
+                      <div key={idx} className="rounded-lg border bg-muted/40 p-3">
+                        <p className="text-sm font-medium">{item.item_name}</p>
+                        <div className="flex gap-4 text-xs text-muted-foreground mt-0.5">
+                          <span>Qty: {item.quantity}{item.unit ? ` ${item.unit}` : ""}</span>
+                          {item.inv_type && <span className="capitalize">{item.inv_type.replace("_", " ")}</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : viewTarget.material ? (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Material</p>
+                  <div className="rounded-lg border bg-muted/40 p-3">
+                    <p className="text-sm font-medium">{viewTarget.material}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Qty: {viewTarget.quantity}{viewTarget.unit ? ` ${viewTarget.unit}` : ""}
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            {adminUser && viewTarget?.status !== "closed" && (
+              <Button variant="outline" className="text-tone-amber border-orange-200 hover:bg-orange-50"
+                disabled={closingId === viewTarget?.id}
+                onClick={() => viewTarget && closeGatePass(viewTarget.id)}>
+                <X className="size-3.5 mr-1.5" />
+                {closingId === viewTarget?.id ? "Closing…" : "Close Gate Pass"}
+              </Button>
+            )}
+            {adminUser && (
+              <Button variant="outline" onClick={() => viewTarget && openEdit(viewTarget)}>Edit</Button>
+            )}
+            {adminUser && viewTarget && (
+              <Button
+                variant="destructive"
+                onClick={() => deleteGatePass(viewTarget)}
+                disabled={closingId === viewTarget.id}
+              >
+                <Trash2 className="size-3.5 mr-1.5" />Delete
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => viewTarget && printGatePass(viewTarget)}>
+              <Printer className="size-3.5 mr-1.5" />Print
+            </Button>
+            <Button onClick={() => setViewTarget(null)}>Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!historyTarget} onOpenChange={(open) => { if (!open) setHistoryTarget(null); }}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>History — {historyTarget?.gate_pass_number}</DialogTitle></DialogHeader>
+          <div className="px-4 space-y-3">
+            {historyLoading ? <Skeleton className="h-24 w-full" /> : historyRows.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">No history recorded.</p>
+            ) : historyRows.map(row => (
+              <div key={row.id} className="rounded-lg border p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-sm font-medium capitalize">{row.change_type.replaceAll("_", " ")}</p>
+                  <time className="text-xs text-muted-foreground">{new Date(row.changed_at).toLocaleString()}</time>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">By {row.changed_by_username ?? "System"}</p>
+                {(row.old_status || row.new_status) && <p className="text-xs mt-1">Status: {row.old_status ?? "—"} → {row.new_status ?? "—"}</p>}
+                {row.details && <p className="text-xs mt-1 break-words">{typeof row.details === "string" ? row.details : JSON.stringify(row.details)}</p>}
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={printGatePassHistory} disabled={historyRows.length === 0}><Printer className="size-3.5 mr-1.5" />Print</Button>
+            <Button onClick={() => setHistoryTarget(null)}>Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit Dialog ── */}
+      <Dialog open={!!editTarget} onOpenChange={(o) => { if (!o) setEditTarget(null); }}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Edit Gate Pass</DialogTitle></DialogHeader>
+          <GPForm form={editForm} vendors={vendors} suppliers={suppliers}
+            saving={editSaving} error={editError} onChange={setEditForm}
+            onSubmit={handleEdit} isCreate={false} purchaseOrders={purchaseOrders} />
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setEditTarget(null)} disabled={editSaving}>Cancel</Button>
+            <Button disabled={editSaving} onClick={handleEdit}>
+              {editSaving ? "Saving…" : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <div className="p-4 md:p-6 max-w-5xl mx-auto">
+        {!loading && (
+          <p className="mb-4 text-sm text-muted-foreground">
+            <strong className="text-foreground">{total}</strong> gate pass{total !== 1 ? "es" : ""}
+          </p>
+        )}
+        {loading && (
+          <div className="space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-20 w-full rounded-xl" />
+            ))}
+          </div>
+        )}
+        {!loading && passes.length === 0 && (
+          <div className="text-center py-16 text-muted-foreground">
+            <ClipboardList className="size-12 mx-auto mb-3 opacity-20" />
+            <p className="mb-4">No gate passes found.</p>
+            <Button size="sm" onClick={() => { setCreateForm(BLANK_FORM()); setCreateError(null); setShowCreate(true); }}>
+              <Plus className="size-4 mr-1.5" />Create First Gate Pass
+            </Button>
+          </div>
+        )}
+        {!loading && passes.length > 0 && (
+          <div className="space-y-3">
+            {passes.map((gp) => {
+              const partyName = gp.vendor_name ?? gp.supplier_name;
+              const partyLabel = gp.supplier_name ? "Supplier" : "Vendor";
+              const itemSummary =
+                gp.items && gp.items.length > 0
+                  ? gp.items.length === 1
+                    ? gp.items[0].item_name
+                    : `${gp.items.length} items`
+                  : gp.material;
+              return (
+                <div key={gp.id} className="rounded-xl border bg-card p-4 flex items-start gap-4">
+                  <div className="flex size-9 items-center justify-center rounded-lg bg-success/10 text-success shrink-0">
+                    <ClipboardList className="size-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono font-semibold text-sm">{gp.gate_pass_number}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${PASS_TYPE_COLORS[gp.pass_type] ?? "bg-muted text-muted-foreground"}`}>
+                        {gp.pass_type === "out" ? "Outward" : "Inward"}
+                      </span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[gp.status] ?? "bg-muted text-muted-foreground"}`}>
+                        {gp.status}
+                      </span>
+                    </div>
+                    <p className="text-sm font-medium mt-0.5">{itemSummary}</p>
+                    <div className="flex flex-wrap gap-x-4 gap-y-0 text-xs text-muted-foreground mt-1">
+                      {partyName && <span>{partyLabel}: {partyName}</span>}
+                      {gp.items && gp.items.length === 1 && (
+                        <span>Qty: {gp.items[0].quantity}{gp.items[0].unit ? ` ${gp.items[0].unit}` : ""}</span>
+                      )}
+                      {gp.items && gp.items.length > 1 && (
+                        <span className="line-clamp-1">
+                          {gp.items.map(i => `${i.quantity}${i.unit ? ` ${i.unit}` : ""} ${i.item_name}`).join(" · ")}
+                        </span>
+                      )}
+                      {(!gp.items || gp.items.length === 0) && (
+                        <span>Qty: {gp.quantity}{gp.unit ? ` ${gp.unit}` : ""}</span>
+                      )}
+                      {gp.date && <span>{gp.date}</span>}
+                      {gp.vehicle_number && <span>Vehicle: {gp.vehicle_number}</span>}
+                      {gp.purpose && <span>{gp.purpose}</span>}
+                    </div>
+                    {gp.notes && <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{gp.notes}</p>}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button size="icon" variant="ghost" className="size-8" title="Print" onClick={() => printGatePass(gp)}>
+                      <Printer className="size-3.5" />
+                    </Button>
+                    {adminUser && gp.status !== "closed" && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-8 text-tone-amber hover:text-tone-amber hover:bg-orange-50"
+                        title="Close Gate Pass"
+                        disabled={closingId === gp.id}
+                        onClick={() => closeGatePass(gp.id)}
+                      >
+                        <X className="size-3.5" />
+                      </Button>
+                    )}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger render={<Button size="icon" variant="ghost" className="size-8" />}>
+                        <MoreVertical className="size-3.5" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setViewTarget(gp)}>
+                          <Eye className="size-3.5 mr-2" />View Details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openHistory(gp)}>
+                          <ClipboardList className="size-3.5 mr-2" />History
+                        </DropdownMenuItem>
+                        {adminUser && (
+                          <DropdownMenuItem onClick={() => openEdit(gp)}>
+                            <Pencil className="size-3.5 mr-2" />Edit
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+// ── Form ──────────────────────────────────────────────────────────────────────
+
+function GPForm({
+  form, vendors, suppliers, saving, error, onChange, onSubmit, isCreate,
+  purchaseOrders = [],
+}: {
+  form: GPFormState;
+  vendors: NameOption[];
+  suppliers: NameOption[];
+  saving: boolean;
+  error: string | null;
+  onChange: (f: GPFormState) => void;
+  onSubmit: (e: FormEvent) => void;
+  isCreate: boolean;
+  purchaseOrders?: PurchaseOrderOption[];
+}) {
+  function updateItem(key: string, patch: Partial<GPItemForm>) {
+    onChange({ ...form, items: form.items.map(i => i._key === key ? { ...i, ...patch } : i) });
+  }
+  function addItem() {
+    onChange({ ...form, items: [...form.items, blankGPItem()] });
+  }
+  function removeItem(key: string) {
+    if (form.items.length === 1) return;
+    onChange({ ...form, items: form.items.filter(i => i._key !== key) });
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="px-4 space-y-4">
+      {/* Pass Type */}
+      <div className="space-y-1.5">
+        <Label>Pass Type</Label>
+        <div className="flex gap-2">
+          <button type="button"
+            className={`flex-1 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
+              form.pass_type === "out"
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-background text-foreground border-input hover:bg-muted"
+            }`}
+            onClick={() => onChange({ ...form, pass_type: "out" })} disabled={saving}>
+            Outward
+          </button>
+          <button type="button"
+            className={`flex-1 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
+              form.pass_type === "in"
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-background text-foreground border-input hover:bg-muted"
+            }`}
+            onClick={() => onChange({ ...form, pass_type: "in" })} disabled={saving}>
+            Inward
+          </button>
+        </div>
+      </div>
+
+      {/* Party Type */}
+      <div className="space-y-1.5">
+        <Label>Party</Label>
+        <div className="flex gap-2">
+          <button type="button"
+            className={`flex-1 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
+              form.party_type === "vendor"
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-background text-foreground border-input hover:bg-muted"
+            }`}
+            onClick={() => onChange({ ...form, party_type: "vendor", supplier_name: "" })}
+            disabled={saving}>
+            Vendor
+          </button>
+          <button type="button"
+            className={`flex-1 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
+              form.party_type === "supplier"
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-background text-foreground border-input hover:bg-muted"
+            }`}
+            onClick={() => onChange({ ...form, party_type: "supplier", vendor_name: "", purchase_order_id: null, purchase_order_number: "" })}
+            disabled={saving}>
+            Supplier
+          </button>
+        </div>
+      </div>
+
+      {/* Party selector */}
+      {form.party_type === "vendor" ? (
+        <div className="space-y-1.5">
+          <Label htmlFor="gp-vendor">Vendor</Label>
+          <select id="gp-vendor" value={form.vendor_name}
+            onChange={(e) => onChange({ ...form, vendor_name: e.target.value })}
+            disabled={saving}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
+            <option value="">— Select vendor —</option>
+            {vendors.map(v => <option key={v.id} value={v.name}>{v.name}</option>)}
+          </select>
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          <Label htmlFor="gp-supplier">Supplier</Label>
+          <select id="gp-supplier" value={form.supplier_name}
+            onChange={(e) => onChange({ ...form, supplier_name: e.target.value })}
+            disabled={saving}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
+            <option value="">— Select supplier —</option>
+            {suppliers.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+          </select>
+        </div>
+      )}
+
+      {/* Items */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label>Items <span className="text-destructive">*</span></Label>
+          <Button type="button" size="sm" variant="outline" className="h-7 text-xs gap-1"
+            onClick={addItem} disabled={saving}>
+            <Plus className="size-3" /> Add Item
+          </Button>
+        </div>
+        {form.items.map((item, idx) => (
+          <div key={item._key} className="rounded-lg border p-3 space-y-2 bg-muted/20">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">Item {idx + 1}</span>
+              {form.items.length > 1 && (
+                <Button type="button" size="icon" variant="ghost"
+                  className="size-6 text-destructive hover:text-destructive"
+                  onClick={() => removeItem(item._key)} disabled={saving}>
+                  <Minus className="size-3.5" />
+                </Button>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Inventory Type</Label>
+              <select value={item.inv_type}
+                onChange={(e) => updateItem(item._key, { inv_type: e.target.value, inv_item_id: null, item_name: "" })}
+                disabled={saving}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
+                <option value="">— Select type —</option>
+                {GP_INV_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+            </div>
+            {item.inv_type ? (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Item <span className="text-destructive">*</span></Label>
+                <GPInvCombobox
+                  invType={item.inv_type}
+                  value={item.item_name}
+                  disabled={saving}
+                  onSelect={(name, id) => updateItem(item._key, { item_name: name, inv_item_id: id })}
+                />
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Item name <span className="text-destructive">*</span></Label>
+                <Input placeholder="e.g. Steel rods, Motor part…" value={item.item_name}
+                  onChange={(e) => updateItem(item._key, { item_name: e.target.value })} disabled={saving} />
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Quantity</Label>
+                <Input type="number" step="any" placeholder="0" value={item.quantity}
+                  onChange={(e) => updateItem(item._key, { quantity: e.target.value })} disabled={saving} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Unit</Label>
+                <Input placeholder="pcs / kg" value={item.unit}
+                  onChange={(e) => updateItem(item._key, { unit: e.target.value })} disabled={saving} />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="gp-purpose">Purpose</Label>
+        <Input id="gp-purpose" placeholder="Reason for gate pass" value={form.purpose}
+          onChange={(e) => onChange({ ...form, purpose: e.target.value })} disabled={saving} />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="gp-date">Date</Label>
+          <Input id="gp-date" type="date" value={form.date}
+            onChange={(e) => onChange({ ...form, date: e.target.value })} disabled={saving} />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="gp-vehicle">Vehicle No.</Label>
+          <Input id="gp-vehicle" placeholder="e.g. MH12AB1234" value={form.vehicle_number}
+            onChange={(e) => onChange({ ...form, vehicle_number: e.target.value })} disabled={saving} />
+        </div>
+      </div>
+      {!isCreate && (
+        <div className="space-y-1.5">
+          <Label htmlFor="gp-status">Status</Label>
+          <select id="gp-status" value={form.status}
+            onChange={(e) => onChange({ ...form, status: e.target.value })}
+            disabled={saving}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
+            <option value="open">Open</option>
+            <option value="closed">Closed</option>
+          </select>
+        </div>
+      )}
+      <div className="space-y-1.5">
+        <Label htmlFor="gp-notes">Notes</Label>
+        <textarea id="gp-notes" rows={2} placeholder="Remarks…" value={form.notes}
+          onChange={(e) => onChange({ ...form, notes: e.target.value })} disabled={saving}
+          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 resize-none" />
+      </div>
+      {form.party_type === "vendor" && (
+      <div className="space-y-1.5">
+        <Label htmlFor="gp-po">Purchase Number <span className="text-xs text-muted-foreground">(optional)</span></Label>
+        <select id="gp-po" value={form.purchase_order_id ?? ""}
+          onChange={async (e) => {
+            const poId = parseInt(e.target.value);
+            if (!poId) {
+              onChange({ ...form, purchase_order_id: null, purchase_order_number: "" });
+              return;
+            }
+            try {
+              const po = await apiFetchJson<{
+                id: number; po_number: string; party_type: string;
+                supplier_name: string | null; vendor_name: string | null;
+                po_date: string | null; expected_delivery: string | null;
+                items: { item_name: string; quantity: number; unit: string | null }[];
+              }>(`/api/v1/purchase-orders/${poId}`);
+              const items: GPItemForm[] = po.items.length > 0
+                ? po.items.map(it => ({
+                    _key: Math.random().toString(36).slice(2),
+                    inv_type: "", inv_item_id: null,
+                    item_name: it.item_name,
+                    quantity: String(it.quantity),
+                    unit: it.unit ?? "",
+                  }))
+                : [blankGPItem()];
+              const partyType = "vendor" as const;
+              onChange({
+                ...form,
+                party_type: partyType,
+                vendor_name: po.vendor_name ?? "",
+                supplier_name: po.supplier_name ?? "",
+                items,
+                date: po.po_date || po.expected_delivery || form.date,
+                purchase_order_id: po.id,
+                purchase_order_number: po.po_number,
+              });
+            } catch { /* ignore */ }
+          }}
+          disabled={saving}
+          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
+          <option value="">— None —</option>
+          {purchaseOrders.filter(po => po.party_type === "vendor").map(po => (
+            <option key={po.id} value={po.id}>
+              {po.po_number}{po.supplier_name ? ` — ${po.supplier_name}` : po.vendor_name ? ` — ${po.vendor_name}` : ""}
+            </option>
+          ))}
+        </select>
+      </div>
+      )}
+      {error && <p className="text-sm text-destructive">{error}</p>}
+    </form>
+  );
+}
+
+// ── Inventory Combobox ────────────────────────────────────────────────────────
+
+type InvItem = { id: number; name: string; code: string };
+
+function GPInvCombobox({ invType, value, disabled, onSelect }: {
+  invType: string;
+  value: string;
+  disabled: boolean;
+  onSelect: (name: string, id: number) => void;
+}) {
+  const [query, setQuery] = useState(value);
+  const [results, setResults] = useState<InvItem[]>([]);
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    function handler(e: PointerEvent) {
+      const target = e.target as Node | null;
+      if (target && rootRef.current && !rootRef.current.contains(target)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("pointerdown", handler);
+    return () => document.removeEventListener("pointerdown", handler);
+  }, []);
+
+   
+  useEffect(() => { setQuery(value); }, [value]);
+   
+  useEffect(() => { setResults([]); setQuery(""); }, [invType]);
+
+  const doSearch = useCallback((q: string) => {
+    if (!invType) return;
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(async () => {
+      setBusy(true);
+      try {
+        const qs = q.trim() ? `&search=${encodeURIComponent(q)}` : "";
+        let invItems: InvItem[] = [];
+        if (invType === "finished_good") {
+          const d = await apiFetchJson<{ items: { id: number; code: string; name: string }[] }>(
+            `/api/v1/inventory?page_size=12&include_inactive=false&item_type=finished_good${qs}`
+          );
+          invItems = d.items.map(i => ({ id: i.id, code: i.code, name: i.name }));
+        } else if (invType === "raw_material") {
+          const d = await apiFetchJson<{ items: { id: number; code: string; name: string }[] }>(
+            `/api/v1/inventory?page_size=12&include_inactive=false&item_type=raw_material${qs}`
+          );
+          invItems = d.items.map(i => ({ id: i.id, code: i.code, name: i.name }));
+        } else if (invType === "weeder") {
+          const d = await apiFetchJson<{ items: { id: number; sn_no: string | null; name: string | null }[] }>(
+            `/api/v1/weeders?page_size=12${qs}`
+          );
+          invItems = d.items.map(w => ({ id: w.id, code: w.sn_no ?? "", name: w.name ?? w.sn_no ?? "—" }));
+        } else if (invType === "attachment") {
+          const d = await apiFetchJson<{ items: { id: number; sn_no: string | null; description: string | null }[] }>(
+            `/api/v1/attachments?page_size=12${qs}`
+          );
+          invItems = d.items.map(a => ({ id: a.id, code: a.sn_no ?? "", name: a.description ?? a.sn_no ?? "—" }));
+        } else if (invType === "consumable") {
+          const d = await apiFetchJson<{ items: { id: number; code: string | null; name: string }[] }>(
+            `/api/v1/consumables?page_size=12${qs}`
+          );
+          invItems = d.items.map(c => ({ id: c.id, code: c.code ?? "", name: c.name }));
+        } else if (invType === "spare") {
+          const d = await apiFetchJson<{ items: { id: number; part_number: string | null; name: string }[] }>(
+            `/api/v1/spares?page_size=12${qs}`
+          );
+          invItems = d.items.map(s => ({ id: s.id, code: s.part_number ?? "", name: s.name }));
+        }
+        setResults(invItems);
+        setOpen(invItems.length > 0);
+      } catch {
+        setResults([]);
+      } finally { setBusy(false); }
+    }, 250);
+  }, [invType]);
+
+  return (
+    <div className="relative" ref={rootRef}>
+      <Input
+        placeholder={`Search ${invType.replace("_", " ")}…`}
+        value={query}
+        disabled={disabled}
+        onChange={(e) => { setQuery(e.target.value); doSearch(e.target.value); }}
+        onFocus={() => { if (!query) doSearch(""); }}
+        className="text-sm"
+      />
+      {busy && (
+        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">…</span>
+      )}
+      {open && results.length > 0 && (
+        <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md max-h-48 overflow-y-auto">
+          {results.map(item => (
+            <button
+              key={item.id}
+              type="button"
+              className="w-full text-left px-3 py-2 text-sm hover:bg-accent flex items-center gap-2"
+              onMouseDown={() => { onSelect(item.name, item.id); setOpen(false); }}
+            >
+              {item.code && <span className="text-xs font-mono text-muted-foreground shrink-0">{item.code}</span>}
+              <span className="truncate">{item.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,726 @@
+import { useEffect, useRef, useState } from "react"
+import { Link, createFileRoute } from "@tanstack/react-router"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { PageHeader } from "@/components/layout/page-header"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Skeleton } from "@/components/ui/skeleton"
+import { apiFetchJson } from "@/lib/api"
+import { isAdminOrAbove } from "@/lib/user"
+import { ArrowLeft, Info, Plus, Trash2, AlertTriangle, Package } from "lucide-react"
+
+export const Route = createFileRoute("/_auth/dashboard/production/planning/$id/edit")({
+  component: EditPlanPage,
+})
+
+// Widens a literal path to `string` for routes not yet registered in the tree.
+const dynTo = (s: string) => s
+
+// ── Types ─────────────────────────────────────────────────────────────────────────────────
+
+interface ScheduleOption {
+  id: number
+  schedule_number: string
+  customer_name: string
+  description: string
+  scheduled_date: string | null
+  scheduled_qty: number
+  backlog_qty: number
+  status: string
+}
+
+interface PaginatedSchedules {
+  items: ScheduleOption[]
+}
+
+interface ProcessItem {
+  id: number
+  plan_id: number
+  name: string
+  sequence: number
+  notes: string | null
+  estimated_time_minutes: number | null
+  // local editing state
+  _editName?: string
+  _editNotes?: string
+  _editTimeVal?: string      // display value before converting to minutes
+  _editTimeUnit?: "seconds" | "minutes" | "hours"
+}
+
+interface PlanData {
+  id: number
+  plan_number: string
+  title: string
+  schedule_id: number | null
+  planned_qty: number
+  start_date: string | null
+  end_date: string | null
+  notes: string | null
+  status: string
+  is_active: boolean
+  schedule_number: string | null
+  customer_name: string | null
+  product_description: string | null
+  scheduled_qty: number | null
+  backlog_qty: number | null
+  scheduled_date: string | null
+  schedule_status: string | null
+  processes: ProcessItem[]
+}
+
+interface PlanForm {
+  title: string
+  schedule_id: string
+  planned_qty: string
+  start_date: string
+  end_date: string
+  notes: string
+  status: string
+  is_active: boolean
+}
+
+interface MaterialRequirement {
+  item_id: number
+  code: string
+  name: string
+  unit: string
+  item_type: string
+  qty_per_unit: number
+  required_qty: number
+  available_qty: number
+  to_purchase: number
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+function EditPlanPage() {
+  const { id } = Route.useParams()
+  const navigate = Route.useNavigate()
+  const queryClient = useQueryClient()
+  const initDone = useRef(false)
+
+  // Guard: only admins can access this page
+  useEffect(() => {
+    if (!isAdminOrAbove()) navigate({ href: "/dashboard/production/planning", replace: true })
+  }, [navigate])
+
+  const [form, setForm] = useState<PlanForm>({
+    title: "", schedule_id: "", planned_qty: "", start_date: "", end_date: "",
+    notes: "", status: "draft", is_active: true,
+  })
+  const [planNumber, setPlanNumber] = useState("")
+  const [schedules, setSchedules] = useState<ScheduleOption[]>([])
+  const [selectedSched, setSelectedSched] = useState<ScheduleOption | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
+
+  // ── Processes (live CRUD against API) ───────────────────────────────────────────────
+  const [processes, setProcesses] = useState<ProcessItem[]>([])
+  const [processInput, setProcessInput] = useState("")
+  const [procError, setProcError] = useState<string | null>(null)
+
+  // ── Load plan + schedules ───────────────────────────────────────────────────────────
+  const planQuery = useQuery({
+    queryKey: [`/api/v1/production/plans/${id}`],
+    staleTime: 0,
+  })
+  const schedulesQuery = useQuery({
+    queryKey: ["/api/v1/schedules?page_size=200&available_for_planning=true"],
+    staleTime: 5 * 60_000,
+  })
+
+  const plan = planQuery.data as PlanData | undefined
+  const schedResp = schedulesQuery.data as PaginatedSchedules | undefined
+
+  useEffect(() => {
+    if (initDone.current || !plan || !schedResp) return
+    let schedList = schedResp.items
+
+    // If this plan is linked to a schedule that isn't in the available list,
+    // synthesise a ScheduleOption from the plan data so it still shows in the dropdown.
+    if (plan.schedule_id != null && !schedList.some((s) => s.id === plan.schedule_id) && plan.schedule_number) {
+      const synth: ScheduleOption = {
+        id: plan.schedule_id,
+        schedule_number: plan.schedule_number,
+        customer_name: plan.customer_name ?? "",
+        description: plan.product_description ?? "",
+        scheduled_date: plan.scheduled_date ?? null,
+        scheduled_qty: plan.scheduled_qty ?? 0,
+        backlog_qty: plan.backlog_qty ?? 0,
+        status: plan.schedule_status ?? "confirmed",
+      }
+      schedList = [synth, ...schedList]
+    }
+
+    initDone.current = true
+    setSchedules(schedList)
+    setPlanNumber(plan.plan_number)
+    setForm({
+      title: plan.title,
+      schedule_id: plan.schedule_id != null ? String(plan.schedule_id) : "",
+      planned_qty: String(plan.planned_qty ?? 0),
+      start_date: plan.start_date ?? "",
+      end_date: plan.end_date ?? "",
+      notes: plan.notes ?? "",
+      status: plan.status,
+      is_active: plan.is_active,
+    })
+    setProcesses(
+      (plan.processes ?? []).map((p) => ({
+        ...p,
+        _editName: p.name,
+        _editNotes: p.notes ?? "",
+        _editTimeVal: p.estimated_time_minutes != null
+          ? (p.estimated_time_minutes < 1
+              ? String(Math.round(p.estimated_time_minutes * 60))
+              : p.estimated_time_minutes >= 60
+                ? String(+(p.estimated_time_minutes / 60).toFixed(2))
+                : String(p.estimated_time_minutes))
+          : "",
+        _editTimeUnit: (p.estimated_time_minutes != null
+          ? (p.estimated_time_minutes < 1 ? "seconds" : p.estimated_time_minutes >= 60 ? "hours" : "minutes")
+          : "minutes"),
+      }))
+    )
+    if (plan.schedule_id != null) {
+      const found = schedList.find((s) => s.id === plan.schedule_id) ?? null
+      setSelectedSched(found)
+    }
+  }, [plan, schedResp])
+
+  // ── Materials BOM preview ───────────────────────────────────────────────────────────────
+  const qty = parseFloat(form.planned_qty)
+  const bomUrl = selectedSched && qty > 0
+    ? `/api/v1/production/bom-preview?${new URLSearchParams({ product_name: selectedSched.description, planned_qty: String(qty) })}`
+    : null
+  const matsQuery = useQuery({
+    queryKey: [bomUrl ?? "bom-preview-disabled"],
+    enabled: bomUrl !== null,
+    staleTime: 0,
+  })
+  const materials = (matsQuery.data as MaterialRequirement[] | undefined) ?? []
+  const matsLoading = matsQuery.isLoading || matsQuery.isFetching
+  const matsError = matsQuery.error instanceof Error ? matsQuery.error.message : null
+
+  function set(key: string, val: unknown) {
+    setForm((f) => ({ ...f, [key]: val }))
+  }
+
+  function handleScheduleChange(sid: string) {
+    set("schedule_id", sid)
+    const found = sid ? schedules.find((s) => String(s.id) === sid) ?? null : null
+    setSelectedSched(found)
+  }
+
+  // ── Process CRUD helpers ───────────────────────────────────────────────────────────────────────
+
+  const addProcMutation = useMutation({
+    mutationFn: (name: string) => apiFetchJson<ProcessItem>(
+      `/api/v1/production/plans/${id}/processes`,
+      { method: "POST", body: JSON.stringify({ name, sequence: processes.length, notes: null, estimated_time_minutes: null, material_qty: null, waste_qty: null, material_unit: null }) },
+    ),
+    onSuccess: (created) => {
+      setProcesses((p) => [...p, { ...created, _editName: created.name, _editNotes: "", _editTimeVal: "", _editTimeUnit: "minutes" }])
+      setProcessInput("")
+    },
+    onError: (e: unknown) => {
+      setProcError(e instanceof Error ? e.message : "Failed to add process")
+    },
+  })
+
+  const deleteProcMutation = useMutation({
+    mutationFn: (procId: number) => apiFetchJson(`/api/v1/production/plans/${id}/processes/${procId}`, { method: "DELETE" }),
+    onSuccess: (_d: unknown, procId: number) => {
+      setProcesses((p) => p.filter((x) => x.id !== procId))
+    },
+    onError: (e: unknown) => {
+      setProcError(e instanceof Error ? e.message : "Failed to delete process")
+    },
+  })
+
+  const saveProcMutation = useMutation({
+    mutationFn: (proc: ProcessItem) => {
+      const rawTime = proc._editTimeVal !== undefined ? proc._editTimeVal : String(proc.estimated_time_minutes ?? "")
+      const timeUnit = proc._editTimeUnit ?? "minutes"
+      const estimated_time_minutes = rawTime
+        ? ((timeUnit === "hours"
+            ? parseFloat(rawTime) * 60
+            : timeUnit === "seconds"
+              ? parseFloat(rawTime) / 60
+              : parseFloat(rawTime)) || null)
+        : null
+      return apiFetchJson(`/api/v1/production/plans/${id}/processes/${proc.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ name: proc._editName, notes: proc._editNotes?.trim() || null, estimated_time_minutes, material_qty: null, waste_qty: null, material_unit: null }),
+      })
+    },
+    onSuccess: (_d: unknown, proc: ProcessItem) => {
+      const rawTime = proc._editTimeVal !== undefined ? proc._editTimeVal : String(proc.estimated_time_minutes ?? "")
+      const timeUnit = proc._editTimeUnit ?? "minutes"
+      const estimated_time_minutes = rawTime
+        ? ((timeUnit === "hours"
+            ? parseFloat(rawTime) * 60
+            : timeUnit === "seconds"
+              ? parseFloat(rawTime) / 60
+              : parseFloat(rawTime)) || null)
+        : null
+      const notes = proc._editNotes?.trim() || null
+      setProcesses((p) => p.map((x) => x.id === proc.id
+        ? { ...x, name: proc._editName ?? x.name, notes, estimated_time_minutes }
+        : x
+      ))
+    },
+    onError: (_e: unknown, proc: ProcessItem) => {
+      // silently revert
+      setProcesses((p) => p.map((x) => x.id === proc.id
+        ? { ...x, _editName: x.name, _editNotes: x.notes ?? "", _editTimeVal: "", _editTimeUnit: "minutes" }
+        : x
+      ))
+    },
+  })
+
+  function addProcess() {
+    const name = processInput.trim()
+    if (!name || !id) return
+    setProcError(null)
+    addProcMutation.mutate(name)
+  }
+
+  function deleteProcess(procId: number) {
+    if (!id) return
+    setProcError(null)
+    deleteProcMutation.mutate(procId)
+  }
+
+  function updateLocalProcess(procId: number, field: keyof ProcessItem, val: string) {
+    setProcesses((p) => p.map((x) => x.id === procId ? { ...x, [field]: val } : x))
+  }
+
+  function saveProcess(proc: ProcessItem) {
+    if (!id) return
+    const name = proc._editName?.trim()
+    if (!name) return
+    const rawTimeC = proc._editTimeVal !== undefined ? proc._editTimeVal : String(proc.estimated_time_minutes ?? "")
+    if (!rawTimeC || parseFloat(rawTimeC) <= 0) { setProcError("Estimated time is required"); return }
+    // Compute estimated_time_minutes from display value + unit
+    const rawTime = proc._editTimeVal !== undefined ? proc._editTimeVal : String(proc.estimated_time_minutes ?? "")
+    const timeUnit = proc._editTimeUnit ?? "minutes"
+    const estimated_time_minutes = rawTime
+      ? ((timeUnit === "hours"
+          ? parseFloat(rawTime) * 60
+          : timeUnit === "seconds"
+            ? parseFloat(rawTime) / 60
+            : parseFloat(rawTime)) || null)
+      : null
+    const notes = proc._editNotes?.trim() || null
+    // Skip if nothing changed
+    const unchanged = name === proc.name
+      && notes === (proc.notes ?? null)
+      && estimated_time_minutes === proc.estimated_time_minutes
+    if (unchanged) return
+    saveProcMutation.mutate(proc)
+  }
+
+  // ── Save plan ────────────────────────────────────────────────────────────────
+
+  const savePlanMutation = useMutation({
+    mutationFn: () => apiFetchJson(`/api/v1/production/plans/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        title: form.title.trim(),
+        schedule_id: form.schedule_id ? parseInt(form.schedule_id) : null,
+        planned_qty: parseFloat(form.planned_qty) || 0,
+        start_date: form.start_date || null,
+        end_date: form.end_date || null,
+        notes: form.notes || null,
+        status: form.status,
+        is_active: form.is_active,
+      }),
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/production"] })
+      navigate({ href: "/dashboard/production/planning" })
+    },
+    onError: (e: unknown) => {
+      setSaveError(e instanceof Error ? e.message : "Save failed")
+    },
+  })
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault()
+    if (!form.title.trim()) { setSaveError("Title is required"); return }
+    setSaveError(null)
+    savePlanMutation.mutate()
+  }
+
+  const saving = savePlanMutation.isPending
+  const loading = planQuery.isLoading || planQuery.isFetching || schedulesQuery.isLoading
+  const loadErr = (planQuery.error instanceof Error ? planQuery.error.message : null)
+    ?? (schedulesQuery.error instanceof Error ? schedulesQuery.error.message : null)
+  const showMaterials = !!selectedSched && parseFloat(form.planned_qty) > 0
+
+  return (
+    <>
+      <PageHeader
+        title="Edit Production Plan"
+        description={!loading && planNumber ? `Editing ${planNumber} — ${form.title}` : undefined}
+        breadcrumbs={[
+          { label: "Production", href: "/dashboard/production" },
+          { label: "Planning", href: "/dashboard/production/planning" },
+          { label: loading ? "Edit…" : `Edit ${planNumber}` },
+        ]}
+        actions={
+          <Link to={dynTo("/dashboard/production/planning")} className="p-1.5 rounded-md hover:bg-muted transition-colors" aria-label="Back">
+            <ArrowLeft className="size-4" />
+          </Link>
+        }
+      />
+
+      <div className="p-4 md:p-8 max-w-3xl mx-auto">
+        {loadErr ? (
+          <p className="text-sm text-destructive">{loadErr}</p>
+        ) : loading ? (
+          <div className="space-y-5">{Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-9 w-full" />)}</div>
+        ) : (
+          <form onSubmit={handleSave} className="space-y-8">
+
+            {/* ── Schedule ───────────────────────────────────────────────────────────────────────────────── */}
+            <section className="space-y-3">
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Schedule</h2>
+              <div className="space-y-1.5">
+                <Label htmlFor="schedule_id">Customer Schedule</Label>
+                <select id="schedule_id" value={form.schedule_id}
+                  onChange={(e) => handleScheduleChange(e.target.value)} disabled={saving}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
+                  <option value="">— None —</option>
+                  {schedules.map((s) => (
+                    <option key={s.id} value={String(s.id)}>
+                      {s.schedule_number} · {s.customer_name} — {s.description}
+                      {" "}(qty: {(s.scheduled_qty + s.backlog_qty).toLocaleString()}
+                      {s.scheduled_date ? `, delivery: ${s.scheduled_date}` : ""})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {selectedSched && (
+                <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Info className="size-4 text-muted-foreground" />
+                    Schedule Details
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2 text-sm">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Schedule #</p>
+                      <p className="font-mono font-medium">{selectedSched.schedule_number}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Customer</p>
+                      <p className="font-medium">{selectedSched.customer_name}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Product</p>
+                      <p>{selectedSched.description}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Scheduled Qty</p>
+                      <p className="font-medium">{selectedSched.scheduled_qty.toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Backlog Qty</p>
+                      <p className="font-medium">{selectedSched.backlog_qty.toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Total to Produce</p>
+                      <p className="font-medium text-primary">
+                        {(selectedSched.scheduled_qty + selectedSched.backlog_qty).toLocaleString()}
+                      </p>
+                    </div>
+                    {selectedSched.scheduled_date && (
+                      <div>
+                        <p className="text-xs text-muted-foreground">Delivery Date</p>
+                        <p>{selectedSched.scheduled_date}</p>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-xs text-muted-foreground">Schedule Status</p>
+                      <p className="capitalize">{selectedSched.status.replace("_", " ")}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </section>
+
+            {/* ── Plan Details ──────────────────────────────────────────────────────────────────────────────────── */}
+            <section className="space-y-4">
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Plan Details</h2>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="title">Plan Title <span className="text-destructive">*</span></Label>
+                <Input id="title" value={form.title} onChange={(e) => set("title", e.target.value)} disabled={saving} />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="planned_qty">Planned Quantity</Label>
+                <Input id="planned_qty" type="number" min={0} step="any"
+                  value={form.planned_qty} onChange={(e) => set("planned_qty", e.target.value)} disabled={saving} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="start_date">Start Date</Label>
+                  <Input id="start_date" type="date"
+                    value={form.start_date} onChange={(e) => set("start_date", e.target.value)} disabled={saving} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="end_date">End Date</Label>
+                  <Input id="end_date" type="date"
+                    value={form.end_date} onChange={(e) => set("end_date", e.target.value)} disabled={saving} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="status">Status</Label>
+                  <select id="status" value={form.status}
+                    onChange={(e) => set("status", e.target.value)} disabled={saving}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
+                    <option value="draft">Draft</option>
+                    <option value="approved">Approved</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="completed">Completed</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="is_active">Active</Label>
+                  <select id="is_active" value={form.is_active ? "true" : "false"}
+                    onChange={(e) => set("is_active", e.target.value === "true")} disabled={saving}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
+                    <option value="true">Active</option>
+                    <option value="false">Inactive</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="notes">Notes</Label>
+                <textarea id="notes" rows={3} value={form.notes}
+                  onChange={(e) => set("notes", e.target.value)} disabled={saving}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 resize-none" />
+              </div>
+            </section>
+
+            {/* ── Process Steps ───────────────────────────────────────────────────────────────────────────────────────────────── */}
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Process Steps</h2>
+                <span className="text-xs text-muted-foreground">{processes.length} step{processes.length !== 1 ? "s" : ""}</span>
+              </div>
+
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Step name, e.g. Blanking, Numbering, Assembly…"
+                  value={processInput}
+                  onChange={(e) => setProcessInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addProcess() } }}
+                  className="flex-1"
+                />
+                <Button type="button" size="sm" variant="secondary"
+                  onClick={addProcess} disabled={!processInput.trim()}>
+                  <Plus className="size-4 mr-1" />
+                  Add
+                </Button>
+              </div>
+
+              {procError && <p className="text-xs text-destructive">{procError}</p>}
+
+              {processes.length > 0 ? (
+                <div className="rounded-lg border divide-y">
+                  {processes.map((proc, idx) => (
+                    <div key={proc.id} className="flex items-start gap-3 px-3 py-2.5">
+                      <span className="mt-2 flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
+                        {idx + 1}
+                      </span>
+                      <div className="flex-1 space-y-1.5">
+                        <Input
+                          value={proc._editName ?? proc.name}
+                          onChange={(e) => updateLocalProcess(proc.id, "_editName", e.target.value)}
+                          onBlur={() => saveProcess(proc)}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); saveProcess(proc) } }}
+                          className="h-8 text-sm font-medium"
+                        />
+                        <Input
+                          value={proc._editNotes ?? proc.notes ?? ""}
+                          onChange={(e) => updateLocalProcess(proc.id, "_editNotes", e.target.value)}
+                          onBlur={() => saveProcess(proc)}
+                          placeholder="Notes (optional)"
+                          className="h-7 text-xs text-muted-foreground"
+                        />
+                        {/* Time estimate */}
+                        <div className="flex gap-1.5 items-center">
+                          <Input
+                            type="number" min={0} step="any"
+                            value={proc._editTimeVal ?? (proc.estimated_time_minutes != null ? String(proc.estimated_time_minutes) : "")}
+                            onChange={(e) => updateLocalProcess(proc.id, "_editTimeVal", e.target.value)}
+                            onBlur={() => saveProcess(proc)}
+                            placeholder="Est. time"
+                            className="h-7 text-xs w-24"
+                          />
+                          <select
+                            value={proc._editTimeUnit ?? "minutes"}
+                            onChange={(e) => updateLocalProcess(proc.id, "_editTimeUnit", e.target.value)}
+                            onBlur={() => saveProcess(proc)}
+                            className="h-7 text-xs rounded-md border border-input bg-background px-2 focus:outline-none focus:ring-1 focus:ring-ring"
+                          >
+                            <option value="seconds">sec</option>
+                            <option value="minutes">min</option>
+                            <option value="hours">hrs</option>
+                          </select>
+                          <span className="text-xs text-muted-foreground">per unit</span>
+                        </div>
+                        {/* Material usage & waste — removed; managed via BOM */}
+                      </div>
+                      <Button
+                        type="button" variant="ghost" size="icon"
+                        className="mt-1 size-7 text-muted-foreground hover:text-destructive"
+                        onClick={() => deleteProcess(proc.id)}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                  No process steps yet. Add steps like “Blanking”, “Numbering”, “Assembly”…
+                </div>
+              )}
+            </section>
+
+            {/* ── Materials Panel ───────────────────────────────────────────────────────────────────────────────────────────────── */}
+            {showMaterials && (
+              <section className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Package className="size-4 text-muted-foreground" />
+                  <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Material Requirements</h2>
+                  <span className="text-xs text-muted-foreground">— BOM for {selectedSched.description}</span>
+                </div>
+
+                {matsLoading ? (
+                  <div className="rounded-lg border p-6 text-center text-sm text-muted-foreground">Loading material requirements…</div>
+                ) : matsError ? (
+                  <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">{matsError}</div>
+                ) : materials.length === 0 ? (
+                  <div className="rounded-lg border border-dashed p-6 text-center space-y-2">
+                    <p className="text-sm text-muted-foreground">
+                      No BOM defined for &quot;{selectedSched.description}&quot;.
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      An admin can add raw material requirements under{" "}
+                      <Link
+                        to={dynTo(`/dashboard/admin/bom/new?product=${encodeURIComponent(selectedSched.description)}`)}
+                        className="underline hover:text-foreground font-medium"
+                      >
+                        Admin → Bill of Materials
+                      </Link>.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border overflow-hidden">
+                    {/* Mobile cards */}
+                    <div className="md:hidden divide-y">
+                      {materials.map((m) => (
+                        <div key={m.item_id} className="p-3 space-y-1.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="font-medium text-sm truncate">{m.name}</p>
+                              <p className="font-mono text-xs text-muted-foreground">{m.code} <span className="capitalize">· {m.item_type.replace("_", " ")}</span></p>
+                            </div>
+                            {m.to_purchase > 0 ? (
+                              <span className="inline-flex items-center gap-1 text-warning text-xs font-semibold shrink-0">
+                                <AlertTriangle className="size-3" />{m.to_purchase.toLocaleString()} {m.unit}
+                              </span>
+                            ) : (
+                              <span className="text-success text-xs shrink-0">Sufficient</span>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-3 gap-x-3 text-xs">
+                            <div><span className="text-muted-foreground">Per Unit:</span> {m.qty_per_unit} {m.unit}</div>
+                            <div><span className="text-muted-foreground">Required:</span> <span className="font-medium">{m.required_qty.toLocaleString()}</span></div>
+                            <div><span className="text-muted-foreground">In Stock:</span>{" "}
+                              <span className={m.available_qty >= m.required_qty ? "text-success font-medium" : "text-warning font-medium"}>{m.available_qty.toLocaleString()}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Desktop table */}
+                    <div className="hidden md:block overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b bg-muted/40">
+                            <th className="px-3 py-2 text-left font-medium text-xs">Code</th>
+                            <th className="px-3 py-2 text-left font-medium text-xs">Material</th>
+                              <th className="px-3 py-2 text-left font-medium text-xs">Type</th>
+                            <th className="px-3 py-2 text-right font-medium text-xs">Per Unit</th>
+                            <th className="px-3 py-2 text-right font-medium text-xs">Required</th>
+                            <th className="px-3 py-2 text-right font-medium text-xs">In Stock</th>
+                            <th className="px-3 py-2 text-right font-medium text-xs">To Purchase</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {materials.map((m) => (
+                            <tr key={m.item_id} className="border-b last:border-0 hover:bg-muted/20">
+                              <td className="px-3 py-2 font-mono text-xs">{m.code}</td>
+                              <td className="px-3 py-2 font-medium">{m.name}</td>
+                              <td className="px-3 py-2">
+                                <span className="text-xs capitalize text-muted-foreground">{m.item_type.replace("_", " ")}</span>
+                              </td>
+                              <td className="px-3 py-2 text-right text-xs text-muted-foreground">{m.qty_per_unit} {m.unit}</td>
+                              <td className="px-3 py-2 text-right font-medium">{m.required_qty.toLocaleString()} {m.unit}</td>
+                              <td className="px-3 py-2 text-right">
+                                <span className={m.available_qty >= m.required_qty ? "text-success font-medium" : "text-warning font-medium"}>
+                                  {m.available_qty.toLocaleString()}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 text-right">
+                                {m.to_purchase > 0 ? (
+                                  <span className="inline-flex items-center gap-1 text-warning font-semibold">
+                                    <AlertTriangle className="size-3" />
+                                    {m.to_purchase.toLocaleString()} {m.unit}
+                                  </span>
+                                ) : (
+                                  <span className="text-success text-xs">Sufficient</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {materials.some((m) => m.to_purchase > 0) && (
+                      <div className="border-t bg-warning/15 px-3 py-2 text-xs text-amber-800">
+                        Some materials need to be purchased before production can begin.
+                      </div>
+                    )}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {saveError && <p className="text-sm text-destructive">{saveError}</p>}
+
+            <div className="flex gap-3 pt-2">
+              <Button type="submit" disabled={saving} className="flex-1 sm:flex-none">
+                {saving ? "Saving…" : "Save Changes"}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => navigate({ href: "/dashboard/production/planning" })} disabled={saving}>
+                Cancel
+              </Button>
+            </div>
+          </form>
+        )}
+      </div>
+    </>
+  )
+}

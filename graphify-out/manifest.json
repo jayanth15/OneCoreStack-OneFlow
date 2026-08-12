@@ -1743,5 +1743,600 @@
     "mtime": 1786458448.4740763,
     "ast_hash": "1abab42691a8e3d60a50194333ec70b8",
     "semantic_hash": ""
+  },
+  "tanstack-frontend/.cta.json": {
+    "mtime": 1786535827.3123822,
+    "ast_hash": "ef3336d836a577b8ba97c4c7992c1704",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/components.json": {
+    "mtime": 1786535883.7062762,
+    "ast_hash": "152b9f40abca77d4160bb61751f1ded1",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/eslint.config.js": {
+    "mtime": 1786537159.3109412,
+    "ast_hash": "5686c22fd435df97426b5693f2af6347",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/package.json": {
+    "mtime": 1786539101.3427691,
+    "ast_hash": "0891d5c499971668576bce9d3abb698b",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/public/manifest.json": {
+    "mtime": 1786535827.3135607,
+    "ast_hash": "49b913e254d1270fbdb23f6e6ef48359",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/components/dashboard/stat-card.tsx": {
+    "mtime": 1786538728.7348223,
+    "ast_hash": "fda6c9981d358bc8ff4b44f77a9d2792",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/components/inventory/inventory-type-page.tsx": {
+    "mtime": 1786540781.0238378,
+    "ast_hash": "6e1caf47f44cd0b73fc306277c9a7d5d",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/components/layout/auth-guard.tsx": {
+    "mtime": 1786536889.940704,
+    "ast_hash": "26084723212e1465a434ce25cacfb9ea",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/components/layout/bottom-nav.tsx": {
+    "mtime": 1786537076.6486025,
+    "ast_hash": "a3587ecb84aaa36d355f80498346d691",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/components/layout/desktop-sidebar.tsx": {
+    "mtime": 1786537076.647932,
+    "ast_hash": "06eff2d22ef47c0b9149b13c732aea1d",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/components/layout/page-header.tsx": {
+    "mtime": 1786538875.0794637,
+    "ast_hash": "c5a8ab219f634c4f3716ab05da781f33",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/components/layout/top-bar.tsx": {
+    "mtime": 1786536934.2298205,
+    "ast_hash": "0bc76a7ed97374b3693fb953cea507b7",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/components/ui/alert-dialog.tsx": {
+    "mtime": 1786539523.9350247,
+    "ast_hash": "777778977f95f3298e31d4029408d5fc",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/components/ui/badge.tsx": {
+    "mtime": 1786539906.1339312,
+    "ast_hash": "c0b872330668e12cb7a035681357f0b3",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/components/ui/breadcrumb.tsx": {
+    "mtime": 1786538722.021965,
+    "ast_hash": "35bff2d9918464a3d5f90f0645562221",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/components/ui/button.tsx": {
+    "mtime": 1786541345.067986,
+    "ast_hash": "f5e06e73b292751777561aefd44ed658",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/components/ui/dialog.tsx": {
+    "mtime": 1786540665.5416489,
+    "ast_hash": "ab08a5aa46c9a95eaee2df06bc4f94cf",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/components/ui/input.tsx": {
+    "mtime": 1786536855.369648,
+    "ast_hash": "e400c259200c65b4e06b4c5145d2ff01",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/components/ui/label.tsx": {
+    "mtime": 1786536855.542643,
+    "ast_hash": "5173fbe98944eacb6945f57da8abebda",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/components/ui/sheet.tsx": {
+    "mtime": 1786539524.1890137,
+    "ast_hash": "df4bba57c3e0db2831e0e30c3293e413",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/components/ui/skeleton.tsx": {
+    "mtime": 1786539108.5251448,
+    "ast_hash": "89914eb725ac3395bea77b64753a37d4",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/hooks/use-pwa-install.ts": {
+    "mtime": 1786537170.5818875,
+    "ast_hash": "60bfa6256ea11c530a0887a567ab4baf",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/lib/api.ts": {
+    "mtime": 1786536439.2638936,
+    "ast_hash": "f136b186cdcbf4d366ff11da05391905",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/lib/auth.ts": {
+    "mtime": 1786536433.2289422,
+    "ast_hash": "72ca575655ed7b342ee51bc315000e40",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/lib/print-report.ts": {
+    "mtime": 1786536595.9432683,
+    "ast_hash": "abb8ae124866dd2c39ec76c13bbc43d8",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/lib/query-client.ts": {
+    "mtime": 1786536526.7196798,
+    "ast_hash": "576207d9f13411349de4751807399f5f",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/lib/receipts.ts": {
+    "mtime": 1786536480.0254328,
+    "ast_hash": "0832e0d83854d4fbb897dd49b9007fd0",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/lib/requests.ts": {
+    "mtime": 1786536480.0224328,
+    "ast_hash": "cbe941a28ae52c0cbf2e70015d05c8c2",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/lib/theme.ts": {
+    "mtime": 1786536461.5576682,
+    "ast_hash": "b9f61af3ddb07ae5ce32689eeee9515c",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/lib/user.ts": {
+    "mtime": 1786536454.7277446,
+    "ast_hash": "6e3e8dc73e3883e71e0a08e72aff5536",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/lib/utils.ts": {
+    "mtime": 1786536526.7196798,
+    "ast_hash": "944ee987debf34e6d77ddb905fa41283",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routeTree.gen.ts": {
+    "mtime": 1786543453.8637607,
+    "ast_hash": "7cd09ef5ea73a064bd556b7c1a5c92cf",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/router.tsx": {
+    "mtime": 1786536485.458356,
+    "ast_hash": "a5555ceff86d57683ffb3d3b5c3420b0",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/__root.tsx": {
+    "mtime": 1786536974.4398284,
+    "ast_hash": "e63e52f7e10cc6e72f58533e374d897a",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.index.tsx": {
+    "mtime": 1786539686.7263315,
+    "ast_hash": "e9c46d03ac88a57c2ad500637c32abaa",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.inventory.finished-goods.tsx": {
+    "mtime": 1786540747.088955,
+    "ast_hash": "ad4f9e5abd95a679517706ab0c232dc6",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.inventory.raw-materials.tsx": {
+    "mtime": 1786540747.088955,
+    "ast_hash": "c461b3407fdb8c913f08fd2ac386e041",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.inventory.scraps.tsx": {
+    "mtime": 1786540747.088955,
+    "ast_hash": "51e01095b70ea8bc3cb4c18ccb47dc53",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.inventory.semi-finished.tsx": {
+    "mtime": 1786540747.088955,
+    "ast_hash": "e673dd840b02ee78787e99f56de2097e",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.inventory.tsx": {
+    "mtime": 1786540986.462114,
+    "ast_hash": "d6b40683d39d1541effcb697c0b3fbf8",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.tsx": {
+    "mtime": 1786539700.7247767,
+    "ast_hash": "3c336d4aca3c121f9bb61b24e76b3912",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.tsx": {
+    "mtime": 1786536963.8875427,
+    "ast_hash": "1b50800b65250a0e75a5f178594ef6f8",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/index.tsx": {
+    "mtime": 1786536948.9204247,
+    "ast_hash": "04e3b849e5d0488d982fd1139a7d41be",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/login.tsx": {
+    "mtime": 1786536958.0386095,
+    "ast_hash": "d642d5ea2efcb609d38f0652a63b5c3f",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/tsconfig.json": {
+    "mtime": 1786535827.314227,
+    "ast_hash": "ed6d125a82452a0b7cda4c4b3bd88f74",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/vite.config.ts": {
+    "mtime": 1786537294.9033034,
+    "ast_hash": "6f5f0e79318ad4d446786af48559925e",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/README.md": {
+    "mtime": 1786535827.3130305,
+    "ast_hash": "a9f47eb9cdceca84cc5548d8b9c16b46",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/public/robots.txt": {
+    "mtime": 1786535827.3135607,
+    "ast_hash": "fa1ded1ed7c11438a9b0385b1e112850",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/public/icon-192.png": {
+    "mtime": 1786536864.8056524,
+    "ast_hash": "3db0504556d889047e97057702f2f4e7",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/public/icon-512.png": {
+    "mtime": 1786536864.805728,
+    "ast_hash": "0bb02d6ad32678968c17e541f4bc4b89",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/public/oneflow-logo.png": {
+    "mtime": 1786536864.802442,
+    "ast_hash": "93c4a6b3cebd9727f216f4b14298007f",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/logo.svg": {
+    "mtime": 1786535827.313665,
+    "ast_hash": "385dfbd069f6c48ba9687e5c0808f96d",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.inventory.consumables.tsx": {
+    "mtime": 1786541102.845606,
+    "ast_hash": "1bc0ce1c7f34c43a5ea1d2885e77bd13",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.inventory.index.tsx": {
+    "mtime": 1786540994.5118518,
+    "ast_hash": "67395ac967a6af2e7153c221c39d737a",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.inventory.spares.tsx": {
+    "mtime": 1786541035.5367265,
+    "ast_hash": "cbe1a1e37b8fe681e32bfbb3fbdb1fbd",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/components/inventory/item-form.tsx": {
+    "mtime": 1786541750.175462,
+    "ast_hash": "26ea4a15911b0a46eb2cf3d42d42f5ff",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/components/ui/separator.tsx": {
+    "mtime": 1786541492.9761152,
+    "ast_hash": "e29d263d0592b88a0622f56c03124879",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.inventory.$id.edit.tsx": {
+    "mtime": 1786541750.3054664,
+    "ast_hash": "906cc20b16ee9c9dd24a18f6765f50b8",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.inventory.$id.tsx": {
+    "mtime": 1786541913.5044372,
+    "ast_hash": "b2c1216edee95ba9c8d741625cc16bc7",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.inventory.attachments.tsx": {
+    "mtime": 1786541625.5793989,
+    "ast_hash": "42e21338304643acf7edec4462cf1725",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.inventory.new.tsx": {
+    "mtime": 1786541681.0428405,
+    "ast_hash": "d8f598cebce7afbf2a528f9a3272cd3c",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.inventory.weeders.tsx": {
+    "mtime": 1786541705.1708057,
+    "ast_hash": "1a1c9cc86fdf610466f7cf2dc30ec545",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.inventory.cycle-count.tsx": {
+    "mtime": 1786542232.9867547,
+    "ast_hash": "26a096fb2478bbfdeb8d4831cd2af2fc",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.inventory.spares.$id.sub-categories.$subId.items.new.tsx": {
+    "mtime": 1786542202.1489644,
+    "ast_hash": "51e9d40770cf45c31a364f5f7e6e97ee",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.inventory.spares.$id.tsx": {
+    "mtime": 1786542161.767105,
+    "ast_hash": "eb8d8374290208436f421b96cee26919",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.inventory.spares.new.tsx": {
+    "mtime": 1786542331.9878504,
+    "ast_hash": "8bc59986178888643efb80e0383366e2",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.inventory.stock-alerts.tsx": {
+    "mtime": 1786542250.7208889,
+    "ast_hash": "35970fa950c5f5c17b3a93b850c61a6f",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/components/requests/customer-dispatch-block.tsx": {
+    "mtime": 1786542937.5227716,
+    "ast_hash": "d7c3d560328b357a88f7eaabbe094e0c",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/components/requests/request-detail-dialog.tsx": {
+    "mtime": 1786543429.3073795,
+    "ast_hash": "3d97973e1e81ef00b9e0158194d6a787",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/components/requests/request-form.tsx": {
+    "mtime": 1786543456.7930386,
+    "ast_hash": "72f6d0c992b77ddddfa107719e536753",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/components/requests/type-tabs.tsx": {
+    "mtime": 1786542918.825863,
+    "ast_hash": "5682eb70f7420e5345f8e61cff697786",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/components/ui/card.tsx": {
+    "mtime": 1786542541.6148632,
+    "ast_hash": "8a35088f23905b164bad7d5bada57fba",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/components/ui/combobox.tsx": {
+    "mtime": 1786542663.3484144,
+    "ast_hash": "f2903fa92abfcb276d5a2b02d49f7467",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/components/ui/dropdown-menu.tsx": {
+    "mtime": 1786542548.4618635,
+    "ast_hash": "4a4325162e90ceb7be29279488bb5682",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/components/ui/input-group.tsx": {
+    "mtime": 1786542633.9277983,
+    "ast_hash": "4d917ac4e20a2112a6f1d88283da0d60",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/components/ui/popover.tsx": {
+    "mtime": 1786542554.626863,
+    "ast_hash": "888fbfbd0ffec5e505cd5723969f1062",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/components/ui/search-combobox.tsx": {
+    "mtime": 1786542633.9277983,
+    "ast_hash": "ecf99d89750dd683da8a72e22793077d",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/components/ui/select.tsx": {
+    "mtime": 1786542559.988862,
+    "ast_hash": "b5a3fe226784aa9fa7fd6497d9b6c2b7",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/components/ui/textarea.tsx": {
+    "mtime": 1786542565.8558602,
+    "ast_hash": "ec0269cbfee7a2316f5f469de8be3de9",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/hooks/use-debounced-search.ts": {
+    "mtime": 1786542627.1658077,
+    "ast_hash": "b7cb652dd8d439ef9ad81ffef4bfcd38",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.dispatch.tsx": {
+    "mtime": 1786543065.1750746,
+    "ast_hash": "6031611233815ff982717ef72af7cf0c",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.gate-passes.tsx": {
+    "mtime": 1786542960.4296558,
+    "ast_hash": "e163bde230572d042988edf77e1e9ee9",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.grn.tsx": {
+    "mtime": 1786542824.7712734,
+    "ast_hash": "475c0b12d6ca9b5b4f1c582344533240",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.purchase-orders.tsx": {
+    "mtime": 1786542983.092025,
+    "ast_hash": "be46c710b1fecf854726a977f196f25c",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.receipts.tsx": {
+    "mtime": 1786543009.584393,
+    "ast_hash": "99f0261e27e84aa28d341587bb875923",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.schedule.tsx": {
+    "mtime": 1786542839.3990583,
+    "ast_hash": "03bcba977f6d2ffc0a2e3dec132eb87b",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/components/ui/table.tsx": {
+    "mtime": 1786543329.7357254,
+    "ast_hash": "c531ac9bd48bb5b9173f993a29f77aab",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/components/ui/tabs.tsx": {
+    "mtime": 1786543557.4378784,
+    "ast_hash": "f43db5643bf004b7c0cea4a0917ed258",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.admin.bom.$id.edit.tsx": {
+    "mtime": 1786543417.4451964,
+    "ast_hash": "fd87251d7bd65689c18bf99c27c8c6f9",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.admin.bom.new.tsx": {
+    "mtime": 1786543400.1614327,
+    "ast_hash": "7b6b9c531cc4983b8f17ad3b64b0767a",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.admin.bom.tsx": {
+    "mtime": 1786543378.1831195,
+    "ast_hash": "45f8ec7a1aef689b30231b3d4e61bcf5",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.admin.departments.$id.edit.tsx": {
+    "mtime": 1786543622.5023713,
+    "ast_hash": "59a1eb35b79cc1fe2f8ef2f018d6379e",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.admin.departments.new.tsx": {
+    "mtime": 1786543622.5965257,
+    "ast_hash": "593153f382b0b49594f6a73753b60322",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.admin.departments.tsx": {
+    "mtime": 1786543296.3767588,
+    "ast_hash": "27454c49908fbda231fb9de7d2b39b75",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.admin.users.$id.edit.tsx": {
+    "mtime": 1786543622.6554947,
+    "ast_hash": "149399362958a36048296e952d5d3d39",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.admin.users.new.tsx": {
+    "mtime": 1786543622.7118835,
+    "ast_hash": "6c5e7afe41b4035132aafb6739726912",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.admin.users.tsx": {
+    "mtime": 1786543296.3767588,
+    "ast_hash": "0573622b6e4f82a8ce09e2a3b59780f6",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.history.tsx": {
+    "mtime": 1786543413.9298415,
+    "ast_hash": "817932bf8f63fbef3b6d26a4e3b329a9",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.marketing-requests.tsx": {
+    "mtime": 1786543388.1411777,
+    "ast_hash": "17e2e47a00a92756b56f63cf302fcce9",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.production.planning.$id.edit.tsx": {
+    "mtime": 1786543333.2911358,
+    "ast_hash": "2a6db7f9820c92acff2033f2e86f5898",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.production.planning.new.tsx": {
+    "mtime": 1786543246.0423486,
+    "ast_hash": "43d16f79376057f7f08aed065a190ff0",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.production.planning.tsx": {
+    "mtime": 1786543246.0438273,
+    "ast_hash": "c73a8edb7bc9c9afc9f9ab7bc029aadb",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.production.processing.$id.jobs.tsx": {
+    "mtime": 1786543430.6345105,
+    "ast_hash": "aa97e9b5e950efa666fcadd9c9b7ec39",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.production.processing.$id.tsx": {
+    "mtime": 1786543421.8736408,
+    "ast_hash": "392bd45c2380af8d091063519f7588da",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.production.processing.new.tsx": {
+    "mtime": 1786543306.7740183,
+    "ast_hash": "f1c52f9bae7cbfa020c3c2e995f4f508",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.production.processing.tsx": {
+    "mtime": 1786543306.7740183,
+    "ast_hash": "eb2b35a5154218801e81be2364357a31",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.production.time-report.tsx": {
+    "mtime": 1786543279.5066693,
+    "ast_hash": "6623df41eaf120db76c66d5e4c09a9c7",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.production.tsx": {
+    "mtime": 1786543087.205183,
+    "ast_hash": "c60f0f477453971edc51c518a0f92ff2",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.purchase-requests.tsx": {
+    "mtime": 1786543109.6970148,
+    "ast_hash": "20a5ccccd918d906f5f8b64e8920a531",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.requests.tsx": {
+    "mtime": 1786543372.5155098,
+    "ast_hash": "5009554a4c2bed88afebc64df188e5fa",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.schedule.$id.edit.tsx": {
+    "mtime": 1786543174.948331,
+    "ast_hash": "92929f7b1fff0ab4170264bf30f007e3",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.schedule.new.tsx": {
+    "mtime": 1786543174.1802163,
+    "ast_hash": "d90f047b1e85aa6c4c4061a2e2322519",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.suppliers.$id.tsx": {
+    "mtime": 1786543322.3978713,
+    "ast_hash": "2e3574d6c3fe829e944aebe40584f2b6",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.suppliers.tsx": {
+    "mtime": 1786543301.7954178,
+    "ast_hash": "4a0824400a87802094e61a203c85eb5e",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.vendors.$name.tsx": {
+    "mtime": 1786543390.816459,
+    "ast_hash": "3758c9d022b49d0c854b20ce457754f3",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.vendors.tsx": {
+    "mtime": 1786543338.677753,
+    "ast_hash": "0a65d0c6c0993f3890fd36bb40698dc2",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/pwa-debug.tsx": {
+    "mtime": 1786543146.6489975,
+    "ast_hash": "d9cc0434c69e01ef9449f05ef37729b1",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/setup.tsx": {
+    "mtime": 1786543232.5327663,
+    "ast_hash": "bafb69a2451e0ad2cb65b85add8ffd44",
+    "semantic_hash": ""
+  },
+  "tanstack-frontend/src/routes/_auth.dashboard.admin.settings.tsx": {
+    "mtime": 1786543453.3457112,
+    "ast_hash": "ff810a61ed4a053dc48d093e1eaf56e2",
+    "semantic_hash": ""
   }
 }

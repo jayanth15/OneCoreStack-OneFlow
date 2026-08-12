@@ -1,0 +1,170 @@
+import { useEffect, useRef, useState } from "react"
+import { createFileRoute } from "@tanstack/react-router"
+import { PageHeader } from "@/components/layout/page-header"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { apiFetchJson } from "@/lib/api"
+import { getCurrentUser } from "@/lib/user"
+
+export const Route = createFileRoute("/_auth/dashboard/admin/departments/new")({
+  component: NewDepartmentPage,
+})
+
+function NewDepartmentPage() {
+  const navigate = Route.useNavigate()
+
+  useEffect(() => {
+    const user = getCurrentUser()
+    if (!user || (user.role !== "admin" && user.role !== "super_admin")) {
+      navigate({ href: "/dashboard", replace: true })
+    }
+     
+  }, [])
+
+  const [form, setForm] = useState({
+    code: "",
+    name: "",
+    description: "",
+    is_active: true,
+    handles_customer_dispatch: false,
+  })
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const codeRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    codeRef.current?.focus()
+  }, [])
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault()
+    if (!form.code.trim() || !form.name.trim()) {
+      setError("Code and Name are required")
+      return
+    }
+    setSaving(true)
+    setError(null)
+    try {
+      await apiFetchJson("/api/v1/admin/departments", {
+        method: "POST",
+        body: JSON.stringify({
+          ...form,
+          description: form.description.trim() || null,
+        }),
+      })
+      navigate({ href: "/dashboard/admin/departments" })
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Save failed")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <>
+      <PageHeader
+        title="New Department"
+        description="Create a new department. Users can belong to multiple departments."
+        breadcrumbs={[
+          { label: "Departments", href: "/dashboard/admin/departments" },
+          { label: "New Department" },
+        ]}
+      />
+
+      <div className="p-4 md:p-8 max-w-lg mx-auto">
+
+        <form onSubmit={handleSave} className="space-y-5">
+          <div className="space-y-1.5">
+            <Label htmlFor="dept-code">Code</Label>
+            <Input
+              id="dept-code"
+              ref={codeRef}
+              placeholder="e.g. PROD"
+              value={form.code}
+              onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
+              disabled={saving}
+              autoComplete="off"
+            />
+            <p className="text-xs text-muted-foreground">
+              Short unique identifier — auto-uppercased.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="dept-name">Name</Label>
+            <Input
+              id="dept-name"
+              placeholder="e.g. Production"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              disabled={saving}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="dept-desc">Description</Label>
+            <Input
+              id="dept-desc"
+              placeholder="e.g. Handles all manufacturing operations"
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              disabled={saving}
+            />
+            <p className="text-xs text-muted-foreground">Optional — brief purpose of this department.</p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="dept-status">Status</Label>
+            <select
+              id="dept-status"
+              value={form.is_active ? "active" : "inactive"}
+              onChange={(e) => setForm({ ...form, is_active: e.target.value === "active" })}
+              disabled={saving}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+            >
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="flex items-start gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={form.handles_customer_dispatch}
+                onChange={(e) => setForm({ ...form, handles_customer_dispatch: e.target.checked })}
+                disabled={saving}
+                className="mt-0.5 size-4 rounded"
+              />
+              <span>
+                <span className="text-sm font-medium leading-none">Handles customer dispatch requests</span>
+                <span className="block text-xs text-muted-foreground mt-1">
+                  Users in this department can view and fulfil customer dispatch requests.
+                </span>
+              </span>
+            </label>
+          </div>
+
+          {error && (
+            <p className="text-sm text-destructive" role="alert">{error}</p>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <Button type="submit" disabled={saving} className="flex-1 sm:flex-none">
+              {saving ? "Creating…" : "Create Department"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => navigate({ href: "/dashboard/admin/departments" })}
+              disabled={saving}
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </div>
+    </>
+  )
+}

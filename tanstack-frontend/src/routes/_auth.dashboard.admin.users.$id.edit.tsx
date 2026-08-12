@@ -1,0 +1,621 @@
+import { useEffect, useState } from "react"
+import { createFileRoute, Link } from "@tanstack/react-router"
+import { useQuery } from "@tanstack/react-query"
+import { PageHeader } from "@/components/layout/page-header"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Skeleton } from "@/components/ui/skeleton"
+import { apiFetchJson } from "@/lib/api"
+import { getCurrentUser, ALL_INVENTORY_TYPES, INVENTORY_TYPE_LABELS } from "@/lib/user"
+import { Eye, EyeOff } from "lucide-react"
+
+export const Route = createFileRoute("/_auth/dashboard/admin/users/$id/edit")({
+  component: EditUserPage,
+})
+
+// Widens a literal path to `string` for routes not yet registered in the tree.
+const dynTo = (s: string) => s
+
+interface DeptRef {
+  id: number
+  code: string
+  name: string
+}
+
+interface UserData {
+  id: number
+  username: string
+  role: string
+  is_active: boolean
+  departments: DeptRef[]
+  inventory_access: string[]
+  inventory_edit: string[]
+  request_department_ids: number[]
+  request_inventory: string[]
+  grn_access: boolean
+  dispatch_access: boolean
+  gate_pass_access: boolean
+  purchase_access: boolean
+  photo_base64?: string | null
+}
+
+interface UserForm {
+  username: string
+  password: string
+  role: string
+  is_active: boolean
+  department_ids: number[]
+  inventory_access: string[]
+  inventory_edit: string[]
+  request_department_ids: number[]
+  request_inventory: string[]
+  grn_access: boolean
+  dispatch_access: boolean
+  gate_pass_access: boolean
+  purchase_access: boolean
+  photo_base64: string | null
+}
+
+function EditUserPage() {
+  const navigate = Route.useNavigate()
+  const { id } = Route.useParams()
+
+  useEffect(() => {
+    const user = getCurrentUser()
+    if (!user || (user.role !== "admin" && user.role !== "super_admin")) {
+      navigate({ href: "/dashboard", replace: true })
+    }
+     
+  }, [])
+
+  const [form, setForm] = useState<UserForm>({
+    username: "",
+    password: "",
+    role: "worker",
+    is_active: true,
+    department_ids: [],
+    inventory_access: [],
+    inventory_edit: [],
+    request_department_ids: [],
+    request_inventory: [],
+    grn_access: false,
+    dispatch_access: false,
+    gate_pass_access: false,
+    purchase_access: false,
+    photo_base64: null,
+  })
+  const [allDepts, setAllDepts] = useState<DeptRef[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [showPassword, setShowPassword] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+
+  const userQuery = useQuery({
+    queryKey: [`/api/v1/admin/users/${id}`],
+    staleTime: 0,
+    retry: false,
+  })
+
+  const deptsQuery = useQuery({
+    queryKey: ["/api/v1/admin/departments?include_inactive=false"],
+    staleTime: 5 * 60_000,
+  })
+
+  useEffect(() => {
+    const userData = userQuery.data as UserData | undefined
+    const deptsData = deptsQuery.data as DeptRef[] | undefined
+    if (userQuery.error) {
+      setLoadError(userQuery.error instanceof Error ? userQuery.error.message : "Failed to load")
+      setLoading(false)
+      return
+    }
+    if (!userData) return
+    setForm({
+      username: userData.username,
+      password: "",
+      role: userData.role,
+      is_active: userData.is_active,
+      department_ids: userData.departments.map((d) => d.id),
+      inventory_access: userData.inventory_access ?? [],
+      inventory_edit: userData.inventory_edit ?? [],
+      request_department_ids: userData.request_department_ids ?? [],
+      request_inventory: userData.request_inventory ?? [],
+      grn_access: userData.grn_access ?? false,
+      dispatch_access: userData.dispatch_access ?? false,
+      gate_pass_access: userData.gate_pass_access ?? false,
+      purchase_access: userData.purchase_access ?? false,
+      photo_base64: userData.photo_base64 ?? null,
+    })
+    if (deptsData) setAllDepts(deptsData)
+    setLoading(false)
+  }, [userQuery.data, userQuery.error, deptsQuery.data])
+
+  function toggleDept(deptId: number) {
+    setForm((prev) => ({
+      ...prev,
+      department_ids: prev.department_ids.includes(deptId)
+        ? prev.department_ids.filter((d) => d !== deptId)
+        : [...prev.department_ids, deptId],
+    }))
+  }
+
+  function toggleInventoryAccess(type: string) {
+    setForm((prev) => {
+      const removing = prev.inventory_access.includes(type)
+      return {
+        ...prev,
+        inventory_access: removing
+          ? prev.inventory_access.filter((t) => t !== type)
+          : [...prev.inventory_access, type],
+        // When revoking access, also revoke edit for that type
+        inventory_edit: removing
+          ? prev.inventory_edit.filter((t) => t !== type)
+          : prev.inventory_edit,
+      }
+    })
+  }
+
+  function toggleInventoryEdit(type: string) {
+    setForm((prev) => ({
+      ...prev,
+      inventory_edit: prev.inventory_edit.includes(type)
+        ? prev.inventory_edit.filter((t) => t !== type)
+        : [...prev.inventory_edit, type],
+    }))
+  }
+
+  function toggleRequestDept(deptId: number) {
+    setForm((prev) => ({
+      ...prev,
+      request_department_ids: prev.request_department_ids.includes(deptId)
+        ? prev.request_department_ids.filter((d) => d !== deptId)
+        : [...prev.request_department_ids, deptId],
+    }))
+  }
+
+  function toggleRequestInventory(type: string) {
+    setForm((prev) => ({
+      ...prev,
+      request_inventory: prev.request_inventory.includes(type)
+        ? prev.request_inventory.filter((t) => t !== type)
+        : [...prev.request_inventory, type],
+    }))
+  }
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault()
+    if (!form.username.trim()) { setSaveError("Username is required"); return }
+    setSaving(true)
+    setSaveError(null)
+    try {
+      const payload: Partial<UserForm> = {
+        username: form.username.trim(),
+        role: form.role,
+        is_active: form.is_active,
+        department_ids: form.department_ids,
+        inventory_access: form.inventory_access,
+        inventory_edit: form.inventory_edit,
+        request_department_ids: form.request_department_ids,
+        request_inventory: form.request_inventory,
+        grn_access: form.grn_access,
+        dispatch_access: form.dispatch_access,
+        gate_pass_access: form.gate_pass_access,
+        purchase_access: form.purchase_access,
+        photo_base64: form.photo_base64,
+      }
+      if (form.password) payload.password = form.password
+
+      await apiFetchJson(`/api/v1/admin/users/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      })
+      navigate({ href: "/dashboard/admin/users" })
+    } catch (err: unknown) {
+      setSaveError(e instanceof Error ? e.message : "Save failed")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <>
+      <PageHeader
+        title="Edit User"
+        description={!loading ? `Editing ${form.username}` : undefined}
+        breadcrumbs={[
+          { label: "Users", href: "/dashboard/admin/users" },
+          { label: loading ? "Edit…" : `Edit ${form.username}` },
+        ]}
+      />
+
+      <div className="p-4 md:p-8 max-w-lg mx-auto">
+
+        {loadError ? (
+          <p className="text-sm text-destructive" role="alert">{loadError}</p>
+        ) : loading ? (
+          <div className="space-y-5">
+            <Skeleton className="h-9 w-full" />
+            <Skeleton className="h-9 w-full" />
+            <Skeleton className="h-9 w-full" />
+            <Skeleton className="h-9 w-1/2" />
+            <Skeleton className="h-32 w-full" />
+          </div>
+        ) : (
+          <form onSubmit={handleSave} className="space-y-5">
+            {/* Username */}
+            <div className="space-y-1.5">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                placeholder="e.g. john.doe"
+                value={form.username}
+                onChange={(e) => setForm({ ...form, username: e.target.value })}
+                disabled={saving}
+                autoComplete="off"
+              />
+            </div>
+
+            {/* Password */}
+            <div className="space-y-1.5">
+              <Label htmlFor="password">
+                Password{" "}
+                <span className="text-muted-foreground font-normal">(leave blank to keep current)</span>
+              </Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="New password (optional)"
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  disabled={saving}
+                  className="pr-10"
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Photo */}
+            <div className="space-y-1.5">
+              <Label>Photo <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
+              <div className="flex items-center gap-3">
+                {form.photo_base64 ? (
+                  <img src={form.photo_base64} alt="preview" className="size-14 rounded-full object-cover border" />
+                ) : (
+                  <div className="size-14 rounded-full bg-muted flex items-center justify-center border text-muted-foreground text-lg font-bold">
+                    {form.username ? form.username.slice(0, 2).toUpperCase() : "?"}
+                  </div>
+                )}
+                <div className="flex flex-col gap-1">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    disabled={saving}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      const reader = new FileReader()
+                      reader.onload = (ev) => setForm((prev) => ({ ...prev, photo_base64: ev.target?.result as string }))
+                      reader.readAsDataURL(file)
+                    }}
+                    className="text-sm cursor-pointer file:mr-2 file:px-2 file:py-1 file:rounded file:border-0 file:text-xs file:bg-muted file:text-foreground"
+                  />
+                  {form.photo_base64 && (
+                    <button
+                      type="button"
+                      onClick={() => setForm((prev) => ({ ...prev, photo_base64: null }))}
+                      className="text-xs text-destructive hover:underline text-left"
+                    >
+                      Remove photo
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Role */}
+            <div className="space-y-1.5">
+              <Label htmlFor="role">Role</Label>
+              <select
+                id="role"
+                value={form.role}
+                onChange={(e) => setForm({ ...form, role: e.target.value })}
+                disabled={saving}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+              >
+                <option value="worker">Worker</option>
+                <option value="manager">Manager</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+
+            {/* Status */}
+            <div className="space-y-1.5">
+              <Label htmlFor="status">Status</Label>
+              <select
+                id="status"
+                value={form.is_active ? "active" : "inactive"}
+                onChange={(e) => setForm({ ...form, is_active: e.target.value === "active" })}
+                disabled={saving}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+
+            {/* Departments */}
+            <div className="space-y-2">
+              <Label>
+                Departments
+                <span className="text-muted-foreground font-normal ml-1">(select one or more)</span>
+              </Label>
+              {allDepts.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-2">
+                  No departments available.{" "}
+                  <Link to={dynTo("/dashboard/admin/departments/new")} className="underline underline-offset-2">
+                    Create one first.
+                  </Link>
+                </p>
+              ) : (
+                <div className="rounded-md border divide-y">
+                  {allDepts.map((dept) => {
+                    const checked = form.department_ids.includes(dept.id)
+                    return (
+                      <label
+                        key={dept.id}
+                        className="flex items-center gap-3 px-3 py-3 cursor-pointer hover:bg-muted/40 transition-colors"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleDept(dept.id)}
+                          disabled={saving}
+                          className="size-4 rounded accent-primary"
+                        />
+                        <span className="font-mono text-xs font-medium text-muted-foreground w-14 shrink-0">
+                          {dept.code}
+                        </span>
+                        <span className="text-sm">{dept.name}</span>
+                      </label>
+                    )
+                  })}
+                </div>
+              )}
+              {form.department_ids.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {form.department_ids.length} department{form.department_ids.length !== 1 ? "s" : ""} selected
+                </p>
+              )}
+            </div>
+
+            {/* GRN Access */}
+            <div className="flex items-center gap-3 rounded-md border px-3 py-3">
+              <input
+                type="checkbox"
+                id="grn_access"
+                checked={form.grn_access}
+                onChange={(e) => setForm({ ...form, grn_access: e.target.checked })}
+                disabled={saving}
+                className="size-4 rounded accent-primary"
+              />
+              <label htmlFor="grn_access" className="text-sm cursor-pointer select-none">
+                <span className="font-medium">GRN Access</span>
+                <span className="text-muted-foreground ml-1">(can access Goods Received Notes, create entries and mark stock filled)</span>
+              </label>
+            </div>
+
+            {/* Dispatch Access */}
+            <div className="flex items-center gap-3 rounded-md border px-3 py-3">
+              <input type="checkbox" id="dispatch_access" checked={form.dispatch_access}
+                onChange={(e) => setForm({ ...form, dispatch_access: e.target.checked })}
+                disabled={saving} className="size-4 rounded accent-primary" />
+              <label htmlFor="dispatch_access" className="text-sm cursor-pointer select-none">
+                <span className="font-medium">Dispatch Access</span>
+                <span className="text-muted-foreground ml-1">(can access Dispatch module)</span>
+              </label>
+            </div>
+
+            {/* Gate Pass Access */}
+            <div className="flex items-center gap-3 rounded-md border px-3 py-3">
+              <input type="checkbox" id="gate_pass_access" checked={form.gate_pass_access}
+                onChange={(e) => setForm({ ...form, gate_pass_access: e.target.checked })}
+                disabled={saving} className="size-4 rounded accent-primary" />
+              <label htmlFor="gate_pass_access" className="text-sm cursor-pointer select-none">
+                <span className="font-medium">Gate Pass Access</span>
+                <span className="text-muted-foreground ml-1">(can access Gate Pass module)</span>
+              </label>
+            </div>
+
+            {/* Purchase Access */}
+            <div className="flex items-center gap-3 rounded-md border px-3 py-3">
+              <input type="checkbox" id="purchase_access" checked={form.purchase_access}
+                onChange={(e) => setForm({ ...form, purchase_access: e.target.checked })}
+                disabled={saving} className="size-4 rounded accent-primary" />
+              <label htmlFor="purchase_access" className="text-sm cursor-pointer select-none">
+                <span className="font-medium">Purchase Access</span>
+                <span className="text-muted-foreground ml-1">(can access Purchase Order module)</span>
+              </label>
+            </div>
+
+            {/* Inventory Access — only relevant for non-admin roles */}
+            {(form.role === "manager" || form.role === "worker") && (
+              <>
+                <div className="space-y-2">
+                  <Label>
+                    Inventory Access
+                    <span className="text-muted-foreground font-normal ml-1">(leave all unchecked = access to all types)</span>
+                  </Label>
+                  <div className="rounded-md border divide-y">
+                    {ALL_INVENTORY_TYPES.map((type) => {
+                      const checked = form.inventory_access.includes(type)
+                      return (
+                        <label
+                          key={type}
+                          className="flex items-center gap-3 px-3 py-3 cursor-pointer hover:bg-muted/40 transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleInventoryAccess(type)}
+                            disabled={saving}
+                            className="size-4 rounded accent-primary"
+                          />
+                          <span className="text-sm">{INVENTORY_TYPE_LABELS[type]}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                  {form.inventory_access.length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Access limited to: {form.inventory_access.map((t) => INVENTORY_TYPE_LABELS[t as keyof typeof INVENTORY_TYPE_LABELS] ?? t).join(", ")}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>
+                    Inventory Edit Access
+                    <span className="text-muted-foreground font-normal ml-1">(leave all unchecked = no edit access)</span>
+                  </Label>
+                  <div className="rounded-md border divide-y">
+                    {ALL_INVENTORY_TYPES.map((type) => {
+                      const checked = form.inventory_edit.includes(type)
+                      const accessLimited = form.inventory_access.length > 0
+                      const notInAccess = accessLimited && !form.inventory_access.includes(type)
+                      const rowDisabled = saving || notInAccess
+                      return (
+                        <label
+                          key={type}
+                          className={`flex items-center gap-3 px-3 py-3 transition-colors ${
+                            rowDisabled ? "opacity-40 cursor-not-allowed bg-muted/20" : "cursor-pointer hover:bg-muted/40"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => !rowDisabled && toggleInventoryEdit(type)}
+                            disabled={rowDisabled}
+                            className="size-4 rounded accent-primary"
+                          />
+                          <span className="text-sm">{INVENTORY_TYPE_LABELS[type]}</span>
+                          {notInAccess && (
+                            <span className="ml-auto text-xs text-muted-foreground">(no access)</span>
+                          )}
+                        </label>
+                      )
+                    })}
+                  </div>
+                  {form.inventory_edit.length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Edit limited to: {form.inventory_edit.map((t) => INVENTORY_TYPE_LABELS[t as keyof typeof INVENTORY_TYPE_LABELS] ?? t).join(", ")}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-4 rounded-md border p-4">
+                  <p className="text-sm font-medium">Request Permissions</p>
+
+                  <div className="space-y-2">
+                    <Label>
+                      Can Raise Requests To
+                      <span className="text-muted-foreground font-normal ml-1">(leave all unchecked = all departments)</span>
+                    </Label>
+                    {allDepts.length === 0 ? (
+                      <p className="text-sm text-muted-foreground py-1">No departments available.</p>
+                    ) : (
+                      <div className="rounded-md border divide-y">
+                        {allDepts.map((dept) => {
+                          const checked = form.request_department_ids.includes(dept.id)
+                          return (
+                            <label
+                              key={dept.id}
+                              className="flex items-center gap-3 px-3 py-3 cursor-pointer hover:bg-muted/40 transition-colors"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => toggleRequestDept(dept.id)}
+                                disabled={saving}
+                                className="size-4 rounded accent-primary"
+                              />
+                              <span className="font-mono text-xs font-medium text-muted-foreground w-14 shrink-0">
+                                {dept.code}
+                              </span>
+                              <span className="text-sm">{dept.name}</span>
+                            </label>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>
+                      Can Request Inventory Types
+                      <span className="text-muted-foreground font-normal ml-1">(leave all unchecked = all types)</span>
+                    </Label>
+                    <div className="rounded-md border divide-y">
+                      {ALL_INVENTORY_TYPES.map((type) => {
+                        const checked = form.request_inventory.includes(type)
+                        return (
+                          <label
+                            key={type}
+                            className="flex items-center gap-3 px-3 py-3 cursor-pointer hover:bg-muted/40 transition-colors"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleRequestInventory(type)}
+                              disabled={saving}
+                              className="size-4 rounded accent-primary"
+                            />
+                            <span className="text-sm">{INVENTORY_TYPE_LABELS[type]}</span>
+                          </label>
+                        )
+                      })}
+                    </div>
+                    {form.request_inventory.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Request limited to: {form.request_inventory.map((t) => INVENTORY_TYPE_LABELS[t as keyof typeof INVENTORY_TYPE_LABELS] ?? t).join(", ")}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+              </>
+            )}
+
+            {saveError && (
+              <p className="text-sm text-destructive" role="alert">{saveError}</p>
+            )}
+
+            <div className="flex gap-3 pt-2">
+              <Button type="submit" disabled={saving} className="flex-1 sm:flex-none">
+                {saving ? "Saving…" : "Save Changes"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => navigate({ href: "/dashboard/admin/users" })}
+                disabled={saving}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        )}
+      </div>
+    </>
+  )
+}

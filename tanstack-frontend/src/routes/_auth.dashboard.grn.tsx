@@ -1,0 +1,1486 @@
+import { useEffect, useMemo, useState } from "react"
+import { createFileRoute } from "@tanstack/react-router"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { z } from "zod"
+import { PageHeader } from "@/components/layout/page-header"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { SearchCombobox } from "@/components/ui/search-combobox"
+import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog"
+import { apiFetchJson } from "@/lib/api"
+import { openPrintWindow } from "@/lib/print-report"
+import { getCurrentUser, refreshCurrentUser } from "@/lib/user"
+import {
+  PlusIcon, Trash2, Eye, ChevronLeft, ChevronRight, Package, Truck, Car,
+  CheckCircle, Clock, Loader2, RotateCcw, Pencil, Printer,
+} from "lucide-react"
+
+export const Route = createFileRoute("/_auth/dashboard/grn")({
+  validateSearch: z.object({
+    page: z.coerce.number().optional(),
+    status: z.string().optional(),
+  }),
+  component: GRNPage,
+})
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface InvItem {
+  id: number
+  code: string
+  name: string
+  item_type: string
+  unit: string
+}
+
+interface GRNItem {
+  id: number
+  grn_id: number
+  inventory_item_id: number | null
+  item_name: string | null
+  item_code: string | null
+  item_type: string | null
+  unit: string | null
+  quantity_received: number
+  quantity_pr_requested: number | null
+  quantity_filled: number
+  quantity_returned: number
+  request_item_id: number | null
+  purchase_order_item_id: number | null
+}
+
+interface GRNRecord {
+  id: number
+  grn_number: string
+  transport_type: string
+  vehicle_number: string | null
+  received_by_user_id: number | null
+  received_by_username: string | null
+  inspected_by_user_id: number | null
+  inspected_by_username: string | null
+  notes: string | null
+  status: string // draft | partially_filled | stock_filled
+  stock_filled_by_username: string | null
+  stock_filled_at: string | null
+  created_at: string
+  purchase_request_id: number | null
+  request_id: number | null
+  purchase_order_id: number | null
+  purchase_request_sn_no: string | null
+  po_number: string | null
+  dc_number: string | null
+  items: GRNItem[]
+}
+
+interface PaginatedGRN {
+  items: GRNRecord[]
+  total: number
+  page: number
+  page_size: number
+  pages: number
+}
+
+interface PaginatedInv {
+  items: { id: number; code: string; name: string; item_type: string; unit: string }[]
+  total: number
+}
+
+interface PRItem {
+  id: number
+  sn_no: string
+  item_name: string | null
+  item_code: string | null
+  item_type: string | null
+  unit: string | null
+  inventory_item_id: number | null
+  quantity: number
+  status: string
+}
+
+interface UserItem {
+  id: number
+  username: string
+}
+
+interface LinkablePo {
+  id: number
+  po_number: string
+  supplier_name: string | null
+  vendor_name: string | null
+  party_type: string
+}
+
+interface PoDetailItem {
+  id: number
+  item_name: string
+  quantity: number
+  unit: string | null
+  inventory_type: string | null
+  inventory_item_id: number | null
+  request_item_id: number | null
+}
+
+interface PoDetail {
+  id: number
+  po_number: string
+  party_type: string
+  supplier_name: string | null
+  vendor_name: string | null
+  items: PoDetailItem[]
+}
+
+interface GrnSavePayload {
+  transport_type: string
+  vehicle_number: string | null
+  notes: string | null
+  purchase_request_id: null
+  request_id: number | null
+  purchase_order_id: number | null
+  po_number: string | null
+  dc_number: string | null
+  inspected_by_user_id: number | null
+  inspected_by_username: string | null
+  items?: {
+    inventory_item_id: number | null
+    item_name: string | null
+    item_code: string | null
+    item_type: string | null
+    unit: string | null
+    quantity_received: number
+    quantity_pr_requested: number | null
+    request_item_id: number | null
+    purchase_order_item_id: number | null
+  }[]
+}
+
+// ── Form row type ─────────────────────────────────────────────────────────────
+
+interface FormItemRow {
+  _key: number
+  inventory_item_id: number | null
+  item_name: string
+  item_code: string
+  item_type: string
+  unit: string
+  quantity_received: string
+  quantity_pr_requested: string // hint from linked PR
+  invTypeFilter: string
+  request_item_id: number | null
+  purchase_order_item_id: number | null
+}
+
+let _rowKey = 0
+function newRow(): FormItemRow {
+  return {
+    _key: ++_rowKey,
+    inventory_item_id: null,
+    item_name: "",
+    item_code: "",
+    item_type: "raw_material",
+    unit: "",
+    quantity_received: "",
+    quantity_pr_requested: "",
+    invTypeFilter: "",
+    request_item_id: null, purchase_order_item_id: null,
+  }
+}
+
+function grnItemToFormRow(item: GRNItem): FormItemRow {
+  return {
+    _key: ++_rowKey,
+    inventory_item_id: item.inventory_item_id,
+    item_name: item.item_name ?? "",
+    item_code: item.item_code ?? "",
+    item_type: item.item_type ?? "raw_material",
+    unit: item.unit ?? "",
+    quantity_received: String(item.quantity_received),
+    quantity_pr_requested: item.quantity_pr_requested != null ? String(item.quantity_pr_requested) : "",
+    invTypeFilter: "",
+    request_item_id: item.request_item_id ?? null, purchase_order_item_id: item.purchase_order_item_id ?? null,
+  }
+}
+
+function prItemToFormRow(pr: PRItem): FormItemRow {
+  return {
+    _key: Date.now() + Math.random(),
+    inventory_item_id: pr.inventory_item_id,
+    item_name: pr.item_name ?? "",
+    item_code: pr.item_code ?? "",
+    item_type: pr.item_type ?? "",
+    unit: pr.unit ?? "",
+    quantity_received: "",
+    quantity_pr_requested: String(pr.quantity ?? ""),
+    invTypeFilter: "",
+    request_item_id: pr.id, purchase_order_item_id: null,
+  }
+}
+
+function poItemToFormRow(item: PoDetailItem): FormItemRow {
+  return {
+    _key: Date.now() + Math.random(),
+    inventory_item_id: item.inventory_item_id,
+    item_name: item.item_name ?? "",
+    item_code: "",
+    item_type: item.inventory_type ?? "raw_material",
+    unit: item.unit ?? "",
+    quantity_received: "",
+    quantity_pr_requested: "",
+    invTypeFilter: "",
+    request_item_id: item.request_item_id, purchase_order_item_id: item.id,
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+}
+
+function fmtDateTime(iso: string | null) {
+  if (!iso) return "—"
+  return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+}
+
+function StatusBadge({ status }: { status: string }) {
+  if (status === "stock_filled")
+    return <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-success/10 text-success border border-success/20"><CheckCircle className="size-3" /> Stock Filled</span>
+  if (status === "partially_filled")
+    return <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-tone-violet/10 text-tone-violet border border-indigo-200"><Package className="size-3" /> Partial</span>
+  return <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-warning/15 text-warning border border-warning/20"><Clock className="size-3" /> In Lobby</span>
+}
+
+const INV_TYPE_OPTIONS = [
+  { value: "", label: "All Types" },
+  { value: "raw_material", label: "Raw Material" },
+  { value: "finished_good", label: "Finished Good" },
+  { value: "semi_finished", label: "Semi-Finished" },
+  { value: "spare", label: "Spare" },
+  { value: "consumable", label: "Consumable" },
+  { value: "attachment", label: "Attachment" },
+  { value: "weeder", label: "Weeder" },
+]
+
+const TABS = [
+  { id: "all", label: "All" },
+  { id: "draft", label: "In Lobby" },
+  { id: "partially_filled", label: "Partial" },
+  { id: "stock_filled", label: "Stock Filled" },
+]
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
+function GRNPage() {
+  const navigate = Route.useNavigate()
+  const search = Route.useSearch()
+  const queryClient = useQueryClient()
+
+  const pageNum = Math.max(1, search.page ?? 1)
+  const statusFilter = search.status ?? "all"
+
+  const [canManage, setCanManage] = useState(false)
+  const [adminUser, setAdminUser] = useState(false)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [mutationError, setMutationError] = useState<string | null>(null)
+
+  // ── Add / Edit dialog (shared form state) ─────────────────────────────────
+  const [formOpen, setFormOpen] = useState(false)
+  const [editingGrn, setEditingGrn] = useState<GRNRecord | null>(null) // null = add mode
+  const [transportType, setTransportType] = useState<"own" | "company">("own")
+  const [vehicleNumber, setVehicleNumber] = useState("")
+  const [grnNotes, setGrnNotes] = useState("")
+  const [linkedPrId, setLinkedPrId] = useState<number | null>(null)
+  const [linkedPrLabel, setLinkedPrLabel] = useState("")
+  const [poNumber, setPoNumber] = useState("")
+  const [dcNumber, setDcNumber] = useState("")
+  const [inspectedByUserId, setInspectedByUserId] = useState<number | null>(null)
+  const [inspectedByUsername, setInspectedByUsername] = useState("")
+  const [formItems, setFormItems] = useState<FormItemRow[]>([newRow()])
+  const [saving, setSaving] = useState(false)
+  const [formErr, setFormErr] = useState<string | null>(null)
+  const [prefillErr, setPrefillErr] = useState<string | null>(null)
+  const [linkedPoId, setLinkedPoId] = useState<number | null>(null)
+  const [linkedPoLabel, setLinkedPoLabel] = useState("")
+  const [poPrefillErr, setPoPrefillErr] = useState<string | null>(null)
+
+  // View detail dialog
+  const [viewGrn, setViewGrn] = useState<GRNRecord | null>(null)
+
+  // Fill Items dialog
+  const [fillGrn, setFillGrn] = useState<GRNRecord | null>(null)
+  const [fillQtys, setFillQtys] = useState<Record<number, string>>({})
+  const [filling, setFilling] = useState(false)
+  const [fillErr, setFillErr] = useState<string | null>(null)
+
+  // Return Items dialog
+  const [returnGrn, setReturnGrn] = useState<GRNRecord | null>(null)
+  const [returnQtys, setReturnQtys] = useState<Record<number, string>>({})
+  const [returning, setReturning] = useState(false)
+  const [returnErr, setReturnErr] = useState<string | null>(null)
+
+  useEffect(() => {
+    Promise.resolve().then(async () => {
+      const cached = getCurrentUser()
+      const user = await refreshCurrentUser() ?? cached
+      if (user) {
+        const isAdmin = user.role === "admin" || user.role === "super_admin"
+        setAdminUser(isAdmin)
+        setCanManage(isAdmin || user.grn_access === true)
+      }
+    })
+  }, [])
+
+  // ── Fetch ───────────────────────────────────────────────────────────────────
+
+  const listUrl = useMemo(() => {
+    const params = new URLSearchParams({ page: String(pageNum), page_size: "20" })
+    if (statusFilter !== "all") params.set("status_filter", statusFilter)
+    return `/api/v1/grn?${params}`
+  }, [pageNum, statusFilter])
+
+  const listQuery = useQuery({
+    queryKey: [listUrl],
+    staleTime: 0,
+  })
+
+  const saveMutation = useMutation({
+    mutationFn: (payload: GrnSavePayload) =>
+      apiFetchJson(editingGrn ? `/api/v1/grn/${editingGrn.id}` : "/api/v1/grn", {
+        method: editingGrn ? "PUT" : "POST",
+        body: JSON.stringify(payload),
+      }),
+    onSuccess: () => {
+      setFormOpen(false)
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/grn"] })
+    },
+    onError: (e: unknown) => {
+      setFormErr(e instanceof Error ? e.message : "Save failed")
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => apiFetchJson(`/api/v1/grn/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      setViewGrn(null)
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/grn"] })
+    },
+    onError: (e: unknown) => {
+      setMutationError(e instanceof Error ? e.message : "Failed to delete GRN")
+    },
+    onSettled: () => {
+      setDeletingId(null)
+    },
+  })
+
+  const fillMutation = useMutation({
+    mutationFn: (body: { items: { grn_item_id: number; quantity_to_fill: number }[] }) =>
+      apiFetchJson(`/api/v1/grn/${fillGrn!.id}/fill-items`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      setFillGrn(null)
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/grn"] })
+    },
+    onError: (e: unknown) => {
+      setFillErr(e instanceof Error ? e.message : "Fill failed")
+    },
+  })
+
+  const returnMutation = useMutation({
+    mutationFn: (body: { items: { grn_item_id: number; quantity_to_return: number }[] }) =>
+      apiFetchJson(`/api/v1/grn/${returnGrn!.id}/return-items`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      setReturnGrn(null)
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/grn"] })
+    },
+    onError: (e: unknown) => {
+      setReturnErr(e instanceof Error ? e.message : "Return failed")
+    },
+  })
+
+  function deleteGrn(grn: GRNRecord) {
+    if (!window.confirm(`Delete GRN ${grn.grn_number}? The document will be hidden but stock history will remain.`)) return
+    setDeletingId(grn.id)
+    deleteMutation.mutate(grn.id)
+  }
+
+  function goPage(n: number) {
+    navigate({
+      search: {
+        status: statusFilter !== "all" ? statusFilter : undefined,
+        page: n,
+      },
+    })
+  }
+
+  function selectStatus(id: string) {
+    navigate({
+      search: {
+        status: id === "all" ? undefined : id,
+        page: 1,
+      },
+    })
+  }
+
+  function resetForm() {
+    setTransportType("own")
+    setVehicleNumber("")
+    setGrnNotes("")
+    setLinkedPrId(null)
+    setLinkedPrLabel("")
+    setLinkedPoId(null)
+    setLinkedPoLabel("")
+    setPoNumber("")
+    setDcNumber("")
+    setInspectedByUserId(null)
+    setInspectedByUsername("")
+    setFormItems([newRow()])
+    setFormErr(null)
+  }
+
+  function openAdd() {
+    setEditingGrn(null)
+    resetForm()
+    setFormOpen(true)
+  }
+
+  function openEdit(grn: GRNRecord) {
+    setEditingGrn(grn)
+    setTransportType(grn.transport_type as "own" | "company")
+    setVehicleNumber(grn.vehicle_number ?? "")
+    setGrnNotes(grn.notes ?? "")
+    setLinkedPrId(grn.request_id ?? grn.purchase_request_id)
+    setLinkedPoId(grn.purchase_order_id)
+    setLinkedPrLabel(grn.purchase_request_sn_no ?? "")
+    setPoNumber(grn.po_number ?? "")
+    setDcNumber(grn.dc_number ?? "")
+    setInspectedByUserId(grn.inspected_by_user_id)
+    setInspectedByUsername(grn.inspected_by_username ?? "")
+    setFormItems(grn.items.map(grnItemToFormRow))
+    setFormErr(null)
+    setFormOpen(true)
+  }
+
+  function updateRow(key: number, patch: Partial<FormItemRow>) {
+    setFormItems((prev) => prev.map((r) => (r._key === key ? { ...r, ...patch } : r)))
+  }
+
+  function removeRow(key: number) {
+    setFormItems((prev) => prev.filter((r) => r._key !== key))
+  }
+
+  // Whether items are editable in the current form context
+  const canEditFormItems = !editingGrn || editingGrn.status === "draft"
+
+  async function handlePrSelect(pr: PRItem) {
+    const replacingWithQty = formItems.some(
+      (r) => parseFloat(r.quantity_received) > 0,
+    )
+    if (replacingWithQty) {
+      if (!confirm("This will replace the items already added. Continue?")) {
+        return
+      }
+    }
+    setLinkedPrId(pr.id)
+    setLinkedPrLabel(`${pr.sn_no} · ${pr.item_name ?? ""}`)
+    setPrefillErr(null)
+    try {
+      const items = await apiFetchJson<PRItem[]>(`/api/v1/grn/linkable-prs/${pr.id}/items`)
+      setFormItems(items.length > 0 ? items.map(prItemToFormRow) : [prItemToFormRow(pr)])
+    } catch (e: unknown) {
+      setLinkedPrId(null)
+      setLinkedPrLabel("")
+      setPrefillErr(e instanceof Error ? e.message : "Could not load PR items")
+    }
+  }
+
+  async function handlePoSelect(po: LinkablePo) {
+    const replacingWithQty = formItems.some(
+      (r) => parseFloat(r.quantity_received) > 0,
+    )
+    if (replacingWithQty) {
+      if (!confirm("This will replace the items already added. Continue?")) {
+        return
+      }
+    }
+    setLinkedPoId(po.id)
+    setLinkedPoLabel(`${po.po_number} · ${po.supplier_name || po.vendor_name || ""}`)
+    setPoPrefillErr(null)
+    try {
+      const detail = await apiFetchJson<PoDetail>(`/api/v1/purchase-orders/${po.id}`)
+      setPoNumber(detail.po_number || "")
+      if (detail.items && detail.items.length > 0) {
+        setFormItems(detail.items.map(poItemToFormRow))
+      }
+    } catch (e: unknown) {
+      setLinkedPoId(null)
+      setLinkedPoLabel("")
+      setPoPrefillErr(e instanceof Error ? e.message : "Could not load PO details")
+    }
+  }
+
+  function handleSave() {
+    setFormErr(null)
+    if (canEditFormItems && formItems.length === 0) {
+      setFormErr("Add at least one item")
+      return
+    }
+    if (canEditFormItems) {
+      for (const r of formItems) {
+        if (!r.item_name.trim() && !r.inventory_item_id) {
+          setFormErr("Each item must have a name or be selected from inventory")
+          return
+        }
+        const qty = parseFloat(r.quantity_received)
+        if (isNaN(qty) || qty <= 0) {
+          setFormErr("Each item must have a quantity greater than 0")
+          return
+        }
+      }
+    }
+    if (transportType === "company" && !vehicleNumber.trim()) {
+      setFormErr("Vehicle number is required for Company Transport")
+      return
+    }
+
+    const payload: GrnSavePayload = {
+      transport_type: transportType,
+      vehicle_number: transportType === "company" ? vehicleNumber.trim() : null,
+      notes: grnNotes.trim() || null,
+      purchase_request_id: null,
+      request_id: linkedPrId,
+      purchase_order_id: linkedPoId,
+      po_number: poNumber.trim() || null,
+      dc_number: dcNumber.trim() || null,
+      inspected_by_user_id: inspectedByUserId,
+      inspected_by_username: inspectedByUsername || null,
+      ...(canEditFormItems
+        ? {
+            items: formItems.map((r) => ({
+              inventory_item_id: r.inventory_item_id,
+              item_name: r.item_name.trim() || null,
+              item_code: r.item_code.trim() || null,
+              item_type: r.item_type || null,
+              unit: r.unit.trim() || null,
+              quantity_received: parseFloat(r.quantity_received),
+              quantity_pr_requested: r.quantity_pr_requested ? parseFloat(r.quantity_pr_requested) : null,
+              request_item_id: r.request_item_id,
+              purchase_order_item_id: r.purchase_order_item_id,
+            })),
+          }
+        : {}),
+    }
+
+    setSaving(true)
+    saveMutation.mutate(payload, {
+      onSettled: () => setSaving(false),
+    })
+  }
+
+  function initFillQtys(grn: GRNRecord) {
+    const init: Record<number, string> = {}
+    for (const item of grn.items) {
+      const remaining = item.quantity_received - item.quantity_filled - item.quantity_returned
+      if (remaining > 1e-9) init[item.id] = String(Math.round(remaining * 1000) / 1000)
+    }
+    setFillQtys(init)
+    setFillErr(null)
+  }
+
+  function initReturnQtys(grn: GRNRecord) {
+    const init: Record<number, string> = {}
+    for (const item of grn.items) {
+      if (item.quantity_filled > 1e-9) init[item.id] = ""
+    }
+    setReturnQtys(init)
+    setReturnErr(null)
+  }
+
+  function handleFillItems() {
+    if (!fillGrn) return
+    setFillErr(null)
+    const entries = Object.entries(fillQtys)
+      .filter(([, v]) => parseFloat(v) > 0)
+      .map(([id, v]) => ({ grn_item_id: Number(id), quantity_to_fill: parseFloat(v) }))
+    if (entries.length === 0) { setFillErr("Enter a quantity greater than 0 for at least one item"); return }
+    setFilling(true)
+    fillMutation.mutate({ items: entries }, {
+      onSettled: () => setFilling(false),
+    })
+  }
+
+  function handleReturnItems() {
+    if (!returnGrn) return
+    setReturnErr(null)
+    const entries = Object.entries(returnQtys)
+      .filter(([, v]) => parseFloat(v) > 0)
+      .map(([id, v]) => ({ grn_item_id: Number(id), quantity_to_return: parseFloat(v) }))
+    if (entries.length === 0) { setReturnErr("Enter a quantity greater than 0 for at least one item"); return }
+    setReturning(true)
+    returnMutation.mutate({ items: entries }, {
+      onSettled: () => setReturning(false),
+    })
+  }
+
+  function printGRN(grn: GRNRecord) {
+    openPrintWindow({
+      title: `Goods Received Note — ${grn.grn_number}`,
+      subtitle: `Status: ${grn.status} · Received by: ${grn.received_by_username ?? "—"}`,
+      mode: "audit-snapshot",
+      documentLabel: "GRN",
+      metadata: [
+        { label: "Status", value: grn.status.replaceAll("_", " ") },
+        { label: "Received by", value: grn.received_by_username ?? "—" },
+        { label: "Inspected by", value: grn.inspected_by_username ?? "—" },
+        { label: "Created at", value: new Date(grn.created_at).toLocaleString("en-IN") },
+        { label: "Stock filled by", value: grn.stock_filled_by_username ?? "—" },
+        { label: "Stock filled at", value: grn.stock_filled_at ? new Date(grn.stock_filled_at).toLocaleString("en-IN") : "—" },
+        { label: "PO", value: grn.po_number ?? "—" },
+        { label: "Request", value: grn.purchase_request_sn_no ?? "—" },
+        { label: "DC", value: grn.dc_number ?? "—" },
+        { label: "Transport", value: grn.transport_type ?? "—" },
+        { label: "Vehicle", value: grn.vehicle_number ?? "—" },
+        { label: "Notes", value: grn.notes ?? "—" },
+      ],
+      columns: ["#", "Item", "Inventory Type", "Code", "Ordered", "Received", "Filled", "Returned", "Remaining", "Unit"],
+      rows: grn.items.map((item, index) => ({
+        "#": index + 1,
+        Item: item.item_name ?? "—",
+        "Inventory Type": item.item_type?.replaceAll("_", " ") ?? "—",
+        Code: item.item_code ?? "—",
+        Ordered: item.quantity_pr_requested ?? "—",
+        Received: item.quantity_received,
+        Filled: item.quantity_filled,
+        Returned: item.quantity_returned,
+        Remaining: Math.round((item.quantity_received - item.quantity_filled - item.quantity_returned) * 1000) / 1000,
+        Unit: item.unit ?? "—",
+      })),
+      extraHeader: [grn.po_number ? `PO: ${grn.po_number}` : "", grn.purchase_request_sn_no ? `Request: ${grn.purchase_request_sn_no}` : "", grn.dc_number ? `DC: ${grn.dc_number}` : ""].filter(Boolean).join(" | "),
+    })
+  }
+
+  const data = listQuery.data as PaginatedGRN | undefined
+  const loading = listQuery.isLoading || listQuery.isFetching
+  const error = mutationError ?? (listQuery.error instanceof Error ? listQuery.error.message : null)
+
+  const grns = data?.items ?? []
+  const totalPages = data?.pages ?? 1
+  const total = data?.total ?? 0
+
+  // ── Shared form body (used by both Add and Edit dialog) ────────────────────
+  const FormBody = (
+    <div className="space-y-4 py-2">
+      {formErr && <p className="text-sm text-destructive">{formErr}</p>}
+
+      {/* Transport */}
+      <div>
+        <Label className="text-sm font-medium mb-2 block">Transport Type</Label>
+        <div className="flex items-center gap-4">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="transport" value="own" checked={transportType === "own"}
+              onChange={() => { setTransportType("own"); setVehicleNumber("") }} disabled={saving} />
+            <Car className="size-3.5 text-muted-foreground" />
+            <span className="text-sm">Own Transport</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="transport" value="company" checked={transportType === "company"}
+              onChange={() => setTransportType("company")} disabled={saving} />
+            <Truck className="size-3.5 text-muted-foreground" />
+            <span className="text-sm">Company Transport</span>
+          </label>
+        </div>
+      </div>
+
+      {transportType === "company" && (
+        <div>
+          <Label htmlFor="vehicle_no" className="text-sm">
+            Vehicle Number <span className="text-destructive">*</span>
+          </Label>
+          <Input id="vehicle_no" value={vehicleNumber} onChange={(e) => setVehicleNumber(e.target.value)}
+            placeholder="e.g. TN01AB1234" disabled={saving} className="mt-1" />
+        </div>
+      )}
+
+      <div>
+        <Label htmlFor="grn_notes" className="text-sm">Notes (optional)</Label>
+        <Input id="grn_notes" value={grnNotes} onChange={(e) => setGrnNotes(e.target.value)}
+          placeholder="Any delivery notes…" disabled={saving} className="mt-1" />
+      </div>
+
+      {/* Linked PR */}
+      <div>
+        <Label className="text-sm">Linked Purchase Request (optional)</Label>
+        <div className="mt-1">
+          <SearchCombobox<PRItem>
+            variant="plain"
+            value={linkedPrLabel}
+            disabled={saving}
+            placeholder="Search purchase request…"
+            fetcher={async (q) => {
+              const qs = q.trim() ? `?search=${encodeURIComponent(q)}` : ""
+              return apiFetchJson<PRItem[]>(`/api/v1/grn/linkable-prs${qs}`)
+            }}
+            getItemKey={(p) => p.id}
+            getItemLabel={(p) => `${p.sn_no} · ${p.item_name ?? ""}`}
+            onSelect={handlePrSelect}
+            renderItem={(pr) => (
+              <>
+                <span className="font-mono font-medium text-xs">{pr.sn_no}</span>
+                <span className="text-sm ml-2">{pr.item_name ?? "—"}</span>
+                <span className="text-xs text-muted-foreground ml-1.5">
+                  qty {pr.quantity} · {pr.status}
+                </span>
+              </>
+            )}
+          />
+        </div>
+        {prefillErr && (
+          <p className="text-xs text-destructive mt-1">{prefillErr}</p>
+        )}
+        {linkedPrId && (
+          <button type="button" className="text-xs text-muted-foreground hover:text-destructive mt-1"
+            onClick={() => { setLinkedPrId(null); setLinkedPrLabel("") }} disabled={saving}>
+            Clear linked PR
+          </button>
+        )}
+      </div>
+
+      {/* Linked PO */}
+      <div>
+        <Label className="text-sm">Linked Purchase Order (optional)</Label>
+        <div className="mt-1">
+          <SearchCombobox<LinkablePo>
+            variant="plain"
+            value={linkedPoLabel}
+            disabled={saving}
+            placeholder="Search purchase order…"
+            fetcher={async (q) => {
+              const qs = q.trim() ? `?search=${encodeURIComponent(q)}` : ""
+              return apiFetchJson<LinkablePo[]>(`/api/v1/purchase-orders/linkable${qs}`)
+            }}
+            getItemKey={(p) => p.id}
+            getItemLabel={(p) => `${p.po_number} · ${p.supplier_name || p.vendor_name || ""}`}
+            onSelect={handlePoSelect}
+            renderItem={(po) => (
+              <>
+                <span className="font-mono font-medium text-xs">{po.po_number}</span>
+                <span className="text-sm ml-2">{po.supplier_name || po.vendor_name || "—"}</span>
+                <span className="text-xs text-muted-foreground ml-1.5">
+                  {po.party_type}
+                </span>
+              </>
+            )}
+          />
+        </div>
+        {poPrefillErr && (
+          <p className="text-xs text-destructive mt-1">{poPrefillErr}</p>
+        )}
+        {linkedPoId && (
+          <button type="button" className="text-xs text-muted-foreground hover:text-destructive mt-1"
+            onClick={() => { setLinkedPoId(null); setLinkedPoLabel("") }} disabled={saving}>
+            Clear linked PO
+          </button>
+        )}
+      </div>
+
+      {/* PO + DC */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label className="text-sm">PO Number (optional)</Label>
+          <Input value={poNumber} onChange={(e) => setPoNumber(e.target.value)}
+            placeholder="Purchase order no." disabled={saving} className="mt-1" />
+        </div>
+        <div>
+          <Label className="text-sm">DC Number (optional)</Label>
+          <Input value={dcNumber} onChange={(e) => setDcNumber(e.target.value)}
+            placeholder="Delivery challan no." disabled={saving} className="mt-1" />
+        </div>
+      </div>
+
+      {/* Inspected By */}
+      <div>
+        <Label className="text-sm">Inspected By (optional)</Label>
+        <div className="mt-1">
+          <SearchCombobox<UserItem>
+            variant="plain"
+            value={inspectedByUsername}
+            disabled={saving}
+            placeholder="Search user…"
+            fetcher={async () => apiFetchJson<UserItem[]>(`/api/v1/admin/users?include_inactive=false`)}
+            getItemKey={(u) => u.id}
+            getItemLabel={(u) => u.username}
+            onSelect={(u) => { setInspectedByUserId(u.id); setInspectedByUsername(u.username) }}
+            renderItem={(u) => <span>{u.username}</span>}
+          />
+        </div>
+        {inspectedByUserId && (
+          <button type="button" className="text-xs text-muted-foreground hover:text-destructive mt-1"
+            onClick={() => { setInspectedByUserId(null); setInspectedByUsername("") }} disabled={saving}>
+            Clear inspector
+          </button>
+        )}
+      </div>
+
+      {/* Items */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <Label className="text-sm font-medium">Items Received</Label>
+          {canEditFormItems && (
+            <Button type="button" size="sm" variant="outline"
+              onClick={() => setFormItems((prev) => [...prev, newRow()])} disabled={saving}>
+              <PlusIcon className="size-3.5 mr-1" /> Add Item
+            </Button>
+          )}
+        </div>
+
+        {!canEditFormItems && (
+          <div className="rounded-md bg-warning/15 border border-warning/20 px-3 py-2 text-xs text-warning mb-2">
+            Items are locked — filling has already started. Use Fill Items or Return Items to adjust quantities.
+          </div>
+        )}
+
+        <div className="space-y-3">
+          {formItems.map((row, idx) => (
+            <div key={row._key} className="rounded-lg border p-3 space-y-2 relative">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-muted-foreground">Item {idx + 1}</p>
+                {canEditFormItems && formItems.length > 1 && (
+                  <Button type="button" variant="ghost" size="icon"
+                    className="size-6 text-destructive hover:text-destructive"
+                    onClick={() => removeRow(row._key)} disabled={saving}>
+                    <Trash2 className="size-3" />
+                  </Button>
+                )}
+              </div>
+
+              {canEditFormItems ? (
+                <>
+                  {/* Category filter + inventory combobox */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <Label className="text-xs text-muted-foreground mb-1 block">Category</Label>
+                      <select value={row.invTypeFilter}
+                        onChange={(e) => updateRow(row._key, { invTypeFilter: e.target.value, inventory_item_id: null, item_name: "", item_code: "" })}
+                        disabled={saving}
+                        className="w-full px-2 py-1.5 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
+                        {INV_TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                    </div>
+                    <div className="col-span-2">
+                      <Label className="text-xs text-muted-foreground mb-1 block">Inventory Item</Label>
+                      <SearchCombobox<InvItem>
+                        variant="plain"
+                        value={row.item_name}
+                        disabled={saving}
+                        placeholder="Search inventory item…"
+                        fetcher={async (q) => {
+                          const tf = row.invTypeFilter ? `&item_type=${encodeURIComponent(row.invTypeFilter)}` : ""
+                          const qs = q.trim() ? `&search=${encodeURIComponent(q)}` : ""
+                          const d = await apiFetchJson<PaginatedInv>(
+                            `/api/v1/inventory?page_size=12&include_inactive=false${tf}${qs}`,
+                          )
+                          return d.items.map((i) => ({ id: i.id, code: i.code, name: i.name, item_type: i.item_type, unit: i.unit }))
+                        }}
+                        getItemKey={(i) => i.id}
+                        getItemLabel={(i) => i.name}
+                        onSelect={(item) => updateRow(row._key, {
+                          inventory_item_id: item.id, item_name: item.name,
+                          item_code: item.code, item_type: item.item_type, unit: item.unit,
+                        })}
+                        renderItem={(i) => (
+                          <>
+                            <span className="font-medium">{i.name}</span>
+                            <span className="text-xs text-muted-foreground ml-2">{i.code}</span>
+                            <span className="text-xs text-muted-foreground ml-1">· {i.unit}</span>
+                          </>
+                        )}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs text-muted-foreground mb-1 block">Item Name</Label>
+                      <Input value={row.item_name}
+                        onChange={(e) => updateRow(row._key, { item_name: e.target.value, inventory_item_id: null })}
+                        placeholder="Name…" disabled={saving} className="h-8 text-sm" />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground mb-1 block">
+                        Qty Received{row.unit ? ` (${row.unit})` : ""}
+                        {row.quantity_pr_requested && (
+                          <span className="ml-1 text-primary">(PR: {row.quantity_pr_requested})</span>
+                        )}
+                      </Label>
+                      <Input type="number" min="0.001" step="any" value={row.quantity_received}
+                        onChange={(e) => updateRow(row._key, { quantity_received: e.target.value })}
+                        placeholder="0" disabled={saving} className="h-8 text-sm" />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                /* Read-only view when items are locked */
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                  <div><span className="text-muted-foreground">Item:</span> <span className="font-medium">{row.item_name || "—"}</span></div>
+                  <div><span className="text-muted-foreground">Qty:</span> <span className="font-medium">{row.quantity_received} {row.unit}</span></div>
+                  {row.quantity_pr_requested && (
+                    <div className="col-span-2"><span className="text-muted-foreground">PR requested:</span> <span className="font-medium text-primary">{row.quantity_pr_requested} {row.unit}</span></div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+
+  return (
+    <>
+      <PageHeader
+        title="Goods Received Notes"
+        breadcrumbs={[{ label: "Goods Received Notes" }]}
+      />
+
+      <div className="p-4 md:p-6 space-y-4">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-semibold">Goods Received Notes (GRN)</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Record all goods received before moving them to storage.
+            </p>
+          </div>
+          {canManage && (
+            <Button size="sm" onClick={openAdd}>
+              <PlusIcon className="size-4 mr-1" /> Add GRN
+            </Button>
+          )}
+        </div>
+
+        {/* Status tabs */}
+        <div className="flex items-center gap-1 border-b overflow-x-auto">
+          {TABS.map((t) => (
+            <button key={t.id} onClick={() => selectStatus(t.id)}
+              className={["px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors border-b-2 -mb-px",
+                statusFilter === t.id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground",
+              ].join(" ")}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {error && <p className="text-sm text-destructive">{error}</p>}
+
+        {/* Mobile cards */}
+        <div className="md:hidden space-y-3">
+          {loading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="rounded-lg border p-4"><Skeleton className="h-20 w-full" /></div>
+            ))
+          ) : grns.length === 0 ? (
+            <div className="rounded-lg border px-4 py-12 text-center text-muted-foreground text-sm">No GRN records found.</div>
+          ) : (
+            grns.map((g) => (
+              <div key={g.id} className="rounded-lg border p-4 space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="font-mono text-xs font-medium">{g.grn_number}</p>
+                    <p className="text-sm text-muted-foreground">{fmtDate(g.created_at)}</p>
+                  </div>
+                  <StatusBadge status={g.status} />
+                </div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                  <div><span className="text-muted-foreground">Received by:</span> <span className="font-medium">{g.received_by_username ?? "—"}</span></div>
+                  <div className="flex items-center gap-1">
+                    {g.transport_type === "company"
+                      ? <><Truck className="size-3 text-muted-foreground" /><span>{g.vehicle_number ?? "Company"}</span></>
+                      : <><Car className="size-3 text-muted-foreground" /><span>Own Transport</span></>}
+                  </div>
+                  {g.purchase_request_sn_no && (
+                    <div><span className="text-muted-foreground">PR:</span> <span className="font-mono font-medium">{g.purchase_request_sn_no}</span></div>
+                  )}
+                  {g.inspected_by_username && (
+                    <div><span className="text-muted-foreground">Inspector:</span> <span className="font-medium">{g.inspected_by_username}</span></div>
+                  )}
+                  <div>
+                    <span className="text-muted-foreground">Items:</span>{" "}
+                    <span className="font-medium">{g.items.length}</span>
+                    {g.items.some((i) => i.quantity_filled > 0) && (
+                      <span className="text-muted-foreground ml-1">
+                        ({g.items.filter((i) => i.quantity_filled + i.quantity_returned >= i.quantity_received - 1e-9).length} done)
+                      </span>
+                    )}
+                  </div>
+                  {(() => {
+                    const totalPrQty = g.items.reduce((s, i) => s + (i.quantity_pr_requested ?? 0), 0)
+                    const totalRcvd = g.items.reduce((s, i) => s + i.quantity_received, 0)
+                    const has = g.items.some((i) => i.quantity_pr_requested != null)
+                    if (!has) return null
+                    const short = totalRcvd < totalPrQty - 1e-9
+                    const over = totalRcvd > totalPrQty + 1e-9
+                    return (
+                      <div>
+                        <span className="text-muted-foreground">PR / Rcvd:</span>{" "}
+                        <span className={`font-semibold tabular-nums ${short ? "text-destructive" : over ? "text-warning" : "text-success"}`}>
+                          {totalPrQty} / {totalRcvd}
+                        </span>
+                      </div>
+                    )
+                  })()}
+                </div>
+                <div className="flex justify-end gap-1 pt-1 border-t">
+                  <Button variant="ghost" size="icon" className="size-8" onClick={() => setViewGrn(g)} title="View">
+                    <Eye className="size-3.5" />
+                  </Button>
+                  {canManage && (
+                    <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(g)} title="Edit">
+                      <Pencil className="size-3.5" />
+                    </Button>
+                  )}
+                  {adminUser && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 text-destructive hover:text-destructive"
+                      onClick={() => deleteGrn(g)}
+                      disabled={deletingId === g.id}
+                      aria-label={`Delete GRN ${g.grn_number}`}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  )}
+                  {canManage && g.status !== "stock_filled" && (
+                    <Button variant="ghost" size="sm" className="h-8 text-xs text-success hover:text-green-900"
+                      onClick={() => { setFillGrn(g); initFillQtys(g) }}>
+                      <CheckCircle className="size-3.5 mr-1" />
+                      {g.status === "partially_filled" ? "Fill More" : "Fill Items"}
+                    </Button>
+                  )}
+                  {canManage && g.status !== "draft" && g.items.some((i) => i.quantity_filled > 0) && (
+                    <Button variant="ghost" size="sm" className="h-8 text-xs text-rose-700 hover:text-rose-900"
+                      onClick={() => { setReturnGrn(g); initReturnQtys(g) }}>
+                      <RotateCcw className="size-3.5 mr-1" /> Return
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Desktop table */}
+        <div className="hidden md:block rounded-lg border overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/40">
+                  <th className="px-4 py-3 text-left font-medium whitespace-nowrap">GRN #</th>
+                  <th className="px-4 py-3 text-left font-medium">Date</th>
+                  <th className="px-4 py-3 text-left font-medium whitespace-nowrap">PR #</th>
+                  <th className="px-4 py-3 text-left font-medium whitespace-nowrap">Received By</th>
+                  <th className="px-4 py-3 text-left font-medium whitespace-nowrap">Inspected By</th>
+                  <th className="px-4 py-3 text-center font-medium">Items</th>
+                  <th className="px-4 py-3 text-center font-medium whitespace-nowrap">PR / Rcvd</th>
+                  <th className="px-4 py-3 text-left font-medium">Status</th>
+                  <th className="px-4 py-3 text-right font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={i} className="border-b">
+                      {Array.from({ length: 9 }).map((__, j) => (
+                        <td key={j} className="px-4 py-3"><Skeleton className="h-4 w-full" /></td>
+                      ))}
+                    </tr>
+                  ))
+                ) : grns.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
+                      No GRN records found.
+                    </td>
+                  </tr>
+                ) : (
+                  grns.map((g) => {
+                    const filledCount = g.items.filter((i) => i.quantity_filled + i.quantity_returned >= i.quantity_received - 1e-9).length
+                    const totalPrQty = g.items.reduce((s, i) => s + (i.quantity_pr_requested ?? 0), 0)
+                    const totalReceivedQty = g.items.reduce((s, i) => s + i.quantity_received, 0)
+                    const hasPrQty = g.items.some((i) => i.quantity_pr_requested != null)
+                    const qtyShort = hasPrQty && totalReceivedQty < totalPrQty - 1e-9
+                    const qtyOver = hasPrQty && totalReceivedQty > totalPrQty + 1e-9
+                    return (
+                      <tr key={g.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                        <td className="px-4 py-3 font-mono text-xs font-medium">{g.grn_number}</td>
+                        <td className="px-4 py-3 text-xs">{fmtDate(g.created_at)}</td>
+                        <td className="px-4 py-3 text-xs">
+                          {g.purchase_request_sn_no
+                            ? <span className="font-mono text-primary">{g.purchase_request_sn_no}</span>
+                            : <span className="text-muted-foreground">—</span>}
+                        </td>
+                        <td className="px-4 py-3 text-sm">{g.received_by_username ?? "—"}</td>
+                        <td className="px-4 py-3 text-sm">{g.inspected_by_username ?? <span className="text-muted-foreground">—</span>}</td>
+                        <td className="px-4 py-3 text-center">
+                          <span className="font-medium">{g.items.length}</span>
+                          {g.items.length > 0 && (
+                            <div className="text-xs text-muted-foreground">
+                              {filledCount}/{g.items.length} done
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {hasPrQty ? (
+                            <span className={`text-xs font-semibold tabular-nums ${
+                              qtyShort ? "text-destructive" : qtyOver ? "text-warning" : "text-success"
+                            }`}>
+                              {totalPrQty} / {totalReceivedQty}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3"><StatusBadge status={g.status} /></td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="inline-flex gap-1">
+                            <Button variant="ghost" size="icon" className="size-8" onClick={() => setViewGrn(g)} title="View details">
+                              <Eye className="size-3.5" />
+                            </Button>
+                            {canManage && (
+                              <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(g)} title="Edit">
+                                <Pencil className="size-3.5" />
+                              </Button>
+                            )}
+                            {adminUser && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-8 text-destructive hover:text-destructive"
+                                onClick={() => deleteGrn(g)}
+                                disabled={deletingId === g.id}
+                                aria-label={`Delete GRN ${g.grn_number}`}
+                              >
+                                <Trash2 className="size-3.5" />
+                              </Button>
+                            )}
+                            {canManage && g.status !== "stock_filled" && (
+                              <Button variant="ghost" size="sm" className="h-8 text-xs text-success hover:text-green-900"
+                                onClick={() => { setFillGrn(g); initFillQtys(g) }}>
+                                <CheckCircle className="size-3.5 mr-1" />
+                                {g.status === "partially_filled" ? "Fill More" : "Fill Items"}
+                              </Button>
+                            )}
+                            {canManage && g.status !== "draft" && g.items.some((i) => i.quantity_filled > 0) && (
+                              <Button variant="ghost" size="sm" className="h-8 text-xs text-rose-700 hover:text-rose-900"
+                                onClick={() => { setReturnGrn(g); initReturnQtys(g) }}>
+                                <RotateCcw className="size-3.5 mr-1" /> Return
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Pagination */}
+        {!loading && totalPages > 1 && (
+          <div className="flex items-center justify-between gap-2 pt-1">
+            <p className="text-sm text-muted-foreground">{total} record{total !== 1 ? "s" : ""}</p>
+            <div className="flex items-center gap-1">
+              <Button variant="outline" size="icon" className="size-8" disabled={pageNum <= 1} onClick={() => goPage(pageNum - 1)}>
+                <ChevronLeft className="size-4" />
+              </Button>
+              <span className="text-sm text-muted-foreground px-2">{pageNum} / {totalPages}</span>
+              <Button variant="outline" size="icon" className="size-8" disabled={pageNum >= totalPages} onClick={() => goPage(pageNum + 1)}>
+                <ChevronRight className="size-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Add / Edit GRN Dialog ──────────────────────────────────────────── */}
+      <Dialog open={formOpen} onOpenChange={(o) => !saving && setFormOpen(o)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {editingGrn ? `Edit ${editingGrn.grn_number}` : "Add Goods Received Note"}
+            </DialogTitle>
+          </DialogHeader>
+          {FormBody}
+          <div className="flex justify-end gap-2 pt-2 border-t">
+            <Button variant="outline" onClick={() => setFormOpen(false)} disabled={saving}>Cancel</Button>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? <><Loader2 className="size-3.5 mr-1.5 animate-spin" /> Saving…</> : editingGrn ? "Save Changes" : "Create GRN"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Fill Items Dialog ─────────────────────────────────────────────────── */}
+      <Dialog open={fillGrn !== null} onOpenChange={(o) => !filling && !o && setFillGrn(null)}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="size-4 text-success" />
+              Fill Items — {fillGrn?.grn_number}
+            </DialogTitle>
+          </DialogHeader>
+          {fillGrn && (
+            <div className="space-y-4 text-sm">
+              {fillErr && <p className="text-sm text-destructive">{fillErr}</p>}
+              <p className="text-xs text-muted-foreground">
+                Enter the quantity to move into inventory. You can partially fill and come back later.
+              </p>
+              <div className="rounded-md border overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b bg-muted/40">
+                      <th className="px-3 py-2 text-left font-medium">Item</th>
+                      <th className="px-3 py-2 text-right font-medium">PR Qty</th>
+                      <th className="px-3 py-2 text-right font-medium">Rcvd</th>
+                      <th className="px-3 py-2 text-right font-medium">Filled</th>
+                      <th className="px-3 py-2 text-right font-medium">Remaining</th>
+                      <th className="px-3 py-2 text-right font-medium">Fill Qty</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {fillGrn.items.map((item) => {
+                      const remaining = item.quantity_received - item.quantity_filled - item.quantity_returned
+                      const canFill = remaining > 1e-9
+                      return (
+                        <tr key={item.id} className={!canFill ? "opacity-50" : ""}>
+                          <td className="px-3 py-2">
+                            <span className="font-medium">{item.item_name ?? "—"}</span>
+                            {item.item_code && <span className="text-muted-foreground ml-1 font-mono">{item.item_code}</span>}
+                          </td>
+                          <td className="px-3 py-2 text-right font-mono text-primary">
+                            {item.quantity_pr_requested != null ? item.quantity_pr_requested : "—"}
+                          </td>
+                          <td className="px-3 py-2 text-right font-mono">{item.quantity_received} {item.unit ?? ""}</td>
+                          <td className="px-3 py-2 text-right font-mono text-success">{item.quantity_filled}</td>
+                          <td className="px-3 py-2 text-right font-mono text-warning">{Math.round(remaining * 1000) / 1000}</td>
+                          <td className="px-3 py-2 text-right">
+                            {canFill ? (
+                              <Input type="number" min="0" max={remaining} step="any"
+                                value={fillQtys[item.id] ?? ""}
+                                onChange={(e) => setFillQtys((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                                disabled={filling} className="h-7 w-24 text-xs text-right ml-auto" />
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className="flex justify-end gap-2 pt-1 border-t">
+                <Button variant="outline" onClick={() => setFillGrn(null)} disabled={filling}>Cancel</Button>
+                <Button onClick={handleFillItems} disabled={filling} className="bg-green-600 hover:bg-green-700 text-white">
+                  {filling ? <><Loader2 className="size-3.5 mr-1.5 animate-spin" /> Processing…</> : "Move to Stock"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Return Items Dialog ───────────────────────────────────────────────── */}
+      <Dialog open={returnGrn !== null} onOpenChange={(o) => !returning && !o && setReturnGrn(null)}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RotateCcw className="size-4 text-rose-600" />
+              Return Items — {returnGrn?.grn_number}
+            </DialogTitle>
+          </DialogHeader>
+          {returnGrn && (
+            <div className="space-y-4 text-sm">
+              {returnErr && <p className="text-sm text-destructive">{returnErr}</p>}
+              <p className="text-xs text-muted-foreground">
+                Enter the quantity to return from stock. Only previously filled quantities can be returned.
+              </p>
+              <div className="rounded-md border overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b bg-muted/40">
+                      <th className="px-3 py-2 text-left font-medium">Item</th>
+                      <th className="px-3 py-2 text-right font-medium">Filled</th>
+                      <th className="px-3 py-2 text-right font-medium">Returned</th>
+                      <th className="px-3 py-2 text-right font-medium">Return Qty</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {returnGrn.items.filter((item) => item.quantity_filled > 1e-9).map((item) => (
+                      <tr key={item.id}>
+                        <td className="px-3 py-2">
+                          <span className="font-medium">{item.item_name ?? "—"}</span>
+                          {item.item_code && <span className="text-muted-foreground ml-1 font-mono">{item.item_code}</span>}
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono text-success">{item.quantity_filled} {item.unit ?? ""}</td>
+                        <td className="px-3 py-2 text-right font-mono text-muted-foreground">{item.quantity_returned}</td>
+                        <td className="px-3 py-2 text-right">
+                          <Input type="number" min="0" max={item.quantity_filled} step="any"
+                            value={returnQtys[item.id] ?? ""}
+                            onChange={(e) => setReturnQtys((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                            disabled={returning} className="h-7 w-24 text-xs text-right ml-auto" />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="flex justify-end gap-2 pt-1 border-t">
+                <Button variant="outline" onClick={() => setReturnGrn(null)} disabled={returning}>Cancel</Button>
+                <Button onClick={handleReturnItems} disabled={returning} className="bg-rose-600 hover:bg-rose-700 text-white">
+                  {returning ? <><Loader2 className="size-3.5 mr-1.5 animate-spin" /> Processing…</> : "Confirm Return"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── View Detail Dialog ───────────────────────────────────────────────── */}
+      <Dialog open={viewGrn !== null} onOpenChange={(o) => !o && setViewGrn(null)}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="size-4" /> {viewGrn?.grn_number}
+              {viewGrn && <StatusBadge status={viewGrn.status} />}
+              {viewGrn && (
+                <Button
+                  size="sm" variant="outline" className="ml-auto h-7 text-xs"
+                  onClick={() => printGRN(viewGrn)}
+                >
+                  <Printer className="size-3 mr-1" />
+                  Print
+                </Button>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          {viewGrn && (
+            <div className="space-y-4 text-sm">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-xs text-muted-foreground">Received By</p>
+                  <p className="font-medium">{viewGrn.received_by_username ?? "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Date</p>
+                  <p className="font-medium">{fmtDate(viewGrn.created_at)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Transport</p>
+                  <div className="flex items-center gap-1.5 font-medium">
+                    {viewGrn.transport_type === "company"
+                      ? <><Truck className="size-3.5 text-muted-foreground" /> Company Transport</>
+                      : <><Car className="size-3.5 text-muted-foreground" /> Own Transport</>}
+                  </div>
+                </div>
+                {viewGrn.vehicle_number && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Vehicle No.</p>
+                    <p className="font-mono font-medium">{viewGrn.vehicle_number}</p>
+                  </div>
+                )}
+                {viewGrn.inspected_by_username && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Inspected By</p>
+                    <p className="font-medium">{viewGrn.inspected_by_username}</p>
+                  </div>
+                )}
+                {viewGrn.purchase_request_sn_no && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Linked PR</p>
+                    <p className="font-mono font-medium text-primary">{viewGrn.purchase_request_sn_no}</p>
+                  </div>
+                )}
+                {viewGrn.po_number && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">PO Number</p>
+                    <p className="font-mono font-medium">{viewGrn.po_number}</p>
+                  </div>
+                )}
+                {viewGrn.dc_number && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">DC Number</p>
+                    <p className="font-mono font-medium">{viewGrn.dc_number}</p>
+                  </div>
+                )}
+                {viewGrn.notes && (
+                  <div className="col-span-2">
+                    <p className="text-xs text-muted-foreground">Notes</p>
+                    <p className="italic">{viewGrn.notes}</p>
+                  </div>
+                )}
+                {(viewGrn.status === "stock_filled" || viewGrn.status === "partially_filled") && viewGrn.stock_filled_by_username && (
+                  <div className="col-span-2 rounded-md bg-success/10 border border-success/20 p-2.5">
+                    <p className="text-xs text-success">
+                      Last filled by <strong>{viewGrn.stock_filled_by_username}</strong> on {fmtDateTime(viewGrn.stock_filled_at)}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Items</p>
+                <div className="rounded-md border overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b bg-muted/40">
+                        <th className="px-3 py-2 text-left font-medium">Item</th>
+                        <th className="px-3 py-2 text-right font-medium">PR Qty</th>
+                        <th className="px-3 py-2 text-right font-medium">Received</th>
+                        <th className="px-3 py-2 text-right font-medium">Filled</th>
+                        <th className="px-3 py-2 text-right font-medium">Returned</th>
+                        <th className="px-3 py-2 text-right font-medium">Remaining</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {viewGrn.items.map((item) => {
+                        const remaining = item.quantity_received - item.quantity_filled - item.quantity_returned
+                        const qtyMismatch = item.quantity_pr_requested != null && Math.abs(item.quantity_received - item.quantity_pr_requested) > 1e-9
+                        return (
+                          <tr key={item.id}>
+                            <td className="px-3 py-2">
+                              <span className="font-medium">{item.item_name ?? "—"}</span>
+                              {item.item_code && <span className="text-muted-foreground ml-1.5 font-mono">{item.item_code}</span>}
+                            </td>
+                            <td className="px-3 py-2 text-right font-mono text-primary">
+                              {item.quantity_pr_requested != null ? item.quantity_pr_requested : "—"}
+                            </td>
+                            <td className={["px-3 py-2 text-right font-mono font-medium", qtyMismatch ? "text-tone-amber" : ""].join(" ")}>
+                              {item.quantity_received} {item.unit ?? ""}
+                              {qtyMismatch && <span className="ml-1 text-orange-500" title="Quantity differs from PR">⚠</span>}
+                            </td>
+                            <td className="px-3 py-2 text-right font-mono text-success">{item.quantity_filled}</td>
+                            <td className="px-3 py-2 text-right font-mono text-rose-700">{item.quantity_returned}</td>
+                            <td className="px-3 py-2 text-right font-mono text-warning">{Math.round(remaining * 1000) / 1000}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
