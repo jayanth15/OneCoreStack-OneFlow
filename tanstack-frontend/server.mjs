@@ -71,10 +71,16 @@ function serveFile(res, filePath) {
 
 async function proxyApi(req, res, url) {
   const target = new URL(url.pathname + url.search, BACKEND_URL)
-  const body =
-    req.method === "GET" || req.method === "HEAD"
-      ? undefined
-      : req
+
+  // Buffer the request body fully before forwarding — passing Node's
+  // IncomingMessage as a fetch() body with duplex:"half" is unreliable
+  // on some Node builds and can cause truncated upstream responses.
+  let bodyBuffer = undefined
+  if (req.method !== "GET" && req.method !== "HEAD") {
+    const chunks = []
+    for await (const chunk of req) chunks.push(chunk)
+    bodyBuffer = Buffer.concat(chunks)
+  }
 
   try {
     const upstream = await fetch(target, {
@@ -85,9 +91,7 @@ async function proxyApi(req, res, url) {
         // Ask for identity encoding so we can stream the body as-is.
         "accept-encoding": "identity",
       },
-      body,
-      // @ts-expect-error - undici duplex option for streaming bodies
-      duplex: body ? "half" : undefined,
+      body: bodyBuffer,
       redirect: "manual",
     })
 
@@ -101,6 +105,7 @@ async function proxyApi(req, res, url) {
       headers[key] = value
     }
     const setCookies = upstream.headers.getSetCookie?.() ?? []
+
     res.writeHead(upstream.status, headers)
     if (setCookies.length > 0) {
       res.setHeader("Set-Cookie", setCookies)
