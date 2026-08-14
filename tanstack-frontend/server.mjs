@@ -93,7 +93,11 @@ async function proxyApi(req, res, url) {
 
     const headers = {}
     for (const [key, value] of upstream.headers.entries()) {
-      if (key.toLowerCase() === "transfer-encoding") continue
+      const lk = key.toLowerCase()
+      // Node's fetch auto-decompresses gzip/deflate/br, so the body bytes
+      // won't match the original content-length. Strip both and let Node
+      // use chunked transfer encoding instead.
+      if (lk === "transfer-encoding" || lk === "content-length" || lk === "content-encoding") continue
       headers[key] = value
     }
     const setCookies = upstream.headers.getSetCookie?.() ?? []
