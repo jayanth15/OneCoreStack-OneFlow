@@ -72,9 +72,7 @@ function serveFile(res, filePath) {
 async function proxyApi(req, res, url) {
   const target = new URL(url.pathname + url.search, BACKEND_URL)
 
-  // Buffer the request body fully before forwarding — passing Node's
-  // IncomingMessage as a fetch() body with duplex:"half" is unreliable
-  // on some Node builds and can cause truncated upstream responses.
+  // Buffer the request body fully before forwarding.
   let bodyBuffer = undefined
   if (req.method !== "GET" && req.method !== "HEAD") {
     const chunks = []
@@ -88,38 +86,32 @@ async function proxyApi(req, res, url) {
       headers: {
         ...req.headers,
         host: target.host,
-        // Ask for identity encoding so we can stream the body as-is.
         "accept-encoding": "identity",
       },
       body: bodyBuffer,
       redirect: "manual",
     })
 
+    // Buffer the entire upstream response body, then send it in one shot.
+    const responseBuffer = await upstream.arrayBuffer()
+    const responseBody = Buffer.from(responseBuffer)
+
     const headers = {}
     for (const [key, value] of upstream.headers.entries()) {
       const lk = key.toLowerCase()
-      // Node's fetch auto-decompresses gzip/deflate/br, so the body bytes
-      // won't match the original content-length. Strip both and let Node
-      // use chunked transfer encoding instead.
       if (lk === "transfer-encoding" || lk === "content-length" || lk === "content-encoding") continue
       headers[key] = value
     }
+    // Set the correct content-length for the buffered body.
+    headers["content-length"] = String(responseBody.length)
+
     const setCookies = upstream.headers.getSetCookie?.() ?? []
+    if (setCookies.length > 0) {
+      headers["set-cookie"] = setCookies
+    }
 
     res.writeHead(upstream.status, headers)
-    if (setCookies.length > 0) {
-      res.setHeader("Set-Cookie", setCookies)
-    }
-
-    if (upstream.body) {
-      const reader = upstream.body.getReader()
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        res.write(Buffer.from(value))
-      }
-    }
-    res.end()
+    res.end(responseBody)
   } catch {
     res.writeHead(502, { "Content-Type": "application/json" })
     res.end(JSON.stringify({ detail: "Backend unreachable" }))
