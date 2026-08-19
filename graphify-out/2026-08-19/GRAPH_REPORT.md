@@ -1,18 +1,13 @@
-# Graph Report - OneFlow  (2026-08-19)
+# Graph Report - .  (2026-08-19)
 
 ## Corpus Check
-- 471 files · ~459,217 words
+- 312 files · ~457,330 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 4690 nodes · 11728 edges · 301 communities (211 shown, 90 thin omitted)
-- Extraction: 82% EXTRACTED · 18% INFERRED · 0% AMBIGUOUS · INFERRED: 2075 edges (avg confidence: 0.64)
+- 4567 nodes · 10635 edges · 324 communities (225 shown, 99 thin omitted)
+- Extraction: 85% EXTRACTED · 15% INFERRED · 0% AMBIGUOUS · INFERRED: 1641 edges (avg confidence: 0.65)
 - Token cost: 0 input · 0 output
-
-## Graph Freshness
-- Built from commit: `24f4ac82`
-- Run `git rev-parse HEAD` and compare to check if the graph is stale.
-- Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - migrate dispatch supplier fields
@@ -97,6 +92,7 @@
 - conftest Module
 - Units and Vendors Model
 - OneFlow — GRN & Work
+- migrate production process v2
 - RequestItem Module
 - Supplier Job Model
 - settings Module
@@ -196,11 +192,16 @@
 - Stock Adjustment Module
 - PurchaseRequestItem Module
 - Receipts and Requests Model
+- migrate dispatch history table
+- Consumables Data Model
+- Supplier Job Model
 - Supplier Job Model
 - Supplier Job Model
 - WorkLog Module
+- test admin document deletion
 - card Module
 - test legacy schema request repair
+- test list requests is limited
 - Phase 4: Backend — Shim
 - Phase 5: Backend — Integration
 - Phase 8: Frontend — Redirects
@@ -209,6 +210,10 @@
 - opencode Module
 - AGENTS.md — graphify rules
 - Settings Module
+- Purchase Request Routes
+- gate pass item
+- Stock Adjustment Module
+- Stock Adjustment Module
 - GRN link purchase order (auto
 - metadata Module
 - next.config Module
@@ -217,6 +222,13 @@
 - frontend lib/auth.ts (token storage)
 - graphify Module
 - React TypeScript Frontend Stack
+- @base ui/react
+- test deleting stock clears only
+- auth.dashboard.inventory.spares.$id Module
+- auth.dashboard.marketing requests
+- auth.dashboard.purchase requests
+- pwa debug
+- setup Module
 - page Module
 - input group
 - test admin document deletion
@@ -253,6 +265,7 @@
 - Unit DELETE RESTRICT behavior (409
 - @fontsource variable/inter
 - eslint.config.mjs Module
+- clsx Module
 - @hugeicons/core free icons
 - next Module
 - react Module
@@ -271,9 +284,15 @@
 - index Module
 - @base ui/react
 - @hugeicons/core free icons
+- shadcn Module
+- tailwind merge
 - @tanstack/react query
+- @tanstack/react router ssr query
+- zod Module
+- @tanstack/react virtual
 - next Module
 - tw animate css
+- zod Module
 - All Crawlers Allowed
 - migrate marketing request tables
 - vite.config Module
@@ -292,16 +311,16 @@
 - oneflow backend
 
 ## God Nodes (most connected - your core abstractions)
-1. `cn()` - 154 edges
-2. `User` - 146 edges
-3. `Unit` - 137 edges
-4. `get_session()` - 131 edges
-5. `cn()` - 131 edges
-6. `InventoryItem` - 114 edges
-7. `apiFetchJson()` - 100 edges
-8. `apiFetchJson()` - 93 edges
-9. `Schedule` - 85 edges
-10. `get_current_user()` - 83 edges
+1. `User` - 146 edges
+2. `Unit` - 137 edges
+3. `get_session()` - 131 edges
+4. `cn()` - 131 edges
+5. `InventoryItem` - 114 edges
+6. `apiFetchJson()` - 100 edges
+7. `apiFetchJson()` - 93 edges
+8. `now()` - 77 edges
+9. `InventoryHistory` - 77 edges
+10. `isAdminOrAbove()` - 63 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `Inventory Spares Demo Hand-Drawn Schematic` --semantically_similar_to--> `SpareCategory-SubCategory-Item-Variant Hierarchy`  [INFERRED] [semantically similar]
@@ -327,6 +346,7 @@
 - **OneFlow App Icon Brand Composition** — frontend_app_icon_brand_lockup, frontend_app_icon_circular_brand_mark, frontend_app_icon_wordmark [EXTRACTED 1.00]
 - **OneFlow Brand Composition** — frontend_public_icons_icon_192_circuit_flow_symbol, frontend_public_icons_icon_192_oneflow_wordmark, frontend_public_icons_icon_192_navy_teal_palette [EXTRACTED 1.00]
 - **OneFlow 512 Pixel Icon Composition** — frontend_public_icons_icon_512_brand_lockup, frontend_public_icons_icon_512_circular_brand_mark, frontend_public_icons_icon_512_wordmark [EXTRACTED 1.00]
+- **OneFlow Logo Brand Composition** — frontend_public_oneflow_logo_circular_flow_mark, frontend_public_oneflow_logo_oneflow_wordmark, frontend_public_oneflow_logo_navy_teal_gradient_palette [EXTRACTED 1.00]
 - **Connected Flow Symbolism** — frontend_public_oneflow_logo_circular_flow_mark, frontend_public_oneflow_logo_branching_circuit_paths, frontend_public_oneflow_logo_connected_workflow_concept [INFERRED 0.85]
 - **OneFlow 192 Pixel Icon Composition** — tanstack_frontend_public_icon_192_compact_brand_lockup, tanstack_frontend_public_icon_192_circular_brand_mark, tanstack_frontend_public_icon_192_wordmark [EXTRACTED 1.00]
 - **OneFlow Icon Brand Composition** — tanstack_frontend_public_icon_512_circuit_flow_symbol, tanstack_frontend_public_icon_512_oneflow_wordmark, tanstack_frontend_public_icon_512_navy_teal_palette [EXTRACTED 1.00]
@@ -342,91 +362,91 @@
 - **Request Delivery Workflow (request -> procurement PO / logistics receipt -> inventory)** — okf_requests_request-system, okf_procurement_procurement-system, okf_logistics_logistics-system, okf_inventory_inventory-system [EXTRACTED 0.95]
 - **Production BOM consumes raw materials and credits finished goods to inventory** — okf_production_production-system, okf_inventory_inventory-system, okf_procurement_procurement-system [EXTRACTED 0.95]
 
-## Communities (301 total, 90 thin omitted)
+## Communities (324 total, 99 thin omitted)
 
 ### Community 0 - "migrate dispatch supplier fields"
 Cohesion: 0.03
-Nodes (126): CHANGE_LABELS, dynTo(), fmtDate(), fmtDateTime(), fmtQty(), HistoryEntry, InventoryItem, InventoryTypePage() (+118 more)
+Nodes (120): CHANGE_LABELS, HistoryEntry, InventoryItem, PaginatedInventory, Props, ScheduleItem, AlertDialog(), AlertDialogAction() (+112 more)
 
 ### Community 1 - "marketing requests"
 Cohesion: 0.03
-Nodes (92): CustomerDispatchBlock(), CustomerDispatchBlockProps, SnItem, ApiRecord, DEFAULT_ITEM, DeptRef, fetchInventoryItems(), getPermittedTypes() (+84 more)
+Nodes (99): Crumb, PageHeaderProps, CustomerDispatchBlockProps, SnItem, Breadcrumb(), BreadcrumbEllipsis(), BreadcrumbItem(), BreadcrumbLink() (+91 more)
 
 ### Community 2 - "Consumables Data Model"
 Cohesion: 0.06
-Nodes (89): Dispatch, DispatchHistory, SQLModel, DispatchItem, SQLModel, SQLModel, DocumentCounter, SQLModel (+81 more)
+Nodes (104): Dispatch, DispatchHistory, SQLModel, SQLModel, GatePass, GatePassHistory, SQLModel, SQLModel (+96 more)
 
 ### Community 3 - "routeTree.gen Module"
-Cohesion: 0.01
-Nodes (151): PwaRegister(), Route, Route, Route, Route, Route, Route, Route (+143 more)
+Cohesion: 0.02
+Nodes (98): AuthDashboardAdminBomIdEditRoute, AuthDashboardAdminBomNewRoute, AuthDashboardAdminBomRoute, AuthDashboardAdminBomRouteChildren, AuthDashboardAdminBomRouteWithChildren, AuthDashboardAdminDepartmentsIdEditRoute, AuthDashboardAdminDepartmentsNewRoute, AuthDashboardAdminDepartmentsRoute (+90 more)
 
 ### Community 4 - "migrate dispatch supplier fields"
-Cohesion: 0.03
-Nodes (100): BLANK_ITEM_FORM, ItemForm(), ItemFormProps, ItemFormState, SFG_STORAGE_TYPES, STORAGE_TYPES, TYPE_LABELS, Crumb (+92 more)
+Cohesion: 0.04
+Nodes (74): BLANK_ITEM_FORM, ItemForm(), ItemFormProps, ItemFormState, SFG_STORAGE_TYPES, STORAGE_TYPES, TYPE_LABELS, PageHeader() (+66 more)
 
 ### Community 5 - "Inventory Edit Pages"
-Cohesion: 0.03
-Nodes (115): BomDetail, EditBomPage(), InventoryItem, PaginatedInventory, InventoryItem, NewBomForm(), PaginatedInventory, RMRow (+107 more)
+Cohesion: 0.04
+Nodes (69): AttachmentDocument, AttachmentItem, AttachmentsPage(), BLANK, fmtDate(), fmtRate(), HistoryEntry, Paginated (+61 more)
 
 ### Community 6 - "grn Module"
-Cohesion: 0.12
-Nodes (56): Require grn_access flag on the user (or admin/super_admin)., require_grn_access(), GRNRecord, GRNItem, SQLModel, Line item within a GRN — one row per inventory item received., SQLModel, Goods Received Note — records a delivery of goods into the company. (+48 more)
+Cohesion: 0.08
+Nodes (77): get_linkable_pr_items(), get_linkable_pr_or_404(), Session, Helpers for 'linkable' Purchase Requests — used by GRN creation., Load a PR, raising 404 if it doesn't exist, is soft-deleted, or isn't linkable., Return line items for a linkable PR, shaped like `LinkablePROut`.      The PR it, GRNRecord, GRNItem (+69 more)
 
 ### Community 7 - "customer dispatch block"
-Cohesion: 0.06
-Nodes (48): DeptRef, errorMessage(), REQUEST_TYPE_LABELS, requestDirectionForUser(), RequestsPage(), STATUS_BADGES, CustomerDispatchBlock(), CustomerDispatchBlockProps (+40 more)
+Cohesion: 0.04
+Nodes (62): DeptRef, errorMessage(), REQUEST_TYPE_LABELS, requestDirectionForUser(), RequestsPage(), STATUS_BADGES, CustomerDispatchBlock(), CustomerDispatchBlockProps (+54 more)
 
 ### Community 8 - "Stock Adjustment Module"
-Cohesion: 0.07
-Nodes (116): get_session(), Session, InventoryHistory, SQLModel, Audit trail for every stock change on an InventoryItem.      Written on: create,, JobCardHistory, SQLModel, Audit trail for every change on a JobCard.      One row per changed field per ed (+108 more)
+Cohesion: 0.09
+Nodes (73): add_process(), bom_preview(), _calculated_hours_from_produced_qty(), _check_backward_status(), _consume_bom_materials(), create_job(), create_order(), create_plan() (+65 more)
 
 ### Community 9 - "Layout and Empty State Components"
-Cohesion: 0.05
-Nodes (55): errorMessage(), formatDateTime(), HISTORY_LABELS, HISTORY_TONE, LIFECYCLE_STEPS, lifecycleIndex(), receiptSummary(), REQUEST_TYPE_META (+47 more)
+Cohesion: 0.04
+Nodes (59): Dialog(), DialogContent(), DialogDescription(), DialogFooter(), DialogHeader(), DialogOverlay(), DialogTitle(), CreateReceiptPayload (+51 more)
 
 ### Community 10 - "migrate dispatch supplier fields"
-Cohesion: 0.06
-Nodes (50): AuthGuard(), ADMIN_MORE_NAV, BottomNav(), GENERAL_MORE_NAV, NavItem, PRIMARY_NAV, ADMIN_CORE_NAV, ADMIN_NAV (+42 more)
+Cohesion: 0.05
+Nodes (58): AuthGuard(), ADMIN_MORE_NAV, BottomNav(), GENERAL_MORE_NAV, NavItem, PRIMARY_NAV, ADMIN_CORE_NAV, ADMIN_NAV (+50 more)
 
 ### Community 11 - "Inventory Edit Pages"
-Cohesion: 0.07
-Nodes (38): AttachmentLowStockItem, CompanyInfo, ConsumableLowStockItem, InventoryLowItem, PaginatedInventory, SpareLowStockItem, StockAlertsPage(), TabKey (+30 more)
+Cohesion: 0.05
+Nodes (54): BomDetail, EditBomPage(), InventoryItem, PaginatedInventory, DeptForm, EditDepartmentPage(), NewDepartmentPage(), DeptRef (+46 more)
 
 ### Community 12 - "Linkable Purchase Requests"
-Cohesion: 0.06
-Nodes (50): DepartmentsPage(), DeptRef, EditUserPage(), UserData, UserForm, BLANK, DeptRef, NewUserPage() (+42 more)
+Cohesion: 0.05
+Nodes (57): BomItem, BomPage(), Department, DepartmentsPage(), ProductionPage(), SECTIONS, ApiRecord, BLANK_FORM() (+49 more)
 
 ### Community 13 - "Spare Parts Data Model"
-Cohesion: 0.05
-Nodes (106): User, Shared permission helpers for inventory-type edit access.  Mirrors the frontend, Return the inventory types the user may edit, or None for admins., require_inventory_edit(), user_edit_types(), as_app_tz(), now(), datetime (+98 more)
+Cohesion: 0.11
+Nodes (65): now(), Current time in the application timezone (IST, UTC+05:30)., SQLModel, Audit trail for every stock change on a SpareItem., SpareItemHistory, adjust_item_stock(), adjust_variant_stock(), AdjustRequest (+57 more)
 
 ### Community 14 - "Supplier Job Model"
-Cohesion: 0.24
-Nodes (16): SQLModel, Configurable work-type categories for time tracking.      Managed by admins; ref, WorkType, create_work_type(), delete_work_type(), list_work_types(), BaseModel, Depends (+8 more)
+Cohesion: 0.07
+Nodes (59): One-time idempotent migration: copy unique customer_name values from existing, _seed_customers_from_schedules(), get_current_active_user(), get_current_user(), is_admin_or_above(), Depends, Session, User (+51 more)
 
 ### Community 15 - "Admin Dashboard Pages"
-Cohesion: 0.04
-Nodes (107): BomItem, DeptForm, Department, DeptRef, ROLE_BADGE_VARIANT, ROLE_LABELS, User, AttachmentDocument (+99 more)
+Cohesion: 0.05
+Nodes (49): InventoryItem, NewBomForm(), PaginatedInventory, RMRow, CAT_BLANK, fmtDate(), fmtQty(), fmtRate() (+41 more)
 
 ### Community 16 - "migrate production process v2"
-Cohesion: 0.10
-Nodes (27): Table(), TableBody(), TableCaption(), TableCell(), TableFooter(), TableHead(), TableHeader(), TableRow() (+19 more)
+Cohesion: 0.05
+Nodes (54): errorMessage(), formatDateTime(), HISTORY_LABELS, HISTORY_TONE, LIFECYCLE_STEPS, lifecycleIndex(), receiptSummary(), REQUEST_TYPE_META (+46 more)
 
 ### Community 17 - "Request Items and Router"
-Cohesion: 0.11
-Nodes (53): accept_fulfilment(), accept_item(), _acceptance_departments(), _apply_department_visibility_filter(), _apply_visibility_filter(), _build_read(), create_request(), _deduct_for_status_completion() (+45 more)
+Cohesion: 0.10
+Nodes (57): create_notification(), Create a notification for a user. Called from other routers., accept_fulfilment(), accept_item(), _acceptance_departments(), _apply_department_visibility_filter(), _apply_visibility_filter(), _build_read() (+49 more)
 
 ### Community 18 - "Stock Adjustment Module"
-Cohesion: 0.09
-Nodes (21): 1. Python 3.11 or newer, 2. Node.js 18 LTS or newer, 3. OpenSSL (recommended — needed for trusted HTTPS / PWA), 4. Git (optional — only needed for pulling updates), Configuration Files, Database, Default Login, First-Time Installation (+13 more)
+Cohesion: 0.13
+Nodes (47): Department, SQLModel, InventoryHistory, SQLModel, Audit trail for every stock change on an InventoryItem.      Written on: create,, InventoryItem, SQLModel, JobCardHistory (+39 more)
 
 ### Community 19 - "Spare Parts Data Model"
-Cohesion: 0.09
-Nodes (75): One-time idempotent migration: copy unique customer_name values from existing, _seed_customers_from_schedules(), AttachmentItem, SQLModel, Attachment inventory item., Consumable, SQLModel, SQLModel (+67 more)
+Cohesion: 0.11
+Nodes (48): SQLModel, SpareCategory, SQLModel, SpareItem, SQLModel, A colour/size/serial variant under a SpareItem.      The parent SpareItem acts a, SpareItemVariant, SQLModel (+40 more)
 
 ### Community 20 - "Admin Dashboard Pages"
-Cohesion: 0.25
-Nodes (16): create_vendor(), get_vendor_detail(), list_vendor_names(), list_vendors(), _product_summary(), Any, Depends, Session (+8 more)
+Cohesion: 0.06
+Nodes (49): BLANK, Consumable, ConsumableHistoryEntry, ConsumablesPage(), fmtDate(), fmtRate(), Paginated, STORAGE_TYPES (+41 more)
 
 ### Community 21 - "Inventory Spares PDF Data"
 Cohesion: 0.05
@@ -434,91 +454,91 @@ Nodes (40): Inventory Spares Demo Hand-Drawn Schematic, Spare Category: Auger (h
 
 ### Community 22 - "Receipts and Requests Model"
 Cohesion: 0.12
-Nodes (42): SQLModel, Line item for a Receipt — links to a RequestItem and records delivered/signed-of, ReceiptItem, SQLModel, Goods Receipt — records delivery of items for an internal transfer request., Receipt, SQLModel, Unified request: internal transfer | vendor purchase | customer dispatch.      R (+34 more)
+Nodes (43): SQLModel, Goods Receipt — records delivery of items for an internal transfer request., Receipt, SQLModel, Unified request: internal transfer | vendor purchase | customer dispatch.      R, Request, _build_receipt_read(), _build_receipt_read_with() (+35 more)
 
 ### Community 23 - "Weeder Category Model"
-Cohesion: 0.09
-Nodes (63): SQLModel, Top-level category for weeder inventory (e.g. 'Weeder Power Machine')., WeederCategory, SQLModel, Audit trail for every stock change on a Weeder item., WeederHistory, SQLModel, Weeder inventory sub-item (belongs to a WeederCategory). (+55 more)
+Cohesion: 0.16
+Nodes (41): SQLModel, Top-level category for weeder inventory (e.g. 'Weeder Power Machine')., WeederCategory, SQLModel, Audit trail for every stock change on a Weeder item., WeederHistory, SQLModel, Weeder inventory sub-item (belongs to a WeederCategory). (+33 more)
 
 ### Community 24 - "Superpowers Design Specs"
 Cohesion: 0.05
 Nodes (44): migrate_unified_request.py data migration script, RequestCustomerDispatch SQLModel (1:1 child of Request), RequestHistory SQLModel (audit log), RequestItem SQLModel (replaces PurchaseRequestItem), Request SQLModel (replaces PurchaseRequest), RequestReceipt SQLModel (renamed from Receipt), request_type enum: internal_transfer | vendor_purchase | customer_dispatch, requests router (/api/v1/requests) (+36 more)
 
 ### Community 25 - "Admin Dashboard Pages"
-Cohesion: 0.12
-Nodes (19): currentMonthStart(), DateBreakdown, fmtDate(), MachineBreakdown, OrderBreakdown, ProcessBreakdown, TimeReportPage(), todayStr() (+11 more)
+Cohesion: 0.06
+Nodes (31): DeptRef, ROLE_BADGE_VARIANT, ROLE_LABELS, User, UsersPage(), BomRequirement, BomUsage, fmt() (+23 more)
 
 ### Community 26 - "auth.dashboard.production.time report"
-Cohesion: 0.15
-Nodes (12): currentMonthStart(), DateBreakdown, fmtDate(), MachineBreakdown, OrderBreakdown, ProcessBreakdown, Route, TimeReportPage() (+4 more)
+Cohesion: 0.06
+Nodes (35): companyPrintHeaderHtml(), CompanyPrintInfo, escapeHtml(), getCompanyPrintHeaderHtml(), loadCompanyPrintInfo(), openPrintWindow(), PrintMode, PrintOptions (+27 more)
 
 ### Community 27 - "Database Session and Auth Core"
 Cohesion: 0.14
-Nodes (35): AttachmentDocument, SQLModel, PDF/document attached to an Attachment inventory item., AttachmentHistory, SQLModel, Audit trail for every stock change on an Attachment item., adjust_attachment_stock(), AdjustRequest (+27 more)
+Nodes (38): AttachmentDocument, SQLModel, PDF/document attached to an Attachment inventory item., AttachmentHistory, SQLModel, Audit trail for every stock change on an Attachment item., AttachmentItem, SQLModel (+30 more)
 
 ### Community 28 - "Auth and Inventory Module"
-Cohesion: 0.09
-Nodes (64): get_current_user(), Session, BomItem, SQLModel, Bill of Materials — maps a product name to required raw materials.      product_, InventoryItem, SQLModel, BomCloneBody (+56 more)
+Cohesion: 0.17
+Nodes (33): adjust_stock(), AdjustStockBody, _compute_extra(), _compute_extras(), create_item(), deactivate_item(), get_drawing(), get_history() (+25 more)
 
 ### Community 29 - "GRN and Dispatch Logic"
 Cohesion: 0.05
 Nodes (36): Add columns to `request` table, API Endpoints, Authorization Rules, Backfill in-flight `RequestReceipt` rows, `can_create_receipt` column, Context, Data Model Changes, Decisions (+28 more)
 
 ### Community 30 - "FileRoutesByPath Module"
-Cohesion: 0.15
-Nodes (12): BomRequirement, BomUsage, dynTo(), fmt(), InventoryDetailPage(), ItemDetail, Route, ScheduleEntry (+4 more)
+Cohesion: 0.05
+Nodes (37): Route, Route, Route, Route, Route, Route, Route, Route (+29 more)
 
 ### Community 31 - "Receipts Test Suite"
-Cohesion: 0.09
-Nodes (33): Tests for Receipt creation, signoff, and dispute workflow., Create a PROD dept + worker, create an internal_transfer QA<--PROD, approve & ac, Accepting the auto-created receipt closes the linked request., Short delivered quantities are recorded and still close the request once signed, Receipt can be created with item-level quantity_delivered., Only the original requester or an admin can sign off a receipt., The original requester can sign off a receipt., When all active receipts for a request are signed off, status → received. (+25 more)
+Cohesion: 0.08
+Nodes (35): Tests for Receipt creation, signoff, and dispute workflow., Create a PROD dept + worker, create an internal_transfer QA<--PROD, approve & ac, A user in the requester's department can identify receipt source/target context., Accepting the auto-created receipt closes the linked request., Short delivered quantities are recorded and still close the request once signed, Receipt can be created with item-level quantity_delivered., Only the original requester or an admin can sign off a receipt., The original requester can sign off a receipt. (+27 more)
 
 ### Community 32 - "test grn bugfixes"
-Cohesion: 0.11
-Nodes (29): get_linkable_pr_items(), get_linkable_pr_or_404(), Session, Helpers for 'linkable' Purchase Requests — used by GRN creation., Load a PR, raising 404 if it doesn't exist, is soft-deleted, or isn't linkable., Return line items for a linkable PR, shaped like `LinkablePROut`.      The PR it, PurchaseRequestItem, SQLModel (+21 more)
+Cohesion: 0.10
+Nodes (31): _build_payload(), create_access_token(), create_refresh_token(), decode_token(), hash_password(), hash_token(), Raises jwt.PyJWTError on invalid/expired tokens., SHA-256 hash of a token for safe DB storage. (+23 more)
 
 ### Community 33 - "Alembic Migration Strategy"
 Cohesion: 0.08
 Nodes (35): Backend Quality Gate, OneFlow Continuous Integration, Fresh Database Migration Check, Frontend Quality Gate, FastAPI SQLModel Next.js Application Stack, Request-to-Inventory Business Lifecycle, Graph Freshness Warning, Manufacturing ERP PWA (+27 more)
 
 ### Community 34 - "Legacy Migrations and Scheduling"
-Cohesion: 0.17
-Nodes (25): SQLModel, Audit trail for schedule status changes., ScheduleHistory, check_availability(), create_schedule(), delete_schedule(), get_schedule(), get_schedule_history() (+17 more)
+Cohesion: 0.16
+Nodes (28): SQLModel, Audit trail for schedule status changes., ScheduleHistory, check_availability(), create_schedule(), delete_schedule(), get_schedule(), get_schedule_history() (+20 more)
 
 ### Community 35 - "dropdown menu"
-Cohesion: 0.14
-Nodes (15): BLANK_FORM(), blankGPItem(), CompanyInfo, GatePass, GatePassAPIItem, GatePassesPage(), GatePassHistoryEntry, GP_INV_TYPES (+7 more)
+Cohesion: 0.07
+Nodes (19): BLANK_FORM(), blankGPItem(), CompanyInfo, GatePass, GatePassAPIItem, GatePassesPage(), GatePassHistoryEntry, GP_INV_TYPES (+11 more)
 
 ### Community 36 - "get vendor detail"
 Cohesion: 0.06
-Nodes (33): eslint-plugin-react-hooks, jsdom, prettier, prettier-plugin-tailwindcss, @tanstack/devtools-vite, @tanstack/eslint-config, devDependencies, eslint (+25 more)
+Nodes (32): eslint-plugin-react-hooks, jsdom, prettier, prettier-plugin-tailwindcss, @tanstack/devtools-vite, @tanstack/eslint-config, devDependencies, eslint (+24 more)
 
 ### Community 37 - "auth.dashboard.index Module"
-Cohesion: 0.13
-Nodes (16): CHANGE_ICON, CHANGE_LABEL, DashboardData, DashboardPage(), dynTo(), fmtCurrencyShort(), fmtQty(), InvCard (+8 more)
+Cohesion: 0.08
+Nodes (27): EXTRA_TONES, resolveTone(), StatCard(), StatCardProps, StatTone, CHART_COLORS, STATUS_BADGE_VARIANT, STATUS_BAR_COLOR (+19 more)
 
 ### Community 38 - "request Module"
 Cohesion: 0.13
 Nodes (28): create_purchase_request(), delete_purchase_request(), get_purchase_request(), list_purchase_requests(), Session, User, Shim router for /api/v1/purchase-requests.  Delegates to the unified /api/v1/req, List internal_transfer + vendor_purchase requests.      Fetches each type separa (+20 more)
 
 ### Community 39 - "migrate grn v2"
-Cohesion: 0.06
-Nodes (35): fmtDate(), HEADERS, HistoryCard(), HistoryItem, HistoryPage, INITIAL_TAB_STATE, InventoryColumns(), QtyColumns() (+27 more)
+Cohesion: 0.09
+Nodes (23): fmtDate(), HEADERS, HistoryCard(), HistoryItem, HistoryPage, INITIAL_TAB_STATE, InventoryColumns(), QtyColumns() (+15 more)
 
 ### Community 40 - "Supplier Job Model"
-Cohesion: 0.19
-Nodes (30): Require admin or super_admin role., require_admin(), SQLModel, Suppliers: companies that provide parts/materials AND may perform job work., Supplier, add_supplier_job(), add_supplier_material(), create_supplier() (+22 more)
+Cohesion: 0.22
+Nodes (29): get_session(), Session, add_supplier_job(), add_supplier_material(), create_supplier(), deactivate_supplier(), delete_supplier_job(), delete_supplier_material() (+21 more)
 
 ### Community 41 - "login Module"
-Cohesion: 0.06
-Nodes (56): _arm_timer(), _backup_dir_for(), cleanup_old_backups(), _db_path(), perform_backup(), datetime, Path, Database backup scheduler.  Schedule:   - 17:30 (5:30 PM) every day: take a safe (+48 more)
+Cohesion: 0.13
+Nodes (26): enforce_rate_limit(), Small in-process sliding-window limiter for sensitive auth endpoints., Reject a key after ``limit`` attempts in the previous minute., Clear limiter state (used by isolated tests)., reset_rate_limits(), as_app_tz(), datetime, Application-wide timezone.  All business timestamps (created_at/updated_at colum (+18 more)
 
 ### Community 42 - "migrate po vendor fields"
-Cohesion: 0.36
-Nodes (12): get_current_active_user(), is_admin_or_above(), Depends, User, Require purchase_access flag on the user (or admin/super_admin)., Require super_admin role only., Require dispatch_access flag on the user (or admin/super_admin)., Require gate_pass_access flag on the user (or admin/super_admin). (+4 more)
+Cohesion: 0.18
+Nodes (26): Consumable, ConsumableHistory, SQLModel, Audit trail for every stock change on a Consumable item., SQLModel, adjust_consumable_stock(), AdjustRequest, ConsumableCreate (+18 more)
 
 ### Community 43 - "login Module"
-Cohesion: 0.12
-Nodes (33): create_dept(), create_user_with_dept(), login(), Department, worker_token(), test_admin_can_adjust_item_quantities_while_approving(), test_approval_rejects_item_from_another_request(), A user in the requester's department can identify receipt source/target context. (+25 more)
+Cohesion: 0.14
+Nodes (28): create_dept(), create_user_with_dept(), login(), Department, worker_token(), test_admin_can_adjust_item_quantities_while_approving(), test_approval_rejects_item_from_another_request(), Delivery splits receipts by line-item department and closes only after all are s (+20 more)
 
 ### Community 44 - "OneFlow Unified Request System —"
 Cohesion: 0.07
@@ -526,51 +546,55 @@ Nodes (29): Auth Model, Compat shims (Strangler Fig), Context, Data Migration, D
 
 ### Community 45 - "migrate spare item v4"
 Cohesion: 0.11
-Nodes (24): BLANK, CompanyInfo, SettingsPage(), UnitItem, JobCard, JobCardsListInner(), ProcessItem, ProductionOrder (+16 more)
+Nodes (22): BLANK, CompanyInfo, SettingsPage(), UnitItem, JobCard, JobCardsListInner(), ProcessItem, ProductionOrder (+14 more)
 
 ### Community 46 - "Request Approval Workflow"
 Cohesion: 0.07
 Nodes (28): compilerOptions, allowJs, esModuleInterop, incremental, isolatedModules, jsx, lib, module (+20 more)
 
 ### Community 47 - "Admin Dashboard Pages"
-Cohesion: 0.19
-Nodes (11): EXTRA_TONES, resolveTone(), StatCard(), StatCardProps, StatTone, CHART_COLORS, STATUS_BADGE_VARIANT, STATUS_BAR_COLOR (+3 more)
+Cohesion: 0.13
+Nodes (22): AlertDialogAction(), AlertDialogCancel(), AlertDialogContent(), AlertDialogDescription(), AlertDialogFooter(), AlertDialogHeader(), AlertDialogMedia(), AlertDialogOverlay() (+14 more)
 
 ### Community 48 - "combobox Module"
-Cohesion: 0.04
-Nodes (83): geistMono, geistSans, inter, metadata, RootLayout(), viewport, EmptyState(), EmptyStateProps (+75 more)
+Cohesion: 0.09
+Nodes (13): ComboboxContent(), ComboboxInput(), ComboboxItem(), ComboboxList(), CommonProps, ListProps, PlainProps, SearchCombobox() (+5 more)
 
 ### Community 49 - "compilerOptions Module"
 Cohesion: 0.07
-Nodes (27): ES2022, eslint.config.js, prettier.config.js, vite/client, vite.config.ts, compilerOptions, allowImportingTsExtensions, jsx (+19 more)
+Nodes (27): DOM, DOM.Iterable, ES2022, eslint.config.js, prettier.config.js, **/*.ts, **/*.tsx, vite/client (+19 more)
 
 ### Community 50 - "shadcn Module"
 Cohesion: 0.07
-Nodes (29): @tailwindcss/vite, dependencies, class-variance-authority, clsx, react, shadcn, tailwind-merge, @tailwindcss/vite (+21 more)
+Nodes (28): @tailwindcss/vite, dependencies, class-variance-authority, clsx, @hugeicons/react, lucide-react, react, react-dom (+20 more)
+
+### Community 51 - "Admin Dashboard Pages"
+Cohesion: 0.09
+Nodes (17): CHANGE_LABELS, fmtDate(), fmtDateTime(), fmtQty(), HistoryEntry, InventoryItem, InventoryTypePage(), isLow() (+9 more)
 
 ### Community 52 - "Weeder Category Model"
-Cohesion: 0.18
-Nodes (11): 3.1 Terminology, 3.3 Gate Pass reference rules, 3.4 Gate Pass history rules, 3.5 PDF attachment storage, 3.6 Leaf-only deduction invariant, 3.7 Inventory printing, 3.8 Complete history printing, 3. Required Business Rules and Architectural Decisions (+3 more)
+Cohesion: 0.15
+Nodes (23): AdminUser, SessionDep, reconcile_inventory(), InventoryReconciliationReport, BaseModel, ReconciliationIssue, ReconciliationSummary, _active_values() (+15 more)
 
 ### Community 53 - "test multi department request creates"
-Cohesion: 0.22
-Nodes (8): 10. Rollout and Reconciliation, 11. Non-Goals, 12. Definition of Done, 13. Implementation-Agent Reporting Requirements, 1. Objective, 5. Database Migrations, 9. Commands and Quality Gates, OneFlow Improvements Implementation Plan
+Cohesion: 0.16
+Nodes (23): _deduct(), deduct_request_stock(), datetime, Session, User, _quantity(), Inventory validation and deduction for fulfilled requests and dispatches., Validate all lines first, then deduct them in the caller's transaction. (+15 more)
 
 ### Community 54 - "Admin Dashboard Pages"
-Cohesion: 0.08
-Nodes (31): CHANGE_LABELS, fmtDate(), fmtDateTime(), fmtQty(), HistoryEntry, InventoryItem, InventoryLanding(), InventoryPageInner() (+23 more)
+Cohesion: 0.12
+Nodes (15): avatarColor(), BLANK_CREATE, daysUntil(), fmtDate(), Initials(), STATUS_DOT, VendorsPage(), VendorSummary (+7 more)
 
 ### Community 55 - "Auth and Inventory Module"
-Cohesion: 0.25
-Nodes (8): 6. Implementation Sequence, Phase 0: Baseline and characterization, Phase 1: Canonical stock identity, Phase 2: Dispatch and receipt behavior, Phase 3: Gate Pass references and history, Phase 4: PDF documents, Phase 5: Shared printing, Phase 6: Full validation and graph update
+Cohesion: 0.21
+Nodes (20): BomItem, SQLModel, Bill of Materials — maps a product name to required raw materials.      product_, BomCloneBody, BomItemCreate, BomItemResponse, BomItemUpdate, clone_bom() (+12 more)
 
 ### Community 56 - "RequestCustomerDispatch Module"
 Cohesion: 0.09
 Nodes (19): fmtDate(), fmtDateTime(), FormItemRow, GRNItem, GRNPage(), GRNRecord, GrnSavePayload, INV_TYPE_OPTIONS (+11 more)
 
 ### Community 57 - "Stock Adjustment Module"
-Cohesion: 0.33
-Nodes (6): 2.1 Dispatch, 2.2 Gate Pass, 2.3 Attachment inventory, 2.4 Inventory identity and deduction, 2.5 Printing, 2. Current-System Findings
+Cohesion: 0.21
+Nodes (21): SQLModel, Many-to-many link between User and Department., UserDepartment, create_department(), delete_department(), DepartmentCreate, DepartmentResponse, DepartmentUpdate (+13 more)
 
 ### Community 58 - "OneFlow UI Redesign Implementation Plan"
 Cohesion: 0.09
@@ -589,8 +613,8 @@ Cohesion: 0.09
 Nodes (21): aliases, components, hooks, lib, ui, utils, iconLibrary, menuAccent (+13 more)
 
 ### Community 62 - "users Module"
-Cohesion: 0.13
-Nodes (42): hash_password(), Department, SQLModel, SQLModel, User, create_department(), delete_department(), DepartmentCreate (+34 more)
+Cohesion: 0.26
+Nodes (20): _build_response(), create_user(), delete_user(), DeptRef, get_user(), _get_user_departments(), list_users(), _parse_csv() (+12 more)
 
 ### Community 63 - "C. Print & Reports"
 Cohesion: 0.10
@@ -601,32 +625,32 @@ Cohesion: 0.11
 Nodes (16): fmtDate(), fmtDateTime(), FormItemRow, GRNItem, GRNPage(), GRNRecord, INV_TYPE_OPTIONS, InvItem (+8 more)
 
 ### Community 65 - "auth.dashboard.vendors Module"
-Cohesion: 0.07
-Nodes (34): Sheet(), SheetContent(), SheetDescription(), SheetFooter(), SheetHeader(), SheetOverlay(), SheetTitle(), CHANGE_LABELS (+26 more)
+Cohesion: 0.14
+Nodes (16): Sheet(), SheetContent(), SheetDescription(), SheetFooter(), SheetHeader(), SheetOverlay(), SheetTitle(), avatarColor() (+8 more)
 
 ### Community 66 - "auth.dashboard.dispatch Module"
-Cohesion: 0.04
-Nodes (82): Button(), buttonVariants, Dialog(), DialogContent(), DialogDescription(), DialogFooter(), DialogHeader(), DialogTitle() (+74 more)
+Cohesion: 0.11
+Nodes (19): BLANK_FORM(), blankDispatchItem(), CompanyInfo, Dispatch, DISPATCH_INV_TYPES, DispatchAPIItem, DispatchForm(), DispatchFormState (+11 more)
 
 ### Community 67 - "migrate sqlite to postgres"
-Cohesion: 0.30
-Nodes (14): _coerce_datetime(), _column_value(), _default_value(), main(), migrate(), Any, Column, datetime (+6 more)
+Cohesion: 0.19
+Nodes (16): _coerce_datetime(), _column_value(), _default_value(), main(), migrate(), Any, Column, datetime (+8 more)
 
 ### Community 68 - "Inventory Detail Pages"
 Cohesion: 0.17
 Nodes (18): CycleCountPage(), CycleRow, EMPTY_PAGE, fetchCount(), fmtLocation(), fmtQty(), InventoryListItem, loadAttachments() (+10 more)
 
 ### Community 69 - "auth.dashboard.inventory.cycle count"
-Cohesion: 0.17
-Nodes (20): CycleCountPage(), CycleRow, EMPTY_PAGE, fetchCount(), fmtLocation(), fmtQty(), InventoryListItem, loadAttachments() (+12 more)
+Cohesion: 0.18
+Nodes (19): CycleCountPage(), CycleRow, EMPTY_PAGE, fetchCount(), fmtLocation(), fmtQty(), InventoryListItem, loadAttachments() (+11 more)
 
 ### Community 70 - "main Module"
-Cohesion: 0.33
-Nodes (6): 7.1 Dispatch tests, 7.2 Gate Pass tests, 7.3 PDF tests, 7.4 Leaf deduction tests, 7.5 History/report API tests, 7. Backend Test Plan
+Cohesion: 0.19
+Nodes (18): _arm_timer(), _backup_dir_for(), cleanup_old_backups(), _db_path(), perform_backup(), datetime, Path, Database backup scheduler.  Schedule:   - 17:30 (5:30 PM) every day: take a safe (+10 more)
 
 ### Community 71 - "Notification Module"
-Cohesion: 0.23
-Nodes (18): Notification, SQLModel, create_notification(), list_notifications(), mark_all_read(), mark_read(), NotificationOut, _out() (+10 more)
+Cohesion: 0.26
+Nodes (17): Notification, SQLModel, list_notifications(), mark_all_read(), mark_read(), NotificationOut, _out(), BaseModel (+9 more)
 
 ### Community 72 - "test production status cascade"
 Cohesion: 0.23
@@ -634,31 +658,31 @@ Nodes (18): _complete_card(), _headers(), Session, TestClient, Tests for the pro
 
 ### Community 73 - "@hugeicons/react Module"
 Cohesion: 0.11
-Nodes (19): @ducanh2912/next-pwa, dependencies, class-variance-authority, clsx, @ducanh2912/next-pwa, @hugeicons/react, lucide-react, radix-ui (+11 more)
+Nodes (19): @ducanh2912/next-pwa, dependencies, @base-ui/react, class-variance-authority, @ducanh2912/next-pwa, @hugeicons/react, lucide-react, radix-ui (+11 more)
 
 ### Community 74 - "DispatchPage Module"
 Cohesion: 0.12
 Nodes (17): BLANK_FORM(), blankDispatchItem(), CompanyInfo, Dispatch, DISPATCH_INV_TYPES, DispatchAPIItem, DispatchForm(), DispatchFormState (+9 more)
 
 ### Community 75 - "Production and Jobs UI"
-Cohesion: 0.08
-Nodes (27): CHANGE_ICON, ConsumableLowStockItem, DashboardData, DashboardPage(), fmtCurrencyFull(), fmtCurrencyShort(), formatType(), InventoryByType (+19 more)
+Cohesion: 0.12
+Nodes (16): CHANGE_ICON, ConsumableLowStockItem, DashboardData, DashboardPage(), fmtCurrencyFull(), fmtCurrencyShort(), formatType(), InventoryByType (+8 more)
 
 ### Community 76 - "page Module"
-Cohesion: 0.33
-Nodes (6): 8.1 Dispatch manual matrix, 8.2 Gate Pass manual matrix, 8.3 PDF manual matrix, 8.4 Inventory print matrix, 8.5 History print matrix, 8. Frontend Validation Plan
+Cohesion: 0.11
+Nodes (11): dynTo(), fmtDate(), fmtDateTime(), fmtQty(), InventoryTypePage(), isLow(), isShortfall(), Route (+3 more)
 
 ### Community 77 - "migrate production plan v3"
-Cohesion: 0.14
-Nodes (20): ApiRecord, BLANK_FORM(), BLANK_ITEM(), fetchInventoryItems(), INVENTORY_LABELS, INVENTORY_TYPES, InventoryItem, itemRows() (+12 more)
+Cohesion: 0.15
+Nodes (18): ApiRecord, BLANK_FORM(), BLANK_ITEM(), fetchInventoryItems(), INVENTORY_LABELS, INVENTORY_TYPES, InventoryItem, itemRows() (+10 more)
 
 ### Community 78 - "page Module"
-Cohesion: 0.10
-Nodes (24): Start the daily backup scheduler.  Call once at app startup.     The scheduler f, start_scheduler(), _alembic_config(), alembic_version_exists(), _current_alembic_revision(), init_db(), Check if the alembic_version table exists (i.e., DB is already Alembic-managed)., Create all tables from SQLModel metadata. Called on startup.      For fresh data (+16 more)
+Cohesion: 0.16
+Nodes (16): _alembic_config(), alembic_version_exists(), _current_alembic_revision(), init_db(), Check if the alembic_version table exists (i.e., DB is already Alembic-managed)., Create all tables from SQLModel metadata. Called on startup.      For fresh data, Upgrade one revision per transaction so completed cleanup cannot loop.      A si, Stamp a legacy database at a known covered revision.      This records migration (+8 more)
 
 ### Community 79 - "conftest Module"
-Cohesion: 0.10
-Nodes (16): admin_token(), client(), create_admin(), prod_dept(), TestClient, User, qa_dept(), Pytest fixtures for OneFlow backend — in-memory SQLite, transaction-isolated per (+8 more)
+Cohesion: 0.12
+Nodes (14): admin_token(), client(), create_admin(), prod_dept(), TestClient, User, qa_dept(), Pytest fixtures for OneFlow backend — in-memory SQLite, transaction-isolated per (+6 more)
 
 ### Community 80 - "Units and Vendors Model"
 Cohesion: 0.16
@@ -668,17 +692,21 @@ Nodes (17): Tests for Gate Pass creation, history, reference rules, and deletion
 Cohesion: 0.11
 Nodes (17): Architecture, Backend — `backend/tests/test_grn_bugfixes.py`, Bug → fix mapping, Call-site migrations, Context, Data flow — PR prefill (bug 2), Decisions, Error handling (+9 more)
 
+### Community 82 - "migrate production process v2"
+Cohesion: 0.13
+Nodes (16): BLANK_FORM(), blankGPItem(), CompanyInfo, GatePass, GatePassAPIItem, GatePassesPage(), GatePassHistoryEntry, GP_INV_TYPES (+8 more)
+
 ### Community 83 - "RequestItem Module"
-Cohesion: 0.27
-Nodes (16): SQLModel, Line item for a Request.      Used for internal_transfer and vendor_purchase typ, RequestItem, _headers(), Tests that completing a request always subtracts inventory.  Covers the admin `s, _request_with_item(), test_direct_receipt_deducts_delivered_quantity_once(), test_set_status_deducts_rejected_items_are_skipped() (+8 more)
+Cohesion: 0.28
+Nodes (15): SQLModel, Line item for a Request.      Used for internal_transfer and vendor_purchase typ, RequestItem, _headers(), Tests that completing a request always subtracts inventory.  Covers the admin `s, _request_with_item(), test_direct_receipt_deducts_delivered_quantity_once(), test_set_status_deducts_rejected_items_are_skipped() (+7 more)
 
 ### Community 84 - "Supplier Job Model"
-Cohesion: 0.34
-Nodes (13): create_unit(), delete_unit(), get_unit_usage_count(), list_units(), BaseModel, Depends, Session, User (+5 more)
+Cohesion: 0.25
+Nodes (15): Administrative, read-only inventory reconciliation API., create_unit(), delete_unit(), get_unit_usage_count(), list_units(), BaseModel, Depends, Session (+7 more)
 
 ### Community 85 - "settings Module"
-Cohesion: 0.17
-Nodes (19): CompanySettings, SQLModel, Key-value store for company-wide settings., CompanyInfoResponse, CompanyInfoUpdate, create_backup(), _db_file_path(), get_company_info() (+11 more)
+Cohesion: 0.21
+Nodes (16): CompanyInfoResponse, CompanyInfoUpdate, create_backup(), _db_file_path(), get_company_info(), _get_setting(), BaseModel, Depends (+8 more)
 
 ### Community 86 - "Requests Page UI"
 Cohesion: 0.17
@@ -709,20 +737,20 @@ Cohesion: 0.30
 Nodes (14): DispatchStatus, GatePassStatus, is_admin_or_above(), JobCardStatus, OrderStatus, PlanStatus, PurchaseOrderStatus, Enums for roles, request statuses, and other string constants.  Replaces scatter (+6 more)
 
 ### Community 93 - "Consumables Data Model"
-Cohesion: 0.09
-Nodes (56): GatePassHistory, SQLModel, MarketingRequestHistory, SQLModel, Audit trail for marketing request changes., MarketingRequest, SQLModel, Marketing team item dispatch request (weeder / attachment). (+48 more)
+Cohesion: 0.25
+Nodes (14): _build_pr_id_to_new_req_id(), _generate_sn(), main(), _map_status(), migrate_marketing_requests(), migrate_purchase_requests(), migrate_receipts(), Session (+6 more)
 
 ### Community 94 - "BOM Edit Pages"
 Cohesion: 0.17
 Nodes (13): avatarColor(), daysUntil(), FGItem, fmt(), fmtDate(), POEntry, ProductSummary, ScheduleEntry (+5 more)
 
 ### Community 95 - "type tabs"
-Cohesion: 0.40
-Nodes (4): Answer, Outcome, Q: use the graph and get knowledge of this project., Source Nodes
+Cohesion: 0.15
+Nodes (12): BomRequirement, BomUsage, dynTo(), fmt(), InventoryDetailPage(), ItemDetail, Route, ScheduleEntry (+4 more)
 
 ### Community 96 - "migrate dispatch history table"
-Cohesion: 0.24
-Nodes (16): SQLModel, Customer-dispatch child entity (1:1 with Request when request_type=customer_disp, RequestCustomerDispatch, _customer_request(), _headers(), _internal_request(), InventoryItem, WeederItem (+8 more)
+Cohesion: 0.34
+Nodes (13): _customer_request(), _headers(), _internal_request(), InventoryItem, WeederItem, test_any_request_can_be_selected_only_once_for_dispatch(), test_linked_dispatch_cannot_fulfil_more_than_inventory(), test_linked_dispatch_reserves_then_fulfils_request_once() (+5 more)
 
 ### Community 97 - "Comprehensive Fixes & Enhancements —"
 Cohesion: 0.14
@@ -745,12 +773,12 @@ Cohesion: 0.15
 Nodes (12): 10. Deletion Flow (RESTRICT), 1. Unit Table (Backend), 2. Change All 14 Unit Columns to FK, 3. Alembic Migration 0003, 4. Unit Router (`/api/v1/units`), 5. Settings Page — Tabs, 6. Frontend — Replace Hardcoded Units, 7. FG Create — Validation (+4 more)
 
 ### Community 102 - "Production and Jobs UI"
-Cohesion: 0.40
-Nodes (4): Answer, Outcome, Q: on the request page when i click on mark delivered as admin getting internal server error if we can get the cause it would be helpful., Source Nodes
+Cohesion: 0.19
+Nodes (11): EXTRA_TONES, resolveTone(), StatCard(), StatCardProps, StatTone, CHART_COLORS, STATUS_BADGE_VARIANT, STATUS_BAR_COLOR (+3 more)
 
 ### Community 103 - "customer dispatch block"
-Cohesion: 0.40
-Nodes (4): Answer, Outcome, Q: if i deploy this code will it automatically take care of the migration ?, Source Nodes
+Cohesion: 0.17
+Nodes (8): EmptyState(), EmptyStateProps, PageShell(), PageShellProps, TABS, TypeTabs(), TypeTabsProps, TypeTabsValue
 
 ### Community 104 - "https proxy"
 Cohesion: 0.17
@@ -761,8 +789,8 @@ Cohesion: 0.36
 Nodes (10): create_marketing_request(), delete_marketing_request(), get_marketing_request(), list_marketing_requests(), Session, User, Shim router for /api/v1/marketing-requests.  Delegates to the unified /api/v1/re, List customer_dispatch requests.      Fetches the single allowed type. (Same pat (+2 more)
 
 ### Community 106 - "input group"
-Cohesion: 0.40
-Nodes (4): Answer, Outcome, Q: ok now can you audit the codebase the admin user raised concern that they also had limited permission on some places on the application, admin should be able to anything, they are saying they were not able to edit users, in normal frontend we are able to do all the things in tanstack-frontend we are getting this problem, like printing, editing bom all these things are not working in tanstack-frontend please validate cause we are migrating the codebase from nextjs to tanstack and we did that. Throughly validate the tanstack-frontend., Source Nodes
+Cohesion: 0.24
+Nodes (9): InputGroup(), InputGroupAddon(), inputGroupAddonVariants, InputGroupButton(), inputGroupButtonVariants, InputGroupInput(), InputGroupText(), InputGroupTextarea() (+1 more)
 
 ### Community 107 - "OneFlow Wordmark"
 Cohesion: 0.27
@@ -789,8 +817,8 @@ Cohesion: 0.20
 Nodes (10): JobCard.actual_qty Field, Job Card Detail Page and Actual Qty Design, FG Auto-completion Cascade Bug, Backend Python Pinned Requirements, OneFlow ERP Application Flow Map, Idempotent _migrate_*() Function Pattern, Two-Token JWT Auth Flow (access + HttpOnly refresh), RBAC Roles & Permissions Matrix (+2 more)
 
 ### Community 113 - "page Module"
-Cohesion: 0.40
-Nodes (4): Answer, Outcome, Q: The problem is still there when i click on edit the url is changing but the page is not rendering on tanstack same for all things in our application, All edit options are not working the url is changing but page or pop or any other things are not working., Source Nodes
+Cohesion: 0.22
+Nodes (8): Start the daily backup scheduler.  Call once at app startup.     The scheduler f, start_scheduler(), add_security_headers(), _auto_seed_if_empty(), global_exception_handler(), lifespan(), If the database has no users at all (fresh deployment), create a default     sup, Exception
 
 ### Community 114 - "OneFlow Backend Overhaul Implementation Plan"
 Cohesion: 0.20
@@ -865,8 +893,8 @@ Cohesion: 0.29
 Nodes (8): Cyan Atom Symbol, Central Beach Leisure Emblem, Ocean Wave Motif, Palm Tree Motif, React Frontend Identity, Reclining Person Motif, Relaxation Theme, TanStack Frontend SVG Logo Asset
 
 ### Community 132 - "crud Module"
-Cohesion: 0.40
-Nodes (5): 3.2 Dispatch stock rules, Dealer / Supplier dispatch, Idempotency, OEM / Vendor dispatch, Receipt reference
+Cohesion: 0.29
+Nodes (6): Any, datetime, Session, Shared CRUD utilities for soft-delete and history writing., Soft-delete an entity by setting is_active=False and committing.      Args:, soft_delete()
 
 ### Community 133 - "legacy db migrations"
 Cohesion: 0.43
@@ -885,16 +913,20 @@ Cohesion: 0.29
 Nodes (7): figtree font, lucide-react icon library (legacy), shadcn baseColor 'mist', remixicon icon library, shadcn style 'sera', shadcn registry preset b1tzNKAUa, Geist font (default Next.js font, to be replaced by figtree)
 
 ### Community 137 - "layout Module"
-Cohesion: 0.50
-Nodes (4): 4.1 Frontend report utility, 4.2 Backend stock service, 4.3 Backend audit helper, 4. Shared Components and Services
+Cohesion: 0.29
+Nodes (5): geistMono, geistSans, inter, metadata, viewport
 
 ### Community 138 - "status bar"
 Cohesion: 0.29
 Nodes (5): STATUS_COLOR_VAR, STATUS_DOT_CLASS, STATUS_LABEL, StatusBarProps, StatusBreakdown
 
 ### Community 139 - "toggle group"
-Cohesion: 0.50
-Nodes (3): Adding components, TanStack Start + shadcn/ui, Using components
+Cohesion: 0.43
+Nodes (5): ToggleGroup(), ToggleGroupContext, ToggleGroupItem(), Toggle(), toggleVariants
+
+### Community 140 - "Purchase Request Item Model"
+Cohesion: 0.38
+Nodes (4): apiLogout(), clearAccessToken(), getAccessToken(), isAuthenticated()
 
 ### Community 141 - "scripts Module"
 Cohesion: 0.29
@@ -919,6 +951,10 @@ Nodes (5): _col_exists(), downgrade(), Fix missing schema in production DB.  The
 ### Community 146 - "write history"
 Cohesion: 0.33
 Nodes (5): Any, Session, Shared history writer for audit trail entries.  Usage:     from app.core.history, Create and add a history row.      Args:         session: SQLModel session, write_history()
+
+### Community 147 - "migrate po vendor fields"
+Cohesion: 0.47
+Nodes (5): User, Shared permission helpers for inventory-type edit access.  Mirrors the frontend, Return the inventory types the user may edit, or None for admins., require_inventory_edit(), user_edit_types()
 
 ### Community 148 - "paginate Module"
 Cohesion: 0.40
@@ -972,6 +1008,10 @@ Nodes (5): engines, node, name, private, type
 Cohesion: 0.40
 Nodes (6): TanStack Frontend Application Identity, OneFlow 192 Pixel Icon Asset, OneFlow Circular Brand Mark, Compact OneFlow Brand Lockup, Connected Flow Motif, OneFlow Wordmark
 
+### Community 162 - "@fontsource variable/inter"
+Cohesion: 0.40
+Nodes (3): PwaRegister(), Route, FileRoutesById
+
 ### Community 163 - "0011 improvements dispatch gatepass attachment"
 Cohesion: 0.60
 Nodes (3): downgrade(), _table_exists(), upgrade()
@@ -1016,6 +1056,42 @@ Nodes (3): _col_exists(), downgrade(), upgrade()
 Cohesion: 0.83
 Nodes (3): _column_exists(), downgrade(), upgrade()
 
+### Community 176 - "CompanySettings Module"
+Cohesion: 0.67
+Nodes (3): CompanySettings, SQLModel, Key-value store for company-wide settings.
+
+### Community 177 - "clsx Module"
+Cohesion: 0.67
+Nodes (3): DocumentCounter, SQLModel, Transactionally allocated sequence per document prefix.
+
+### Community 178 - "Stock Adjustment Module"
+Cohesion: 0.67
+Nodes (3): ProductionOrder, SQLModel, A production run linked to a Production Plan.      Production Orders group Job C
+
+### Community 179 - "Stock Adjustment Module"
+Cohesion: 0.67
+Nodes (3): ProductionProcess, SQLModel, A single process step within a Production Plan.      Examples: "Blanking", "Numb
+
+### Community 180 - "PurchaseRequestItem Module"
+Cohesion: 0.67
+Nodes (3): PurchaseRequestItem, SQLModel, Line item for a purchase request.
+
+### Community 181 - "Receipts and Requests Model"
+Cohesion: 0.67
+Nodes (3): SQLModel, Line item for a Receipt — links to a RequestItem and records delivered/signed-of, ReceiptItem
+
+### Community 182 - "migrate dispatch history table"
+Cohesion: 0.67
+Nodes (3): SQLModel, Customer-dispatch child entity (1:1 with Request when request_type=customer_disp, RequestCustomerDispatch
+
+### Community 183 - "Consumables Data Model"
+Cohesion: 0.67
+Nodes (3): SQLModel, Change log entry for a Request., RequestHistory
+
+### Community 184 - "Supplier Job Model"
+Cohesion: 0.67
+Nodes (3): SQLModel, Suppliers: companies that provide parts/materials AND may perform job work., Supplier
+
 ### Community 185 - "Supplier Job Model"
 Cohesion: 0.67
 Nodes (3): SQLModel, Job / process a supplier performs for us (e.g. laser cutting, powder coating)., SupplierJob
@@ -1035,6 +1111,10 @@ Nodes (3): auth(), test_gate_pass_detail_and_transition_guard(), test_po_identit
 ### Community 190 - "test legacy schema request repair"
 Cohesion: 0.83
 Nodes (3): _config(), test_repair_maps_units_without_changing_active_quantity(), test_repair_restores_legacy_purchase_requests()
+
+### Community 191 - "test list requests is limited"
+Cohesion: 0.83
+Nodes (3): _create_request(), test_list_requests_is_limited_to_user_departments(), test_list_requests_paginates_with_limit_and_offset()
 
 ### Community 192 - "Phase 4: Backend — Shim"
 Cohesion: 0.50
@@ -1085,30 +1165,24 @@ Cohesion: 1.00
 Nodes (3): React TypeScript Frontend Stack, shadcn/ui Components, TanStack Start Frontend Template
 
 ## Knowledge Gaps
-- **1466 isolated node(s):** `$schema`, `.opencode/plugins/graphify.js`, `oneflow-backend`, `InventoryItem`, `PaginatedInventory` (+1461 more)
+- **1373 isolated node(s):** `$schema`, `.opencode/plugins/graphify.js`, `oneflow-backend`, `InventoryItem`, `PaginatedInventory` (+1368 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **90 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
-
-## Work-memory lessons
-
-**Preferred sources** — corroborated by past sessions; start here.
-- `EditUserPage()` (2× useful, score=1.988463325)
-- `UsersPage()` (2× useful, score=1.988463325) _(code changed — re-verify)_
+- **99 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `_seed_customers_from_schedules()` connect `Spare Parts Data Model` to `Stock Adjustment Module`, `legacy migrations`, `run all`, `page Module`?**
+- **Why does `get_session()` connect `Supplier Job Model` to `Consumables Data Model`, `Legacy Migrations and Scheduling`, `grn Module`, `Notification Module`, `Stock Adjustment Module`, `login Module`, `page Module`, `Supplier Job Model`, `Stock Adjustment Module`, `Spare Parts Data Model`, `Supplier Job Model`, `settings Module`, `Receipts and Requests Model`, `Auth and Inventory Module`, `Stock Adjustment Module`, `Auth and Inventory Module`, `users Module`?**
+  _High betweenness centrality (0.024) - this node is a cross-community bridge._
+- **Why does `User` connect `Stock Adjustment Module` to `Consumables Data Model`, `grn Module`, `Stock Adjustment Module`, `Spare Parts Data Model`, `Supplier Job Model`, `Request Items and Router`, `Spare Parts Data Model`, `Weeder Category Model`, `Database Session and Auth Core`, `Auth and Inventory Module`, `Legacy Migrations and Scheduling`, `login Module`, `migrate po vendor fields`, `test multi department request creates`, `Auth and Inventory Module`, `Stock Adjustment Module`, `users Module`, `Notification Module`, `conftest Module`, `Supplier Job Model`, `migrate dispatch history table`, `page Module`?**
   _High betweenness centrality (0.021) - this node is a cross-community bridge._
-- **Why does `Schedule` connect `Stock Adjustment Module` to `Legacy Migrations and Scheduling`, `test production status cascade`, `Spare Parts Data Model`, `Admin Dashboard Pages`, `Auth and Inventory Module`, `Consumables Data Model`?**
-  _High betweenness centrality (0.016) - this node is a cross-community bridge._
-- **Why does `now()` connect `Spare Parts Data Model` to `Consumables Data Model`, `Legacy Migrations and Scheduling`, `grn Module`, `Notification Module`, `Stock Adjustment Module`, `login Module`, `Supplier Job Model`, `Request Items and Router`, `settings Module`, `Receipts and Requests Model`, `Weeder Category Model`, `Database Session and Auth Core`, `Auth and Inventory Module`?**
-  _High betweenness centrality (0.013) - this node is a cross-community bridge._
+- **Why does `Unit` connect `Stock Adjustment Module` to `Consumables Data Model`, `Legacy Migrations and Scheduling`, `grn Module`, `Stock Adjustment Module`, `Supplier Job Model`, `Spare Parts Data Model`, `Supplier Job Model`, `Request Items and Router`, `Spare Parts Data Model`, `Supplier Job Model`, `Receipts and Requests Model`, `Auth and Inventory Module`, `Auth and Inventory Module`?**
+  _High betweenness centrality (0.012) - this node is a cross-community bridge._
 - **Are the 144 inferred relationships involving `User` (e.g. with `get_current_user()` and `_auto_seed_if_empty()`) actually correct?**
   _`User` has 144 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 127 inferred relationships involving `Unit` (e.g. with `BomCloneBody` and `BomItemCreate`) actually correct?**
   _`Unit` has 127 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 112 inferred relationships involving `InventoryItem` (e.g. with `get_linkable_pr_items()` and `BomCloneBody`) actually correct?**
+  _`InventoryItem` has 112 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `$schema`, `.opencode/plugins/graphify.js`, `oneflow-backend` to the rest of the system?**
-  _1466 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `migrate dispatch supplier fields` be split into smaller, more focused modules?**
-  _Cohesion score 0.03122605363984674 - nodes in this community are weakly interconnected._
+  _1373 weakly-connected nodes found - possible documentation gaps or missing edges._

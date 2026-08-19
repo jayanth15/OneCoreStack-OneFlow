@@ -1900,9 +1900,9 @@
     "semantic_hash": "944ee987debf34e6d77ddb905fa41283"
   },
   "tanstack-frontend/src/routeTree.gen.ts": {
-    "mtime": 1787160824.4770513,
-    "ast_hash": "f859bb8c47bb26c7b248f858ee9ea529",
-    "semantic_hash": ""
+    "mtime": 1786543453.8637607,
+    "ast_hash": "7cd09ef5ea73a064bd556b7c1a5c92cf",
+    "semantic_hash": "7cd09ef5ea73a064bd556b7c1a5c92cf"
   },
   "tanstack-frontend/src/router.tsx": {
     "mtime": 1786536485.458356,
@@ -2015,9 +2015,9 @@
     "semantic_hash": "50a0dc55c6ba54a4925788c4b9e626db"
   },
   "tanstack-frontend/src/routes/_auth.dashboard.inventory.spares.tsx": {
-    "mtime": 1787160820.6950123,
-    "ast_hash": "aadd857bfb49147bccdb724315bd4e28",
-    "semantic_hash": ""
+    "mtime": 1786557561.698119,
+    "ast_hash": "9c59af99205647353c7e0c856ce33d9b",
+    "semantic_hash": "9c59af99205647353c7e0c856ce33d9b"
   },
   "tanstack-frontend/src/components/inventory/item-form.tsx": {
     "mtime": 1786541750.175462,
@@ -2035,9 +2035,9 @@
     "semantic_hash": "cc2ffdb37fb1b82fd43cdf43c3e79010"
   },
   "tanstack-frontend/src/routes/_auth.dashboard.inventory.$id.tsx": {
-    "mtime": 1787160820.3000083,
-    "ast_hash": "a3afcf2513494af8a3e60a65eaa7a665",
-    "semantic_hash": ""
+    "mtime": 1786556942.717073,
+    "ast_hash": "1b5c51bf571ba4c2a67a008329e83764",
+    "semantic_hash": "1b5c51bf571ba4c2a67a008329e83764"
   },
   "tanstack-frontend/src/routes/_auth.dashboard.inventory.attachments.tsx": {
     "mtime": 1786541625.5793989,
@@ -2065,9 +2065,9 @@
     "semantic_hash": "51e9d40770cf45c31a364f5f7e6e97ee"
   },
   "tanstack-frontend/src/routes/_auth.dashboard.inventory.spares.$id.tsx": {
-    "mtime": 1787160821.0730162,
-    "ast_hash": "56ced42f4d120e77092d0ec9fac71a42",
-    "semantic_hash": ""
+    "mtime": 1786542161.767105,
+    "ast_hash": "eb8d8374290208436f421b96cee26919",
+    "semantic_hash": "eb8d8374290208436f421b96cee26919"
   },
   "tanstack-frontend/src/routes/_auth.dashboard.inventory.spares.new.tsx": {
     "mtime": 1786556942.7156458,
@@ -2170,9 +2170,9 @@
     "semantic_hash": "ddf4b7b0de3ea8fd07b733e3ed44f1f7"
   },
   "tanstack-frontend/src/routes/_auth.dashboard.schedule.tsx": {
-    "mtime": 1787160823.3560398,
-    "ast_hash": "29c4bbe52a04224b07d941a88f88c542",
-    "semantic_hash": ""
+    "mtime": 1786542839.3990583,
+    "ast_hash": "03bcba977f6d2ffc0a2e3dec132eb87b",
+    "semantic_hash": "03bcba977f6d2ffc0a2e3dec132eb87b"
   },
   "tanstack-frontend/src/components/ui/table.tsx": {
     "mtime": 1786543329.7357254,
@@ -2195,9 +2195,9 @@
     "semantic_hash": "7b6b9c531cc4983b8f17ad3b64b0767a"
   },
   "tanstack-frontend/src/routes/_auth.dashboard.admin.bom.tsx": {
-    "mtime": 1787160819.3479984,
-    "ast_hash": "35222193a852a43322087f83af499941",
-    "semantic_hash": ""
+    "mtime": 1786543378.1831195,
+    "ast_hash": "45f8ec7a1aef689b30231b3d4e61bcf5",
+    "semantic_hash": "45f8ec7a1aef689b30231b3d4e61bcf5"
   },
   "tanstack-frontend/src/routes/_auth.dashboard.admin.departments.$id.edit.tsx": {
     "mtime": 1786543622.5023713,
@@ -2210,9 +2210,9 @@
     "semantic_hash": "593153f382b0b49594f6a73753b60322"
   },
   "tanstack-frontend/src/routes/_auth.dashboard.admin.departments.tsx": {
-    "mtime": 1787160819.8380034,
-    "ast_hash": "d5c00a587e71c41bedecc390d9310993",
-    "semantic_hash": ""
+    "mtime": 1786543296.3767588,
+    "ast_hash": "27454c49908fbda231fb9de7d2b39b75",
+    "semantic_hash": "27454c49908fbda231fb9de7d2b39b75"
   },
   "tanstack-frontend/src/routes/_auth.dashboard.admin.users.$id.edit.tsx": {
     "mtime": 1786543652.9399765,
@@ -2225,9 +2225,9 @@
     "semantic_hash": "6c5e7afe41b4035132aafb6739726912"
   },
   "tanstack-frontend/src/routes/_auth.dashboard.admin.users.tsx": {
-    "mtime": 1787160818.8609934,
-    "ast_hash": "e3a16e145d1c2844adc7db9d3b7407d7",
-    "semantic_hash": ""
+    "mtime": 1786543296.3767588,
+    "ast_hash": "0573622b6e4f82a8ce09e2a3b59780f6",
+    "semantic_hash": "0573622b6e4f82a8ce09e2a3b59780f6"
   },
   "tanstack-frontend/src/routes/_auth.dashboard.history.tsx": {
     "mtime": 1786543413.9298415,
@@ -2250,9 +2250,9 @@
     "semantic_hash": "43d16f79376057f7f08aed065a190ff0"
   },
   "tanstack-frontend/src/routes/_auth.dashboard.production.planning.tsx": {
-    "mtime": 1787160821.9530253,
-    "ast_hash": "1109300dfafc75d1c9e12a10ae7ce297",
-    "semantic_hash": ""
+    "mtime": 1786543246.0438273,
+    "ast_hash": "c73a8edb7bc9c9afc9f9ab7bc029aadb",
+    "semantic_hash": "c73a8edb7bc9c9afc9f9ab7bc029aadb"
   },
   "tanstack-frontend/src/routes/_auth.dashboard.production.processing.$id.jobs.tsx": {
     "mtime": 1786543430.6345105,
@@ -2260,9 +2260,9 @@
     "semantic_hash": "aa97e9b5e950efa666fcadd9c9b7ec39"
   },
   "tanstack-frontend/src/routes/_auth.dashboard.production.processing.$id.tsx": {
-    "mtime": 1787160822.9090352,
-    "ast_hash": "daff3afe35645210c0af1590738d08f1",
-    "semantic_hash": ""
+    "mtime": 1786557181.7952201,
+    "ast_hash": "aff35c299574858526966f40255f8950",
+    "semantic_hash": "aff35c299574858526966f40255f8950"
   },
   "tanstack-frontend/src/routes/_auth.dashboard.production.processing.new.tsx": {
     "mtime": 1786543306.7740183,
@@ -2270,9 +2270,9 @@
     "semantic_hash": "f1c52f9bae7cbfa020c3c2e995f4f508"
   },
   "tanstack-frontend/src/routes/_auth.dashboard.production.processing.tsx": {
-    "mtime": 1787160822.4230301,
-    "ast_hash": "00d4d130ef65e4dbea2ed10be5840dd7",
-    "semantic_hash": ""
+    "mtime": 1786543306.7740183,
+    "ast_hash": "eb2b35a5154218801e81be2364357a31",
+    "semantic_hash": "eb2b35a5154218801e81be2364357a31"
   },
   "tanstack-frontend/src/routes/_auth.dashboard.production.time-report.tsx": {
     "mtime": 1786557198.889623,
@@ -2280,9 +2280,9 @@
     "semantic_hash": "e431b55750e19c672517a10c89431641"
   },
   "tanstack-frontend/src/routes/_auth.dashboard.production.tsx": {
-    "mtime": 1787160821.545021,
-    "ast_hash": "b0a553c58767ebc3a4142aae84452fee",
-    "semantic_hash": ""
+    "mtime": 1786543087.205183,
+    "ast_hash": "c60f0f477453971edc51c518a0f92ff2",
+    "semantic_hash": "c60f0f477453971edc51c518a0f92ff2"
   },
   "tanstack-frontend/src/routes/_auth.dashboard.purchase-requests.tsx": {
     "mtime": 1786556923.0305781,
@@ -2310,9 +2310,9 @@
     "semantic_hash": "2e3574d6c3fe829e944aebe40584f2b6"
   },
   "tanstack-frontend/src/routes/_auth.dashboard.suppliers.tsx": {
-    "mtime": 1787160823.7370436,
-    "ast_hash": "93b932b34fe9c072ca81796317cd5712",
-    "semantic_hash": ""
+    "mtime": 1786543301.7954178,
+    "ast_hash": "4a0824400a87802094e61a203c85eb5e",
+    "semantic_hash": "4a0824400a87802094e61a203c85eb5e"
   },
   "tanstack-frontend/src/routes/_auth.dashboard.vendors.$name.tsx": {
     "mtime": 1786557181.8082201,
@@ -2320,9 +2320,9 @@
     "semantic_hash": "c7c23ac8d4aab5f49f12ec431bd87ba6"
   },
   "tanstack-frontend/src/routes/_auth.dashboard.vendors.tsx": {
-    "mtime": 1787160824.1770482,
-    "ast_hash": "250336e758b242366b7974f984c47326",
-    "semantic_hash": ""
+    "mtime": 1786543338.677753,
+    "ast_hash": "0a65d0c6c0993f3890fd36bb40698dc2",
+    "semantic_hash": "0a65d0c6c0993f3890fd36bb40698dc2"
   },
   "tanstack-frontend/src/routes/pwa-debug.tsx": {
     "mtime": 1786543146.6489975,
@@ -2373,90 +2373,5 @@
     "mtime": 1787115066.6956997,
     "ast_hash": "464e46912e561c8575d8b9598fe1e182",
     "semantic_hash": "464e46912e561c8575d8b9598fe1e182"
-  },
-  "tanstack-frontend/src/routes/_auth.dashboard.admin.bom.index.tsx": {
-    "mtime": 1787160805.9038575,
-    "ast_hash": "d15da2dbb4e7dbfc59e8ae58aee1904c",
-    "semantic_hash": ""
-  },
-  "tanstack-frontend/src/routes/_auth.dashboard.admin.departments.index.tsx": {
-    "mtime": 1787160807.09787,
-    "ast_hash": "42c2b55160c0737c3379058ebf653792",
-    "semantic_hash": ""
-  },
-  "tanstack-frontend/src/routes/_auth.dashboard.admin.users.index.tsx": {
-    "mtime": 1787160804.8698466,
-    "ast_hash": "1c337db634684f19af74cfd3c9495feb",
-    "semantic_hash": ""
-  },
-  "tanstack-frontend/src/routes/_auth.dashboard.inventory.$id.index.tsx": {
-    "mtime": 1787160808.1508813,
-    "ast_hash": "01ea61e3caa44a400e3b4be332e31f04",
-    "semantic_hash": ""
-  },
-  "tanstack-frontend/src/routes/_auth.dashboard.inventory.spares.$id.index.tsx": {
-    "mtime": 1787160810.4709058,
-    "ast_hash": "d18a342635c40b17d8d30c0f676070f4",
-    "semantic_hash": ""
-  },
-  "tanstack-frontend/src/routes/_auth.dashboard.inventory.spares.index.tsx": {
-    "mtime": 1787160809.2218926,
-    "ast_hash": "9919b262a0b59e1ada82a8317df34abe",
-    "semantic_hash": ""
-  },
-  "tanstack-frontend/src/routes/_auth.dashboard.production.index.tsx": {
-    "mtime": 1787160811.5809174,
-    "ast_hash": "a1d50b4617e57c81d25da809c216f116",
-    "semantic_hash": ""
-  },
-  "tanstack-frontend/src/routes/_auth.dashboard.production.planning.index.tsx": {
-    "mtime": 1787160812.671929,
-    "ast_hash": "ac505a0e0f0b89cbf3da21a4e2427406",
-    "semantic_hash": ""
-  },
-  "tanstack-frontend/src/routes/_auth.dashboard.production.processing.$id.index.tsx": {
-    "mtime": 1787160814.789951,
-    "ast_hash": "2d5cbbc5fa3bf72ecf72d6fd8a4e3a70",
-    "semantic_hash": ""
-  },
-  "tanstack-frontend/src/routes/_auth.dashboard.production.processing.index.tsx": {
-    "mtime": 1787160813.7639403,
-    "ast_hash": "4d0cdd11c76d2853f364a3cd99b49396",
-    "semantic_hash": ""
-  },
-  "tanstack-frontend/src/routes/_auth.dashboard.schedule.index.tsx": {
-    "mtime": 1787160815.9079628,
-    "ast_hash": "4aee756b5de8af3ebedf50e958d13f81",
-    "semantic_hash": ""
-  },
-  "tanstack-frontend/src/routes/_auth.dashboard.suppliers.index.tsx": {
-    "mtime": 1787160817.1119752,
-    "ast_hash": "75be94faf81c51364ddce76f6db0a659",
-    "semantic_hash": ""
-  },
-  "tanstack-frontend/src/routes/_auth.dashboard.vendors.index.tsx": {
-    "mtime": 1787160818.1519861,
-    "ast_hash": "7c98154e485ddc114a6a05eed6883f9e",
-    "semantic_hash": ""
-  },
-  "graphify-out/memory/query_20260819_054102_on_the_request_page_when_i_click_on_mark_delivered.md": {
-    "mtime": 1787118062.746974,
-    "ast_hash": "91db74336ddf0bea2e2401ca88ff3895",
-    "semantic_hash": ""
-  },
-  "graphify-out/memory/query_20260819_054300_if_i_deploy_this_code_will_it_automatically_take_c.md": {
-    "mtime": 1787118180.29568,
-    "ast_hash": "cdf8608f1e54d554ebe8c37a15fc6eff",
-    "semantic_hash": ""
-  },
-  "graphify-out/memory/query_20260819_060805_ok_now_can_you_audit_the_codebase_the_admin_user_r.md": {
-    "mtime": 1787119685.4962914,
-    "ast_hash": "08a2ecfb8c86b3eb27170ce8cd088e65",
-    "semantic_hash": ""
-  },
-  "graphify-out/memory/query_20260819_165211_the_problem_is_still_there_when_i_click_on_edit_th.md": {
-    "mtime": 1787158331.394467,
-    "ast_hash": "a2a2c32ba301b1fe4ebf092440504ff4",
-    "semantic_hash": ""
   }
 }
