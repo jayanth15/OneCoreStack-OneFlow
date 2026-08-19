@@ -47,26 +47,39 @@ import { Route as AuthDashboardInventorySemiFinishedRouteImport } from './routes
 import { Route as AuthDashboardInventorySparesRouteImport } from './routes/_auth.dashboard.inventory.spares'
 import { Route as AuthDashboardInventoryStockAlertsRouteImport } from './routes/_auth.dashboard.inventory.stock-alerts'
 import { Route as AuthDashboardInventoryWeedersRouteImport } from './routes/_auth.dashboard.inventory.weeders'
+import { Route as AuthDashboardProductionIndexRouteImport } from './routes/_auth.dashboard.production.index'
 import { Route as AuthDashboardProductionPlanningRouteImport } from './routes/_auth.dashboard.production.planning'
 import { Route as AuthDashboardProductionProcessingRouteImport } from './routes/_auth.dashboard.production.processing'
 import { Route as AuthDashboardProductionTimeReportRouteImport } from './routes/_auth.dashboard.production.time-report'
+import { Route as AuthDashboardScheduleIndexRouteImport } from './routes/_auth.dashboard.schedule.index'
 import { Route as AuthDashboardScheduleNewRouteImport } from './routes/_auth.dashboard.schedule.new'
+import { Route as AuthDashboardSuppliersIndexRouteImport } from './routes/_auth.dashboard.suppliers.index'
 import { Route as AuthDashboardSuppliersIdRouteImport } from './routes/_auth.dashboard.suppliers.$id'
+import { Route as AuthDashboardVendorsIndexRouteImport } from './routes/_auth.dashboard.vendors.index'
 import { Route as AuthDashboardVendorsNameRouteImport } from './routes/_auth.dashboard.vendors.$name'
+import { Route as AuthDashboardAdminBomIndexRouteImport } from './routes/_auth.dashboard.admin.bom.index'
 import { Route as AuthDashboardAdminBomNewRouteImport } from './routes/_auth.dashboard.admin.bom.new'
+import { Route as AuthDashboardAdminDepartmentsIndexRouteImport } from './routes/_auth.dashboard.admin.departments.index'
 import { Route as AuthDashboardAdminDepartmentsNewRouteImport } from './routes/_auth.dashboard.admin.departments.new'
+import { Route as AuthDashboardAdminUsersIndexRouteImport } from './routes/_auth.dashboard.admin.users.index'
 import { Route as AuthDashboardAdminUsersNewRouteImport } from './routes/_auth.dashboard.admin.users.new'
+import { Route as AuthDashboardInventoryIdIndexRouteImport } from './routes/_auth.dashboard.inventory.$id.index'
 import { Route as AuthDashboardInventoryIdEditRouteImport } from './routes/_auth.dashboard.inventory.$id.edit'
+import { Route as AuthDashboardInventorySparesIndexRouteImport } from './routes/_auth.dashboard.inventory.spares.index'
 import { Route as AuthDashboardInventorySparesIdRouteImport } from './routes/_auth.dashboard.inventory.spares.$id'
 import { Route as AuthDashboardInventorySparesNewRouteImport } from './routes/_auth.dashboard.inventory.spares.new'
+import { Route as AuthDashboardProductionPlanningIndexRouteImport } from './routes/_auth.dashboard.production.planning.index'
 import { Route as AuthDashboardProductionPlanningNewRouteImport } from './routes/_auth.dashboard.production.planning.new'
+import { Route as AuthDashboardProductionProcessingIndexRouteImport } from './routes/_auth.dashboard.production.processing.index'
 import { Route as AuthDashboardProductionProcessingIdRouteImport } from './routes/_auth.dashboard.production.processing.$id'
 import { Route as AuthDashboardProductionProcessingNewRouteImport } from './routes/_auth.dashboard.production.processing.new'
 import { Route as AuthDashboardScheduleIdEditRouteImport } from './routes/_auth.dashboard.schedule.$id.edit'
 import { Route as AuthDashboardAdminBomIdEditRouteImport } from './routes/_auth.dashboard.admin.bom.$id.edit'
 import { Route as AuthDashboardAdminDepartmentsIdEditRouteImport } from './routes/_auth.dashboard.admin.departments.$id.edit'
 import { Route as AuthDashboardAdminUsersIdEditRouteImport } from './routes/_auth.dashboard.admin.users.$id.edit'
+import { Route as AuthDashboardInventorySparesIdIndexRouteImport } from './routes/_auth.dashboard.inventory.spares.$id.index'
 import { Route as AuthDashboardProductionPlanningIdEditRouteImport } from './routes/_auth.dashboard.production.planning.$id.edit'
+import { Route as AuthDashboardProductionProcessingIdIndexRouteImport } from './routes/_auth.dashboard.production.processing.$id.index'
 import { Route as AuthDashboardProductionProcessingIdJobsRouteImport } from './routes/_auth.dashboard.production.processing.$id.jobs'
 import { Route as AuthDashboardInventorySparesIdSubCategoriesSubIdItemsNewRouteImport } from './routes/_auth.dashboard.inventory.spares.$id.sub-categories.$subId.items.new'
 
@@ -277,6 +290,12 @@ const AuthDashboardInventoryWeedersRoute =
     path: '/weeders',
     getParentRoute: () => AuthDashboardInventoryRoute,
   } as any)
+const AuthDashboardProductionIndexRoute =
+  AuthDashboardProductionIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthDashboardProductionRoute,
+  } as any)
 const AuthDashboardProductionPlanningRoute =
   AuthDashboardProductionPlanningRouteImport.update({
     id: '/planning',
@@ -295,11 +314,23 @@ const AuthDashboardProductionTimeReportRoute =
     path: '/time-report',
     getParentRoute: () => AuthDashboardProductionRoute,
   } as any)
+const AuthDashboardScheduleIndexRoute =
+  AuthDashboardScheduleIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthDashboardScheduleRoute,
+  } as any)
 const AuthDashboardScheduleNewRoute =
   AuthDashboardScheduleNewRouteImport.update({
     id: '/new',
     path: '/new',
     getParentRoute: () => AuthDashboardScheduleRoute,
+  } as any)
+const AuthDashboardSuppliersIndexRoute =
+  AuthDashboardSuppliersIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthDashboardSuppliersRoute,
   } as any)
 const AuthDashboardSuppliersIdRoute =
   AuthDashboardSuppliersIdRouteImport.update({
@@ -307,11 +338,23 @@ const AuthDashboardSuppliersIdRoute =
     path: '/$id',
     getParentRoute: () => AuthDashboardSuppliersRoute,
   } as any)
+const AuthDashboardVendorsIndexRoute =
+  AuthDashboardVendorsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthDashboardVendorsRoute,
+  } as any)
 const AuthDashboardVendorsNameRoute =
   AuthDashboardVendorsNameRouteImport.update({
     id: '/$name',
     path: '/$name',
     getParentRoute: () => AuthDashboardVendorsRoute,
+  } as any)
+const AuthDashboardAdminBomIndexRoute =
+  AuthDashboardAdminBomIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthDashboardAdminBomRoute,
   } as any)
 const AuthDashboardAdminBomNewRoute =
   AuthDashboardAdminBomNewRouteImport.update({
@@ -319,11 +362,23 @@ const AuthDashboardAdminBomNewRoute =
     path: '/new',
     getParentRoute: () => AuthDashboardAdminBomRoute,
   } as any)
+const AuthDashboardAdminDepartmentsIndexRoute =
+  AuthDashboardAdminDepartmentsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthDashboardAdminDepartmentsRoute,
+  } as any)
 const AuthDashboardAdminDepartmentsNewRoute =
   AuthDashboardAdminDepartmentsNewRouteImport.update({
     id: '/new',
     path: '/new',
     getParentRoute: () => AuthDashboardAdminDepartmentsRoute,
+  } as any)
+const AuthDashboardAdminUsersIndexRoute =
+  AuthDashboardAdminUsersIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthDashboardAdminUsersRoute,
   } as any)
 const AuthDashboardAdminUsersNewRoute =
   AuthDashboardAdminUsersNewRouteImport.update({
@@ -331,11 +386,23 @@ const AuthDashboardAdminUsersNewRoute =
     path: '/new',
     getParentRoute: () => AuthDashboardAdminUsersRoute,
   } as any)
+const AuthDashboardInventoryIdIndexRoute =
+  AuthDashboardInventoryIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthDashboardInventoryIdRoute,
+  } as any)
 const AuthDashboardInventoryIdEditRoute =
   AuthDashboardInventoryIdEditRouteImport.update({
     id: '/edit',
     path: '/edit',
     getParentRoute: () => AuthDashboardInventoryIdRoute,
+  } as any)
+const AuthDashboardInventorySparesIndexRoute =
+  AuthDashboardInventorySparesIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthDashboardInventorySparesRoute,
   } as any)
 const AuthDashboardInventorySparesIdRoute =
   AuthDashboardInventorySparesIdRouteImport.update({
@@ -349,11 +416,23 @@ const AuthDashboardInventorySparesNewRoute =
     path: '/new',
     getParentRoute: () => AuthDashboardInventorySparesRoute,
   } as any)
+const AuthDashboardProductionPlanningIndexRoute =
+  AuthDashboardProductionPlanningIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthDashboardProductionPlanningRoute,
+  } as any)
 const AuthDashboardProductionPlanningNewRoute =
   AuthDashboardProductionPlanningNewRouteImport.update({
     id: '/new',
     path: '/new',
     getParentRoute: () => AuthDashboardProductionPlanningRoute,
+  } as any)
+const AuthDashboardProductionProcessingIndexRoute =
+  AuthDashboardProductionProcessingIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthDashboardProductionProcessingRoute,
   } as any)
 const AuthDashboardProductionProcessingIdRoute =
   AuthDashboardProductionProcessingIdRouteImport.update({
@@ -391,11 +470,23 @@ const AuthDashboardAdminUsersIdEditRoute =
     path: '/$id/edit',
     getParentRoute: () => AuthDashboardAdminUsersRoute,
   } as any)
+const AuthDashboardInventorySparesIdIndexRoute =
+  AuthDashboardInventorySparesIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthDashboardInventorySparesIdRoute,
+  } as any)
 const AuthDashboardProductionPlanningIdEditRoute =
   AuthDashboardProductionPlanningIdEditRouteImport.update({
     id: '/$id/edit',
     path: '/$id/edit',
     getParentRoute: () => AuthDashboardProductionPlanningRoute,
+  } as any)
+const AuthDashboardProductionProcessingIdIndexRoute =
+  AuthDashboardProductionProcessingIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthDashboardProductionProcessingIdRoute,
   } as any)
 const AuthDashboardProductionProcessingIdJobsRoute =
   AuthDashboardProductionProcessingIdJobsRouteImport.update({
@@ -454,6 +545,10 @@ export interface FileRoutesByFullPath {
   '/dashboard/suppliers/$id': typeof AuthDashboardSuppliersIdRoute
   '/dashboard/vendors/$name': typeof AuthDashboardVendorsNameRoute
   '/dashboard/inventory/': typeof AuthDashboardInventoryIndexRoute
+  '/dashboard/production/': typeof AuthDashboardProductionIndexRoute
+  '/dashboard/schedule/': typeof AuthDashboardScheduleIndexRoute
+  '/dashboard/suppliers/': typeof AuthDashboardSuppliersIndexRoute
+  '/dashboard/vendors/': typeof AuthDashboardVendorsIndexRoute
   '/dashboard/admin/bom/new': typeof AuthDashboardAdminBomNewRoute
   '/dashboard/admin/departments/new': typeof AuthDashboardAdminDepartmentsNewRoute
   '/dashboard/admin/users/new': typeof AuthDashboardAdminUsersNewRoute
@@ -464,11 +559,20 @@ export interface FileRoutesByFullPath {
   '/dashboard/production/processing/$id': typeof AuthDashboardProductionProcessingIdRouteWithChildren
   '/dashboard/production/processing/new': typeof AuthDashboardProductionProcessingNewRoute
   '/dashboard/schedule/$id/edit': typeof AuthDashboardScheduleIdEditRoute
+  '/dashboard/admin/bom/': typeof AuthDashboardAdminBomIndexRoute
+  '/dashboard/admin/departments/': typeof AuthDashboardAdminDepartmentsIndexRoute
+  '/dashboard/admin/users/': typeof AuthDashboardAdminUsersIndexRoute
+  '/dashboard/inventory/$id/': typeof AuthDashboardInventoryIdIndexRoute
+  '/dashboard/inventory/spares/': typeof AuthDashboardInventorySparesIndexRoute
+  '/dashboard/production/planning/': typeof AuthDashboardProductionPlanningIndexRoute
+  '/dashboard/production/processing/': typeof AuthDashboardProductionProcessingIndexRoute
   '/dashboard/admin/bom/$id/edit': typeof AuthDashboardAdminBomIdEditRoute
   '/dashboard/admin/departments/$id/edit': typeof AuthDashboardAdminDepartmentsIdEditRoute
   '/dashboard/admin/users/$id/edit': typeof AuthDashboardAdminUsersIdEditRoute
   '/dashboard/production/planning/$id/edit': typeof AuthDashboardProductionPlanningIdEditRoute
   '/dashboard/production/processing/$id/jobs': typeof AuthDashboardProductionProcessingIdJobsRoute
+  '/dashboard/inventory/spares/$id/': typeof AuthDashboardInventorySparesIdIndexRoute
+  '/dashboard/production/processing/$id/': typeof AuthDashboardProductionProcessingIdIndexRoute
   '/dashboard/inventory/spares/$id/sub-categories/$subId/items/new': typeof AuthDashboardInventorySparesIdSubCategoriesSubIdItemsNewRoute
 }
 export interface FileRoutesByTo {
@@ -481,20 +585,12 @@ export interface FileRoutesByTo {
   '/dashboard/grn': typeof AuthDashboardGrnRoute
   '/dashboard/history': typeof AuthDashboardHistoryRoute
   '/dashboard/marketing-requests': typeof AuthDashboardMarketingRequestsRoute
-  '/dashboard/production': typeof AuthDashboardProductionRouteWithChildren
   '/dashboard/purchase-orders': typeof AuthDashboardPurchaseOrdersRoute
   '/dashboard/purchase-requests': typeof AuthDashboardPurchaseRequestsRoute
   '/dashboard/receipts': typeof AuthDashboardReceiptsRoute
   '/dashboard/requests': typeof AuthDashboardRequestsRoute
-  '/dashboard/schedule': typeof AuthDashboardScheduleRouteWithChildren
-  '/dashboard/suppliers': typeof AuthDashboardSuppliersRouteWithChildren
-  '/dashboard/vendors': typeof AuthDashboardVendorsRouteWithChildren
   '/dashboard': typeof AuthDashboardIndexRoute
-  '/dashboard/admin/bom': typeof AuthDashboardAdminBomRouteWithChildren
-  '/dashboard/admin/departments': typeof AuthDashboardAdminDepartmentsRouteWithChildren
   '/dashboard/admin/settings': typeof AuthDashboardAdminSettingsRoute
-  '/dashboard/admin/users': typeof AuthDashboardAdminUsersRouteWithChildren
-  '/dashboard/inventory/$id': typeof AuthDashboardInventoryIdRouteWithChildren
   '/dashboard/inventory/attachments': typeof AuthDashboardInventoryAttachmentsRoute
   '/dashboard/inventory/consumables': typeof AuthDashboardInventoryConsumablesRoute
   '/dashboard/inventory/cycle-count': typeof AuthDashboardInventoryCycleCountRoute
@@ -503,31 +599,39 @@ export interface FileRoutesByTo {
   '/dashboard/inventory/raw-materials': typeof AuthDashboardInventoryRawMaterialsRoute
   '/dashboard/inventory/scraps': typeof AuthDashboardInventoryScrapsRoute
   '/dashboard/inventory/semi-finished': typeof AuthDashboardInventorySemiFinishedRoute
-  '/dashboard/inventory/spares': typeof AuthDashboardInventorySparesRouteWithChildren
   '/dashboard/inventory/stock-alerts': typeof AuthDashboardInventoryStockAlertsRoute
   '/dashboard/inventory/weeders': typeof AuthDashboardInventoryWeedersRoute
-  '/dashboard/production/planning': typeof AuthDashboardProductionPlanningRouteWithChildren
-  '/dashboard/production/processing': typeof AuthDashboardProductionProcessingRouteWithChildren
   '/dashboard/production/time-report': typeof AuthDashboardProductionTimeReportRoute
   '/dashboard/schedule/new': typeof AuthDashboardScheduleNewRoute
   '/dashboard/suppliers/$id': typeof AuthDashboardSuppliersIdRoute
   '/dashboard/vendors/$name': typeof AuthDashboardVendorsNameRoute
   '/dashboard/inventory': typeof AuthDashboardInventoryIndexRoute
+  '/dashboard/production': typeof AuthDashboardProductionIndexRoute
+  '/dashboard/schedule': typeof AuthDashboardScheduleIndexRoute
+  '/dashboard/suppliers': typeof AuthDashboardSuppliersIndexRoute
+  '/dashboard/vendors': typeof AuthDashboardVendorsIndexRoute
   '/dashboard/admin/bom/new': typeof AuthDashboardAdminBomNewRoute
   '/dashboard/admin/departments/new': typeof AuthDashboardAdminDepartmentsNewRoute
   '/dashboard/admin/users/new': typeof AuthDashboardAdminUsersNewRoute
   '/dashboard/inventory/$id/edit': typeof AuthDashboardInventoryIdEditRoute
-  '/dashboard/inventory/spares/$id': typeof AuthDashboardInventorySparesIdRouteWithChildren
   '/dashboard/inventory/spares/new': typeof AuthDashboardInventorySparesNewRoute
   '/dashboard/production/planning/new': typeof AuthDashboardProductionPlanningNewRoute
-  '/dashboard/production/processing/$id': typeof AuthDashboardProductionProcessingIdRouteWithChildren
   '/dashboard/production/processing/new': typeof AuthDashboardProductionProcessingNewRoute
   '/dashboard/schedule/$id/edit': typeof AuthDashboardScheduleIdEditRoute
+  '/dashboard/admin/bom': typeof AuthDashboardAdminBomIndexRoute
+  '/dashboard/admin/departments': typeof AuthDashboardAdminDepartmentsIndexRoute
+  '/dashboard/admin/users': typeof AuthDashboardAdminUsersIndexRoute
+  '/dashboard/inventory/$id': typeof AuthDashboardInventoryIdIndexRoute
+  '/dashboard/inventory/spares': typeof AuthDashboardInventorySparesIndexRoute
+  '/dashboard/production/planning': typeof AuthDashboardProductionPlanningIndexRoute
+  '/dashboard/production/processing': typeof AuthDashboardProductionProcessingIndexRoute
   '/dashboard/admin/bom/$id/edit': typeof AuthDashboardAdminBomIdEditRoute
   '/dashboard/admin/departments/$id/edit': typeof AuthDashboardAdminDepartmentsIdEditRoute
   '/dashboard/admin/users/$id/edit': typeof AuthDashboardAdminUsersIdEditRoute
   '/dashboard/production/planning/$id/edit': typeof AuthDashboardProductionPlanningIdEditRoute
   '/dashboard/production/processing/$id/jobs': typeof AuthDashboardProductionProcessingIdJobsRoute
+  '/dashboard/inventory/spares/$id': typeof AuthDashboardInventorySparesIdIndexRoute
+  '/dashboard/production/processing/$id': typeof AuthDashboardProductionProcessingIdIndexRoute
   '/dashboard/inventory/spares/$id/sub-categories/$subId/items/new': typeof AuthDashboardInventorySparesIdSubCategoriesSubIdItemsNewRoute
 }
 export interface FileRoutesById {
@@ -576,6 +680,10 @@ export interface FileRoutesById {
   '/_auth/dashboard/suppliers/$id': typeof AuthDashboardSuppliersIdRoute
   '/_auth/dashboard/vendors/$name': typeof AuthDashboardVendorsNameRoute
   '/_auth/dashboard/inventory/': typeof AuthDashboardInventoryIndexRoute
+  '/_auth/dashboard/production/': typeof AuthDashboardProductionIndexRoute
+  '/_auth/dashboard/schedule/': typeof AuthDashboardScheduleIndexRoute
+  '/_auth/dashboard/suppliers/': typeof AuthDashboardSuppliersIndexRoute
+  '/_auth/dashboard/vendors/': typeof AuthDashboardVendorsIndexRoute
   '/_auth/dashboard/admin/bom/new': typeof AuthDashboardAdminBomNewRoute
   '/_auth/dashboard/admin/departments/new': typeof AuthDashboardAdminDepartmentsNewRoute
   '/_auth/dashboard/admin/users/new': typeof AuthDashboardAdminUsersNewRoute
@@ -586,11 +694,20 @@ export interface FileRoutesById {
   '/_auth/dashboard/production/processing/$id': typeof AuthDashboardProductionProcessingIdRouteWithChildren
   '/_auth/dashboard/production/processing/new': typeof AuthDashboardProductionProcessingNewRoute
   '/_auth/dashboard/schedule/$id/edit': typeof AuthDashboardScheduleIdEditRoute
+  '/_auth/dashboard/admin/bom/': typeof AuthDashboardAdminBomIndexRoute
+  '/_auth/dashboard/admin/departments/': typeof AuthDashboardAdminDepartmentsIndexRoute
+  '/_auth/dashboard/admin/users/': typeof AuthDashboardAdminUsersIndexRoute
+  '/_auth/dashboard/inventory/$id/': typeof AuthDashboardInventoryIdIndexRoute
+  '/_auth/dashboard/inventory/spares/': typeof AuthDashboardInventorySparesIndexRoute
+  '/_auth/dashboard/production/planning/': typeof AuthDashboardProductionPlanningIndexRoute
+  '/_auth/dashboard/production/processing/': typeof AuthDashboardProductionProcessingIndexRoute
   '/_auth/dashboard/admin/bom/$id/edit': typeof AuthDashboardAdminBomIdEditRoute
   '/_auth/dashboard/admin/departments/$id/edit': typeof AuthDashboardAdminDepartmentsIdEditRoute
   '/_auth/dashboard/admin/users/$id/edit': typeof AuthDashboardAdminUsersIdEditRoute
   '/_auth/dashboard/production/planning/$id/edit': typeof AuthDashboardProductionPlanningIdEditRoute
   '/_auth/dashboard/production/processing/$id/jobs': typeof AuthDashboardProductionProcessingIdJobsRoute
+  '/_auth/dashboard/inventory/spares/$id/': typeof AuthDashboardInventorySparesIdIndexRoute
+  '/_auth/dashboard/production/processing/$id/': typeof AuthDashboardProductionProcessingIdIndexRoute
   '/_auth/dashboard/inventory/spares/$id/sub-categories/$subId/items/new': typeof AuthDashboardInventorySparesIdSubCategoriesSubIdItemsNewRoute
 }
 export interface FileRouteTypes {
@@ -639,6 +756,10 @@ export interface FileRouteTypes {
     | '/dashboard/suppliers/$id'
     | '/dashboard/vendors/$name'
     | '/dashboard/inventory/'
+    | '/dashboard/production/'
+    | '/dashboard/schedule/'
+    | '/dashboard/suppliers/'
+    | '/dashboard/vendors/'
     | '/dashboard/admin/bom/new'
     | '/dashboard/admin/departments/new'
     | '/dashboard/admin/users/new'
@@ -649,11 +770,20 @@ export interface FileRouteTypes {
     | '/dashboard/production/processing/$id'
     | '/dashboard/production/processing/new'
     | '/dashboard/schedule/$id/edit'
+    | '/dashboard/admin/bom/'
+    | '/dashboard/admin/departments/'
+    | '/dashboard/admin/users/'
+    | '/dashboard/inventory/$id/'
+    | '/dashboard/inventory/spares/'
+    | '/dashboard/production/planning/'
+    | '/dashboard/production/processing/'
     | '/dashboard/admin/bom/$id/edit'
     | '/dashboard/admin/departments/$id/edit'
     | '/dashboard/admin/users/$id/edit'
     | '/dashboard/production/planning/$id/edit'
     | '/dashboard/production/processing/$id/jobs'
+    | '/dashboard/inventory/spares/$id/'
+    | '/dashboard/production/processing/$id/'
     | '/dashboard/inventory/spares/$id/sub-categories/$subId/items/new'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -666,20 +796,12 @@ export interface FileRouteTypes {
     | '/dashboard/grn'
     | '/dashboard/history'
     | '/dashboard/marketing-requests'
-    | '/dashboard/production'
     | '/dashboard/purchase-orders'
     | '/dashboard/purchase-requests'
     | '/dashboard/receipts'
     | '/dashboard/requests'
-    | '/dashboard/schedule'
-    | '/dashboard/suppliers'
-    | '/dashboard/vendors'
     | '/dashboard'
-    | '/dashboard/admin/bom'
-    | '/dashboard/admin/departments'
     | '/dashboard/admin/settings'
-    | '/dashboard/admin/users'
-    | '/dashboard/inventory/$id'
     | '/dashboard/inventory/attachments'
     | '/dashboard/inventory/consumables'
     | '/dashboard/inventory/cycle-count'
@@ -688,31 +810,39 @@ export interface FileRouteTypes {
     | '/dashboard/inventory/raw-materials'
     | '/dashboard/inventory/scraps'
     | '/dashboard/inventory/semi-finished'
-    | '/dashboard/inventory/spares'
     | '/dashboard/inventory/stock-alerts'
     | '/dashboard/inventory/weeders'
-    | '/dashboard/production/planning'
-    | '/dashboard/production/processing'
     | '/dashboard/production/time-report'
     | '/dashboard/schedule/new'
     | '/dashboard/suppliers/$id'
     | '/dashboard/vendors/$name'
     | '/dashboard/inventory'
+    | '/dashboard/production'
+    | '/dashboard/schedule'
+    | '/dashboard/suppliers'
+    | '/dashboard/vendors'
     | '/dashboard/admin/bom/new'
     | '/dashboard/admin/departments/new'
     | '/dashboard/admin/users/new'
     | '/dashboard/inventory/$id/edit'
-    | '/dashboard/inventory/spares/$id'
     | '/dashboard/inventory/spares/new'
     | '/dashboard/production/planning/new'
-    | '/dashboard/production/processing/$id'
     | '/dashboard/production/processing/new'
     | '/dashboard/schedule/$id/edit'
+    | '/dashboard/admin/bom'
+    | '/dashboard/admin/departments'
+    | '/dashboard/admin/users'
+    | '/dashboard/inventory/$id'
+    | '/dashboard/inventory/spares'
+    | '/dashboard/production/planning'
+    | '/dashboard/production/processing'
     | '/dashboard/admin/bom/$id/edit'
     | '/dashboard/admin/departments/$id/edit'
     | '/dashboard/admin/users/$id/edit'
     | '/dashboard/production/planning/$id/edit'
     | '/dashboard/production/processing/$id/jobs'
+    | '/dashboard/inventory/spares/$id'
+    | '/dashboard/production/processing/$id'
     | '/dashboard/inventory/spares/$id/sub-categories/$subId/items/new'
   id:
     | '__root__'
@@ -760,6 +890,10 @@ export interface FileRouteTypes {
     | '/_auth/dashboard/suppliers/$id'
     | '/_auth/dashboard/vendors/$name'
     | '/_auth/dashboard/inventory/'
+    | '/_auth/dashboard/production/'
+    | '/_auth/dashboard/schedule/'
+    | '/_auth/dashboard/suppliers/'
+    | '/_auth/dashboard/vendors/'
     | '/_auth/dashboard/admin/bom/new'
     | '/_auth/dashboard/admin/departments/new'
     | '/_auth/dashboard/admin/users/new'
@@ -770,11 +904,20 @@ export interface FileRouteTypes {
     | '/_auth/dashboard/production/processing/$id'
     | '/_auth/dashboard/production/processing/new'
     | '/_auth/dashboard/schedule/$id/edit'
+    | '/_auth/dashboard/admin/bom/'
+    | '/_auth/dashboard/admin/departments/'
+    | '/_auth/dashboard/admin/users/'
+    | '/_auth/dashboard/inventory/$id/'
+    | '/_auth/dashboard/inventory/spares/'
+    | '/_auth/dashboard/production/planning/'
+    | '/_auth/dashboard/production/processing/'
     | '/_auth/dashboard/admin/bom/$id/edit'
     | '/_auth/dashboard/admin/departments/$id/edit'
     | '/_auth/dashboard/admin/users/$id/edit'
     | '/_auth/dashboard/production/planning/$id/edit'
     | '/_auth/dashboard/production/processing/$id/jobs'
+    | '/_auth/dashboard/inventory/spares/$id/'
+    | '/_auth/dashboard/production/processing/$id/'
     | '/_auth/dashboard/inventory/spares/$id/sub-categories/$subId/items/new'
   fileRoutesById: FileRoutesById
 }
@@ -1054,6 +1197,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthDashboardInventoryWeedersRouteImport
       parentRoute: typeof AuthDashboardInventoryRoute
     }
+    '/_auth/dashboard/production/': {
+      id: '/_auth/dashboard/production/'
+      path: '/'
+      fullPath: '/dashboard/production/'
+      preLoaderRoute: typeof AuthDashboardProductionIndexRouteImport
+      parentRoute: typeof AuthDashboardProductionRoute
+    }
     '/_auth/dashboard/production/planning': {
       id: '/_auth/dashboard/production/planning'
       path: '/planning'
@@ -1075,12 +1225,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthDashboardProductionTimeReportRouteImport
       parentRoute: typeof AuthDashboardProductionRoute
     }
+    '/_auth/dashboard/schedule/': {
+      id: '/_auth/dashboard/schedule/'
+      path: '/'
+      fullPath: '/dashboard/schedule/'
+      preLoaderRoute: typeof AuthDashboardScheduleIndexRouteImport
+      parentRoute: typeof AuthDashboardScheduleRoute
+    }
     '/_auth/dashboard/schedule/new': {
       id: '/_auth/dashboard/schedule/new'
       path: '/new'
       fullPath: '/dashboard/schedule/new'
       preLoaderRoute: typeof AuthDashboardScheduleNewRouteImport
       parentRoute: typeof AuthDashboardScheduleRoute
+    }
+    '/_auth/dashboard/suppliers/': {
+      id: '/_auth/dashboard/suppliers/'
+      path: '/'
+      fullPath: '/dashboard/suppliers/'
+      preLoaderRoute: typeof AuthDashboardSuppliersIndexRouteImport
+      parentRoute: typeof AuthDashboardSuppliersRoute
     }
     '/_auth/dashboard/suppliers/$id': {
       id: '/_auth/dashboard/suppliers/$id'
@@ -1089,12 +1253,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthDashboardSuppliersIdRouteImport
       parentRoute: typeof AuthDashboardSuppliersRoute
     }
+    '/_auth/dashboard/vendors/': {
+      id: '/_auth/dashboard/vendors/'
+      path: '/'
+      fullPath: '/dashboard/vendors/'
+      preLoaderRoute: typeof AuthDashboardVendorsIndexRouteImport
+      parentRoute: typeof AuthDashboardVendorsRoute
+    }
     '/_auth/dashboard/vendors/$name': {
       id: '/_auth/dashboard/vendors/$name'
       path: '/$name'
       fullPath: '/dashboard/vendors/$name'
       preLoaderRoute: typeof AuthDashboardVendorsNameRouteImport
       parentRoute: typeof AuthDashboardVendorsRoute
+    }
+    '/_auth/dashboard/admin/bom/': {
+      id: '/_auth/dashboard/admin/bom/'
+      path: '/'
+      fullPath: '/dashboard/admin/bom/'
+      preLoaderRoute: typeof AuthDashboardAdminBomIndexRouteImport
+      parentRoute: typeof AuthDashboardAdminBomRoute
     }
     '/_auth/dashboard/admin/bom/new': {
       id: '/_auth/dashboard/admin/bom/new'
@@ -1103,12 +1281,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthDashboardAdminBomNewRouteImport
       parentRoute: typeof AuthDashboardAdminBomRoute
     }
+    '/_auth/dashboard/admin/departments/': {
+      id: '/_auth/dashboard/admin/departments/'
+      path: '/'
+      fullPath: '/dashboard/admin/departments/'
+      preLoaderRoute: typeof AuthDashboardAdminDepartmentsIndexRouteImport
+      parentRoute: typeof AuthDashboardAdminDepartmentsRoute
+    }
     '/_auth/dashboard/admin/departments/new': {
       id: '/_auth/dashboard/admin/departments/new'
       path: '/new'
       fullPath: '/dashboard/admin/departments/new'
       preLoaderRoute: typeof AuthDashboardAdminDepartmentsNewRouteImport
       parentRoute: typeof AuthDashboardAdminDepartmentsRoute
+    }
+    '/_auth/dashboard/admin/users/': {
+      id: '/_auth/dashboard/admin/users/'
+      path: '/'
+      fullPath: '/dashboard/admin/users/'
+      preLoaderRoute: typeof AuthDashboardAdminUsersIndexRouteImport
+      parentRoute: typeof AuthDashboardAdminUsersRoute
     }
     '/_auth/dashboard/admin/users/new': {
       id: '/_auth/dashboard/admin/users/new'
@@ -1117,12 +1309,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthDashboardAdminUsersNewRouteImport
       parentRoute: typeof AuthDashboardAdminUsersRoute
     }
+    '/_auth/dashboard/inventory/$id/': {
+      id: '/_auth/dashboard/inventory/$id/'
+      path: '/'
+      fullPath: '/dashboard/inventory/$id/'
+      preLoaderRoute: typeof AuthDashboardInventoryIdIndexRouteImport
+      parentRoute: typeof AuthDashboardInventoryIdRoute
+    }
     '/_auth/dashboard/inventory/$id/edit': {
       id: '/_auth/dashboard/inventory/$id/edit'
       path: '/edit'
       fullPath: '/dashboard/inventory/$id/edit'
       preLoaderRoute: typeof AuthDashboardInventoryIdEditRouteImport
       parentRoute: typeof AuthDashboardInventoryIdRoute
+    }
+    '/_auth/dashboard/inventory/spares/': {
+      id: '/_auth/dashboard/inventory/spares/'
+      path: '/'
+      fullPath: '/dashboard/inventory/spares/'
+      preLoaderRoute: typeof AuthDashboardInventorySparesIndexRouteImport
+      parentRoute: typeof AuthDashboardInventorySparesRoute
     }
     '/_auth/dashboard/inventory/spares/$id': {
       id: '/_auth/dashboard/inventory/spares/$id'
@@ -1138,12 +1344,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthDashboardInventorySparesNewRouteImport
       parentRoute: typeof AuthDashboardInventorySparesRoute
     }
+    '/_auth/dashboard/production/planning/': {
+      id: '/_auth/dashboard/production/planning/'
+      path: '/'
+      fullPath: '/dashboard/production/planning/'
+      preLoaderRoute: typeof AuthDashboardProductionPlanningIndexRouteImport
+      parentRoute: typeof AuthDashboardProductionPlanningRoute
+    }
     '/_auth/dashboard/production/planning/new': {
       id: '/_auth/dashboard/production/planning/new'
       path: '/new'
       fullPath: '/dashboard/production/planning/new'
       preLoaderRoute: typeof AuthDashboardProductionPlanningNewRouteImport
       parentRoute: typeof AuthDashboardProductionPlanningRoute
+    }
+    '/_auth/dashboard/production/processing/': {
+      id: '/_auth/dashboard/production/processing/'
+      path: '/'
+      fullPath: '/dashboard/production/processing/'
+      preLoaderRoute: typeof AuthDashboardProductionProcessingIndexRouteImport
+      parentRoute: typeof AuthDashboardProductionProcessingRoute
     }
     '/_auth/dashboard/production/processing/$id': {
       id: '/_auth/dashboard/production/processing/$id'
@@ -1187,12 +1407,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthDashboardAdminUsersIdEditRouteImport
       parentRoute: typeof AuthDashboardAdminUsersRoute
     }
+    '/_auth/dashboard/inventory/spares/$id/': {
+      id: '/_auth/dashboard/inventory/spares/$id/'
+      path: '/'
+      fullPath: '/dashboard/inventory/spares/$id/'
+      preLoaderRoute: typeof AuthDashboardInventorySparesIdIndexRouteImport
+      parentRoute: typeof AuthDashboardInventorySparesIdRoute
+    }
     '/_auth/dashboard/production/planning/$id/edit': {
       id: '/_auth/dashboard/production/planning/$id/edit'
       path: '/$id/edit'
       fullPath: '/dashboard/production/planning/$id/edit'
       preLoaderRoute: typeof AuthDashboardProductionPlanningIdEditRouteImport
       parentRoute: typeof AuthDashboardProductionPlanningRoute
+    }
+    '/_auth/dashboard/production/processing/$id/': {
+      id: '/_auth/dashboard/production/processing/$id/'
+      path: '/'
+      fullPath: '/dashboard/production/processing/$id/'
+      preLoaderRoute: typeof AuthDashboardProductionProcessingIdIndexRouteImport
+      parentRoute: typeof AuthDashboardProductionProcessingIdRoute
     }
     '/_auth/dashboard/production/processing/$id/jobs': {
       id: '/_auth/dashboard/production/processing/$id/jobs'
@@ -1213,11 +1447,13 @@ declare module '@tanstack/react-router' {
 
 interface AuthDashboardInventoryIdRouteChildren {
   AuthDashboardInventoryIdEditRoute: typeof AuthDashboardInventoryIdEditRoute
+  AuthDashboardInventoryIdIndexRoute: typeof AuthDashboardInventoryIdIndexRoute
 }
 
 const AuthDashboardInventoryIdRouteChildren: AuthDashboardInventoryIdRouteChildren =
   {
     AuthDashboardInventoryIdEditRoute: AuthDashboardInventoryIdEditRoute,
+    AuthDashboardInventoryIdIndexRoute: AuthDashboardInventoryIdIndexRoute,
   }
 
 const AuthDashboardInventoryIdRouteWithChildren =
@@ -1226,11 +1462,14 @@ const AuthDashboardInventoryIdRouteWithChildren =
   )
 
 interface AuthDashboardInventorySparesIdRouteChildren {
+  AuthDashboardInventorySparesIdIndexRoute: typeof AuthDashboardInventorySparesIdIndexRoute
   AuthDashboardInventorySparesIdSubCategoriesSubIdItemsNewRoute: typeof AuthDashboardInventorySparesIdSubCategoriesSubIdItemsNewRoute
 }
 
 const AuthDashboardInventorySparesIdRouteChildren: AuthDashboardInventorySparesIdRouteChildren =
   {
+    AuthDashboardInventorySparesIdIndexRoute:
+      AuthDashboardInventorySparesIdIndexRoute,
     AuthDashboardInventorySparesIdSubCategoriesSubIdItemsNewRoute:
       AuthDashboardInventorySparesIdSubCategoriesSubIdItemsNewRoute,
   }
@@ -1243,6 +1482,7 @@ const AuthDashboardInventorySparesIdRouteWithChildren =
 interface AuthDashboardInventorySparesRouteChildren {
   AuthDashboardInventorySparesIdRoute: typeof AuthDashboardInventorySparesIdRouteWithChildren
   AuthDashboardInventorySparesNewRoute: typeof AuthDashboardInventorySparesNewRoute
+  AuthDashboardInventorySparesIndexRoute: typeof AuthDashboardInventorySparesIndexRoute
 }
 
 const AuthDashboardInventorySparesRouteChildren: AuthDashboardInventorySparesRouteChildren =
@@ -1250,6 +1490,8 @@ const AuthDashboardInventorySparesRouteChildren: AuthDashboardInventorySparesRou
     AuthDashboardInventorySparesIdRoute:
       AuthDashboardInventorySparesIdRouteWithChildren,
     AuthDashboardInventorySparesNewRoute: AuthDashboardInventorySparesNewRoute,
+    AuthDashboardInventorySparesIndexRoute:
+      AuthDashboardInventorySparesIndexRoute,
   }
 
 const AuthDashboardInventorySparesRouteWithChildren =
@@ -1305,6 +1547,7 @@ const AuthDashboardInventoryRouteWithChildren =
 
 interface AuthDashboardProductionPlanningRouteChildren {
   AuthDashboardProductionPlanningNewRoute: typeof AuthDashboardProductionPlanningNewRoute
+  AuthDashboardProductionPlanningIndexRoute: typeof AuthDashboardProductionPlanningIndexRoute
   AuthDashboardProductionPlanningIdEditRoute: typeof AuthDashboardProductionPlanningIdEditRoute
 }
 
@@ -1312,6 +1555,8 @@ const AuthDashboardProductionPlanningRouteChildren: AuthDashboardProductionPlann
   {
     AuthDashboardProductionPlanningNewRoute:
       AuthDashboardProductionPlanningNewRoute,
+    AuthDashboardProductionPlanningIndexRoute:
+      AuthDashboardProductionPlanningIndexRoute,
     AuthDashboardProductionPlanningIdEditRoute:
       AuthDashboardProductionPlanningIdEditRoute,
   }
@@ -1323,12 +1568,15 @@ const AuthDashboardProductionPlanningRouteWithChildren =
 
 interface AuthDashboardProductionProcessingIdRouteChildren {
   AuthDashboardProductionProcessingIdJobsRoute: typeof AuthDashboardProductionProcessingIdJobsRoute
+  AuthDashboardProductionProcessingIdIndexRoute: typeof AuthDashboardProductionProcessingIdIndexRoute
 }
 
 const AuthDashboardProductionProcessingIdRouteChildren: AuthDashboardProductionProcessingIdRouteChildren =
   {
     AuthDashboardProductionProcessingIdJobsRoute:
       AuthDashboardProductionProcessingIdJobsRoute,
+    AuthDashboardProductionProcessingIdIndexRoute:
+      AuthDashboardProductionProcessingIdIndexRoute,
   }
 
 const AuthDashboardProductionProcessingIdRouteWithChildren =
@@ -1339,6 +1587,7 @@ const AuthDashboardProductionProcessingIdRouteWithChildren =
 interface AuthDashboardProductionProcessingRouteChildren {
   AuthDashboardProductionProcessingIdRoute: typeof AuthDashboardProductionProcessingIdRouteWithChildren
   AuthDashboardProductionProcessingNewRoute: typeof AuthDashboardProductionProcessingNewRoute
+  AuthDashboardProductionProcessingIndexRoute: typeof AuthDashboardProductionProcessingIndexRoute
 }
 
 const AuthDashboardProductionProcessingRouteChildren: AuthDashboardProductionProcessingRouteChildren =
@@ -1347,6 +1596,8 @@ const AuthDashboardProductionProcessingRouteChildren: AuthDashboardProductionPro
       AuthDashboardProductionProcessingIdRouteWithChildren,
     AuthDashboardProductionProcessingNewRoute:
       AuthDashboardProductionProcessingNewRoute,
+    AuthDashboardProductionProcessingIndexRoute:
+      AuthDashboardProductionProcessingIndexRoute,
   }
 
 const AuthDashboardProductionProcessingRouteWithChildren =
@@ -1358,6 +1609,7 @@ interface AuthDashboardProductionRouteChildren {
   AuthDashboardProductionPlanningRoute: typeof AuthDashboardProductionPlanningRouteWithChildren
   AuthDashboardProductionProcessingRoute: typeof AuthDashboardProductionProcessingRouteWithChildren
   AuthDashboardProductionTimeReportRoute: typeof AuthDashboardProductionTimeReportRoute
+  AuthDashboardProductionIndexRoute: typeof AuthDashboardProductionIndexRoute
 }
 
 const AuthDashboardProductionRouteChildren: AuthDashboardProductionRouteChildren =
@@ -1368,6 +1620,7 @@ const AuthDashboardProductionRouteChildren: AuthDashboardProductionRouteChildren
       AuthDashboardProductionProcessingRouteWithChildren,
     AuthDashboardProductionTimeReportRoute:
       AuthDashboardProductionTimeReportRoute,
+    AuthDashboardProductionIndexRoute: AuthDashboardProductionIndexRoute,
   }
 
 const AuthDashboardProductionRouteWithChildren =
@@ -1377,11 +1630,13 @@ const AuthDashboardProductionRouteWithChildren =
 
 interface AuthDashboardScheduleRouteChildren {
   AuthDashboardScheduleNewRoute: typeof AuthDashboardScheduleNewRoute
+  AuthDashboardScheduleIndexRoute: typeof AuthDashboardScheduleIndexRoute
   AuthDashboardScheduleIdEditRoute: typeof AuthDashboardScheduleIdEditRoute
 }
 
 const AuthDashboardScheduleRouteChildren: AuthDashboardScheduleRouteChildren = {
   AuthDashboardScheduleNewRoute: AuthDashboardScheduleNewRoute,
+  AuthDashboardScheduleIndexRoute: AuthDashboardScheduleIndexRoute,
   AuthDashboardScheduleIdEditRoute: AuthDashboardScheduleIdEditRoute,
 }
 
@@ -1392,11 +1647,13 @@ const AuthDashboardScheduleRouteWithChildren =
 
 interface AuthDashboardSuppliersRouteChildren {
   AuthDashboardSuppliersIdRoute: typeof AuthDashboardSuppliersIdRoute
+  AuthDashboardSuppliersIndexRoute: typeof AuthDashboardSuppliersIndexRoute
 }
 
 const AuthDashboardSuppliersRouteChildren: AuthDashboardSuppliersRouteChildren =
   {
     AuthDashboardSuppliersIdRoute: AuthDashboardSuppliersIdRoute,
+    AuthDashboardSuppliersIndexRoute: AuthDashboardSuppliersIndexRoute,
   }
 
 const AuthDashboardSuppliersRouteWithChildren =
@@ -1406,10 +1663,12 @@ const AuthDashboardSuppliersRouteWithChildren =
 
 interface AuthDashboardVendorsRouteChildren {
   AuthDashboardVendorsNameRoute: typeof AuthDashboardVendorsNameRoute
+  AuthDashboardVendorsIndexRoute: typeof AuthDashboardVendorsIndexRoute
 }
 
 const AuthDashboardVendorsRouteChildren: AuthDashboardVendorsRouteChildren = {
   AuthDashboardVendorsNameRoute: AuthDashboardVendorsNameRoute,
+  AuthDashboardVendorsIndexRoute: AuthDashboardVendorsIndexRoute,
 }
 
 const AuthDashboardVendorsRouteWithChildren =
@@ -1417,11 +1676,13 @@ const AuthDashboardVendorsRouteWithChildren =
 
 interface AuthDashboardAdminBomRouteChildren {
   AuthDashboardAdminBomNewRoute: typeof AuthDashboardAdminBomNewRoute
+  AuthDashboardAdminBomIndexRoute: typeof AuthDashboardAdminBomIndexRoute
   AuthDashboardAdminBomIdEditRoute: typeof AuthDashboardAdminBomIdEditRoute
 }
 
 const AuthDashboardAdminBomRouteChildren: AuthDashboardAdminBomRouteChildren = {
   AuthDashboardAdminBomNewRoute: AuthDashboardAdminBomNewRoute,
+  AuthDashboardAdminBomIndexRoute: AuthDashboardAdminBomIndexRoute,
   AuthDashboardAdminBomIdEditRoute: AuthDashboardAdminBomIdEditRoute,
 }
 
@@ -1432,6 +1693,7 @@ const AuthDashboardAdminBomRouteWithChildren =
 
 interface AuthDashboardAdminDepartmentsRouteChildren {
   AuthDashboardAdminDepartmentsNewRoute: typeof AuthDashboardAdminDepartmentsNewRoute
+  AuthDashboardAdminDepartmentsIndexRoute: typeof AuthDashboardAdminDepartmentsIndexRoute
   AuthDashboardAdminDepartmentsIdEditRoute: typeof AuthDashboardAdminDepartmentsIdEditRoute
 }
 
@@ -1439,6 +1701,8 @@ const AuthDashboardAdminDepartmentsRouteChildren: AuthDashboardAdminDepartmentsR
   {
     AuthDashboardAdminDepartmentsNewRoute:
       AuthDashboardAdminDepartmentsNewRoute,
+    AuthDashboardAdminDepartmentsIndexRoute:
+      AuthDashboardAdminDepartmentsIndexRoute,
     AuthDashboardAdminDepartmentsIdEditRoute:
       AuthDashboardAdminDepartmentsIdEditRoute,
   }
@@ -1450,12 +1714,14 @@ const AuthDashboardAdminDepartmentsRouteWithChildren =
 
 interface AuthDashboardAdminUsersRouteChildren {
   AuthDashboardAdminUsersNewRoute: typeof AuthDashboardAdminUsersNewRoute
+  AuthDashboardAdminUsersIndexRoute: typeof AuthDashboardAdminUsersIndexRoute
   AuthDashboardAdminUsersIdEditRoute: typeof AuthDashboardAdminUsersIdEditRoute
 }
 
 const AuthDashboardAdminUsersRouteChildren: AuthDashboardAdminUsersRouteChildren =
   {
     AuthDashboardAdminUsersNewRoute: AuthDashboardAdminUsersNewRoute,
+    AuthDashboardAdminUsersIndexRoute: AuthDashboardAdminUsersIndexRoute,
     AuthDashboardAdminUsersIdEditRoute: AuthDashboardAdminUsersIdEditRoute,
   }
 
