@@ -1,0 +1,230 @@
+{
+  "generated_at": "2026-08-19T05:55:38.422893+00:00",
+  "nodes": {
+    "backend_app_core_database_alembic_version_exists": {
+      "code_fingerprint": "d0a0754515f9cd2bb98e346e3bf9d7559476fbcca76d7024f428f551a04135c8",
+      "label": "alembic_version_exists()",
+      "last": "2026-08-19T05:43:00.295126+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-19T05:43:00.295126+00:00",
+          "outcome": "useful",
+          "q": "if i deploy this code will it automatically take care of the migration ?"
+        }
+      ],
+      "score": 0.999797284,
+      "source_file": "backend/app/core/database.py",
+      "status": "tentative",
+      "uses": 1
+    },
+    "backend_app_core_database_run_alembic_upgrade": {
+      "code_fingerprint": "d0a0754515f9cd2bb98e346e3bf9d7559476fbcca76d7024f428f551a04135c8",
+      "label": "run_alembic_upgrade()",
+      "last": "2026-08-19T05:43:00.295126+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-19T05:43:00.295126+00:00",
+          "outcome": "useful",
+          "q": "if i deploy this code will it automatically take care of the migration ?"
+        }
+      ],
+      "score": 0.999797284,
+      "source_file": "backend/app/core/database.py",
+      "status": "tentative",
+      "uses": 1
+    },
+    "backend_app_main_global_exception_handler": {
+      "code_fingerprint": "68a367ae0a555b4de35e482dcd419b3d6188829bd79d326d947b042e87476bf9",
+      "label": "global_exception_handler()",
+      "last": "2026-08-19T05:41:02.747077+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-19T05:41:02.747077+00:00",
+          "outcome": "useful",
+          "q": "on the request page when i click on mark delivered as admin getting internal server error if we can get the cause it would be helpful."
+        }
+      ],
+      "score": 0.999765856,
+      "source_file": "backend/app/main.py",
+      "status": "tentative",
+      "uses": 1
+    },
+    "backend_app_main_lifespan": {
+      "code_fingerprint": "68a367ae0a555b4de35e482dcd419b3d6188829bd79d326d947b042e87476bf9",
+      "label": "lifespan()",
+      "last": "2026-08-19T05:43:00.295126+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-19T05:43:00.295126+00:00",
+          "outcome": "useful",
+          "q": "if i deploy this code will it automatically take care of the migration ?"
+        }
+      ],
+      "score": 0.999797284,
+      "source_file": "backend/app/main.py",
+      "status": "tentative",
+      "uses": 1
+    },
+    "backend_app_main_migrate_database_on_startup": {
+      "code_fingerprint": "68a367ae0a555b4de35e482dcd419b3d6188829bd79d326d947b042e87476bf9",
+      "label": "_migrate_database_on_startup()",
+      "last": "2026-08-19T05:43:00.295126+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-19T05:43:00.295126+00:00",
+          "outcome": "useful",
+          "q": "if i deploy this code will it automatically take care of the migration ?"
+        }
+      ],
+      "score": 0.999797284,
+      "source_file": "backend/app/main.py",
+      "status": "tentative",
+      "uses": 1
+    },
+    "backend_app_models_request_request": {
+      "code_fingerprint": "0664827137b4c106e69cd20131834b80ae0e4a24cfc001a055cab0934943a296",
+      "label": "Request",
+      "last": "2026-08-19T04:51:06.695400+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-19T04:51:06.695400+00:00",
+          "outcome": "useful",
+          "q": "use the graph and get knowledge of this project."
+        }
+      ],
+      "score": 0.998965167,
+      "source_file": "backend/app/models/request.py",
+      "status": "tentative",
+      "uses": 1
+    },
+    "backend_app_routers_receipts_create_department_receipts_for_request": {
+      "code_fingerprint": "0e094d4ad747397af8ed206f0bd7acdc4c72a0eed907983a1b52de39e9d8f48e",
+      "label": "create_department_receipts_for_request()",
+      "last": "2026-08-19T05:41:02.747077+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-19T05:41:02.747077+00:00",
+          "outcome": "useful",
+          "q": "on the request page when i click on mark delivered as admin getting internal server error if we can get the cause it would be helpful."
+        }
+      ],
+      "score": 0.999765856,
+      "source_file": "backend/app/routers/receipts.py",
+      "status": "tentative",
+      "uses": 1
+    },
+    "backend_app_routers_requests_deliver_request": {
+      "code_fingerprint": "95d6010f3f5c016430f61144de3b756f54953cf6a9be7658faf923bd4eae2547",
+      "label": "deliver_request()",
+      "last": "2026-08-19T05:41:02.747077+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-19T05:41:02.747077+00:00",
+          "outcome": "useful",
+          "q": "on the request page when i click on mark delivered as admin getting internal server error if we can get the cause it would be helpful."
+        }
+      ],
+      "score": 0.999765856,
+      "source_file": "backend/app/routers/requests.py",
+      "status": "tentative",
+      "uses": 1
+    },
+    "backend_app_services_document_numbers_allocate_document_number": {
+      "code_fingerprint": "34b6cabf8ed032876d246a9db850153d5ce0cfa1b24ff31b3f5f24f2319df6b0",
+      "label": "allocate_document_number()",
+      "last": "2026-08-19T05:41:02.747077+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-19T05:41:02.747077+00:00",
+          "outcome": "useful",
+          "q": "on the request page when i click on mark delivered as admin getting internal server error if we can get the cause it would be helpful."
+        }
+      ],
+      "score": 0.999765856,
+      "source_file": "backend/app/services/document_numbers.py",
+      "status": "tentative",
+      "uses": 1
+    },
+    "docs_superpowers_specs_2026_06_27_grn_and_worktime_bug_fixes_design_architecture": {
+      "code_fingerprint": "49e0e20f4aac37c49e3c5e0c6a744bd060371a391e172e248647676579567b80",
+      "label": "Architecture",
+      "last": "2026-08-19T04:51:06.695400+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-19T04:51:06.695400+00:00",
+          "outcome": "useful",
+          "q": "use the graph and get knowledge of this project."
+        }
+      ],
+      "score": 0.998965167,
+      "source_file": "docs/superpowers/specs/2026-06-27-grn-and-worktime-bug-fixes-design.md",
+      "status": "tentative",
+      "uses": 1
+    },
+    "fastapi": {
+      "code_fingerprint": "",
+      "label": "FastAPI",
+      "last": "2026-08-19T04:51:06.695400+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-19T04:51:06.695400+00:00",
+          "outcome": "useful",
+          "q": "use the graph and get knowledge of this project."
+        }
+      ],
+      "score": 0.998965167,
+      "source_file": "",
+      "status": "tentative",
+      "uses": 1
+    },
+    "okf_architecture_oneflow_tech_stack": {
+      "code_fingerprint": "424106cb3fd60fdc8a390698415cc82245592ff74338d84f97c0710b2d9397c6",
+      "label": "OneFlow tech stack",
+      "last": "2026-08-19T04:51:06.695400+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-19T04:51:06.695400+00:00",
+          "outcome": "useful",
+          "q": "use the graph and get knowledge of this project."
+        }
+      ],
+      "score": 0.998965167,
+      "source_file": "okf/architecture.md",
+      "status": "tentative",
+      "uses": 1
+    },
+    "okf_architecture_system_architecture": {
+      "code_fingerprint": "424106cb3fd60fdc8a390698415cc82245592ff74338d84f97c0710b2d9397c6",
+      "label": "System Architecture",
+      "last": "2026-08-19T04:51:06.695400+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-19T04:51:06.695400+00:00",
+          "outcome": "useful",
+          "q": "use the graph and get knowledge of this project."
+        }
+      ],
+      "score": 0.998965167,
+      "source_file": "okf/architecture.md",
+      "status": "tentative",
+      "uses": 1
+    },
+    "setup_automatic_database_migrations": {
+      "code_fingerprint": "ffb7a9c80aa6214c749ca109680787a7f227cfff497be92684e6684a75bb175e",
+      "label": "Automatic Alembic Migrations",
+      "last": "2026-08-19T05:43:00.295126+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-19T05:43:00.295126+00:00",
+          "outcome": "useful",
+          "q": "if i deploy this code will it automatically take care of the migration ?"
+        }
+      ],
+      "score": 0.999797284,
+      "source_file": "SETUP.md",
+      "status": "tentative",
+      "uses": 1
+    }
+  },
+  "version": 1
+}
