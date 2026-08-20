@@ -88,7 +88,7 @@ function EditDepartmentPage() {
       })
       navigate({ href: "/dashboard/admin/departments" })
     } catch (err: unknown) {
-      setSaveError(e instanceof Error ? e.message : "Save failed")
+      setSaveError(err instanceof Error ? err.message : "Save failed")
     } finally {
       setSaving(false)
     }

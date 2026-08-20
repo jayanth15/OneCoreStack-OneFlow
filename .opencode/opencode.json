@@ -2,5 +2,16 @@
   "$schema": "https://opencode.ai/config.json",
   "plugin": [
     ".opencode/plugins/graphify.js"
-  ]
+  ],
+  "mcp": {
+    "dokploy-mcp": {
+      "type": "local",
+      "command": ["npx", "-y", "@dokploy/mcp"],
+      "enabled": true,
+      "environment": {
+        "DOKPLOY_URL": "http://157.20.172.114:3000/",
+        "DOKPLOY_API_KEY": "AdzZwvDVaUTjBtPzADghQTxOFdtKrtJQfkTatHjJPwDGvJraDLniaarIGRdHRSiL"
+      }
+    }
+  }
 }
