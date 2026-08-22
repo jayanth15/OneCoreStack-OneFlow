@@ -1,8 +1,8 @@
 {
   ".opencode/opencode.json": {
-    "mtime": 1787244494.5438745,
-    "ast_hash": "c0e2a02f6c2da0c8c9f620a95ffa8722",
-    "semantic_hash": ""
+    "mtime": 1784181729.2780762,
+    "ast_hash": "e5f74d14a81702b55bdf53b33ec991d7",
+    "semantic_hash": "e5f74d14a81702b55bdf53b33ec991d7"
   },
   ".opencode/plugins/graphify.js": {
     "mtime": 1784181671.7279513,
@@ -1695,9 +1695,9 @@
     "semantic_hash": "7a1dd5ef223992ebbba5081254e6f530"
   },
   "backend/tests/test_startup_migrations.py": {
-    "mtime": 1787382048.8495893,
-    "ast_hash": "738623384bec8a1a3a031413b9dac11a",
-    "semantic_hash": ""
+    "mtime": 1786458235.6134748,
+    "ast_hash": "015a83a564d809f34cade42728978a9a",
+    "semantic_hash": "015a83a564d809f34cade42728978a9a"
   },
   "backend/alembic/versions/0015_clear_inactive_inventory_stock.py": {
     "mtime": 1786365183.4185727,
@@ -1740,9 +1740,9 @@
     "semantic_hash": "198615bb5a97590eaaed7324e522604e"
   },
   "backend/tests/test_legacy_schema_request_repair_migration.py": {
-    "mtime": 1787382048.379458,
-    "ast_hash": "c563a2f1a743e24b78f84b3c6fd238fc",
-    "semantic_hash": ""
+    "mtime": 1786458448.4740763,
+    "ast_hash": "1abab42691a8e3d60a50194333ec70b8",
+    "semantic_hash": "1abab42691a8e3d60a50194333ec70b8"
   },
   "tanstack-frontend/.cta.json": {
     "mtime": 1786535827.3123822,
@@ -2200,9 +2200,9 @@
     "semantic_hash": ""
   },
   "tanstack-frontend/src/routes/_auth.dashboard.admin.departments.$id.edit.tsx": {
-    "mtime": 1787244983.6839507,
-    "ast_hash": "2a310b5a7b44f609f0da68c82369071e",
-    "semantic_hash": ""
+    "mtime": 1786543622.5023713,
+    "ast_hash": "59a1eb35b79cc1fe2f8ef2f018d6379e",
+    "semantic_hash": "59a1eb35b79cc1fe2f8ef2f018d6379e"
   },
   "tanstack-frontend/src/routes/_auth.dashboard.admin.departments.new.tsx": {
     "mtime": 1786543622.5965257,
@@ -2215,9 +2215,9 @@
     "semantic_hash": ""
   },
   "tanstack-frontend/src/routes/_auth.dashboard.admin.users.$id.edit.tsx": {
-    "mtime": 1787244979.5169845,
-    "ast_hash": "8c67fe0561a5a1b3d9ed1b1fc5390242",
-    "semantic_hash": ""
+    "mtime": 1786543652.9399765,
+    "ast_hash": "efb1fe8344fd428f2fd269f3b0f46080",
+    "semantic_hash": "efb1fe8344fd428f2fd269f3b0f46080"
   },
   "tanstack-frontend/src/routes/_auth.dashboard.admin.users.new.tsx": {
     "mtime": 1786543622.7118835,
@@ -2457,21 +2457,6 @@
   "graphify-out/memory/query_20260819_165211_the_problem_is_still_there_when_i_click_on_edit_th.md": {
     "mtime": 1787158331.394467,
     "ast_hash": "a2a2c32ba301b1fe4ebf092440504ff4",
-    "semantic_hash": ""
-  },
-  "backend/alembic/versions/0018_rebuild_legacy_receipt_table.py": {
-    "mtime": 1787382151.7306361,
-    "ast_hash": "48764cd33485896fc6446220bb8630a0",
-    "semantic_hash": ""
-  },
-  "graphify-out/memory/query_20260819_174407_the_problem_is_still_there_fix_it_commit_it_and_ac.md": {
-    "mtime": 1787161447.3170319,
-    "ast_hash": "7e85a10dbbeaaf09a84a79ff3c4d43e6",
-    "semantic_hash": ""
-  },
-  "graphify-out/memory/query_20260822_064444_why_does_production_fail_with_sqlite3_not_null_con.md": {
-    "mtime": 1787381084.1050386,
-    "ast_hash": "31485a36cc66e749ebab237a06ec88db",
     "semantic_hash": ""
   }
 }

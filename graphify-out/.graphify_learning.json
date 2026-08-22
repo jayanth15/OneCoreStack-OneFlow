@@ -1,6 +1,38 @@
 {
-  "generated_at": "2026-08-19T17:31:31.320126+00:00",
+  "generated_at": "2026-08-22T06:45:47.062352+00:00",
   "nodes": {
+    "backend_alembic_versions_0009_repair_request_delivery_receipt_schema_upgrade": {
+      "code_fingerprint": "a25d10e7ec6a7095ac9ee0b39a4ebf82e71d2604f7be2cbdfd3c6e82cc7cc000",
+      "label": "upgrade()",
+      "last": "2026-08-22T06:44:44.104625+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-22T06:44:44.104625+00:00",
+          "outcome": "useful",
+          "q": "Why does production fail with sqlite3 NOT NULL constraint failed receipt.sn_no when marking a request delivered?"
+        }
+      ],
+      "score": 0.999983164,
+      "source_file": "backend/alembic/versions/0009_repair_request_delivery_receipt_schema.py",
+      "status": "tentative",
+      "uses": 1
+    },
+    "backend_alembic_versions_0017_repair_legacy_schema_and_requests_repair_receipts": {
+      "code_fingerprint": "5ba78409de5070575de1c866bfd2c69ba47334fccd059c6106e2576cea92f2eb",
+      "label": "_repair_receipts()",
+      "last": "2026-08-22T06:44:44.104625+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-22T06:44:44.104625+00:00",
+          "outcome": "useful",
+          "q": "Why does production fail with sqlite3 NOT NULL constraint failed receipt.sn_no when marking a request delivered?"
+        }
+      ],
+      "score": 0.999983164,
+      "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
+      "status": "tentative",
+      "uses": 1
+    },
     "backend_app_core_database_alembic_version_exists": {
       "code_fingerprint": "d0a0754515f9cd2bb98e346e3bf9d7559476fbcca76d7024f428f551a04135c8",
       "label": "alembic_version_exists()",
@@ -12,7 +44,7 @@
           "q": "if i deploy this code will it automatically take care of the migration ?"
         }
       ],
-      "score": 0.988696165,
+      "score": 0.93209362,
       "source_file": "backend/app/core/database.py",
       "status": "tentative",
       "uses": 1
@@ -28,7 +60,7 @@
           "q": "if i deploy this code will it automatically take care of the migration ?"
         }
       ],
-      "score": 0.988696165,
+      "score": 0.93209362,
       "source_file": "backend/app/core/database.py",
       "status": "tentative",
       "uses": 1
@@ -44,7 +76,7 @@
           "q": "ok now can you audit the codebase the admin user raised concern that they also had limited permission on some places on the application, admin should be able to anything, they are saying they were not able to edit users, in normal frontend we are able to do all the things in tanstack-frontend we are getting this problem, like printing, editing bom all these things are not working in tanstack-frontend please validate cause we are migrating the codebase from nextjs to tanstack and we did that. Throughly validate the tanstack-frontend."
         }
       ],
-      "score": 0.989094213,
+      "score": 0.932468879,
       "source_file": "backend/app/dependencies/auth.py",
       "status": "tentative",
       "uses": 1
@@ -60,7 +92,7 @@
           "q": "on the request page when i click on mark delivered as admin getting internal server error if we can get the cause it would be helpful."
         }
       ],
-      "score": 0.988665087,
+      "score": 0.93206432,
       "source_file": "backend/app/main.py",
       "status": "tentative",
       "uses": 1
@@ -76,7 +108,7 @@
           "q": "if i deploy this code will it automatically take care of the migration ?"
         }
       ],
-      "score": 0.988696165,
+      "score": 0.93209362,
       "source_file": "backend/app/main.py",
       "status": "tentative",
       "uses": 1
@@ -84,16 +116,32 @@
     "backend_app_main_migrate_database_on_startup": {
       "code_fingerprint": "68a367ae0a555b4de35e482dcd419b3d6188829bd79d326d947b042e87476bf9",
       "label": "_migrate_database_on_startup()",
-      "last": "2026-08-19T05:43:00.295126+00:00",
+      "last": "2026-08-22T06:44:44.104625+00:00",
       "provenance": [
         {
-          "date": "2026-08-19T05:43:00.295126+00:00",
+          "date": "2026-08-22T06:44:44.104625+00:00",
           "outcome": "useful",
-          "q": "if i deploy this code will it automatically take care of the migration ?"
+          "q": "Why does production fail with sqlite3 NOT NULL constraint failed receipt.sn_no when marking a request delivered?"
         }
       ],
-      "score": 0.988696165,
+      "score": 0.999983164,
       "source_file": "backend/app/main.py",
+      "status": "tentative",
+      "uses": 1
+    },
+    "backend_app_models_receipt_receipt": {
+      "code_fingerprint": "924712b9e00eb417580dd027ed8f8a5655e8bd8f5dcfb671178d567bf034fde1",
+      "label": "Receipt",
+      "last": "2026-08-22T06:44:44.104625+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-22T06:44:44.104625+00:00",
+          "outcome": "useful",
+          "q": "Why does production fail with sqlite3 NOT NULL constraint failed receipt.sn_no when marking a request delivered?"
+        }
+      ],
+      "score": 0.999983164,
+      "source_file": "backend/app/models/receipt.py",
       "status": "tentative",
       "uses": 1
     },
@@ -108,7 +156,7 @@
           "q": "use the graph and get knowledge of this project."
         }
       ],
-      "score": 0.987873287,
+      "score": 0.931317851,
       "source_file": "backend/app/models/request.py",
       "status": "tentative",
       "uses": 1
@@ -124,7 +172,7 @@
           "q": "ok now can you audit the codebase the admin user raised concern that they also had limited permission on some places on the application, admin should be able to anything, they are saying they were not able to edit users, in normal frontend we are able to do all the things in tanstack-frontend we are getting this problem, like printing, editing bom all these things are not working in tanstack-frontend please validate cause we are migrating the codebase from nextjs to tanstack and we did that. Throughly validate the tanstack-frontend."
         }
       ],
-      "score": 0.989094213,
+      "score": 0.932468879,
       "source_file": "backend/app/routers/bom.py",
       "status": "tentative",
       "uses": 1
@@ -132,15 +180,15 @@
     "backend_app_routers_receipts_create_department_receipts_for_request": {
       "code_fingerprint": "0e094d4ad747397af8ed206f0bd7acdc4c72a0eed907983a1b52de39e9d8f48e",
       "label": "create_department_receipts_for_request()",
-      "last": "2026-08-19T05:41:02.747077+00:00",
+      "last": "2026-08-22T06:44:44.104625+00:00",
       "provenance": [
         {
-          "date": "2026-08-19T05:41:02.747077+00:00",
+          "date": "2026-08-22T06:44:44.104625+00:00",
           "outcome": "useful",
-          "q": "on the request page when i click on mark delivered as admin getting internal server error if we can get the cause it would be helpful."
+          "q": "Why does production fail with sqlite3 NOT NULL constraint failed receipt.sn_no when marking a request delivered?"
         }
       ],
-      "score": 0.988665087,
+      "score": 0.999983164,
       "source_file": "backend/app/routers/receipts.py",
       "status": "tentative",
       "uses": 1
@@ -156,7 +204,7 @@
           "q": "on the request page when i click on mark delivered as admin getting internal server error if we can get the cause it would be helpful."
         }
       ],
-      "score": 0.988665087,
+      "score": 0.93206432,
       "source_file": "backend/app/routers/requests.py",
       "status": "tentative",
       "uses": 1
@@ -172,7 +220,7 @@
           "q": "on the request page when i click on mark delivered as admin getting internal server error if we can get the cause it would be helpful."
         }
       ],
-      "score": 0.988665087,
+      "score": 0.93206432,
       "source_file": "backend/app/services/document_numbers.py",
       "status": "tentative",
       "uses": 1
@@ -188,7 +236,7 @@
           "q": "use the graph and get knowledge of this project."
         }
       ],
-      "score": 0.987873287,
+      "score": 0.931317851,
       "source_file": "docs/superpowers/specs/2026-06-27-grn-and-worktime-bug-fixes-design.md",
       "status": "tentative",
       "uses": 1
@@ -204,7 +252,7 @@
           "q": "use the graph and get knowledge of this project."
         }
       ],
-      "score": 0.987873287,
+      "score": 0.931317851,
       "source_file": "",
       "status": "tentative",
       "uses": 1
@@ -220,7 +268,7 @@
           "q": "use the graph and get knowledge of this project."
         }
       ],
-      "score": 0.987873287,
+      "score": 0.931317851,
       "source_file": "okf/architecture.md",
       "status": "tentative",
       "uses": 1
@@ -236,7 +284,7 @@
           "q": "use the graph and get knowledge of this project."
         }
       ],
-      "score": 0.987873287,
+      "score": 0.931317851,
       "source_file": "okf/architecture.md",
       "status": "tentative",
       "uses": 1
@@ -252,7 +300,7 @@
           "q": "if i deploy this code will it automatically take care of the migration ?"
         }
       ],
-      "score": 0.988696165,
+      "score": 0.93209362,
       "source_file": "SETUP.md",
       "status": "tentative",
       "uses": 1
@@ -268,7 +316,7 @@
           "q": "ok now can you audit the codebase the admin user raised concern that they also had limited permission on some places on the application, admin should be able to anything, they are saying they were not able to edit users, in normal frontend we are able to do all the things in tanstack-frontend we are getting this problem, like printing, editing bom all these things are not working in tanstack-frontend please validate cause we are migrating the codebase from nextjs to tanstack and we did that. Throughly validate the tanstack-frontend."
         }
       ],
-      "score": 0.989094213,
+      "score": 0.932468879,
       "source_file": "tanstack-frontend/src/lib/print-report.ts",
       "status": "tentative",
       "uses": 1
@@ -284,7 +332,7 @@
           "q": "ok now can you audit the codebase the admin user raised concern that they also had limited permission on some places on the application, admin should be able to anything, they are saying they were not able to edit users, in normal frontend we are able to do all the things in tanstack-frontend we are getting this problem, like printing, editing bom all these things are not working in tanstack-frontend please validate cause we are migrating the codebase from nextjs to tanstack and we did that. Throughly validate the tanstack-frontend."
         }
       ],
-      "score": 0.989094213,
+      "score": 0.932468879,
       "source_file": "tanstack-frontend/src/lib/user.ts",
       "status": "tentative",
       "uses": 1
@@ -292,24 +340,34 @@
     "tanstack_frontend_src_router_getrouter": {
       "code_fingerprint": "48c0b0174724980583560dfee7dd27553037b68de3c4ddbb399efb9d2288f23b",
       "label": "getRouter()",
-      "last": "2026-08-19T16:52:11.393839+00:00",
+      "last": "2026-08-19T17:44:07.316662+00:00",
       "provenance": [
+        {
+          "date": "2026-08-19T17:44:07.316662+00:00",
+          "outcome": "useful",
+          "q": "the problem is still there fix it commit it and access the site and validate it."
+        },
         {
           "date": "2026-08-19T16:52:11.393839+00:00",
           "outcome": "useful",
           "q": "The problem is still there when i click on edit the url is changing but the page is not rendering on tanstack same for all things in our application, All edit options are not working the url is changing but page or pop or any other things are not working."
         }
       ],
-      "score": 0.999369113,
+      "score": 1.88509647,
       "source_file": "tanstack-frontend/src/router.tsx",
-      "status": "tentative",
-      "uses": 1
+      "status": "preferred",
+      "uses": 2
     },
     "tanstack_frontend_src_routes_auth_dashboard_admin_users_id_edit_edituserpage": {
-      "code_fingerprint": "a49b1df513379ea592389152a4dbc74d22a440c16bf6485222f3fc80d440bb48",
+      "code_fingerprint": "52dbdc73d23b1f638c5a2c1b2b311b5e5f9c7a1c2ff246324d0d2d02f9fdb1ca",
       "label": "EditUserPage()",
-      "last": "2026-08-19T16:52:11.393839+00:00",
+      "last": "2026-08-19T17:44:07.316662+00:00",
       "provenance": [
+        {
+          "date": "2026-08-19T17:44:07.316662+00:00",
+          "outcome": "useful",
+          "q": "the problem is still there fix it commit it and access the site and validate it."
+        },
         {
           "date": "2026-08-19T16:52:11.393839+00:00",
           "outcome": "useful",
@@ -321,31 +379,10 @@
           "q": "ok now can you audit the codebase the admin user raised concern that they also had limited permission on some places on the application, admin should be able to anything, they are saying they were not able to edit users, in normal frontend we are able to do all the things in tanstack-frontend we are getting this problem, like printing, editing bom all these things are not working in tanstack-frontend please validate cause we are migrating the codebase from nextjs to tanstack and we did that. Throughly validate the tanstack-frontend."
         }
       ],
-      "score": 1.988463325,
+      "score": 2.817565349,
       "source_file": "tanstack-frontend/src/routes/_auth.dashboard.admin.users.$id.edit.tsx",
       "status": "preferred",
-      "uses": 2
-    },
-    "tanstack_frontend_src_routes_auth_dashboard_admin_users_userspage": {
-      "code_fingerprint": "e41c17c4b73c2e58b350745e5a55c70be8d4ee64cc354da721ecaaadf69fbafb",
-      "label": "UsersPage()",
-      "last": "2026-08-19T16:52:11.393839+00:00",
-      "provenance": [
-        {
-          "date": "2026-08-19T16:52:11.393839+00:00",
-          "outcome": "useful",
-          "q": "The problem is still there when i click on edit the url is changing but the page is not rendering on tanstack same for all things in our application, All edit options are not working the url is changing but page or pop or any other things are not working."
-        },
-        {
-          "date": "2026-08-19T06:08:05.495097+00:00",
-          "outcome": "useful",
-          "q": "ok now can you audit the codebase the admin user raised concern that they also had limited permission on some places on the application, admin should be able to anything, they are saying they were not able to edit users, in normal frontend we are able to do all the things in tanstack-frontend we are getting this problem, like printing, editing bom all these things are not working in tanstack-frontend please validate cause we are migrating the codebase from nextjs to tanstack and we did that. Throughly validate the tanstack-frontend."
-        }
-      ],
-      "score": 1.988463325,
-      "source_file": "tanstack-frontend/src/routes/_auth.dashboard.admin.users.tsx",
-      "status": "preferred",
-      "uses": 2
+      "uses": 3
     }
   },
   "version": 1
