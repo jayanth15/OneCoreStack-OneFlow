@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { Link, createFileRoute } from "@tanstack/react-router"
-import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { z } from "zod"
 import { PageHeader } from "@/components/layout/page-header"
 import { Button } from "@/components/ui/button"
@@ -213,8 +213,12 @@ const LANDING_CARDS = [
 function InventoryLanding() {
   const navigate = Route.useNavigate()
 
-  // One query per card; permission-gated like the original page.
+  // One active-only aggregate replaces the previous request-per-card fan-out.
   const typeMap: Record<string, string> = {
+    finished_good: "finished_good",
+    raw_material: "raw_material",
+    semi_finished: "semi_finished",
+    scrap: "scrap",
     spares: "spare",
     consumables: "consumable",
     attachments: "attachment",
@@ -234,31 +238,22 @@ function InventoryLanding() {
     "weeders",
   ])
 
-  const countConfigs = LANDING_CARDS.filter((c) => countCardIds.has(c.id)).map((c) => ({
-    id: c.id,
-    url:
-      c.id === "spares"
-        ? "/api/v1/spares/categories"
-        : `/api/v1/${c.id === "scrap" ? "inventory?item_type=scrap&page_size=1&include_inactive=false" : `${c.id === "consumables" ? "consumables" : c.id === "attachments" ? "attachments" : c.id === "weeders" ? "weeders" : `inventory?item_type=${c.id}&page_size=1&include_inactive=false`}`}`,
-    enabled: canAccessInventory(typeMap[c.id] ?? c.id),
-  }))
-
-  const countQueries = useQueries({
-    queries: countConfigs.map((c) => ({
-      queryKey: [c.url],
-      enabled: c.enabled,
-      staleTime: 60_000,
-    })),
+  const summaryQuery = useQuery({
+    queryKey: ["/api/v1/dashboard/inventory-summary"],
+    staleTime: 60_000,
   })
 
   const counts = useMemo(() => {
     const out: Record<string, number | null> = {}
-    countConfigs.forEach((c, i) => {
-      const data = countQueries[i]?.data as { total: number } | undefined
-      out[c.id] = typeof data?.total === "number" ? data.total : null
+    const data = summaryQuery.data as
+      | { types: Record<string, { count: number }> }
+      | undefined
+    countCardIds.forEach((id) => {
+      const count = data?.types[typeMap[id]]?.count
+      out[id] = typeof count === "number" ? count : null
     })
     return out
-  }, [countQueries])
+  }, [summaryQuery.data])
 
   const visibleCards = LANDING_CARDS.filter((c) => {
     if (c.id === "cycle_count") {
@@ -303,7 +298,7 @@ function InventoryLanding() {
                       ? <span className="text-sm font-normal text-muted-foreground">All types →</span>
                       : count === null
                         ? <span className="text-muted-foreground text-base animate-pulse">—</span>
-                        : <>{count}<span className="text-sm font-normal text-muted-foreground ml-1">{c.id === "spares" ? "categories" : "items"}</span></>}
+                        : <>{count}<span className="text-sm font-normal text-muted-foreground ml-1">items</span></>}
                 </p>
               </button>
             )

@@ -144,6 +144,7 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
   const [approvalDispatchQuantity, setApprovalDispatchQuantity] = useState<number>(1)
   const [approvalBusy, setApprovalBusy] = useState(false)
   const [acceptingItemId, setAcceptingItemId] = useState<number | null>(null)
+  const [acceptingDepartment, setAcceptingDepartment] = useState<string | null>(null)
 
   const requestQuery = useQuery({
     queryKey: [`/api/v1/requests/${requestId}`],
@@ -266,11 +267,28 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
     setAcceptingItemId(itemId)
     try {
       await acceptItemMutation.mutateAsync(itemId)
+      onOpenChange(false)
     } catch (e: unknown) {
       console.error("Item acceptance failed:", e)
       alert(`Item acceptance failed: ${errorMessage(e)}`)
     } finally {
       setAcceptingItemId(null)
+    }
+  }
+
+  const acceptDepartment = async (department: string) => {
+    if (!data) return
+    setAcceptingDepartment(department)
+    try {
+      const updated = await requestsApi.accept(data.id, department)
+      queryClient.setQueryData([`/api/v1/requests/${data.id}`], updated)
+      invalidateRequest()
+      onOpenChange(false)
+    } catch (e: unknown) {
+      console.error("Request acceptance failed:", e)
+      alert(`Accept failed: ${errorMessage(e)}`)
+    } finally {
+      setAcceptingDepartment(null)
     }
   }
 
@@ -791,12 +809,16 @@ export function RequestDetailDialog({ requestId, open, onOpenChange, currentUser
                   </>
                 )}
                 {data.items.length === 0 && (data.request_type !== "vendor_purchase" || reviewerIsAdmin) && pendingAcceptanceDepartments.map((department) => (
-                  <Button key={department} size="sm" onClick={() => requestsApi.accept(data.id, department).then((updated) => {
-                    queryClient.setQueryData([`/api/v1/requests/${data.id}`], updated)
-                    invalidateRequest()
-                  }).catch((e: unknown) => alert(`Accept failed: ${errorMessage(e)}`))}>
+                  <Button
+                    key={department}
+                    size="sm"
+                    disabled={acceptingDepartment !== null}
+                    onClick={() => acceptDepartment(department)}
+                  >
                     <Check className="size-3.5" />
-                    Acknowledge {targetDepartmentLabels.get(department)}
+                    {acceptingDepartment === department
+                      ? "Accepting…"
+                      : `Acknowledge ${targetDepartmentLabels.get(department)}`}
                   </Button>
                 ))}
                 {reviewerIsAdmin && data.request_type === "vendor_purchase" && data.status === "approved" && (

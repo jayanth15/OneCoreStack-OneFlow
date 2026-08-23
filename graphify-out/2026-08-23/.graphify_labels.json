@@ -343,11 +343,5 @@
   "341": "Route",
   "342": "Route",
   "343": "Route",
-  "344": "Route",
-  "345": "@base-ui/react",
-  "346": "@hugeicons/react",
-  "347": "react-dom",
-  "348": "tailwindcss",
-  "349": "@tanstack/react-query-devtools",
-  "350": "tw-animate-css"
+  "344": "Route"
 }

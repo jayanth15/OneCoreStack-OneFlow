@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
-import { Bell, BellOff, CheckCheck, LogOut } from "lucide-react"
+import { Bell, BellOff, CheckCheck, Loader2, LogOut, RefreshCw } from "lucide-react"
 import { apiFetchJson } from "@/lib/api"
 import { getCurrentUser, ALL_INVENTORY_TYPES } from "@/lib/user"
 import type { CurrentUser } from "@/lib/user"
@@ -73,24 +73,48 @@ function NotificationBell() {
   const router = useRouter()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const fetchSequence = useRef(0)
 
   const unreadCount = notifications.filter((n) => !n.is_read).length
 
-  async function fetchNotifications() {
+  const fetchNotifications = useCallback(async () => {
+    const sequence = ++fetchSequence.current
+    setLoading(true)
     try {
       const data = await apiFetchJson<Notification[]>("/api/v1/notifications")
-      setNotifications(data)
-    } catch {
-      // silently ignore — not a critical failure
+      if (sequence === fetchSequence.current) {
+        setNotifications(data)
+        setLoadError(null)
+      }
+    } catch (error: unknown) {
+      if (sequence === fetchSequence.current) {
+        setLoadError(error instanceof Error ? error.message : "Failed to load notifications")
+      }
+    } finally {
+      if (sequence === fetchSequence.current) setLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
-    fetchNotifications()
-    const interval = setInterval(fetchNotifications, 30_000)
-    return () => clearInterval(interval)
-  }, [])
+    void fetchNotifications()
+    const interval = window.setInterval(fetchNotifications, 30_000)
+    const refresh = () => void fetchNotifications()
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") refresh()
+    }
+    window.addEventListener("focus", refresh)
+    window.addEventListener("notifications-updated", refresh)
+    document.addEventListener("visibilitychange", onVisibility)
+    return () => {
+      window.clearInterval(interval)
+      window.removeEventListener("focus", refresh)
+      window.removeEventListener("notifications-updated", refresh)
+      document.removeEventListener("visibilitychange", onVisibility)
+    }
+  }, [fetchNotifications])
 
   // Close on outside click
   useEffect(() => {
@@ -132,9 +156,15 @@ function NotificationBell() {
   return (
     <div className="relative" ref={dropdownRef}>
       <button
-        onClick={() => setOpen((o) => !o)}
+        type="button"
+        onClick={() => setOpen((current) => {
+          const next = !current
+          if (next) void fetchNotifications()
+          return next
+        })}
         className="relative flex items-center justify-center size-9 rounded-full hover:bg-muted transition-colors"
         aria-label="Notifications"
+        aria-expanded={open}
       >
         {unreadCount > 0 ? (
           <Bell className="size-4.5" />
@@ -167,7 +197,24 @@ function NotificationBell() {
 
           {/* List */}
           <div className="overflow-y-auto flex-1">
-            {notifications.length === 0 ? (
+            {loading && notifications.length === 0 ? (
+              <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" /> Loading notifications…
+              </div>
+            ) : loadError ? (
+              <div role="alert" className="flex flex-col items-center px-5 py-8 text-center">
+                <BellOff className="size-8 text-destructive/60" />
+                <p className="mt-2 text-sm font-medium">Notifications could not be loaded</p>
+                <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{loadError}</p>
+                <button
+                  type="button"
+                  onClick={() => void fetchNotifications()}
+                  className="mt-3 flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted"
+                >
+                  <RefreshCw className="size-3.5" /> Retry
+                </button>
+              </div>
+            ) : notifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 text-muted-foreground gap-2">
                 <BellOff className="size-8 opacity-30" />
                 <p className="text-sm">No notifications</p>

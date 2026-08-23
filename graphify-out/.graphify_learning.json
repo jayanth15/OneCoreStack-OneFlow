@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-22T06:45:47.062352+00:00",
+  "generated_at": "2026-08-23T16:54:46.231111+00:00",
   "nodes": {
     "backend_alembic_versions_0009_repair_request_delivery_receipt_schema_upgrade": {
       "code_fingerprint": "a25d10e7ec6a7095ac9ee0b39a4ebf82e71d2604f7be2cbdfd3c6e82cc7cc000",
@@ -12,7 +12,7 @@
           "q": "Why does production fail with sqlite3 NOT NULL constraint failed receipt.sn_no when marking a request delivered?"
         }
       ],
-      "score": 0.999983164,
+      "score": 0.967642121,
       "source_file": "backend/alembic/versions/0009_repair_request_delivery_receipt_schema.py",
       "status": "tentative",
       "uses": 1
@@ -28,8 +28,40 @@
           "q": "Why does production fail with sqlite3 NOT NULL constraint failed receipt.sn_no when marking a request delivered?"
         }
       ],
-      "score": 0.999983164,
+      "score": 0.967642121,
       "source_file": "backend/alembic/versions/0017_repair_legacy_schema_and_requests.py",
+      "status": "tentative",
+      "uses": 1
+    },
+    "backend_alembic_versions_0018_rebuild_legacy_receipt_table_drop_legacy_indexes": {
+      "code_fingerprint": "720353d7a7c3ecf982cba79995744d5622d542e3b2e6101be0c45df006f929c0",
+      "label": "_drop_legacy_indexes()",
+      "last": "2026-08-22T07:03:34.930094+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-22T07:03:34.930094+00:00",
+          "outcome": "useful",
+          "q": "can you fix that ?"
+        }
+      ],
+      "score": 0.967934783,
+      "source_file": "backend/alembic/versions/0018_rebuild_legacy_receipt_table.py",
+      "status": "tentative",
+      "uses": 1
+    },
+    "backend_alembic_versions_0018_rebuild_legacy_receipt_table_upgrade": {
+      "code_fingerprint": "720353d7a7c3ecf982cba79995744d5622d542e3b2e6101be0c45df006f929c0",
+      "label": "upgrade()",
+      "last": "2026-08-22T07:03:34.930094+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-22T07:03:34.930094+00:00",
+          "outcome": "useful",
+          "q": "can you fix that ?"
+        }
+      ],
+      "score": 0.967934783,
+      "source_file": "backend/alembic/versions/0018_rebuild_legacy_receipt_table.py",
       "status": "tentative",
       "uses": 1
     },
@@ -44,7 +76,7 @@
           "q": "if i deploy this code will it automatically take care of the migration ?"
         }
       ],
-      "score": 0.93209362,
+      "score": 0.901948232,
       "source_file": "backend/app/core/database.py",
       "status": "tentative",
       "uses": 1
@@ -60,7 +92,7 @@
           "q": "if i deploy this code will it automatically take care of the migration ?"
         }
       ],
-      "score": 0.93209362,
+      "score": 0.901948232,
       "source_file": "backend/app/core/database.py",
       "status": "tentative",
       "uses": 1
@@ -76,7 +108,7 @@
           "q": "ok now can you audit the codebase the admin user raised concern that they also had limited permission on some places on the application, admin should be able to anything, they are saying they were not able to edit users, in normal frontend we are able to do all the things in tanstack-frontend we are getting this problem, like printing, editing bom all these things are not working in tanstack-frontend please validate cause we are migrating the codebase from nextjs to tanstack and we did that. Throughly validate the tanstack-frontend."
         }
       ],
-      "score": 0.932468879,
+      "score": 0.902311355,
       "source_file": "backend/app/dependencies/auth.py",
       "status": "tentative",
       "uses": 1
@@ -92,7 +124,7 @@
           "q": "on the request page when i click on mark delivered as admin getting internal server error if we can get the cause it would be helpful."
         }
       ],
-      "score": 0.93206432,
+      "score": 0.901919881,
       "source_file": "backend/app/main.py",
       "status": "tentative",
       "uses": 1
@@ -108,7 +140,7 @@
           "q": "if i deploy this code will it automatically take care of the migration ?"
         }
       ],
-      "score": 0.93209362,
+      "score": 0.901948232,
       "source_file": "backend/app/main.py",
       "status": "tentative",
       "uses": 1
@@ -116,34 +148,44 @@
     "backend_app_main_migrate_database_on_startup": {
       "code_fingerprint": "68a367ae0a555b4de35e482dcd419b3d6188829bd79d326d947b042e87476bf9",
       "label": "_migrate_database_on_startup()",
-      "last": "2026-08-22T06:44:44.104625+00:00",
+      "last": "2026-08-22T07:03:34.930094+00:00",
       "provenance": [
+        {
+          "date": "2026-08-22T07:03:34.930094+00:00",
+          "outcome": "useful",
+          "q": "can you fix that ?"
+        },
         {
           "date": "2026-08-22T06:44:44.104625+00:00",
           "outcome": "useful",
           "q": "Why does production fail with sqlite3 NOT NULL constraint failed receipt.sn_no when marking a request delivered?"
         }
       ],
-      "score": 0.999983164,
+      "score": 1.935576904,
       "source_file": "backend/app/main.py",
-      "status": "tentative",
-      "uses": 1
+      "status": "preferred",
+      "uses": 2
     },
     "backend_app_models_receipt_receipt": {
       "code_fingerprint": "924712b9e00eb417580dd027ed8f8a5655e8bd8f5dcfb671178d567bf034fde1",
       "label": "Receipt",
-      "last": "2026-08-22T06:44:44.104625+00:00",
+      "last": "2026-08-22T07:03:34.930094+00:00",
       "provenance": [
+        {
+          "date": "2026-08-22T07:03:34.930094+00:00",
+          "outcome": "useful",
+          "q": "can you fix that ?"
+        },
         {
           "date": "2026-08-22T06:44:44.104625+00:00",
           "outcome": "useful",
           "q": "Why does production fail with sqlite3 NOT NULL constraint failed receipt.sn_no when marking a request delivered?"
         }
       ],
-      "score": 0.999983164,
+      "score": 1.935576904,
       "source_file": "backend/app/models/receipt.py",
-      "status": "tentative",
-      "uses": 1
+      "status": "preferred",
+      "uses": 2
     },
     "backend_app_models_request_request": {
       "code_fingerprint": "0664827137b4c106e69cd20131834b80ae0e4a24cfc001a055cab0934943a296",
@@ -156,7 +198,7 @@
           "q": "use the graph and get knowledge of this project."
         }
       ],
-      "score": 0.931317851,
+      "score": 0.901197554,
       "source_file": "backend/app/models/request.py",
       "status": "tentative",
       "uses": 1
@@ -172,7 +214,7 @@
           "q": "ok now can you audit the codebase the admin user raised concern that they also had limited permission on some places on the application, admin should be able to anything, they are saying they were not able to edit users, in normal frontend we are able to do all the things in tanstack-frontend we are getting this problem, like printing, editing bom all these things are not working in tanstack-frontend please validate cause we are migrating the codebase from nextjs to tanstack and we did that. Throughly validate the tanstack-frontend."
         }
       ],
-      "score": 0.932468879,
+      "score": 0.902311355,
       "source_file": "backend/app/routers/bom.py",
       "status": "tentative",
       "uses": 1
@@ -188,7 +230,7 @@
           "q": "Why does production fail with sqlite3 NOT NULL constraint failed receipt.sn_no when marking a request delivered?"
         }
       ],
-      "score": 0.999983164,
+      "score": 0.967642121,
       "source_file": "backend/app/routers/receipts.py",
       "status": "tentative",
       "uses": 1
@@ -204,7 +246,7 @@
           "q": "on the request page when i click on mark delivered as admin getting internal server error if we can get the cause it would be helpful."
         }
       ],
-      "score": 0.93206432,
+      "score": 0.901919881,
       "source_file": "backend/app/routers/requests.py",
       "status": "tentative",
       "uses": 1
@@ -220,8 +262,24 @@
           "q": "on the request page when i click on mark delivered as admin getting internal server error if we can get the cause it would be helpful."
         }
       ],
-      "score": 0.93206432,
+      "score": 0.901919881,
       "source_file": "backend/app/services/document_numbers.py",
+      "status": "tentative",
+      "uses": 1
+    },
+    "backend_tests_test_legacy_schema_request_repair_migration_test_repair_rebuilds_legacy_receipt_for_current_orm_inserts": {
+      "code_fingerprint": "83ca531e34cc6bf320e94a1d8e61b03e204614d2c96e46a5a3d1961b09b7d500",
+      "label": "test_repair_rebuilds_legacy_receipt_for_current_orm_inserts()",
+      "last": "2026-08-22T07:03:34.930094+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-22T07:03:34.930094+00:00",
+          "outcome": "useful",
+          "q": "can you fix that ?"
+        }
+      ],
+      "score": 0.967934783,
+      "source_file": "backend/tests/test_legacy_schema_request_repair_migration.py",
       "status": "tentative",
       "uses": 1
     },
@@ -236,7 +294,7 @@
           "q": "use the graph and get knowledge of this project."
         }
       ],
-      "score": 0.931317851,
+      "score": 0.901197554,
       "source_file": "docs/superpowers/specs/2026-06-27-grn-and-worktime-bug-fixes-design.md",
       "status": "tentative",
       "uses": 1
@@ -252,7 +310,7 @@
           "q": "use the graph and get knowledge of this project."
         }
       ],
-      "score": 0.931317851,
+      "score": 0.901197554,
       "source_file": "",
       "status": "tentative",
       "uses": 1
@@ -268,7 +326,7 @@
           "q": "use the graph and get knowledge of this project."
         }
       ],
-      "score": 0.931317851,
+      "score": 0.901197554,
       "source_file": "okf/architecture.md",
       "status": "tentative",
       "uses": 1
@@ -284,7 +342,7 @@
           "q": "use the graph and get knowledge of this project."
         }
       ],
-      "score": 0.931317851,
+      "score": 0.901197554,
       "source_file": "okf/architecture.md",
       "status": "tentative",
       "uses": 1
@@ -300,7 +358,7 @@
           "q": "if i deploy this code will it automatically take care of the migration ?"
         }
       ],
-      "score": 0.93209362,
+      "score": 0.901948232,
       "source_file": "SETUP.md",
       "status": "tentative",
       "uses": 1
@@ -316,7 +374,7 @@
           "q": "ok now can you audit the codebase the admin user raised concern that they also had limited permission on some places on the application, admin should be able to anything, they are saying they were not able to edit users, in normal frontend we are able to do all the things in tanstack-frontend we are getting this problem, like printing, editing bom all these things are not working in tanstack-frontend please validate cause we are migrating the codebase from nextjs to tanstack and we did that. Throughly validate the tanstack-frontend."
         }
       ],
-      "score": 0.932468879,
+      "score": 0.902311355,
       "source_file": "tanstack-frontend/src/lib/print-report.ts",
       "status": "tentative",
       "uses": 1
@@ -332,7 +390,7 @@
           "q": "ok now can you audit the codebase the admin user raised concern that they also had limited permission on some places on the application, admin should be able to anything, they are saying they were not able to edit users, in normal frontend we are able to do all the things in tanstack-frontend we are getting this problem, like printing, editing bom all these things are not working in tanstack-frontend please validate cause we are migrating the codebase from nextjs to tanstack and we did that. Throughly validate the tanstack-frontend."
         }
       ],
-      "score": 0.932468879,
+      "score": 0.902311355,
       "source_file": "tanstack-frontend/src/lib/user.ts",
       "status": "tentative",
       "uses": 1
@@ -353,7 +411,7 @@
           "q": "The problem is still there when i click on edit the url is changing but the page is not rendering on tanstack same for all things in our application, All edit options are not working the url is changing but page or pop or any other things are not working."
         }
       ],
-      "score": 1.88509647,
+      "score": 1.824129458,
       "source_file": "tanstack-frontend/src/router.tsx",
       "status": "preferred",
       "uses": 2
@@ -379,7 +437,7 @@
           "q": "ok now can you audit the codebase the admin user raised concern that they also had limited permission on some places on the application, admin should be able to anything, they are saying they were not able to edit users, in normal frontend we are able to do all the things in tanstack-frontend we are getting this problem, like printing, editing bom all these things are not working in tanstack-frontend please validate cause we are migrating the codebase from nextjs to tanstack and we did that. Throughly validate the tanstack-frontend."
         }
       ],
-      "score": 2.817565349,
+      "score": 2.726440813,
       "source_file": "tanstack-frontend/src/routes/_auth.dashboard.admin.users.$id.edit.tsx",
       "status": "preferred",
       "uses": 3

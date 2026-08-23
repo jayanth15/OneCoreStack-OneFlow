@@ -149,13 +149,7 @@ def _compute_extras(session: Session, items: list[InventoryItem]) -> dict[int, d
     rm_items = [i for i in items if i.item_type == "raw_material" and i.id is not None]
     fg_items = [i for i in items if i.item_type in ("finished_good", "semi_finished")]
 
-    schedules = list(session.exec(
-        select(Schedule).where(
-            Schedule.status.in_(list(ACTIVE_SCHEDULE_STATUSES)),  # type: ignore[union-attr]
-            Schedule.is_active == True,  # noqa: E712
-        )
-    ).all())
-
+    bom_entries: list[BomItem] = []
     if rm_items:
         rm_ids = [i.id for i in rm_items]
         bom_entries = list(session.exec(
@@ -164,6 +158,21 @@ def _compute_extras(session: Session, items: list[InventoryItem]) -> dict[int, d
                 BomItem.is_active == True,  # noqa: E712
             )
         ).all())
+
+    # Loading every active schedule made even a 20-row inventory page slow.
+    # Only schedules whose product names can affect the displayed rows are
+    # needed for the computed fields.
+    relevant_products = {item.name for item in fg_items}
+    relevant_products.update(bom.product_name for bom in bom_entries)
+    schedules = list(session.exec(
+        select(Schedule).where(
+            Schedule.description.in_(relevant_products),  # type: ignore[union-attr]
+            Schedule.status.in_(list(ACTIVE_SCHEDULE_STATUSES)),  # type: ignore[union-attr]
+            Schedule.is_active == True,  # noqa: E712
+        )
+    ).all()) if relevant_products else []
+
+    if rm_items:
         schedules_by_product: dict[str, list[Schedule]] = {}
         for s in schedules:
             schedules_by_product.setdefault(s.description, []).append(s)

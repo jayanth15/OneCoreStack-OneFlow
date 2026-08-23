@@ -1915,8 +1915,8 @@
     "semantic_hash": ""
   },
   "tanstack-frontend/src/routes/_auth.dashboard.index.tsx": {
-    "mtime": 1787505880.384471,
-    "ast_hash": "cfcc6bcc585c4a90e3b6f2c19346a7c7",
+    "mtime": 1787504646.2820308,
+    "ast_hash": "4b80c159a466a766556717d8869d9c90",
     "semantic_hash": ""
   },
   "tanstack-frontend/src/routes/_auth.dashboard.inventory.finished-goods.tsx": {
@@ -2492,11 +2492,6 @@
   "graphify-out/memory/query_20260822_070334_can_you_fix_that.md": {
     "mtime": 1787382214.9302907,
     "ast_hash": "e17fc6feb36861590c5c73da90bfc7b3",
-    "semantic_hash": ""
-  },
-  "graphify-out/memory/query_20260823_172313_fix_tanstack_request_acceptance__inactive_inventor.md": {
-    "mtime": 1787505793.4854596,
-    "ast_hash": "c71e6705cf84733a9c341c897e5b109c",
     "semantic_hash": ""
   }
 }

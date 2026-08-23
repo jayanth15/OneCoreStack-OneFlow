@@ -247,6 +247,7 @@ colum
 column
 columns
 combobox
+command
 commands
 comments
 commit
@@ -271,6 +272,7 @@ comprehensive
 compute
 computed
 computes
+con
 concept
 concern
 concurrency
@@ -285,6 +287,7 @@ connection
 consistency
 consolidation
 constants
+constraint
 constructs
 consumable
 consumables
@@ -419,6 +422,7 @@ documented
 documents
 does
 doesn
+dokploy
 dom
 domain
 domains
@@ -454,6 +458,7 @@ ellipsis
 emblem
 emit
 empty
+enabled
 end
 endpoint
 endpoints
@@ -516,6 +521,8 @@ extension
 extensions
 extra
 extras
+fail
+failed
 fallback
 falling
 fallthrough
@@ -687,6 +694,7 @@ inner
 input
 insensitive
 insert
+inserts
 inside
 inspect
 install
@@ -810,6 +818,7 @@ material
 materials
 matrix
 may
+mcp
 media
 memory
 menu
@@ -890,6 +899,8 @@ notification
 notifications
 notify
 now
+npx
+null
 numb
 number
 numbering
@@ -1082,6 +1093,8 @@ read
 readme
 real
 reaper
+rebuild
+rebuilds
 recalc
 recalculated
 receipt
@@ -1561,6 +1574,7 @@ where
 while
 whos
 whose
+why
 wide
 will
 window

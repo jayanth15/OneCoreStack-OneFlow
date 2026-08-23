@@ -47,11 +47,13 @@ export type SearchComboboxProps<T> = PlainProps<T> | ListProps<T>;
 function useOutsidePointerDown(
   ref: React.RefObject<HTMLElement | null>,
   onOutside: () => void,
+  enabled = true,
 ) {
   // Keep the latest callback in a ref so the listener is only attached once.
   const onOutsideRef = React.useRef(onOutside);
   onOutsideRef.current = onOutside;
   React.useEffect(() => {
+    if (!enabled) return;
     function handler(e: PointerEvent) {
       const target = e.target as Node | null;
       if (target && ref.current && !ref.current.contains(target)) {
@@ -60,7 +62,7 @@ function useOutsidePointerDown(
     }
     document.addEventListener("pointerdown", handler);
     return () => document.removeEventListener("pointerdown", handler);
-  }, [ref]);
+  }, [ref, enabled]);
 }
 
 export function SearchCombobox<T>(props: SearchComboboxProps<T>) {
@@ -79,7 +81,10 @@ export function SearchCombobox<T>(props: SearchComboboxProps<T>) {
   const { query, setQuery, results, busy, open, setOpen } = useDebouncedSearch<T>(fetcher, { debounceMs });
   const rootRef = React.useRef<HTMLDivElement | null>(null);
   const listboxId = React.useId();
-  useOutsidePointerDown(rootRef, () => setOpen(false));
+  // Base UI renders list options in a portal and owns outside-click handling.
+  // Applying the plain-input document listener to that variant closes the
+  // portal on pointer-down before its option click can commit a value.
+  useOutsidePointerDown(rootRef, () => setOpen(false), props.variant !== "list");
 
   // Sync the hook's query from the parent's controlled value when the parent
   // updates it programmatically (e.g. setLinkedPrLabel after async prefill).
@@ -101,15 +106,23 @@ export function SearchCombobox<T>(props: SearchComboboxProps<T>) {
   );
 
   if (props.variant === "list") {
+    // Keep Base UI's selected value as the actual item object. Mapping a
+    // string id back through `results` is unsafe because debounced searches
+    // can replace that array between pointer-down and value-change.
+    const selectedItem = results.find(
+      (item) => String(props.itemIdOf(item)) === value,
+    ) ?? null;
+
     return (
       <div ref={rootRef} className={cn("relative", className)}>
-        <Combobox
-          value={value}
-          onValueChange={(v: unknown) => {
-            const id = v as string;
-            const found = results.find((r) => String(props.itemIdOf(r)) === id);
-            if (found) handleSelect(found);
-          }}
+        <Combobox<T>
+          value={selectedItem}
+          open={open}
+          onOpenChange={setOpen}
+          itemToStringLabel={getItemLabel}
+          isItemEqualToValue={(item, selected) =>
+            String(props.itemIdOf(item)) === String(props.itemIdOf(selected))
+          }
         >
           <ComboboxInput
             placeholder={placeholder}
@@ -135,8 +148,13 @@ export function SearchCombobox<T>(props: SearchComboboxProps<T>) {
               {!busy && results.length === 0 && open && (
                 <div className="py-2 px-3 text-xs text-muted-foreground">{emptyText}</div>
               )}
-              {results.map((item) => (
-                <ComboboxItem key={String(getItemKey(item))} value={String(props.itemIdOf(item))}>
+              {results.map((item, index) => (
+                <ComboboxItem
+                  key={String(getItemKey(item))}
+                  value={item}
+                  index={index}
+                  onClick={() => handleSelect(item)}
+                >
                   {props.renderItem(item)}
                 </ComboboxItem>
               ))}

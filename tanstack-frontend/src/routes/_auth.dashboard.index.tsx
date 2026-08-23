@@ -136,29 +136,6 @@ function timeAgo(iso: string) {
   return d.toLocaleDateString()
 }
 
-// ── Skeleton ──────────────────────────────────────────────────────────────────
-
-function DashSkeleton() {
-  return (
-    <div className="animate-pulse space-y-6 p-6">
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="h-20 rounded-xl bg-muted" />
-        ))}
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="h-16 rounded-xl bg-muted" />
-        ))}
-      </div>
-      <div className="grid md:grid-cols-2 gap-4">
-        <div className="h-64 rounded-xl bg-muted" />
-        <div className="h-64 rounded-xl bg-muted" />
-      </div>
-    </div>
-  )
-}
-
 // ── Section header ────────────────────────────────────────────────────────────
 
 function SectionTitle({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) {
@@ -198,11 +175,11 @@ function DashboardPage() {
     refetchOnWindowFocus: true,
   })
 
-  // Inventory overview — single endpoint, always fresh (active items only)
+  // Inventory overview — active-only aggregate shared with the inventory page.
   const invSummaryQuery = useQuery({
     queryKey: ["/api/v1/dashboard/inventory-summary"],
-    staleTime: 0,
-    refetchOnWindowFocus: true,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   })
 
   // ── Needs-action counts (permission-aware) ─────────────────────────────────
@@ -323,30 +300,7 @@ function DashboardPage() {
   const recentActivity = (historyQuery.data as { items: RecentInventory[] } | undefined)?.items?.slice(0, 10) ?? []
   const recentLoading = historyQuery.isLoading || historyQuery.isFetching
 
-  if (dashboardQuery.isError) {
-    return (
-      <>
-        <PageHeader title="Dashboard" />
-        <div className="p-6">
-          <p className="text-sm text-destructive">
-            {dashboardQuery.error instanceof Error ? dashboardQuery.error.message : "Failed to load dashboard"}
-          </p>
-        </div>
-      </>
-    )
-  }
-
-  if (!dashboardQuery.data) {
-    return (
-      <>
-        <PageHeader title="Dashboard" />
-        <DashSkeleton />
-      </>
-    )
-  }
-
-  const data = dashboardQuery.data as unknown as DashboardData
-  const o = data.overview
+  const data = dashboardQuery.data as DashboardData | undefined
 
   const actionItems = [
     {
@@ -391,10 +345,10 @@ function DashboardPage() {
   ].filter((a) => a.enabled !== false)
 
   const kpi: { label: string; value: number | string; icon: React.ReactNode; tone: "neutral" | "destructive" | "success" | "blue" | "amber" | "emerald" | "violet" }[] = [
-    { label: "Schedules", value: o.total_schedules, icon: <Calendar className="size-5" />, tone: "blue" },
-    { label: "Production Plans", value: o.total_plans, icon: <ClipboardList className="size-5" />, tone: "amber" },
-    { label: "Production Orders", value: o.total_orders, icon: <Factory className="size-5" />, tone: "emerald" },
-    { label: "Job Cards", value: o.total_job_cards, icon: <Wrench className="size-5" />, tone: "violet" },
+    { label: "Schedules", value: data?.overview.total_schedules ?? "…", icon: <Calendar className="size-5" />, tone: "blue" },
+    { label: "Production Plans", value: data?.overview.total_plans ?? "…", icon: <ClipboardList className="size-5" />, tone: "amber" },
+    { label: "Production Orders", value: data?.overview.total_orders ?? "…", icon: <Factory className="size-5" />, tone: "emerald" },
+    { label: "Job Cards", value: data?.overview.total_job_cards ?? "…", icon: <Wrench className="size-5" />, tone: "violet" },
   ]
 
   return (
@@ -412,6 +366,12 @@ function DashboardPage() {
       />
 
       <div className="flex flex-col gap-6 p-4 md:p-6 overflow-auto">
+
+        {dashboardQuery.isError && (
+          <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+            {dashboardQuery.error instanceof Error ? dashboardQuery.error.message : "Some dashboard metrics could not be loaded"}
+          </div>
+        )}
 
         {/* ── Inventory overview (uniform cards) ─────────────────────────── */}
         <section>

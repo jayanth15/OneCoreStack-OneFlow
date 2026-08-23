@@ -2,6 +2,7 @@ import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router"
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 import { TanStackDevtools } from "@tanstack/react-devtools"
 import { PwaRegister } from "../components/layout/pwa-register"
+import { AppToaster } from "../components/ui/app-toaster"
 
 import appCss from "../styles.css?url"
 
@@ -70,6 +71,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <body>
         <PwaRegister />
         {children}
+        <AppToaster />
         {isDev && (
           <TanStackDevtools
             config={{

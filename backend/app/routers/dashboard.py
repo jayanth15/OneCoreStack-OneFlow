@@ -101,6 +101,14 @@ class InventorySummaryResponse(BaseModel):
     types: dict[str, InventoryTypeSummary]
 
 
+def _summary_inventory_types(user: User) -> Optional[set[str]]:
+    """Return every inventory module visible to the user (raw and auxiliary)."""
+    if is_admin_or_above(user):
+        return None
+    raw = (user.inventory_access or "").strip()
+    return {value.strip() for value in raw.split(",") if value.strip()} if raw else None
+
+
 # ── Endpoint ──────────────────────────────────────────────────────────────────
 
 @router.get("", response_model=DashboardResponse)
@@ -377,7 +385,7 @@ def get_inventory_summary(
     Single source of truth for the dashboard inventory cards. Values are only
     returned to admins (parity with the rest of the dashboard analytics).
     """
-    allowed_types = _raw_inventory_types(current_user)
+    allowed_types = _summary_inventory_types(current_user)
     admin = is_admin_or_above(current_user)
 
     def allowed(t: str) -> bool:
@@ -386,7 +394,7 @@ def get_inventory_summary(
     types: dict[str, InventoryTypeSummary] = {}
 
     # ── Main inventory table (FG / RM / Semi) — one grouped query ──────────
-    inv_types = [t for t in ("finished_good", "raw_material", "semi_finished") if allowed(t)]
+    inv_types = [t for t in ("finished_good", "raw_material", "semi_finished", "scrap") if allowed(t)]
     if inv_types:
         low_expr = case(
             (
@@ -415,6 +423,11 @@ def get_inventory_summary(
                 low_stock=r[2] or 0,
                 value=round(r[3] or 0, 2) if admin else None,
             )
+        for item_type in inv_types:
+            types.setdefault(
+                item_type,
+                InventoryTypeSummary(count=0, low_stock=0, value=0.0 if admin else None),
+            )
 
     # ── Spares (items; value via active variants) ───────────────────────────
     if allowed("spare"):
@@ -426,13 +439,8 @@ def get_inventory_summary(
             ),
             else_=0,
         )
-        spare_count = session.exec(
-            select(func.count()).where(
-                SpareItem.is_active == True  # noqa: E712
-            )
-        ).one()
-        spare_low_count = session.exec(
-            select(func.sum(spare_low)).where(
+        spare_count, spare_low_count = session.exec(
+            select(func.count(), func.sum(spare_low)).where(
                 SpareItem.is_active == True  # noqa: E712
             )
         ).one()
@@ -458,14 +466,10 @@ def get_inventory_summary(
 
     # ── Consumables / Attachments / Weeders — qty × rate_per_unit ───────────
     def _simple_summary(model, low_expr, value_expr) -> InventoryTypeSummary:
-        count = session.exec(
-            select(func.count()).where(model.is_active == True)  # noqa: E712
-        ).one()
-        low = session.exec(
-            select(func.sum(low_expr)).where(model.is_active == True)  # noqa: E712
-        ).one()
-        value = session.exec(
-            select(func.sum(value_expr)).where(model.is_active == True)  # noqa: E712
+        count, low, value = session.exec(
+            select(func.count(), func.sum(low_expr), func.sum(value_expr)).where(
+                model.is_active == True  # noqa: E712
+            )
         ).one()
         return InventoryTypeSummary(
             count=count or 0,

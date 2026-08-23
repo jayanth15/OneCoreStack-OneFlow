@@ -93,7 +93,7 @@ async function fetchInventoryItems(type: RequestableItemType, q: string): Promis
     case "finished_good":
     case "semi_finished": {
       const data = await apiFetchJson<unknown>(
-        `/api/v1/inventory?item_type=${type}&page_size=500&include_inactive=false${searchParam}`,
+        `/api/v1/inventory?item_type=${type}&page_size=50&include_inactive=false${searchParam}`,
       )
       return itemRows(data).map((i) => ({ id: numberValue(i.id), code: textValue(i.code), name: textValue(i.name), unit_id: numberValue(i.unit_id) || null, unit_name: textValue(i.unit_name) || null }))
     }
@@ -111,13 +111,13 @@ async function fetchInventoryItems(type: RequestableItemType, q: string): Promis
     }
     case "consumable": {
       const data = await apiFetchJson<unknown>(
-        `/api/v1/consumables?page_size=50${searchParam}`,
+        `/api/v1/consumables?page_size=50&include_inactive=false${searchParam}`,
       )
       return itemRows(data).map((i) => ({ id: numberValue(i.id), code: textValue(i.code), name: textValue(i.name), unit_id: numberValue(i.unit_id) || null, unit_name: textValue(i.unit_name) || null }))
     }
     case "attachment": {
       const data = await apiFetchJson<unknown>(
-        `/api/v1/attachments?page_size=50${searchParam}`,
+        `/api/v1/attachments?page_size=50&include_inactive=false${searchParam}`,
       )
       return itemRows(data).map((i) => ({
         id: numberValue(i.id),
@@ -127,7 +127,7 @@ async function fetchInventoryItems(type: RequestableItemType, q: string): Promis
     }
     case "weeder": {
       const data = await apiFetchJson<unknown>(
-        `/api/v1/weeders?page_size=50${searchParam}`,
+        `/api/v1/weeders?page_size=50&include_inactive=false${searchParam}`,
       )
       return itemRows(data).map((i) => ({
         id: numberValue(i.id),
