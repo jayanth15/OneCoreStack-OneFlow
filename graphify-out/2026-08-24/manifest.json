@@ -115,9 +115,9 @@
     "semantic_hash": "bec7a3159b3769069ab6d5d1937f9255"
   },
   "backend/app/core/linkable_prs.py": {
-    "mtime": 1782744027.4765944,
-    "ast_hash": "55e11528cccebf395c7b1fed06f38b18",
-    "semantic_hash": "55e11528cccebf395c7b1fed06f38b18"
+    "mtime": 1787588851.691199,
+    "ast_hash": "8fdb037911cb44b6338b039fffcf7257",
+    "semantic_hash": ""
   },
   "backend/app/core/pagination.py": {
     "mtime": 1782744027.4775944,
@@ -605,9 +605,9 @@
     "semantic_hash": "8fbde16dbd1e9d2df72bc5b99fd06a88"
   },
   "backend/seed.py": {
-    "mtime": 1778916269.3715277,
-    "ast_hash": "1869e9f1b13b90792b8c41051abb73ed",
-    "semantic_hash": "1869e9f1b13b90792b8c41051abb73ed"
+    "mtime": 1787589158.590564,
+    "ast_hash": "b2755cb43337d0b0d54b2f5961cc7c1a",
+    "semantic_hash": ""
   },
   "backend/tests/conftest.py": {
     "mtime": 1786294667.6310103,
@@ -1655,9 +1655,9 @@
     "semantic_hash": "bab2376155903dd94b0569989d67062d"
   },
   ".github/workflows/ci.yml": {
-    "mtime": 1786295329.4191852,
-    "ast_hash": "0b780f3cf75b5ad2371dfce3712b4455",
-    "semantic_hash": "0b780f3cf75b5ad2371dfce3712b4455"
+    "mtime": 1787588844.22902,
+    "ast_hash": "4f4da490640f5d3ebb4357be5df20917",
+    "semantic_hash": ""
   },
   "backend/alembic/versions/0013_document_workflow_lineage.py": {
     "mtime": 1786297389.1710079,
@@ -1695,8 +1695,8 @@
     "semantic_hash": "7a1dd5ef223992ebbba5081254e6f530"
   },
   "backend/tests/test_startup_migrations.py": {
-    "mtime": 1787382048.8495893,
-    "ast_hash": "738623384bec8a1a3a031413b9dac11a",
+    "mtime": 1787588844.6680305,
+    "ast_hash": "bdc84fdef52ce846bc2e5bce578bfcbf",
     "semantic_hash": ""
   },
   "backend/alembic/versions/0015_clear_inactive_inventory_stock.py": {
@@ -1740,8 +1740,8 @@
     "semantic_hash": "198615bb5a97590eaaed7324e522604e"
   },
   "backend/tests/test_legacy_schema_request_repair_migration.py": {
-    "mtime": 1787382048.379458,
-    "ast_hash": "c563a2f1a743e24b78f84b3c6fd238fc",
+    "mtime": 1787588845.1270416,
+    "ast_hash": "e38a85f032e1bbb309acf4d412936976",
     "semantic_hash": ""
   },
   "tanstack-frontend/.cta.json": {
@@ -2497,6 +2497,41 @@
   "graphify-out/memory/query_20260823_172313_fix_tanstack_request_acceptance__inactive_inventor.md": {
     "mtime": 1787505793.4854596,
     "ast_hash": "c71e6705cf84733a9c341c897e5b109c",
+    "semantic_hash": ""
+  },
+  "backend/alembic/versions/0019_rebuild_legacy_inventory_item_table.py": {
+    "mtime": 1787580003.806033,
+    "ast_hash": "f4fbfa1eaa39463a803779c117b45f13",
+    "semantic_hash": ""
+  },
+  "backend/alembic/versions/0020_finalize_legacy_unit_schema.py": {
+    "mtime": 1787588782.175531,
+    "ast_hash": "fdbc665d5272625b0234a3182853b170",
+    "semantic_hash": ""
+  },
+  "backend/app/core/schema_validation.py": {
+    "mtime": 1787588782.637542,
+    "ast_hash": "36e5b51106cb8c1cbe0fa1f683da658d",
+    "semantic_hash": ""
+  },
+  "backend/tests/test_linkable_pr_units.py": {
+    "mtime": 1787588846.1130652,
+    "ast_hash": "e5b7c0f615ebd05a6e46c5493dcca5fc",
+    "semantic_hash": ""
+  },
+  "backend/tests/test_schema_validation.py": {
+    "mtime": 1787588845.6050532,
+    "ast_hash": "4c3457dbb9ac73a71dd89023a96b1ed1",
+    "semantic_hash": ""
+  },
+  "graphify-out/memory/query_20260824_140803_getting_this_error__not_null_constraint_failed__in.md": {
+    "mtime": 1787580483.1574185,
+    "ast_hash": "ae36e108f0bfb1339314569eed057926",
+    "semantic_hash": ""
+  },
+  "graphify-out/memory/query_20260824_161846_how_to_validate_the_all_the_migrations_will_there.md": {
+    "mtime": 1787588326.0960326,
+    "ast_hash": "19200515aabe6327ad346f992d4367a5",
     "semantic_hash": ""
   }
 }

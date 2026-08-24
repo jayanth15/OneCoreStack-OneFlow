@@ -33,6 +33,7 @@ from app.models.spare_category import SpareCategory
 from app.models.spare_sub_category import SpareSubCategory
 from app.models.spare_item import SpareItem
 from app.models.spare_item_variant import SpareItemVariant
+from app.models.unit import Unit
 
 # ── resolve DB file path from the configured DATABASE_URL ────────────────────
 if settings.database_url.startswith("sqlite:///"):
@@ -252,6 +253,17 @@ with Session(engine) as s:
         ],
     }
 
+    unit_names = sorted({
+        unit_name
+        for _cat_name, sub_list in SPARE_DATA
+        for _sub_name, _sub_desc, item_list in sub_list
+        for _name, _pn, _desc, _rate, unit_name, _qty, _reorder, _stype, _sloc
+        in item_list
+    })
+    units = {name: Unit(name=name) for name in unit_names}
+    s.add_all(units.values())
+    s.flush()
+
     total_cats = 0; total_subs = 0; total_items = 0; total_variants = 0
     for cat_name, sub_list in SPARE_DATA:
         cat = SpareCategory(name=cat_name, is_active=True, created_at=NOW, updated_at=NOW)
@@ -266,7 +278,7 @@ with Session(engine) as s:
                 item = SpareItem(
                     category_id=cat.id, sub_category_id=sub.id,
                     name=name, part_number=pn, part_description=desc,
-                    rate=rate, unit=unit,
+                    rate=rate, unit_id=units[unit].id,
                     opening_qty=qty, recorded_qty=qty, reorder_level=reorder,
                     storage_type=stype, storage_location=sloc,
                     is_active=True, created_at=NOW, updated_at=NOW,

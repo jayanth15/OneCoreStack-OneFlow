@@ -28,9 +28,9 @@ jobs:
         env:
           DATABASE_URL: sqlite:////tmp/oneflow-ci.db
         run: |
-          python -c "from app.core.database import init_db, stamp_alembic_head; from app.core.legacy_migrations import run_all; init_db(); run_all(); init_db(); stamp_alembic_head()"
-          alembic upgrade head
-          alembic current
+          python -c "from app.main import _migrate_database_on_startup; _migrate_database_on_startup()"
+          python -c "from app.main import _migrate_database_on_startup; _migrate_database_on_startup()"
+          python -m app.core.schema_validation
 
   frontend:
     runs-on: ubuntu-latest

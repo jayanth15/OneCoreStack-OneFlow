@@ -42,6 +42,7 @@ def test_upgrade_checkpoints_each_revision(monkeypatch):
         "0016": "0017",
         "0017": "0018",
         "0018": "0019",
+        "0019": "0020",
     }
 
     monkeypatch.setattr(database, "_alembic_config", lambda: object())
@@ -49,7 +50,7 @@ def test_upgrade_checkpoints_each_revision(monkeypatch):
     monkeypatch.setattr(
         ScriptDirectory,
         "from_config",
-        lambda _config: SimpleNamespace(get_current_head=lambda: "0019"),
+        lambda _config: SimpleNamespace(get_current_head=lambda: "0020"),
     )
 
     def upgrade(_config, target):
@@ -61,8 +62,8 @@ def test_upgrade_checkpoints_each_revision(monkeypatch):
 
     database.run_alembic_upgrade()
 
-    assert calls == ["0014", "0015", "0016", "0017", "0018"]
-    assert state["revision"] == "0019"
+    assert calls == ["0014", "0015", "0016", "0017", "0018", "0019"]
+    assert state["revision"] == "0020"
 
 
 def test_upgrade_stops_when_revision_does_not_advance(monkeypatch):
@@ -71,7 +72,7 @@ def test_upgrade_stops_when_revision_does_not_advance(monkeypatch):
     monkeypatch.setattr(
         ScriptDirectory,
         "from_config",
-        lambda _config: SimpleNamespace(get_current_head=lambda: "0019"),
+        lambda _config: SimpleNamespace(get_current_head=lambda: "0020"),
     )
     monkeypatch.setattr(command, "upgrade", lambda _config, _target: None)
 

@@ -9,6 +9,7 @@ import app.models  # noqa: F401
 from app.core.config import settings
 from app.models.inventory import InventoryItem
 from app.models.receipt import Receipt
+from app.models.spare_item import SpareItem
 
 
 def _config(database_url: str) -> Config:
@@ -167,7 +168,7 @@ def test_repair_rebuilds_legacy_receipt_for_current_orm_inserts(tmp_path, monkey
     }.issubset(indexes)
     assert "ix_receipt_sn_no" not in indexes
     assert migrated == ("RCPT-2026-0001", 7, "signed_off")
-    assert revision == "0019"
+    assert revision == "0020"
 
     with Session(engine) as session:
         session.add(Receipt(receipt_number="RCP-2026-0002", request_id=8))
@@ -255,7 +256,7 @@ def test_repair_removes_required_legacy_inventory_unit_for_current_orm_inserts(
     assert "weight_unit" not in columns
     assert {"unit_id", "weight_unit_id"}.issubset(columns)
     assert legacy == (37.5, "pcs", "kg")
-    assert revision == "0019"
+    assert revision == "0020"
 
     with Session(engine) as session:
         session.add(InventoryItem(
@@ -277,3 +278,172 @@ def test_repair_removes_required_legacy_inventory_unit_for_current_orm_inserts(
             WHERE code = 'TEST-001'
         """)).one()
     assert inserted == ("TEST-001", "0.75 MM SHEET", 1, 2000.0)
+
+
+def test_finalize_unit_schema_repairs_required_legacy_spare_column(
+    tmp_path, monkeypatch
+):
+    path = tmp_path / "legacy-spare-unit.db"
+    url = f"sqlite:///{path}"
+    engine = create_engine(url)
+    with engine.begin() as connection:
+        connection.execute(text("""
+            CREATE TABLE unit (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                is_active BOOLEAN NOT NULL DEFAULT 1,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
+        connection.execute(text("""
+            CREATE TABLE spare_category (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                description TEXT,
+                is_active BOOLEAN NOT NULL DEFAULT 1,
+                created_at DATETIME NOT NULL,
+                updated_at DATETIME NOT NULL
+            )
+        """))
+        connection.execute(text("""
+            INSERT INTO spare_category (name, created_at, updated_at)
+            VALUES ('Bearings', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        """))
+        connection.execute(text("""
+            CREATE TABLE spare_item (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                category_id INTEGER NOT NULL,
+                sub_category_id INTEGER,
+                name TEXT NOT NULL,
+                part_number TEXT,
+                part_description TEXT,
+                variant_model TEXT,
+                rate REAL,
+                unit TEXT NOT NULL,
+                unit_id INTEGER,
+                opening_qty REAL NOT NULL DEFAULT 0.0,
+                recorded_qty REAL NOT NULL DEFAULT 0.0,
+                reorder_level REAL NOT NULL DEFAULT 0.0,
+                storage_type TEXT,
+                storage_location TEXT,
+                tags TEXT,
+                image_base64 TEXT,
+                is_active BOOLEAN NOT NULL DEFAULT 1,
+                created_at DATETIME NOT NULL,
+                updated_at DATETIME NOT NULL,
+                FOREIGN KEY(category_id) REFERENCES spare_category(id),
+                FOREIGN KEY(unit_id) REFERENCES unit(id)
+            )
+        """))
+        connection.execute(text("""
+            INSERT INTO spare_item (
+                category_id, name, unit, opening_qty, recorded_qty,
+                created_at, updated_at
+            ) VALUES (
+                1, 'Legacy bearing', 'Piece', 8, 6,
+                CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+            )
+        """))
+
+    monkeypatch.setattr(settings, "database_url", url)
+    command.stamp(_config(url), "0019")
+    command.upgrade(_config(url), "head")
+
+    with engine.connect() as connection:
+        columns = {
+            row[1] for row in connection.execute(text("PRAGMA table_info(spare_item)"))
+        }
+        legacy = connection.execute(text("""
+            SELECT spare_item.opening_qty, spare_item.recorded_qty, unit.name
+            FROM spare_item
+            JOIN unit ON unit.id = spare_item.unit_id
+            WHERE spare_item.name = 'Legacy bearing'
+        """)).one()
+
+    assert "unit" not in columns
+    assert "unit_id" in columns
+    assert legacy == (8.0, 6.0, "Piece")
+
+    with Session(engine) as session:
+        session.add(SpareItem(
+            category_id=1,
+            name="Current bearing",
+            unit_id=1,
+            opening_qty=4,
+            recorded_qty=4,
+        ))
+        session.commit()
+
+    with engine.connect() as connection:
+        inserted = connection.execute(text("""
+            SELECT name, unit_id, opening_qty, recorded_qty
+            FROM spare_item
+            WHERE name = 'Current bearing'
+        """)).one()
+    assert inserted == ("Current bearing", 1, 4.0, 4.0)
+
+
+def test_finalize_unit_schema_removes_all_known_legacy_text_columns(
+    tmp_path, monkeypatch
+):
+    path = tmp_path / "all-legacy-unit-columns.db"
+    url = f"sqlite:///{path}"
+    engine = create_engine(url)
+    migrations = (
+        ("inventory_item", "unit", "unit_id"),
+        ("inventory_item", "weight_unit", "weight_unit_id"),
+        ("bom_item", "material_unit", "material_unit_id"),
+        ("grn_item", "unit", "unit_id"),
+        ("dispatch", "unit", "unit_id"),
+        ("dispatch_item", "unit", "unit_id"),
+        ("gate_pass", "unit", "unit_id"),
+        ("gate_pass_item", "unit", "unit_id"),
+        ("purchase_order_item", "unit", "unit_id"),
+        ("receipt_item", "unit", "unit_id"),
+        ("spare_item", "unit", "unit_id"),
+        ("supplier_jobs", "unit", "unit_id"),
+        ("supplier_materials", "unit", "unit_id"),
+        ("production_process", "material_unit", "material_unit_id"),
+    )
+    grouped: dict[str, list[tuple[str, str]]] = {}
+    for table, old_column, new_column in migrations:
+        grouped.setdefault(table, []).append((old_column, new_column))
+
+    with engine.begin() as connection:
+        connection.execute(text("""
+            CREATE TABLE unit (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                is_active BOOLEAN NOT NULL DEFAULT 1,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
+        for table, columns in grouped.items():
+            definitions = ["id INTEGER PRIMARY KEY"]
+            definitions.extend(f"{old} TEXT" for old, _new in columns)
+            definitions.extend(f"{new} INTEGER" for _old, new in columns)
+            connection.execute(text(
+                f"CREATE TABLE {table} ({', '.join(definitions)})"
+            ))
+            names = [old for old, _new in columns]
+            values = [f"'Unit-{table}-{index}'" for index, _name in enumerate(names)]
+            connection.execute(text(
+                f"INSERT INTO {table} (id, {', '.join(names)}) "
+                f"VALUES (1, {', '.join(values)})"
+            ))
+
+    monkeypatch.setattr(settings, "database_url", url)
+    command.stamp(_config(url), "0019")
+    command.upgrade(_config(url), "head")
+
+    with engine.connect() as connection:
+        for table, old_column, new_column in migrations:
+            columns = {
+                row[1]
+                for row in connection.execute(text(f"PRAGMA table_info({table})"))
+            }
+            assert old_column not in columns
+            assert new_column in columns
+            assert connection.execute(text(
+                f"SELECT {new_column} FROM {table} WHERE id = 1"
+            )).scalar_one() is not None
