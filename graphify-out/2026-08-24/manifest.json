@@ -1695,8 +1695,8 @@
     "semantic_hash": "7a1dd5ef223992ebbba5081254e6f530"
   },
   "backend/tests/test_startup_migrations.py": {
-    "mtime": 1787580004.651016,
-    "ast_hash": "f3d7378279ef82e958eb93d99796d1ac",
+    "mtime": 1787382048.8495893,
+    "ast_hash": "738623384bec8a1a3a031413b9dac11a",
     "semantic_hash": ""
   },
   "backend/alembic/versions/0015_clear_inactive_inventory_stock.py": {
@@ -1740,8 +1740,8 @@
     "semantic_hash": "198615bb5a97590eaaed7324e522604e"
   },
   "backend/tests/test_legacy_schema_request_repair_migration.py": {
-    "mtime": 1787580004.2562551,
-    "ast_hash": "41671be67654bc452d0652f99954bc15",
+    "mtime": 1787382048.379458,
+    "ast_hash": "c563a2f1a743e24b78f84b3c6fd238fc",
     "semantic_hash": ""
   },
   "tanstack-frontend/.cta.json": {
@@ -2497,11 +2497,6 @@
   "graphify-out/memory/query_20260823_172313_fix_tanstack_request_acceptance__inactive_inventor.md": {
     "mtime": 1787505793.4854596,
     "ast_hash": "c71e6705cf84733a9c341c897e5b109c",
-    "semantic_hash": ""
-  },
-  "backend/alembic/versions/0019_rebuild_legacy_inventory_item_table.py": {
-    "mtime": 1787580003.806033,
-    "ast_hash": "f4fbfa1eaa39463a803779c117b45f13",
     "semantic_hash": ""
   }
 }

@@ -7,6 +7,7 @@ from sqlmodel import SQLModel, Session
 
 import app.models  # noqa: F401
 from app.core.config import settings
+from app.models.inventory import InventoryItem
 from app.models.receipt import Receipt
 
 
@@ -166,7 +167,7 @@ def test_repair_rebuilds_legacy_receipt_for_current_orm_inserts(tmp_path, monkey
     }.issubset(indexes)
     assert "ix_receipt_sn_no" not in indexes
     assert migrated == ("RCPT-2026-0001", 7, "signed_off")
-    assert revision == "0018"
+    assert revision == "0019"
 
     with Session(engine) as session:
         session.add(Receipt(receipt_number="RCP-2026-0002", request_id=8))
@@ -177,3 +178,102 @@ def test_repair_rebuilds_legacy_receipt_for_current_orm_inserts(tmp_path, monkey
             "SELECT receipt_number, request_id, status FROM receipt WHERE request_id = 8"
         )).one()
     assert inserted == ("RCP-2026-0002", 8, "created")
+
+
+def test_repair_removes_required_legacy_inventory_unit_for_current_orm_inserts(
+    tmp_path, monkeypatch
+):
+    path = tmp_path / "legacy-inventory-unit.db"
+    url = f"sqlite:///{path}"
+    engine = create_engine(url)
+    with engine.begin() as connection:
+        connection.execute(text("""
+            CREATE TABLE unit (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                is_active BOOLEAN NOT NULL DEFAULT 1,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
+        connection.execute(text("""
+            CREATE TABLE inventory_item (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                code TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                item_type TEXT NOT NULL DEFAULT 'raw_material',
+                unit TEXT NOT NULL,
+                unit_id INTEGER,
+                quantity_on_hand REAL NOT NULL DEFAULT 0.0,
+                reorder_level REAL NOT NULL DEFAULT 0.0,
+                storage_type TEXT,
+                storage_location TEXT,
+                rate REAL,
+                timeline_days INTEGER,
+                image_base64 TEXT,
+                vendor_name TEXT,
+                design_drawing_pdf TEXT,
+                weight_value REAL,
+                weight_unit TEXT,
+                weight_unit_id INTEGER,
+                is_active BOOLEAN NOT NULL DEFAULT 1,
+                updated_at DATETIME NOT NULL,
+                FOREIGN KEY(unit_id) REFERENCES unit(id),
+                FOREIGN KEY(weight_unit_id) REFERENCES unit(id)
+            )
+        """))
+        connection.execute(text(
+            "CREATE INDEX ix_inventory_item_unit ON inventory_item (unit)"
+        ))
+        connection.execute(text("""
+            INSERT INTO inventory_item (
+                code, name, unit, quantity_on_hand, weight_unit, updated_at
+            ) VALUES (
+                'LEGACY-001', 'Legacy sheet', 'pcs', 37.5, 'kg', CURRENT_TIMESTAMP
+            )
+        """))
+
+    monkeypatch.setattr(settings, "database_url", url)
+    command.stamp(_config(url), "0018")
+    command.upgrade(_config(url), "head")
+
+    with engine.connect() as connection:
+        columns = {
+            row[1] for row in connection.execute(text("PRAGMA table_info(inventory_item)"))
+        }
+        legacy = connection.execute(text("""
+            SELECT inventory_item.quantity_on_hand, item_unit.name, weight_unit.name
+            FROM inventory_item
+            LEFT JOIN unit AS item_unit ON item_unit.id = inventory_item.unit_id
+            LEFT JOIN unit AS weight_unit ON weight_unit.id = inventory_item.weight_unit_id
+            WHERE inventory_item.code = 'LEGACY-001'
+        """)).one()
+        revision = connection.execute(
+            text("SELECT version_num FROM alembic_version")
+        ).scalar_one()
+
+    assert "unit" not in columns
+    assert "weight_unit" not in columns
+    assert {"unit_id", "weight_unit_id"}.issubset(columns)
+    assert legacy == (37.5, "pcs", "kg")
+    assert revision == "0019"
+
+    with Session(engine) as session:
+        session.add(InventoryItem(
+            code="TEST-001",
+            name="0.75 MM SHEET",
+            unit_id=1,
+            quantity_on_hand=2000,
+            reorder_level=100,
+            storage_type="Pallet",
+            storage_location="PRESS SHOP AREA",
+            timeline_days=5,
+        ))
+        session.commit()
+
+    with engine.connect() as connection:
+        inserted = connection.execute(text("""
+            SELECT code, name, unit_id, quantity_on_hand
+            FROM inventory_item
+            WHERE code = 'TEST-001'
+        """)).one()
+    assert inserted == ("TEST-001", "0.75 MM SHEET", 1, 2000.0)

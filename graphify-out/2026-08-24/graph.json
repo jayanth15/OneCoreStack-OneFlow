@@ -1647,105 +1647,6 @@
       "norm_label": "downgrade()"
     },
     {
-      "label": "0019_rebuild_legacy_inventory_item_table.py",
-      "file_type": "code",
-      "source_file": "backend/alembic/versions/0019_rebuild_legacy_inventory_item_table.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table",
-      "community": 42,
-      "community_name": "migrate po vendor fields",
-      "norm_label": "0019_rebuild_legacy_inventory_item_table.py"
-    },
-    {
-      "label": "_tables()",
-      "file_type": "code",
-      "source_file": "backend/alembic/versions/0019_rebuild_legacy_inventory_item_table.py",
-      "source_location": "L31",
-      "_origin": "ast",
-      "id": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table_tables",
-      "community": 42,
-      "community_name": "migrate po vendor fields",
-      "norm_label": "_tables()"
-    },
-    {
-      "label": "_columns()",
-      "file_type": "code",
-      "source_file": "backend/alembic/versions/0019_rebuild_legacy_inventory_item_table.py",
-      "source_location": "L35",
-      "_origin": "ast",
-      "id": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table_columns",
-      "community": 42,
-      "community_name": "migrate po vendor fields",
-      "norm_label": "_columns()"
-    },
-    {
-      "label": "_ensure_unit_table()",
-      "file_type": "code",
-      "source_file": "backend/alembic/versions/0019_rebuild_legacy_inventory_item_table.py",
-      "source_location": "L44",
-      "_origin": "ast",
-      "id": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table_ensure_unit_table",
-      "community": 42,
-      "community_name": "migrate po vendor fields",
-      "norm_label": "_ensure_unit_table()"
-    },
-    {
-      "label": "_preserve_unit_values()",
-      "file_type": "code",
-      "source_file": "backend/alembic/versions/0019_rebuild_legacy_inventory_item_table.py",
-      "source_location": "L65",
-      "_origin": "ast",
-      "id": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table_preserve_unit_values",
-      "community": 42,
-      "community_name": "migrate po vendor fields",
-      "norm_label": "_preserve_unit_values()"
-    },
-    {
-      "label": "_drop_legacy_indexes()",
-      "file_type": "code",
-      "source_file": "backend/alembic/versions/0019_rebuild_legacy_inventory_item_table.py",
-      "source_location": "L113",
-      "_origin": "ast",
-      "id": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table_drop_legacy_indexes",
-      "community": 42,
-      "community_name": "migrate po vendor fields",
-      "norm_label": "_drop_legacy_indexes()"
-    },
-    {
-      "label": "upgrade()",
-      "file_type": "code",
-      "source_file": "backend/alembic/versions/0019_rebuild_legacy_inventory_item_table.py",
-      "source_location": "L120",
-      "_origin": "ast",
-      "id": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table_upgrade",
-      "community": 42,
-      "community_name": "migrate po vendor fields",
-      "norm_label": "upgrade()"
-    },
-    {
-      "label": "downgrade()",
-      "file_type": "code",
-      "source_file": "backend/alembic/versions/0019_rebuild_legacy_inventory_item_table.py",
-      "source_location": "L145",
-      "_origin": "ast",
-      "id": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table_downgrade",
-      "community": 42,
-      "community_name": "migrate po vendor fields",
-      "norm_label": "downgrade()"
-    },
-    {
-      "label": "Remove obsolete inventory unit columns after preserving their values.  Revision",
-      "file_type": "rationale",
-      "source_file": "backend/alembic/versions/0019_rebuild_legacy_inventory_item_table.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table_rationale_1",
-      "community": 42,
-      "community_name": "migrate po vendor fields",
-      "norm_label": "remove obsolete inventory unit columns after preserving their values.  revision"
-    },
-    {
       "label": "__init__.py",
       "file_type": "code",
       "source_file": "backend/app/__init__.py",
@@ -1884,8 +1785,8 @@
       "source_location": "L173",
       "_origin": "ast",
       "id": "backend_app_core_backup_start_scheduler",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 223,
+      "community_name": "react",
       "norm_label": "start_scheduler()"
     },
     {
@@ -1972,8 +1873,8 @@
       "source_location": "L174",
       "_origin": "ast",
       "id": "backend_app_core_backup_rationale_174",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 223,
+      "community_name": "react",
       "norm_label": "start the daily backup scheduler.  call once at app startup.     the scheduler f"
     },
     {
@@ -2016,8 +1917,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_core_crud",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 184,
+      "community_name": "crud.py",
       "norm_label": "crud.py"
     },
     {
@@ -2027,8 +1928,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "backend_app_core_crud_soft_delete",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 184,
+      "community_name": "crud.py",
       "norm_label": "soft_delete()"
     },
     {
@@ -2038,8 +1939,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_core_crud_py_session",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 184,
+      "community_name": "crud.py",
       "norm_label": "session"
     },
     {
@@ -2049,8 +1950,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_core_crud_py_any",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 184,
+      "community_name": "crud.py",
       "norm_label": "any"
     },
     {
@@ -2071,8 +1972,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_core_crud_py_datetime",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 184,
+      "community_name": "crud.py",
       "norm_label": "datetime"
     },
     {
@@ -2082,8 +1983,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_core_crud_rationale_1",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 184,
+      "community_name": "crud.py",
       "norm_label": "shared crud utilities for soft-delete and history writing."
     },
     {
@@ -2093,8 +1994,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "backend_app_core_crud_rationale_13",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 184,
+      "community_name": "crud.py",
       "norm_label": "soft-delete an entity by setting is_active=false and committing.      args:"
     },
     {
@@ -2115,8 +2016,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_core_database",
-      "community": 178,
-      "community_name": "Stock Adjustment Module",
+      "community": 78,
+      "community_name": "page Module",
       "norm_label": "database.py"
     },
     {
@@ -2137,8 +2038,8 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "backend_app_core_database_alembic_config",
-      "community": 178,
-      "community_name": "Stock Adjustment Module",
+      "community": 78,
+      "community_name": "page Module",
       "norm_label": "_alembic_config()"
     },
     {
@@ -2148,8 +2049,8 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "backend_app_core_database_current_alembic_revision",
-      "community": 178,
-      "community_name": "Stock Adjustment Module",
+      "community": 78,
+      "community_name": "page Module",
       "norm_label": "_current_alembic_revision()"
     },
     {
@@ -2159,8 +2060,8 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "backend_app_core_database_run_alembic_upgrade",
-      "community": 178,
-      "community_name": "Stock Adjustment Module",
+      "community": 78,
+      "community_name": "page Module",
       "norm_label": "run_alembic_upgrade()"
     },
     {
@@ -2170,8 +2071,8 @@
       "source_location": "L88",
       "_origin": "ast",
       "id": "backend_app_core_database_stamp_alembic_revision",
-      "community": 178,
-      "community_name": "Stock Adjustment Module",
+      "community": 78,
+      "community_name": "page Module",
       "norm_label": "stamp_alembic_revision()"
     },
     {
@@ -2192,8 +2093,8 @@
       "source_location": "L107",
       "_origin": "ast",
       "id": "backend_app_core_database_get_session",
-      "community": 28,
-      "community_name": "Auth and Inventory Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "get_session()"
     },
     {
@@ -2203,8 +2104,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_core_database_py_session",
-      "community": 28,
-      "community_name": "Auth and Inventory Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "session"
     },
     {
@@ -2225,8 +2126,8 @@
       "source_location": "L53",
       "_origin": "ast",
       "id": "backend_app_core_database_rationale_53",
-      "community": 178,
-      "community_name": "Stock Adjustment Module",
+      "community": 78,
+      "community_name": "page Module",
       "norm_label": "upgrade one revision per transaction so completed cleanup cannot loop.      a si"
     },
     {
@@ -2236,8 +2137,8 @@
       "source_location": "L89",
       "_origin": "ast",
       "id": "backend_app_core_database_rationale_89",
-      "community": 178,
-      "community_name": "Stock Adjustment Module",
+      "community": 78,
+      "community_name": "page Module",
       "norm_label": "stamp a legacy database at a known covered revision.      this records migration"
     },
     {
@@ -2676,8 +2577,8 @@
       "source_location": "L97",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_migrate_departments_handles_dispatch",
-      "community": 182,
-      "community_name": "FastAPI",
+      "community": 90,
+      "community_name": "run all",
       "norm_label": "_migrate_departments_handles_dispatch()"
     },
     {
@@ -2698,8 +2599,8 @@
       "source_location": "L150",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_migrate_job_card_worker_id",
-      "community": 90,
-      "community_name": "run all",
+      "community": 325,
+      "community_name": "_migrate_job_card_worker_id",
       "norm_label": "_migrate_job_card_worker_id()"
     },
     {
@@ -2742,8 +2643,8 @@
       "source_location": "L288",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_migrate_spare_item_v2",
-      "community": 89,
-      "community_name": "legacy migrations",
+      "community": 330,
+      "community_name": "_migrate_spare_item_v2",
       "norm_label": "_migrate_spare_item_v2()"
     },
     {
@@ -2841,8 +2742,8 @@
       "source_location": "L522",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_migrate_production_plan_v2",
-      "community": 90,
-      "community_name": "run all",
+      "community": 327,
+      "community_name": "_migrate_production_plan_v2",
       "norm_label": "_migrate_production_plan_v2()"
     },
     {
@@ -2863,8 +2764,8 @@
       "source_location": "L641",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_seed_customers_from_schedules",
-      "community": 176,
-      "community_name": "CompanySettings Module",
+      "community": 331,
+      "community_name": "_seed_customers_from_schedules",
       "norm_label": "_seed_customers_from_schedules()"
     },
     {
@@ -2885,8 +2786,8 @@
       "source_location": "L676",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_migrate_company_settings",
-      "community": 89,
-      "community_name": "legacy migrations",
+      "community": 90,
+      "community_name": "run all",
       "norm_label": "_migrate_company_settings()"
     },
     {
@@ -2896,8 +2797,8 @@
       "source_location": "L692",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_migrate_attachment_tables",
-      "community": 90,
-      "community_name": "run all",
+      "community": 89,
+      "community_name": "legacy migrations",
       "norm_label": "_migrate_attachment_tables()"
     },
     {
@@ -2918,8 +2819,8 @@
       "source_location": "L768",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_migrate_purchase_request_tables",
-      "community": 90,
-      "community_name": "run all",
+      "community": 329,
+      "community_name": "_migrate_purchase_request_tables",
       "norm_label": "_migrate_purchase_request_tables()"
     },
     {
@@ -2929,8 +2830,8 @@
       "source_location": "L817",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_migrate_marketing_request_tables",
-      "community": 223,
-      "community_name": "react",
+      "community": 90,
+      "community_name": "run all",
       "norm_label": "_migrate_marketing_request_tables()"
     },
     {
@@ -2951,8 +2852,8 @@
       "source_location": "L908",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_migrate_grn_v2",
-      "community": 89,
-      "community_name": "legacy migrations",
+      "community": 324,
+      "community_name": "_migrate_grn_v2",
       "norm_label": "_migrate_grn_v2()"
     },
     {
@@ -2962,8 +2863,8 @@
       "source_location": "L936",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_migrate_grn_v3",
-      "community": 186,
-      "community_name": "Supplier Job Model",
+      "community": 89,
+      "community_name": "legacy migrations",
       "norm_label": "_migrate_grn_v3()"
     },
     {
@@ -2973,8 +2874,8 @@
       "source_location": "L948",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_migrate_purchase_request_items",
-      "community": 89,
-      "community_name": "legacy migrations",
+      "community": 328,
+      "community_name": "_migrate_purchase_request_items",
       "norm_label": "_migrate_purchase_request_items()"
     },
     {
@@ -3028,8 +2929,8 @@
       "source_location": "L1080",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_migrate_po_vendor_fields",
-      "community": 89,
-      "community_name": "legacy migrations",
+      "community": 326,
+      "community_name": "_migrate_po_vendor_fields",
       "norm_label": "_migrate_po_vendor_fields()"
     },
     {
@@ -3039,8 +2940,8 @@
       "source_location": "L1096",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_migrate_production_process_v2",
-      "community": 237,
-      "community_name": "migrate gate pass pr fields",
+      "community": 89,
+      "community_name": "legacy migrations",
       "norm_label": "_migrate_production_process_v2()"
     },
     {
@@ -3061,8 +2962,8 @@
       "source_location": "L1127",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_migrate_gate_pass_pr_fields",
-      "community": 184,
-      "community_name": "crud.py",
+      "community": 89,
+      "community_name": "legacy migrations",
       "norm_label": "_migrate_gate_pass_pr_fields()"
     },
     {
@@ -3116,8 +3017,8 @@
       "source_location": "L1209",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_migrate_inventory_drawing_pdf",
-      "community": 221,
-      "community_name": "@tailwindcss/vite",
+      "community": 90,
+      "community_name": "run all",
       "norm_label": "_migrate_inventory_drawing_pdf()"
     },
     {
@@ -3138,8 +3039,8 @@
       "source_location": "L1247",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_migrate_receipts_into_requests",
-      "community": 324,
-      "community_name": "_migrate_grn_v2",
+      "community": 89,
+      "community_name": "legacy migrations",
       "norm_label": "_migrate_receipts_into_requests()"
     },
     {
@@ -3193,8 +3094,8 @@
       "source_location": "L98",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_rationale_98",
-      "community": 182,
-      "community_name": "FastAPI",
+      "community": 90,
+      "community_name": "run all",
       "norm_label": "add handles_customer_dispatch flag to departments + backfill + normalize     exi"
     },
     {
@@ -3215,8 +3116,8 @@
       "source_location": "L151",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_rationale_151",
-      "community": 90,
-      "community_name": "run all",
+      "community": 325,
+      "community_name": "_migrate_job_card_worker_id",
       "norm_label": "add worker_id fk column to job_card table if it doesn't exist.     also back-fil"
     },
     {
@@ -3259,8 +3160,8 @@
       "source_location": "L289",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_rationale_289",
-      "community": 89,
-      "community_name": "legacy migrations",
+      "community": 330,
+      "community_name": "_migrate_spare_item_v2",
       "norm_label": "migrate spare_item to v2 schema (idempotent).      phase 1 \u2013 add new columns if"
     },
     {
@@ -3358,8 +3259,8 @@
       "source_location": "L523",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_rationale_523",
-      "community": 90,
-      "community_name": "run all",
+      "community": 327,
+      "community_name": "_migrate_production_plan_v2",
       "norm_label": "migrate production_plan to the new schedule-linked schema.      strategy:     -"
     },
     {
@@ -3380,8 +3281,8 @@
       "source_location": "L642",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_rationale_642",
-      "community": 176,
-      "community_name": "CompanySettings Module",
+      "community": 331,
+      "community_name": "_seed_customers_from_schedules",
       "norm_label": "one-time idempotent migration: copy unique customer_name values from existing"
     },
     {
@@ -3402,8 +3303,8 @@
       "source_location": "L677",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_rationale_677",
-      "community": 89,
-      "community_name": "legacy migrations",
+      "community": 90,
+      "community_name": "run all",
       "norm_label": "create company_settings table if it does not exist."
     },
     {
@@ -3413,8 +3314,8 @@
       "source_location": "L693",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_rationale_693",
-      "community": 90,
-      "community_name": "run all",
+      "community": 89,
+      "community_name": "legacy migrations",
       "norm_label": "create attachment_item and attachment_history tables if they don't exist."
     },
     {
@@ -3435,8 +3336,8 @@
       "source_location": "L769",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_rationale_769",
-      "community": 90,
-      "community_name": "run all",
+      "community": 329,
+      "community_name": "_migrate_purchase_request_tables",
       "norm_label": "create purchase_request and purchase_request_history tables if they don't exist."
     },
     {
@@ -3446,8 +3347,8 @@
       "source_location": "L818",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_rationale_818",
-      "community": 223,
-      "community_name": "react",
+      "community": 90,
+      "community_name": "run all",
       "norm_label": "create marketing_request and marketing_request_history tables if they don't exis"
     },
     {
@@ -3468,8 +3369,8 @@
       "source_location": "L909",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_rationale_909",
-      "community": 89,
-      "community_name": "legacy migrations",
+      "community": 324,
+      "community_name": "_migrate_grn_v2",
       "norm_label": "add v2 columns to grn_record and grn_item if they don't exist."
     },
     {
@@ -3479,8 +3380,8 @@
       "source_location": "L937",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_rationale_937",
-      "community": 186,
-      "community_name": "Supplier Job Model",
+      "community": 89,
+      "community_name": "legacy migrations",
       "norm_label": "add quantity_pr_requested column to grn_item."
     },
     {
@@ -3490,8 +3391,8 @@
       "source_location": "L949",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_rationale_949",
-      "community": 89,
-      "community_name": "legacy migrations",
+      "community": 328,
+      "community_name": "_migrate_purchase_request_items",
       "norm_label": "create purchase_request_item table and migrate existing purchase_request     row"
     },
     {
@@ -3545,8 +3446,8 @@
       "source_location": "L1081",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_rationale_1081",
-      "community": 89,
-      "community_name": "legacy migrations",
+      "community": 326,
+      "community_name": "_migrate_po_vendor_fields",
       "norm_label": "add vendor_id, vendor_name, party_type columns to purchase_order table."
     },
     {
@@ -3556,8 +3457,8 @@
       "source_location": "L1097",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_rationale_1097",
-      "community": 237,
-      "community_name": "migrate gate pass pr fields",
+      "community": 89,
+      "community_name": "legacy migrations",
       "norm_label": "add estimated_time_minutes, material_qty, waste_qty, material_unit columns     t"
     },
     {
@@ -3578,8 +3479,8 @@
       "source_location": "L1128",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_rationale_1128",
-      "community": 184,
-      "community_name": "crud.py",
+      "community": 89,
+      "community_name": "legacy migrations",
       "norm_label": "add purchase_request_id and purchase_request_number to gate_pass table (idempote"
     },
     {
@@ -3633,8 +3534,8 @@
       "source_location": "L1210",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_rationale_1210",
-      "community": 221,
-      "community_name": "@tailwindcss/vite",
+      "community": 90,
+      "community_name": "run all",
       "norm_label": "add design_drawing_pdf column to inventory_item if it doesn't exist (idempotent)"
     },
     {
@@ -3655,8 +3556,8 @@
       "source_location": "L1248",
       "_origin": "ast",
       "id": "backend_app_core_legacy_migrations_rationale_1248",
-      "community": 324,
-      "community_name": "_migrate_grn_v2",
+      "community": 89,
+      "community_name": "legacy migrations",
       "norm_label": "backfill in-flight receipt data into the request table, then drop the     legacy"
     },
     {
@@ -3809,8 +3710,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_core_rate_limit",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 186,
+      "community_name": "Supplier Job Model",
       "norm_label": "rate_limit.py"
     },
     {
@@ -3820,8 +3721,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "backend_app_core_rate_limit_enforce_rate_limit",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 186,
+      "community_name": "Supplier Job Model",
       "norm_label": "enforce_rate_limit()"
     },
     {
@@ -3831,8 +3732,8 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "backend_app_core_rate_limit_reset_rate_limits",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 186,
+      "community_name": "Supplier Job Model",
       "norm_label": "reset_rate_limits()"
     },
     {
@@ -3842,8 +3743,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_core_rate_limit_rationale_1",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 186,
+      "community_name": "Supplier Job Model",
       "norm_label": "small in-process sliding-window limiter for sensitive auth endpoints."
     },
     {
@@ -3853,8 +3754,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "backend_app_core_rate_limit_rationale_14",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 186,
+      "community_name": "Supplier Job Model",
       "norm_label": "reject a key after ``limit`` attempts in the previous minute."
     },
     {
@@ -3864,8 +3765,8 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "backend_app_core_rate_limit_rationale_36",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 186,
+      "community_name": "Supplier Job Model",
       "norm_label": "clear limiter state (used by isolated tests)."
     },
     {
@@ -3875,8 +3776,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_core_security",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 180,
+      "community_name": "PurchaseRequestItem Module",
       "norm_label": "security.py"
     },
     {
@@ -3897,8 +3798,8 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "backend_app_core_security_verify_password",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 178,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "verify_password()"
     },
     {
@@ -3908,8 +3809,8 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "backend_app_core_security_build_payload",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 180,
+      "community_name": "PurchaseRequestItem Module",
       "norm_label": "_build_payload()"
     },
     {
@@ -3919,8 +3820,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "timedelta",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 180,
+      "community_name": "PurchaseRequestItem Module",
       "norm_label": "timedelta"
     },
     {
@@ -3930,8 +3831,8 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "backend_app_core_security_create_access_token",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 180,
+      "community_name": "PurchaseRequestItem Module",
       "norm_label": "create_access_token()"
     },
     {
@@ -3941,8 +3842,8 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "backend_app_core_security_create_refresh_token",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 180,
+      "community_name": "PurchaseRequestItem Module",
       "norm_label": "create_refresh_token()"
     },
     {
@@ -3952,8 +3853,8 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "backend_app_core_security_decode_token",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 180,
+      "community_name": "PurchaseRequestItem Module",
       "norm_label": "decode_token()"
     },
     {
@@ -3963,8 +3864,8 @@
       "source_location": "L57",
       "_origin": "ast",
       "id": "backend_app_core_security_hash_token",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 180,
+      "community_name": "PurchaseRequestItem Module",
       "norm_label": "hash_token()"
     },
     {
@@ -3974,8 +3875,8 @@
       "source_location": "L53",
       "_origin": "ast",
       "id": "backend_app_core_security_rationale_53",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 180,
+      "community_name": "PurchaseRequestItem Module",
       "norm_label": "raises jwt.pyjwterror on invalid/expired tokens."
     },
     {
@@ -3985,8 +3886,8 @@
       "source_location": "L58",
       "_origin": "ast",
       "id": "backend_app_core_security_rationale_58",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 180,
+      "community_name": "PurchaseRequestItem Module",
       "norm_label": "sha-256 hash of a token for safe db storage."
     },
     {
@@ -4007,8 +3908,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "backend_app_core_timezone_now",
-      "community": 13,
-      "community_name": "Spare Parts Data Model",
+      "community": 23,
+      "community_name": "Weeder Category Model",
       "norm_label": "now()"
     },
     {
@@ -4051,8 +3952,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "backend_app_core_timezone_rationale_16",
-      "community": 13,
-      "community_name": "Spare Parts Data Model",
+      "community": 23,
+      "community_name": "Weeder Category Model",
       "norm_label": "current time in the application timezone (ist, utc+05:30)."
     },
     {
@@ -4084,8 +3985,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_dependencies_auth",
-      "community": 6,
-      "community_name": "grn Module",
+      "community": 42,
+      "community_name": "migrate po vendor fields",
       "norm_label": "auth.py"
     },
     {
@@ -4095,8 +3996,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "backend_app_dependencies_auth_get_current_user",
-      "community": 28,
-      "community_name": "Auth and Inventory Module",
+      "community": 42,
+      "community_name": "migrate po vendor fields",
       "norm_label": "get_current_user()"
     },
     {
@@ -4106,8 +4007,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "httpauthorizationcredentials",
-      "community": 28,
-      "community_name": "Auth and Inventory Module",
+      "community": 42,
+      "community_name": "migrate po vendor fields",
       "norm_label": "httpauthorizationcredentials"
     },
     {
@@ -4117,8 +4018,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_dependencies_auth_py_depends",
-      "community": 6,
-      "community_name": "grn Module",
+      "community": 42,
+      "community_name": "migrate po vendor fields",
       "norm_label": "depends"
     },
     {
@@ -4128,8 +4029,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "bearer",
-      "community": 28,
-      "community_name": "Auth and Inventory Module",
+      "community": 42,
+      "community_name": "migrate po vendor fields",
       "norm_label": "_bearer"
     },
     {
@@ -4139,8 +4040,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_dependencies_auth_py_session",
-      "community": 28,
-      "community_name": "Auth and Inventory Module",
+      "community": 42,
+      "community_name": "migrate po vendor fields",
       "norm_label": "session"
     },
     {
@@ -4150,8 +4051,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_dependencies_auth_py_user",
-      "community": 6,
-      "community_name": "grn Module",
+      "community": 42,
+      "community_name": "migrate po vendor fields",
       "norm_label": "user"
     },
     {
@@ -4161,8 +4062,8 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "backend_app_dependencies_auth_get_current_active_user",
-      "community": 6,
-      "community_name": "grn Module",
+      "community": 42,
+      "community_name": "migrate po vendor fields",
       "norm_label": "get_current_active_user()"
     },
     {
@@ -4172,7 +4073,7 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "backend_app_dependencies_auth_require_admin",
-      "community": 84,
+      "community": 40,
       "community_name": "Supplier Job Model",
       "norm_label": "require_admin()"
     },
@@ -4183,8 +4084,8 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "backend_app_dependencies_auth_require_super_admin",
-      "community": 6,
-      "community_name": "grn Module",
+      "community": 42,
+      "community_name": "migrate po vendor fields",
       "norm_label": "require_super_admin()"
     },
     {
@@ -4194,8 +4095,8 @@
       "source_location": "L70",
       "_origin": "ast",
       "id": "backend_app_dependencies_auth_is_admin_or_above",
-      "community": 6,
-      "community_name": "grn Module",
+      "community": 42,
+      "community_name": "migrate po vendor fields",
       "norm_label": "is_admin_or_above()"
     },
     {
@@ -4216,8 +4117,8 @@
       "source_location": "L83",
       "_origin": "ast",
       "id": "backend_app_dependencies_auth_require_dispatch_access",
-      "community": 6,
-      "community_name": "grn Module",
+      "community": 42,
+      "community_name": "migrate po vendor fields",
       "norm_label": "require_dispatch_access()"
     },
     {
@@ -4227,8 +4128,8 @@
       "source_location": "L92",
       "_origin": "ast",
       "id": "backend_app_dependencies_auth_require_gate_pass_access",
-      "community": 6,
-      "community_name": "grn Module",
+      "community": 42,
+      "community_name": "migrate po vendor fields",
       "norm_label": "require_gate_pass_access()"
     },
     {
@@ -4238,8 +4139,8 @@
       "source_location": "L101",
       "_origin": "ast",
       "id": "backend_app_dependencies_auth_require_purchase_access",
-      "community": 6,
-      "community_name": "grn Module",
+      "community": 42,
+      "community_name": "migrate po vendor fields",
       "norm_label": "require_purchase_access()"
     },
     {
@@ -4249,7 +4150,7 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "backend_app_dependencies_auth_rationale_55",
-      "community": 84,
+      "community": 40,
       "community_name": "Supplier Job Model",
       "norm_label": "require admin or super_admin role."
     },
@@ -4260,8 +4161,8 @@
       "source_location": "L64",
       "_origin": "ast",
       "id": "backend_app_dependencies_auth_rationale_64",
-      "community": 6,
-      "community_name": "grn Module",
+      "community": 42,
+      "community_name": "migrate po vendor fields",
       "norm_label": "require super_admin role only."
     },
     {
@@ -4282,8 +4183,8 @@
       "source_location": "L86",
       "_origin": "ast",
       "id": "backend_app_dependencies_auth_rationale_86",
-      "community": 6,
-      "community_name": "grn Module",
+      "community": 42,
+      "community_name": "migrate po vendor fields",
       "norm_label": "require dispatch_access flag on the user (or admin/super_admin)."
     },
     {
@@ -4293,8 +4194,8 @@
       "source_location": "L95",
       "_origin": "ast",
       "id": "backend_app_dependencies_auth_rationale_95",
-      "community": 6,
-      "community_name": "grn Module",
+      "community": 42,
+      "community_name": "migrate po vendor fields",
       "norm_label": "require gate_pass_access flag on the user (or admin/super_admin)."
     },
     {
@@ -4304,8 +4205,8 @@
       "source_location": "L104",
       "_origin": "ast",
       "id": "backend_app_dependencies_auth_rationale_104",
-      "community": 6,
-      "community_name": "grn Module",
+      "community": 42,
+      "community_name": "migrate po vendor fields",
       "norm_label": "require purchase_access flag on the user (or admin/super_admin)."
     },
     {
@@ -4315,8 +4216,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_main",
-      "community": 78,
-      "community_name": "page Module",
+      "community": 223,
+      "community_name": "react",
       "norm_label": "main.py"
     },
     {
@@ -4326,8 +4227,8 @@
       "source_location": "L51",
       "_origin": "ast",
       "id": "backend_app_main_auto_seed_if_empty",
-      "community": 78,
-      "community_name": "page Module",
+      "community": 223,
+      "community_name": "react",
       "norm_label": "_auto_seed_if_empty()"
     },
     {
@@ -4348,8 +4249,8 @@
       "source_location": "L107",
       "_origin": "ast",
       "id": "backend_app_main_lifespan",
-      "community": 78,
-      "community_name": "page Module",
+      "community": 223,
+      "community_name": "react",
       "norm_label": "lifespan()"
     },
     {
@@ -4359,8 +4260,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "fastapi",
-      "community": 179,
-      "community_name": "Stock Adjustment Module",
+      "community": 182,
+      "community_name": "FastAPI",
       "norm_label": "fastapi"
     },
     {
@@ -4370,8 +4271,8 @@
       "source_location": "L147",
       "_origin": "ast",
       "id": "backend_app_main_add_security_headers",
-      "community": 78,
-      "community_name": "page Module",
+      "community": 223,
+      "community_name": "react",
       "norm_label": "add_security_headers()"
     },
     {
@@ -4381,8 +4282,8 @@
       "source_location": "L159",
       "_origin": "ast",
       "id": "backend_app_main_global_exception_handler",
-      "community": 78,
-      "community_name": "page Module",
+      "community": 223,
+      "community_name": "react",
       "norm_label": "global_exception_handler()"
     },
     {
@@ -4392,8 +4293,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "exception",
-      "community": 78,
-      "community_name": "page Module",
+      "community": 223,
+      "community_name": "react",
       "norm_label": "exception"
     },
     {
@@ -4403,8 +4304,8 @@
       "source_location": "L199",
       "_origin": "ast",
       "id": "backend_app_main_health",
-      "community": 78,
-      "community_name": "page Module",
+      "community": 223,
+      "community_name": "react",
       "norm_label": "health()"
     },
     {
@@ -4414,8 +4315,8 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "backend_app_main_rationale_52",
-      "community": 78,
-      "community_name": "page Module",
+      "community": 223,
+      "community_name": "react",
       "norm_label": "if the database has no users at all (fresh deployment), create a default     sup"
     },
     {
@@ -4579,8 +4480,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_models_bom_item",
-      "community": 84,
-      "community_name": "Supplier Job Model",
+      "community": 30,
+      "community_name": "FileRoutesByPath Module",
       "norm_label": "bom_item.py"
     },
     {
@@ -4590,8 +4491,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "backend_app_models_bom_item_bomitem",
-      "community": 84,
-      "community_name": "Supplier Job Model",
+      "community": 30,
+      "community_name": "FileRoutesByPath Module",
       "norm_label": "bomitem"
     },
     {
@@ -4601,8 +4502,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_models_bom_item_py_sqlmodel",
-      "community": 84,
-      "community_name": "Supplier Job Model",
+      "community": 30,
+      "community_name": "FileRoutesByPath Module",
       "norm_label": "sqlmodel"
     },
     {
@@ -4612,8 +4513,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "backend_app_models_bom_item_rationale_7",
-      "community": 84,
-      "community_name": "Supplier Job Model",
+      "community": 30,
+      "community_name": "FileRoutesByPath Module",
       "norm_label": "bill of materials \u2014 maps a product name to required raw materials.      product_"
     },
     {
@@ -4667,8 +4568,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_models_consumable",
-      "community": 16,
-      "community_name": "migrate production process v2",
+      "community": 19,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "consumable.py"
     },
     {
@@ -4678,8 +4579,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "backend_app_models_consumable_consumable",
-      "community": 16,
-      "community_name": "migrate production process v2",
+      "community": 19,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "consumable"
     },
     {
@@ -4689,8 +4590,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_models_consumable_py_sqlmodel",
-      "community": 16,
-      "community_name": "migrate production process v2",
+      "community": 19,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "sqlmodel"
     },
     {
@@ -4777,7 +4678,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_models_dispatch",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "dispatch.py"
     },
@@ -4788,7 +4689,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "backend_app_models_dispatch_dispatch",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "dispatch"
     },
@@ -4799,7 +4700,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_models_dispatch_py_sqlmodel",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "sqlmodel"
     },
@@ -4810,7 +4711,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_models_dispatch_history",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "dispatch_history.py"
     },
@@ -4821,7 +4722,7 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "backend_app_models_dispatch_history_dispatchhistory",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "dispatchhistory"
     },
@@ -4832,7 +4733,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_models_dispatch_history_py_sqlmodel",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "sqlmodel"
     },
@@ -4843,7 +4744,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_models_dispatch_item",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "dispatch_item.py"
     },
@@ -4854,7 +4755,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "backend_app_models_dispatch_item_dispatchitem",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "dispatchitem"
     },
@@ -4865,7 +4766,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_models_dispatch_item_py_sqlmodel",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "sqlmodel"
     },
@@ -4920,8 +4821,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_models_gate_pass",
-      "community": 93,
-      "community_name": "Consumables Data Model",
+      "community": 27,
+      "community_name": "Database Session and Auth Core",
       "norm_label": "gate_pass.py"
     },
     {
@@ -4931,8 +4832,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "backend_app_models_gate_pass_gatepass",
-      "community": 93,
-      "community_name": "Consumables Data Model",
+      "community": 27,
+      "community_name": "Database Session and Auth Core",
       "norm_label": "gatepass"
     },
     {
@@ -4942,8 +4843,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_models_gate_pass_py_sqlmodel",
-      "community": 93,
-      "community_name": "Consumables Data Model",
+      "community": 27,
+      "community_name": "Database Session and Auth Core",
       "norm_label": "sqlmodel"
     },
     {
@@ -4986,8 +4887,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_models_gate_pass_item",
-      "community": 93,
-      "community_name": "Consumables Data Model",
+      "community": 27,
+      "community_name": "Database Session and Auth Core",
       "norm_label": "gate_pass_item.py"
     },
     {
@@ -4997,8 +4898,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "backend_app_models_gate_pass_item_gatepassitem",
-      "community": 93,
-      "community_name": "Consumables Data Model",
+      "community": 27,
+      "community_name": "Database Session and Auth Core",
       "norm_label": "gatepassitem"
     },
     {
@@ -5008,8 +4909,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_models_gate_pass_item_py_sqlmodel",
-      "community": 93,
-      "community_name": "Consumables Data Model",
+      "community": 27,
+      "community_name": "Database Session and Auth Core",
       "norm_label": "sqlmodel"
     },
     {
@@ -5899,8 +5800,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_models_request_item",
-      "community": 83,
-      "community_name": "RequestItem Module",
+      "community": 17,
+      "community_name": "Request Items and Router",
       "norm_label": "request_item.py"
     },
     {
@@ -5910,8 +5811,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "backend_app_models_request_item_requestitem",
-      "community": 83,
-      "community_name": "RequestItem Module",
+      "community": 17,
+      "community_name": "Request Items and Router",
       "norm_label": "requestitem"
     },
     {
@@ -5921,8 +5822,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_models_request_item_py_sqlmodel",
-      "community": 83,
-      "community_name": "RequestItem Module",
+      "community": 17,
+      "community_name": "Request Items and Router",
       "norm_label": "sqlmodel"
     },
     {
@@ -5932,8 +5833,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "backend_app_models_request_item_rationale_8",
-      "community": 83,
-      "community_name": "RequestItem Module",
+      "community": 17,
+      "community_name": "Request Items and Router",
       "norm_label": "line item for a request.      used for internal_transfer and vendor_purchase typ"
     },
     {
@@ -6020,8 +5921,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_models_spare_category",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 19,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "spare_category.py"
     },
     {
@@ -6031,8 +5932,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "backend_app_models_spare_category_sparecategory",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 19,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "sparecategory"
     },
     {
@@ -6042,8 +5943,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_models_spare_category_py_sqlmodel",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 19,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "sqlmodel"
     },
     {
@@ -6053,8 +5954,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_models_spare_item",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 19,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "spare_item.py"
     },
     {
@@ -6064,8 +5965,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "backend_app_models_spare_item_spareitem",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 19,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "spareitem"
     },
     {
@@ -6075,8 +5976,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_models_spare_item_py_sqlmodel",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 19,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "sqlmodel"
     },
     {
@@ -6130,8 +6031,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_models_spare_item_variant",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 13,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "spare_item_variant.py"
     },
     {
@@ -6141,8 +6042,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "backend_app_models_spare_item_variant_spareitemvariant",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 13,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "spareitemvariant"
     },
     {
@@ -6152,8 +6053,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_models_spare_item_variant_py_sqlmodel",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 13,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "sqlmodel"
     },
     {
@@ -6163,8 +6064,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "backend_app_models_spare_item_variant_rationale_9",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 13,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "a colour/size/serial variant under a spareitem.      the parent spareitem acts a"
     },
     {
@@ -6174,8 +6075,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_models_spare_sub_category",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 13,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "spare_sub_category.py"
     },
     {
@@ -6185,8 +6086,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "backend_app_models_spare_sub_category_sparesubcategory",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 13,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "sparesubcategory"
     },
     {
@@ -6196,8 +6097,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_models_spare_sub_category_py_sqlmodel",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 13,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "sqlmodel"
     },
     {
@@ -6339,8 +6240,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_models_token",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 178,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "token.py"
     },
     {
@@ -6350,8 +6251,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "backend_app_models_token_refreshtoken",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 178,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "refreshtoken"
     },
     {
@@ -6361,8 +6262,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_models_token_py_sqlmodel",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 178,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "sqlmodel"
     },
     {
@@ -6405,8 +6306,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_models_user",
-      "community": 62,
-      "community_name": "users Module",
+      "community": 77,
+      "community_name": "migrate production plan v3",
       "norm_label": "user.py"
     },
     {
@@ -6416,8 +6317,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "backend_app_models_user_user",
-      "community": 62,
-      "community_name": "users Module",
+      "community": 77,
+      "community_name": "migrate production plan v3",
       "norm_label": "user"
     },
     {
@@ -6427,8 +6328,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_models_user_py_sqlmodel",
-      "community": 62,
-      "community_name": "users Module",
+      "community": 77,
+      "community_name": "migrate production plan v3",
       "norm_label": "sqlmodel"
     },
     {
@@ -7087,8 +6988,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_routers_auth",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 178,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "auth.py"
     },
     {
@@ -7098,8 +6999,8 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "backend_app_routers_auth_loginrequest",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 178,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "loginrequest"
     },
     {
@@ -7109,8 +7010,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_auth_py_basemodel",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 178,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "basemodel"
     },
     {
@@ -7120,8 +7021,8 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "backend_app_routers_auth_tokenresponse",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 178,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "tokenresponse"
     },
     {
@@ -7131,8 +7032,8 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "backend_app_routers_auth_usermeresponse",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 178,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "usermeresponse"
     },
     {
@@ -7142,8 +7043,8 @@
       "source_location": "L65",
       "_origin": "ast",
       "id": "backend_app_routers_auth_set_refresh_cookie",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 178,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "_set_refresh_cookie()"
     },
     {
@@ -7153,8 +7054,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_auth_py_response",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 178,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "response"
     },
     {
@@ -7164,8 +7065,8 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "backend_app_routers_auth_clear_refresh_cookie",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 178,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "_clear_refresh_cookie()"
     },
     {
@@ -7175,8 +7076,8 @@
       "source_location": "L84",
       "_origin": "ast",
       "id": "backend_app_routers_auth_login",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 178,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "login()"
     },
     {
@@ -7186,8 +7087,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_auth_py_session",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 178,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "session"
     },
     {
@@ -7197,8 +7098,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_auth_py_depends",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 178,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "depends"
     },
     {
@@ -7208,8 +7109,8 @@
       "source_location": "L119",
       "_origin": "ast",
       "id": "backend_app_routers_auth_refresh",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 180,
+      "community_name": "PurchaseRequestItem Module",
       "norm_label": "refresh()"
     },
     {
@@ -7219,8 +7120,8 @@
       "source_location": "L173",
       "_origin": "ast",
       "id": "backend_app_routers_auth_logout",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 178,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "logout()"
     },
     {
@@ -7230,8 +7131,8 @@
       "source_location": "L191",
       "_origin": "ast",
       "id": "backend_app_routers_auth_me",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 178,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "me()"
     },
     {
@@ -7241,8 +7142,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_auth_py_user",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 178,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "user"
     },
     {
@@ -7263,8 +7164,8 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "backend_app_routers_bom_bomclonebody",
-      "community": 84,
-      "community_name": "Supplier Job Model",
+      "community": 77,
+      "community_name": "migrate production plan v3",
       "norm_label": "bomclonebody"
     },
     {
@@ -7274,8 +7175,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_bom_py_basemodel",
-      "community": 84,
-      "community_name": "Supplier Job Model",
+      "community": 77,
+      "community_name": "migrate production plan v3",
       "norm_label": "basemodel"
     },
     {
@@ -7285,8 +7186,8 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "backend_app_routers_bom_bomitemcreate",
-      "community": 84,
-      "community_name": "Supplier Job Model",
+      "community": 77,
+      "community_name": "migrate production plan v3",
       "norm_label": "bomitemcreate"
     },
     {
@@ -7296,8 +7197,8 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "backend_app_routers_bom_bomitemcreate_positive",
-      "community": 84,
-      "community_name": "Supplier Job Model",
+      "community": 77,
+      "community_name": "migrate production plan v3",
       "norm_label": ".positive()"
     },
     {
@@ -7307,8 +7208,8 @@
       "source_location": "L51",
       "_origin": "ast",
       "id": "backend_app_routers_bom_bomitemupdate",
-      "community": 84,
-      "community_name": "Supplier Job Model",
+      "community": 77,
+      "community_name": "migrate production plan v3",
       "norm_label": "bomitemupdate"
     },
     {
@@ -7318,8 +7219,8 @@
       "source_location": "L63",
       "_origin": "ast",
       "id": "backend_app_routers_bom_bomitemupdate_positive",
-      "community": 84,
-      "community_name": "Supplier Job Model",
+      "community": 77,
+      "community_name": "migrate production plan v3",
       "norm_label": ".positive()"
     },
     {
@@ -7329,8 +7230,8 @@
       "source_location": "L69",
       "_origin": "ast",
       "id": "backend_app_routers_bom_bomitemresponse",
-      "community": 84,
-      "community_name": "Supplier Job Model",
+      "community": 77,
+      "community_name": "migrate production plan v3",
       "norm_label": "bomitemresponse"
     },
     {
@@ -8187,7 +8088,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_routers_dispatch",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "dispatch.py"
     },
@@ -8198,7 +8099,7 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "backend_app_routers_dispatch_next_dispatch_number",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "_next_dispatch_number()"
     },
@@ -8209,7 +8110,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_dispatch_py_session",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "session"
     },
@@ -8220,7 +8121,7 @@
       "source_location": "L48",
       "_origin": "ast",
       "id": "backend_app_routers_dispatch_list_dispatches",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "list_dispatches()"
     },
@@ -8231,7 +8132,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_dispatch_py_depends",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "depends"
     },
@@ -8242,7 +8143,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_dispatch_py_user",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "user"
     },
@@ -8253,7 +8154,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_dispatch_py_any",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "any"
     },
@@ -8264,7 +8165,7 @@
       "source_location": "L95",
       "_origin": "ast",
       "id": "backend_app_routers_dispatch_create_dispatch",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "create_dispatch()"
     },
@@ -8275,7 +8176,7 @@
       "source_location": "L193",
       "_origin": "ast",
       "id": "backend_app_routers_dispatch_list_available_requests",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "list_available_requests()"
     },
@@ -8286,7 +8187,7 @@
       "source_location": "L229",
       "_origin": "ast",
       "id": "backend_app_routers_dispatch_get_dispatch",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "get_dispatch()"
     },
@@ -8297,7 +8198,7 @@
       "source_location": "L243",
       "_origin": "ast",
       "id": "backend_app_routers_dispatch_update_dispatch",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "update_dispatch()"
     },
@@ -8308,7 +8209,7 @@
       "source_location": "L384",
       "_origin": "ast",
       "id": "backend_app_routers_dispatch_delete_dispatch",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "delete_dispatch()"
     },
@@ -8319,7 +8220,7 @@
       "source_location": "L423",
       "_origin": "ast",
       "id": "backend_app_routers_dispatch_get_dispatch_history",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "get_dispatch_history()"
     },
@@ -8330,7 +8231,7 @@
       "source_location": "L459",
       "_origin": "ast",
       "id": "backend_app_routers_dispatch_require_dispatch_access",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "_require_dispatch_access()"
     },
@@ -8341,7 +8242,7 @@
       "source_location": "L463",
       "_origin": "ast",
       "id": "backend_app_routers_dispatch_linked_request",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "_linked_request()"
     },
@@ -8352,7 +8253,7 @@
       "source_location": "L490",
       "_origin": "ast",
       "id": "backend_app_routers_dispatch_request_dispatch_items",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "_request_dispatch_items()"
     },
@@ -8363,7 +8264,7 @@
       "source_location": "L514",
       "_origin": "ast",
       "id": "backend_app_routers_dispatch_linked_receipt",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "_linked_receipt()"
     },
@@ -8374,7 +8275,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_dispatch_py_receipt",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "receipt"
     },
@@ -8385,7 +8286,7 @@
       "source_location": "L520",
       "_origin": "ast",
       "id": "backend_app_routers_dispatch_receipt_dispatch_items",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "_receipt_dispatch_items()"
     },
@@ -8396,7 +8297,7 @@
       "source_location": "L539",
       "_origin": "ast",
       "id": "backend_app_routers_dispatch_sync_linked_request",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "_sync_linked_request()"
     },
@@ -8407,7 +8308,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_dispatch_py_dispatch",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "dispatch"
     },
@@ -8418,7 +8319,7 @@
       "source_location": "L595",
       "_origin": "ast",
       "id": "backend_app_routers_dispatch_get_dispatch_receipt",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "_get_dispatch_receipt()"
     },
@@ -8429,7 +8330,7 @@
       "source_location": "L606",
       "_origin": "ast",
       "id": "backend_app_routers_dispatch_deduct_oem_dispatch_stock",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "_deduct_oem_dispatch_stock()"
     },
@@ -8440,7 +8341,7 @@
       "source_location": "L642",
       "_origin": "ast",
       "id": "backend_app_routers_dispatch_release_linked_request",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "_release_linked_request()"
     },
@@ -8451,7 +8352,7 @@
       "source_location": "L657",
       "_origin": "ast",
       "id": "backend_app_routers_dispatch_to_dict",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "_to_dict()"
     },
@@ -8462,7 +8363,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_routers_dispatch_rationale_1",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "dispatch router.  get    /api/v1/dispatch        \u2014 list dispatches post   /api/v"
     },
@@ -8473,7 +8374,7 @@
       "source_location": "L56",
       "_origin": "ast",
       "id": "backend_app_routers_dispatch_rationale_56",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "list dispatches. accessible to users with dispatch_access or admin."
     },
@@ -8484,7 +8385,7 @@
       "source_location": "L198",
       "_origin": "ast",
       "id": "backend_app_routers_dispatch_rationale_198",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "return every active, dispatchable request not reserved by another dispatch."
     },
@@ -8495,7 +8396,7 @@
       "source_location": "L430",
       "_origin": "ast",
       "id": "backend_app_routers_dispatch_rationale_430",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "get history for a dispatch."
     },
@@ -8506,7 +8407,7 @@
       "source_location": "L521",
       "_origin": "ast",
       "id": "backend_app_routers_dispatch_rationale_521",
-      "community": 93,
+      "community": 2,
       "community_name": "Consumables Data Model",
       "norm_label": "derive dispatch line items from a receipt \u2014 the goods were already     subtracte"
     },
@@ -8517,8 +8418,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes",
-      "community": 93,
-      "community_name": "Consumables Data Model",
+      "community": 27,
+      "community_name": "Database Session and Auth Core",
       "norm_label": "gate_passes.py"
     },
     {
@@ -8528,8 +8429,8 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_next_gp_number",
-      "community": 93,
-      "community_name": "Consumables Data Model",
+      "community": 27,
+      "community_name": "Database Session and Auth Core",
       "norm_label": "_next_gp_number()"
     },
     {
@@ -8539,8 +8440,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_py_session",
-      "community": 93,
-      "community_name": "Consumables Data Model",
+      "community": 27,
+      "community_name": "Database Session and Auth Core",
       "norm_label": "session"
     },
     {
@@ -8550,8 +8451,8 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_party_type",
-      "community": 93,
-      "community_name": "Consumables Data Model",
+      "community": 27,
+      "community_name": "Database Session and Auth Core",
       "norm_label": "_party_type()"
     },
     {
@@ -8561,8 +8462,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "gatepass",
-      "community": 93,
-      "community_name": "Consumables Data Model",
+      "community": 27,
+      "community_name": "Database Session and Auth Core",
       "norm_label": "gatepass"
     },
     {
@@ -8572,8 +8473,8 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_assign_purchase_order",
-      "community": 93,
-      "community_name": "Consumables Data Model",
+      "community": 27,
+      "community_name": "Database Session and Auth Core",
       "norm_label": "_assign_purchase_order()"
     },
     {
@@ -8583,8 +8484,8 @@
       "source_location": "L53",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_sanitize_purchase_refs",
-      "community": 93,
-      "community_name": "Consumables Data Model",
+      "community": 27,
+      "community_name": "Database Session and Auth Core",
       "norm_label": "_sanitize_purchase_refs()"
     },
     {
@@ -8594,8 +8495,8 @@
       "source_location": "L65",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_list_gate_passes",
-      "community": 93,
-      "community_name": "Consumables Data Model",
+      "community": 27,
+      "community_name": "Database Session and Auth Core",
       "norm_label": "list_gate_passes()"
     },
     {
@@ -8605,8 +8506,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_py_depends",
-      "community": 93,
-      "community_name": "Consumables Data Model",
+      "community": 27,
+      "community_name": "Database Session and Auth Core",
       "norm_label": "depends"
     },
     {
@@ -8616,8 +8517,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_py_user",
-      "community": 93,
-      "community_name": "Consumables Data Model",
+      "community": 27,
+      "community_name": "Database Session and Auth Core",
       "norm_label": "user"
     },
     {
@@ -8627,8 +8528,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_py_any",
-      "community": 93,
-      "community_name": "Consumables Data Model",
+      "community": 27,
+      "community_name": "Database Session and Auth Core",
       "norm_label": "any"
     },
     {
@@ -8638,8 +8539,8 @@
       "source_location": "L112",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_create_gate_pass",
-      "community": 93,
-      "community_name": "Consumables Data Model",
+      "community": 27,
+      "community_name": "Database Session and Auth Core",
       "norm_label": "create_gate_pass()"
     },
     {
@@ -8649,8 +8550,8 @@
       "source_location": "L189",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_get_gate_pass",
-      "community": 93,
-      "community_name": "Consumables Data Model",
+      "community": 27,
+      "community_name": "Database Session and Auth Core",
       "norm_label": "get_gate_pass()"
     },
     {
@@ -8660,8 +8561,8 @@
       "source_location": "L203",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_update_gate_pass",
-      "community": 93,
-      "community_name": "Consumables Data Model",
+      "community": 27,
+      "community_name": "Database Session and Auth Core",
       "norm_label": "update_gate_pass()"
     },
     {
@@ -8671,8 +8572,8 @@
       "source_location": "L306",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_delete_gate_pass",
-      "community": 93,
-      "community_name": "Consumables Data Model",
+      "community": 27,
+      "community_name": "Database Session and Auth Core",
       "norm_label": "delete_gate_pass()"
     },
     {
@@ -8682,8 +8583,8 @@
       "source_location": "L325",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_get_gate_pass_history",
-      "community": 93,
-      "community_name": "Consumables Data Model",
+      "community": 27,
+      "community_name": "Database Session and Auth Core",
       "norm_label": "get_gate_pass_history()"
     },
     {
@@ -8693,8 +8594,8 @@
       "source_location": "L361",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_require_access",
-      "community": 93,
-      "community_name": "Consumables Data Model",
+      "community": 27,
+      "community_name": "Database Session and Auth Core",
       "norm_label": "_require_access()"
     },
     {
@@ -8704,8 +8605,8 @@
       "source_location": "L365",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_add_gp_history",
-      "community": 93,
-      "community_name": "Consumables Data Model",
+      "community": 27,
+      "community_name": "Database Session and Auth Core",
       "norm_label": "_add_gp_history()"
     },
     {
@@ -8715,8 +8616,8 @@
       "source_location": "L388",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_to_dict",
-      "community": 93,
-      "community_name": "Consumables Data Model",
+      "community": 27,
+      "community_name": "Database Session and Auth Core",
       "norm_label": "_to_dict()"
     },
     {
@@ -8726,8 +8627,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_routers_gate_passes_rationale_1",
-      "community": 93,
-      "community_name": "Consumables Data Model",
+      "community": 27,
+      "community_name": "Database Session and Auth Core",
       "norm_label": "gate pass router.  get    /api/v1/gate-passes        \u2014 list gate passes post   /"
     },
     {
@@ -9639,8 +9540,8 @@
       "source_location": "L203",
       "_origin": "ast",
       "id": "backend_app_routers_inventory_inventoryitemcreate",
-      "community": 84,
-      "community_name": "Supplier Job Model",
+      "community": 19,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "inventoryitemcreate"
     },
     {
@@ -9650,8 +9551,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_inventory_py_basemodel",
-      "community": 84,
-      "community_name": "Supplier Job Model",
+      "community": 19,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "basemodel"
     },
     {
@@ -9661,8 +9562,8 @@
       "source_location": "L222",
       "_origin": "ast",
       "id": "backend_app_routers_inventory_inventoryitemcreate_validate_type",
-      "community": 84,
-      "community_name": "Supplier Job Model",
+      "community": 19,
+      "community_name": "Spare Parts Data Model",
       "norm_label": ".validate_type()"
     },
     {
@@ -9672,8 +9573,8 @@
       "source_location": "L228",
       "_origin": "ast",
       "id": "backend_app_routers_inventory_inventoryitemupdate",
-      "community": 84,
-      "community_name": "Supplier Job Model",
+      "community": 19,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "inventoryitemupdate"
     },
     {
@@ -9683,8 +9584,8 @@
       "source_location": "L247",
       "_origin": "ast",
       "id": "backend_app_routers_inventory_inventoryitemupdate_validate_type",
-      "community": 84,
-      "community_name": "Supplier Job Model",
+      "community": 19,
+      "community_name": "Spare Parts Data Model",
       "norm_label": ".validate_type()"
     },
     {
@@ -9694,8 +9595,8 @@
       "source_location": "L253",
       "_origin": "ast",
       "id": "backend_app_routers_inventory_inventoryitemresponse",
-      "community": 84,
-      "community_name": "Supplier Job Model",
+      "community": 19,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "inventoryitemresponse"
     },
     {
@@ -9705,8 +9606,8 @@
       "source_location": "L279",
       "_origin": "ast",
       "id": "backend_app_routers_inventory_paginatedinventoryresponse",
-      "community": 84,
-      "community_name": "Supplier Job Model",
+      "community": 19,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "paginatedinventoryresponse"
     },
     {
@@ -9716,8 +9617,8 @@
       "source_location": "L287",
       "_origin": "ast",
       "id": "backend_app_routers_inventory_inventoryitemdetailresponse",
-      "community": 84,
-      "community_name": "Supplier Job Model",
+      "community": 19,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "inventoryitemdetailresponse"
     },
     {
@@ -9727,8 +9628,8 @@
       "source_location": "L291",
       "_origin": "ast",
       "id": "backend_app_routers_inventory_adjuststockbody",
-      "community": 84,
-      "community_name": "Supplier Job Model",
+      "community": 19,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "adjuststockbody"
     },
     {
@@ -9738,8 +9639,8 @@
       "source_location": "L299",
       "_origin": "ast",
       "id": "backend_app_routers_inventory_adjuststockbody_quantity_non_negative",
-      "community": 84,
-      "community_name": "Supplier Job Model",
+      "community": 19,
+      "community_name": "Spare Parts Data Model",
       "norm_label": ".quantity_non_negative()"
     },
     {
@@ -9749,8 +9650,8 @@
       "source_location": "L305",
       "_origin": "ast",
       "id": "backend_app_routers_inventory_historyentryresponse",
-      "community": 84,
-      "community_name": "Supplier Job Model",
+      "community": 19,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "historyentryresponse"
     },
     {
@@ -10156,8 +10057,8 @@
       "source_location": "L53",
       "_origin": "ast",
       "id": "backend_app_routers_notifications_create_notification",
-      "community": 71,
-      "community_name": "Notification Module",
+      "community": 237,
+      "community_name": "migrate gate pass pr fields",
       "norm_label": "create_notification()"
     },
     {
@@ -10255,8 +10156,8 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "backend_app_routers_notifications_rationale_61",
-      "community": 71,
-      "community_name": "Notification Module",
+      "community": 237,
+      "community_name": "migrate gate pass pr fields",
       "norm_label": "create a notification for a user. called from other routers."
     },
     {
@@ -10288,8 +10189,8 @@
       "source_location": "L48",
       "_origin": "ast",
       "id": "backend_app_routers_production_weight_to_grams",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "_weight_to_grams()"
     },
     {
@@ -10299,8 +10200,8 @@
       "source_location": "L53",
       "_origin": "ast",
       "id": "backend_app_routers_production_next_plan_number",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "_next_plan_number()"
     },
     {
@@ -10310,8 +10211,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_production_py_session",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "session"
     },
     {
@@ -10321,8 +10222,8 @@
       "source_location": "L57",
       "_origin": "ast",
       "id": "backend_app_routers_production_next_order_number",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "_next_order_number()"
     },
     {
@@ -10409,8 +10310,8 @@
       "source_location": "L146",
       "_origin": "ast",
       "id": "backend_app_routers_production_check_backward_status",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "_check_backward_status()"
     },
     {
@@ -10453,8 +10354,8 @@
       "source_location": "L382",
       "_origin": "ast",
       "id": "backend_app_routers_production_restore_bom_materials",
-      "community": 19,
-      "community_name": "Spare Parts Data Model",
+      "community": 30,
+      "community_name": "FileRoutesByPath Module",
       "norm_label": "_restore_bom_materials()"
     },
     {
@@ -10574,8 +10475,8 @@
       "source_location": "L609",
       "_origin": "ast",
       "id": "backend_app_routers_production_planresponse",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "planresponse"
     },
     {
@@ -10596,8 +10497,8 @@
       "source_location": "L643",
       "_origin": "ast",
       "id": "backend_app_routers_production_process_with_unit",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "_process_with_unit()"
     },
     {
@@ -10618,8 +10519,8 @@
       "source_location": "L659",
       "_origin": "ast",
       "id": "backend_app_routers_production_to_plan_response",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "_to_plan_response()"
     },
     {
@@ -10629,8 +10530,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "productionplan",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "productionplan"
     },
     {
@@ -10640,8 +10541,8 @@
       "source_location": "L679",
       "_origin": "ast",
       "id": "backend_app_routers_production_to_plan_response_with",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "_to_plan_response_with()"
     },
     {
@@ -10651,8 +10552,8 @@
       "source_location": "L710",
       "_origin": "ast",
       "id": "backend_app_routers_production_list_plans",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "list_plans()"
     },
     {
@@ -10662,8 +10563,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_production_py_depends",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "depends"
     },
     {
@@ -10673,8 +10574,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_production_py_user",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "user"
     },
     {
@@ -10684,8 +10585,8 @@
       "source_location": "L778",
       "_origin": "ast",
       "id": "backend_app_routers_production_create_plan",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "create_plan()"
     },
     {
@@ -10695,8 +10596,8 @@
       "source_location": "L823",
       "_origin": "ast",
       "id": "backend_app_routers_production_get_plan",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "get_plan()"
     },
     {
@@ -10706,8 +10607,8 @@
       "source_location": "L835",
       "_origin": "ast",
       "id": "backend_app_routers_production_update_plan",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "update_plan()"
     },
     {
@@ -10717,8 +10618,8 @@
       "source_location": "L860",
       "_origin": "ast",
       "id": "backend_app_routers_production_delete_plan",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "delete_plan()"
     },
     {
@@ -10728,8 +10629,8 @@
       "source_location": "L879",
       "_origin": "ast",
       "id": "backend_app_routers_production_list_processes",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "list_processes()"
     },
     {
@@ -10739,8 +10640,8 @@
       "source_location": "L896",
       "_origin": "ast",
       "id": "backend_app_routers_production_add_process",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "add_process()"
     },
     {
@@ -10750,8 +10651,8 @@
       "source_location": "L913",
       "_origin": "ast",
       "id": "backend_app_routers_production_update_process",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "update_process()"
     },
     {
@@ -10761,8 +10662,8 @@
       "source_location": "L933",
       "_origin": "ast",
       "id": "backend_app_routers_production_delete_process",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "delete_process()"
     },
     {
@@ -10783,8 +10684,8 @@
       "source_location": "L966",
       "_origin": "ast",
       "id": "backend_app_routers_production_bom_preview",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "bom_preview()"
     },
     {
@@ -10915,8 +10816,8 @@
       "source_location": "L1295",
       "_origin": "ast",
       "id": "backend_app_routers_production_create_order",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "create_order()"
     },
     {
@@ -10926,8 +10827,8 @@
       "source_location": "L1347",
       "_origin": "ast",
       "id": "backend_app_routers_production_get_order",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "get_order()"
     },
     {
@@ -10937,8 +10838,8 @@
       "source_location": "L1359",
       "_origin": "ast",
       "id": "backend_app_routers_production_update_order",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "update_order()"
     },
     {
@@ -10948,8 +10849,8 @@
       "source_location": "L1388",
       "_origin": "ast",
       "id": "backend_app_routers_production_delete_order",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "delete_order()"
     },
     {
@@ -10992,8 +10893,8 @@
       "source_location": "L1449",
       "_origin": "ast",
       "id": "backend_app_routers_production_list_order_jobs",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "list_order_jobs()"
     },
     {
@@ -11014,8 +10915,8 @@
       "source_location": "L1584",
       "_origin": "ast",
       "id": "backend_app_routers_production_get_job",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "get_job()"
     },
     {
@@ -11036,8 +10937,8 @@
       "source_location": "L1702",
       "_origin": "ast",
       "id": "backend_app_routers_production_delete_job",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "delete_job()"
     },
     {
@@ -11047,8 +10948,8 @@
       "source_location": "L1736",
       "_origin": "ast",
       "id": "backend_app_routers_production_update_process_actual_qty",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "update_process_actual_qty()"
     },
     {
@@ -11058,8 +10959,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_production_py_any",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "any"
     },
     {
@@ -11080,8 +10981,8 @@
       "source_location": "L1823",
       "_origin": "ast",
       "id": "backend_app_routers_production_get_job_history",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "get_job_history()"
     },
     {
@@ -11102,8 +11003,8 @@
       "source_location": "L1873",
       "_origin": "ast",
       "id": "backend_app_routers_production_list_workers",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "list_workers()"
     },
     {
@@ -11212,8 +11113,8 @@
       "source_location": "L149",
       "_origin": "ast",
       "id": "backend_app_routers_production_rationale_149",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "raise 422 if the proposed status is a backward transition (except \u2192 cancelled)."
     },
     {
@@ -11256,8 +11157,8 @@
       "source_location": "L388",
       "_origin": "ast",
       "id": "backend_app_routers_production_rationale_388",
-      "community": 19,
-      "community_name": "Spare Parts Data Model",
+      "community": 30,
+      "community_name": "FileRoutesByPath Module",
       "norm_label": "return raw materials to inventory when reported production output drops.      qt"
     },
     {
@@ -11289,8 +11190,8 @@
       "source_location": "L660",
       "_origin": "ast",
       "id": "backend_app_routers_production_rationale_660",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "build a planresponse, enriching with linked schedule data and processes."
     },
     {
@@ -11300,8 +11201,8 @@
       "source_location": "L972",
       "_origin": "ast",
       "id": "backend_app_routers_production_rationale_972",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "return materials needed for a given product and planned quantity.      looks up"
     },
     {
@@ -11322,8 +11223,8 @@
       "source_location": "L1743",
       "_origin": "ast",
       "id": "backend_app_routers_production_rationale_1743",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "set the total actual_qty for all active job cards in a process.      distributes"
     },
     {
@@ -11333,8 +11234,8 @@
       "source_location": "L1830",
       "_origin": "ast",
       "id": "backend_app_routers_production_rationale_1830",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "return full audit trail for a job card, newest first."
     },
     {
@@ -11344,8 +11245,8 @@
       "source_location": "L1878",
       "_origin": "ast",
       "id": "backend_app_routers_production_rationale_1878",
-      "community": 30,
-      "community_name": "FileRoutesByPath Module",
+      "community": 8,
+      "community_name": "Stock Adjustment Module",
       "norm_label": "return active users for worker assignment dropdowns. supports ?search= for ssr f"
     },
     {
@@ -11553,8 +11454,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_routers_purchase_requests",
-      "community": 38,
-      "community_name": "request Module",
+      "community": 221,
+      "community_name": "@tailwindcss/vite",
       "norm_label": "purchase_requests.py"
     },
     {
@@ -11564,8 +11465,8 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "backend_app_routers_purchase_requests_list_purchase_requests",
-      "community": 38,
-      "community_name": "request Module",
+      "community": 221,
+      "community_name": "@tailwindcss/vite",
       "norm_label": "list_purchase_requests()"
     },
     {
@@ -11575,8 +11476,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_purchase_requests_py_session",
-      "community": 38,
-      "community_name": "request Module",
+      "community": 221,
+      "community_name": "@tailwindcss/vite",
       "norm_label": "session"
     },
     {
@@ -11586,8 +11487,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_purchase_requests_py_user",
-      "community": 38,
-      "community_name": "request Module",
+      "community": 221,
+      "community_name": "@tailwindcss/vite",
       "norm_label": "user"
     },
     {
@@ -11597,8 +11498,8 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "backend_app_routers_purchase_requests_create_purchase_request",
-      "community": 38,
-      "community_name": "request Module",
+      "community": 221,
+      "community_name": "@tailwindcss/vite",
       "norm_label": "create_purchase_request()"
     },
     {
@@ -11608,8 +11509,8 @@
       "source_location": "L68",
       "_origin": "ast",
       "id": "backend_app_routers_purchase_requests_get_purchase_request",
-      "community": 38,
-      "community_name": "request Module",
+      "community": 221,
+      "community_name": "@tailwindcss/vite",
       "norm_label": "get_purchase_request()"
     },
     {
@@ -11619,8 +11520,8 @@
       "source_location": "L73",
       "_origin": "ast",
       "id": "backend_app_routers_purchase_requests_update_purchase_request",
-      "community": 38,
-      "community_name": "request Module",
+      "community": 221,
+      "community_name": "@tailwindcss/vite",
       "norm_label": "update_purchase_request()"
     },
     {
@@ -11630,8 +11531,8 @@
       "source_location": "L78",
       "_origin": "ast",
       "id": "backend_app_routers_purchase_requests_delete_purchase_request",
-      "community": 38,
-      "community_name": "request Module",
+      "community": 221,
+      "community_name": "@tailwindcss/vite",
       "norm_label": "delete_purchase_request()"
     },
     {
@@ -11641,8 +11542,8 @@
       "source_location": "L83",
       "_origin": "ast",
       "id": "backend_app_routers_purchase_requests_review_purchase_request",
-      "community": 38,
-      "community_name": "request Module",
+      "community": 221,
+      "community_name": "@tailwindcss/vite",
       "norm_label": "review_purchase_request()"
     },
     {
@@ -11652,8 +11553,8 @@
       "source_location": "L88",
       "_origin": "ast",
       "id": "backend_app_routers_purchase_requests_set_purchase_status",
-      "community": 38,
-      "community_name": "request Module",
+      "community": 221,
+      "community_name": "@tailwindcss/vite",
       "norm_label": "set_purchase_status()"
     },
     {
@@ -11663,8 +11564,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_routers_purchase_requests_rationale_1",
-      "community": 38,
-      "community_name": "request Module",
+      "community": 221,
+      "community_name": "@tailwindcss/vite",
       "norm_label": "shim router for /api/v1/purchase-requests.  delegates to the unified /api/v1/req"
     },
     {
@@ -11674,8 +11575,8 @@
       "source_location": "L39",
       "_origin": "ast",
       "id": "backend_app_routers_purchase_requests_rationale_39",
-      "community": 38,
-      "community_name": "request Module",
+      "community": 221,
+      "community_name": "@tailwindcss/vite",
       "norm_label": "list internal_transfer + vendor_purchase requests.      fetches each type separa"
     },
     {
@@ -12345,8 +12246,8 @@
       "source_location": "L585",
       "_origin": "ast",
       "id": "backend_app_routers_requests_delete_request",
-      "community": 17,
-      "community_name": "Request Items and Router",
+      "community": 237,
+      "community_name": "migrate gate pass pr fields",
       "norm_label": "delete_request()"
     },
     {
@@ -12356,8 +12257,8 @@
       "source_location": "L630",
       "_origin": "ast",
       "id": "backend_app_routers_requests_review_request",
-      "community": 17,
-      "community_name": "Request Items and Router",
+      "community": 237,
+      "community_name": "migrate gate pass pr fields",
       "norm_label": "review_request()"
     },
     {
@@ -12554,8 +12455,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_routers_requests_helpers",
-      "community": 17,
-      "community_name": "Request Items and Router",
+      "community": 237,
+      "community_name": "migrate gate pass pr fields",
       "norm_label": "requests_helpers.py"
     },
     {
@@ -12565,8 +12466,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "backend_app_routers_requests_helpers_prefix_for",
-      "community": 17,
-      "community_name": "Request Items and Router",
+      "community": 237,
+      "community_name": "migrate gate pass pr fields",
       "norm_label": "_prefix_for()"
     },
     {
@@ -12587,8 +12488,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_requests_helpers_py_session",
-      "community": 17,
-      "community_name": "Request Items and Router",
+      "community": 237,
+      "community_name": "migrate gate pass pr fields",
       "norm_label": "session"
     },
     {
@@ -12631,8 +12532,8 @@
       "source_location": "L54",
       "_origin": "ast",
       "id": "backend_app_routers_requests_helpers_generate_sn",
-      "community": 17,
-      "community_name": "Request Items and Router",
+      "community": 237,
+      "community_name": "migrate gate pass pr fields",
       "norm_label": "generate_sn()"
     },
     {
@@ -12642,8 +12543,8 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "backend_app_routers_requests_helpers_log_history",
-      "community": 17,
-      "community_name": "Request Items and Router",
+      "community": 237,
+      "community_name": "migrate gate pass pr fields",
       "norm_label": "log_history()"
     },
     {
@@ -12653,8 +12554,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "requesthistory",
-      "community": 17,
-      "community_name": "Request Items and Router",
+      "community": 237,
+      "community_name": "migrate gate pass pr fields",
       "norm_label": "requesthistory"
     },
     {
@@ -12664,8 +12565,8 @@
       "source_location": "L87",
       "_origin": "ast",
       "id": "backend_app_routers_requests_helpers_notify_department_users",
-      "community": 17,
-      "community_name": "Request Items and Router",
+      "community": 237,
+      "community_name": "migrate gate pass pr fields",
       "norm_label": "notify_department_users()"
     },
     {
@@ -12675,8 +12576,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_routers_requests_helpers_rationale_1",
-      "community": 17,
-      "community_name": "Request Items and Router",
+      "community": 237,
+      "community_name": "migrate gate pass pr fields",
       "norm_label": "helpers used by both the new /requests router and the legacy shims."
     },
     {
@@ -12719,8 +12620,8 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "backend_app_routers_requests_helpers_rationale_55",
-      "community": 17,
-      "community_name": "Request Items and Router",
+      "community": 237,
+      "community_name": "migrate gate pass pr fields",
       "norm_label": "generate the next serial number transactionally."
     },
     {
@@ -12730,8 +12631,8 @@
       "source_location": "L95",
       "_origin": "ast",
       "id": "backend_app_routers_requests_helpers_rationale_95",
-      "community": 17,
-      "community_name": "Request Items and Router",
+      "community": 237,
+      "community_name": "migrate gate pass pr fields",
       "norm_label": "create a notification for every active user belonging to the department     whos"
     },
     {
@@ -13236,8 +13137,8 @@
       "source_location": "L58",
       "_origin": "ast",
       "id": "backend_app_routers_spares_categorycreate",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 13,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "categorycreate"
     },
     {
@@ -13247,8 +13148,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_routers_spares_py_basemodel",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 13,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "basemodel"
     },
     {
@@ -13258,8 +13159,8 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "backend_app_routers_spares_categoryupdate",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 13,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "categoryupdate"
     },
     {
@@ -13280,8 +13181,8 @@
       "source_location": "L81",
       "_origin": "ast",
       "id": "backend_app_routers_spares_subcategorycreate",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 13,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "subcategorycreate"
     },
     {
@@ -13291,8 +13192,8 @@
       "source_location": "L86",
       "_origin": "ast",
       "id": "backend_app_routers_spares_subcategoryupdate",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 13,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "subcategoryupdate"
     },
     {
@@ -13313,8 +13214,8 @@
       "source_location": "L107",
       "_origin": "ast",
       "id": "backend_app_routers_spares_itemcreate",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 13,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "itemcreate"
     },
     {
@@ -13324,8 +13225,8 @@
       "source_location": "L121",
       "_origin": "ast",
       "id": "backend_app_routers_spares_itemupdate",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 13,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "itemupdate"
     },
     {
@@ -13346,8 +13247,8 @@
       "source_location": "L159",
       "_origin": "ast",
       "id": "backend_app_routers_spares_adjustrequest",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 13,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "adjustrequest"
     },
     {
@@ -13357,8 +13258,8 @@
       "source_location": "L165",
       "_origin": "ast",
       "id": "backend_app_routers_spares_itemhistoryout",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 13,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "itemhistoryout"
     },
     {
@@ -13368,8 +13269,8 @@
       "source_location": "L179",
       "_origin": "ast",
       "id": "backend_app_routers_spares_variantcreate",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 13,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "variantcreate"
     },
     {
@@ -13379,8 +13280,8 @@
       "source_location": "L191",
       "_origin": "ast",
       "id": "backend_app_routers_spares_variantupdate",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 13,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "variantupdate"
     },
     {
@@ -13401,8 +13302,8 @@
       "source_location": "L221",
       "_origin": "ast",
       "id": "backend_app_routers_spares_searchitemout",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 13,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "searchitemout"
     },
     {
@@ -13412,8 +13313,8 @@
       "source_location": "L237",
       "_origin": "ast",
       "id": "backend_app_routers_spares_variantsearchout",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 13,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "variantsearchout"
     },
     {
@@ -13863,8 +13764,8 @@
       "source_location": "L1089",
       "_origin": "ast",
       "id": "backend_app_routers_spares_search_variants",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 13,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "search_variants()"
     },
     {
@@ -13874,8 +13775,8 @@
       "source_location": "L1183",
       "_origin": "ast",
       "id": "backend_app_routers_spares_search_all_items",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 13,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "search_all_items()"
     },
     {
@@ -13896,8 +13797,8 @@
       "source_location": "L222",
       "_origin": "ast",
       "id": "backend_app_routers_spares_rationale_222",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 13,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "flat result for global search across all spares."
     },
     {
@@ -13907,8 +13808,8 @@
       "source_location": "L238",
       "_origin": "ast",
       "id": "backend_app_routers_spares_rationale_238",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 13,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "flat result for variant search \u2014 used by the create request combobox."
     },
     {
@@ -13940,8 +13841,8 @@
       "source_location": "L1095",
       "_origin": "ast",
       "id": "backend_app_routers_spares_rationale_1095",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 13,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "search active variants with category/sub-category context \u2014 for the create reque"
     },
     {
@@ -13951,8 +13852,8 @@
       "source_location": "L1188",
       "_origin": "ast",
       "id": "backend_app_routers_spares_rationale_1188",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 13,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "return spare items matching q across all categories/sub-categories."
     },
     {
@@ -16063,8 +15964,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_services_units",
-      "community": 93,
-      "community_name": "Consumables Data Model",
+      "community": 182,
+      "community_name": "FastAPI",
       "norm_label": "units.py"
     },
     {
@@ -16074,8 +15975,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "backend_app_services_units_resolve_unit_id",
-      "community": 93,
-      "community_name": "Consumables Data Model",
+      "community": 27,
+      "community_name": "Database Session and Auth Core",
       "norm_label": "resolve_unit_id()"
     },
     {
@@ -16085,8 +15986,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "backend_app_services_units_py_session",
-      "community": 93,
-      "community_name": "Consumables Data Model",
+      "community": 27,
+      "community_name": "Database Session and Auth Core",
       "norm_label": "session"
     },
     {
@@ -16096,8 +15997,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_services_units_rationale_1",
-      "community": 93,
-      "community_name": "Consumables Data Model",
+      "community": 182,
+      "community_name": "FastAPI",
       "norm_label": "unit reference normalization for legacy and current clients."
     },
     {
@@ -16107,8 +16008,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_services_workflow",
-      "community": 93,
-      "community_name": "Consumables Data Model",
+      "community": 182,
+      "community_name": "FastAPI",
       "norm_label": "workflow.py"
     },
     {
@@ -16118,8 +16019,8 @@
       "source_location": "L50",
       "_origin": "ast",
       "id": "backend_app_services_workflow_ensure_transition",
-      "community": 93,
-      "community_name": "Consumables Data Model",
+      "community": 182,
+      "community_name": "FastAPI",
       "norm_label": "ensure_transition()"
     },
     {
@@ -16129,8 +16030,8 @@
       "source_location": "L65",
       "_origin": "ast",
       "id": "backend_app_services_workflow_ensure_inventory_identity",
-      "community": 93,
-      "community_name": "Consumables Data Model",
+      "community": 27,
+      "community_name": "Database Session and Auth Core",
       "norm_label": "ensure_inventory_identity()"
     },
     {
@@ -16140,8 +16041,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_app_services_workflow_rationale_1",
-      "community": 93,
-      "community_name": "Consumables Data Model",
+      "community": 182,
+      "community_name": "FastAPI",
       "norm_label": "shared workflow status and stock-identity rules."
     },
     {
@@ -16550,8 +16451,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_seed",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 180,
+      "community_name": "PurchaseRequestItem Module",
       "norm_label": "seed.py"
     },
     {
@@ -16561,8 +16462,8 @@
       "source_location": "L59",
       "_origin": "ast",
       "id": "backend_seed_future_date",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 180,
+      "community_name": "PurchaseRequestItem Module",
       "norm_label": "future_date()"
     },
     {
@@ -16572,8 +16473,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_seed_rationale_1",
-      "community": 41,
-      "community_name": "login Module",
+      "community": 180,
+      "community_name": "PurchaseRequestItem Module",
       "norm_label": "oneflow comprehensive seed script. wipes the database and re-creates it with rea"
     },
     {
@@ -17540,8 +17441,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_tests_test_inactive_inventory_cleanup_migration",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 19,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "test_inactive_inventory_cleanup_migration.py"
     },
     {
@@ -17551,8 +17452,8 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "backend_tests_test_inactive_inventory_cleanup_migration_test_cleanup_migration_never_changes_active_quantities",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 19,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "test_cleanup_migration_never_changes_active_quantities()"
     },
     {
@@ -17562,8 +17463,8 @@
       "source_location": "L76",
       "_origin": "ast",
       "id": "backend_tests_test_inactive_inventory_cleanup_migration_test_cleanup_migration_handles_legacy_history_required_columns",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 19,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "test_cleanup_migration_handles_legacy_history_required_columns()"
     },
     {
@@ -17595,8 +17496,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_tests_test_inventory_deletion_quantities",
-      "community": 180,
-      "community_name": "PurchaseRequestItem Module",
+      "community": 19,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "test_inventory_deletion_quantities.py"
     },
     {
@@ -17606,8 +17507,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "backend_tests_test_inventory_deletion_quantities_auth",
-      "community": 180,
-      "community_name": "PurchaseRequestItem Module",
+      "community": 19,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "_auth()"
     },
     {
@@ -17617,8 +17518,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "backend_tests_test_inventory_deletion_quantities_test_deleting_stock_clears_only_deleted_items",
-      "community": 180,
-      "community_name": "PurchaseRequestItem Module",
+      "community": 19,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "test_deleting_stock_clears_only_deleted_items()"
     },
     {
@@ -17650,8 +17551,8 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "backend_tests_test_inventory_leaf_deductions_setup_weeder_with_items",
-      "community": 23,
-      "community_name": "Weeder Category Model",
+      "community": 77,
+      "community_name": "migrate production plan v3",
       "norm_label": "_setup_weeder_with_items()"
     },
     {
@@ -17793,8 +17694,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "backend_tests_test_inventory_reconciliation_test_reconciliation_reports_mismatches_and_never_mutates",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 19,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "test_reconciliation_reports_mismatches_and_never_mutates()"
     },
     {
@@ -17823,7 +17724,7 @@
       "label": "_config()",
       "file_type": "code",
       "source_file": "backend/tests/test_legacy_schema_request_repair_migration.py",
-      "source_location": "L14",
+      "source_location": "L13",
       "_origin": "ast",
       "id": "backend_tests_test_legacy_schema_request_repair_migration_config",
       "community": 190,
@@ -17834,7 +17735,7 @@
       "label": "test_repair_maps_units_without_changing_active_quantity()",
       "file_type": "code",
       "source_file": "backend/tests/test_legacy_schema_request_repair_migration.py",
-      "source_location": "L20",
+      "source_location": "L19",
       "_origin": "ast",
       "id": "backend_tests_test_legacy_schema_request_repair_migration_test_repair_maps_units_without_changing_active_quantity",
       "community": 190,
@@ -17845,7 +17746,7 @@
       "label": "test_repair_restores_legacy_purchase_requests()",
       "file_type": "code",
       "source_file": "backend/tests/test_legacy_schema_request_repair_migration.py",
-      "source_location": "L58",
+      "source_location": "L57",
       "_origin": "ast",
       "id": "backend_tests_test_legacy_schema_request_repair_migration_test_repair_restores_legacy_purchase_requests",
       "community": 190,
@@ -17856,23 +17757,12 @@
       "label": "test_repair_rebuilds_legacy_receipt_for_current_orm_inserts()",
       "file_type": "code",
       "source_file": "backend/tests/test_legacy_schema_request_repair_migration.py",
-      "source_location": "L95",
+      "source_location": "L94",
       "_origin": "ast",
       "id": "backend_tests_test_legacy_schema_request_repair_migration_test_repair_rebuilds_legacy_receipt_for_current_orm_inserts",
       "community": 190,
       "community_name": "test legacy schema request repair",
       "norm_label": "test_repair_rebuilds_legacy_receipt_for_current_orm_inserts()"
-    },
-    {
-      "label": "test_repair_removes_required_legacy_inventory_unit_for_current_orm_inserts()",
-      "file_type": "code",
-      "source_file": "backend/tests/test_legacy_schema_request_repair_migration.py",
-      "source_location": "L183",
-      "_origin": "ast",
-      "id": "backend_tests_test_legacy_schema_request_repair_migration_test_repair_removes_required_legacy_inventory_unit_for_current_orm_inserts",
-      "community": 190,
-      "community_name": "test legacy schema request repair",
-      "norm_label": "test_repair_removes_required_legacy_inventory_unit_for_current_orm_inserts()"
     },
     {
       "label": "test_production_status_cascade.py",
@@ -18629,8 +18519,8 @@
       "source_location": "L131",
       "_origin": "ast",
       "id": "backend_tests_test_request_completion_deduction_test_set_status_received_deducts_spare_variant",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 83,
+      "community_name": "RequestItem Module",
       "norm_label": "test_set_status_received_deducts_spare_variant()"
     },
     {
@@ -19245,8 +19135,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_tests_test_spares_stock_adjustment",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 19,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "test_spares_stock_adjustment.py"
     },
     {
@@ -19256,8 +19146,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "backend_tests_test_spares_stock_adjustment_test_reducing_spare_item_updates_parent_and_variant_inventory",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 19,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "test_reducing_spare_item_updates_parent_and_variant_inventory()"
     },
     {
@@ -19267,8 +19157,8 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "backend_tests_test_spares_stock_adjustment_test_negative_spare_reduction_is_rejected",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 19,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "test_negative_spare_reduction_is_rejected()"
     },
     {
@@ -19278,8 +19168,8 @@
       "source_location": "L72",
       "_origin": "ast",
       "id": "backend_tests_test_spares_stock_adjustment_test_variant_history_is_scoped_to_each_individual_part",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 19,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "test_variant_history_is_scoped_to_each_individual_part()"
     },
     {
@@ -19289,8 +19179,8 @@
       "source_location": "L109",
       "_origin": "ast",
       "id": "backend_tests_test_spares_stock_adjustment_test_category_value_uses_only_active_variants_and_clears_last_deleted_variant",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 19,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "test_category_value_uses_only_active_variants_and_clears_last_deleted_variant()"
     },
     {
@@ -19300,8 +19190,8 @@
       "source_location": "L152",
       "_origin": "ast",
       "id": "backend_tests_test_spares_stock_adjustment_test_dashboard_inventory_value_excludes_inactive_items",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 19,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "test_dashboard_inventory_value_excludes_inactive_items()"
     },
     {
@@ -19311,8 +19201,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_tests_test_spares_stock_adjustment_rationale_1",
-      "community": 2,
-      "community_name": "Consumables Data Model",
+      "community": 19,
+      "community_name": "Spare Parts Data Model",
       "norm_label": "regression coverage for reducing spare inventory."
     },
     {
@@ -19363,7 +19253,7 @@
       "label": "test_upgrade_stops_when_revision_does_not_advance()",
       "file_type": "code",
       "source_file": "backend/tests/test_startup_migrations.py",
-      "source_location": "L68",
+      "source_location": "L67",
       "_origin": "ast",
       "id": "backend_tests_test_startup_migrations_test_upgrade_stops_when_revision_does_not_advance",
       "community": 82,
@@ -29266,8 +29156,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "frontend_package_dependencies_base_ui_react",
-      "community": 73,
-      "community_name": "@hugeicons/react Module",
+      "community": 345,
+      "community_name": "@base-ui/react",
       "norm_label": "@base-ui/react"
     },
     {
@@ -29277,8 +29167,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "frontend_package_json_base_ui_react",
-      "community": 73,
-      "community_name": "@hugeicons/react Module",
+      "community": 345,
+      "community_name": "@base-ui/react",
       "norm_label": "@base-ui/react"
     },
     {
@@ -29442,8 +29332,8 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "frontend_package_dependencies_next",
-      "community": 325,
-      "community_name": "_migrate_job_card_worker_id",
+      "community": 73,
+      "community_name": "@hugeicons/react Module",
       "norm_label": "next"
     },
     {
@@ -29453,8 +29343,8 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "next",
-      "community": 325,
-      "community_name": "_migrate_job_card_worker_id",
+      "community": 73,
+      "community_name": "@hugeicons/react Module",
       "norm_label": "next"
     },
     {
@@ -32361,7 +32251,7 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "tanstack_frontend_src_components_inventory_item_form_blank_item_form",
-      "community": 4,
+      "community": 0,
       "community_name": "migrate dispatch supplier fields",
       "norm_label": "blank_item_form"
     },
@@ -32383,7 +32273,7 @@
       "source_location": "L68",
       "_origin": "ast",
       "id": "tanstack_frontend_src_components_inventory_item_form_itemform",
-      "community": 4,
+      "community": 0,
       "community_name": "migrate dispatch supplier fields",
       "norm_label": "itemform()"
     },
@@ -32482,8 +32372,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tanstack_frontend_src_components_layout_desktop_sidebar",
-      "community": 10,
-      "community_name": "migrate dispatch supplier fields",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "desktop-sidebar.tsx"
     },
     {
@@ -32493,8 +32383,8 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "tanstack_frontend_src_components_layout_desktop_sidebar_navitem",
-      "community": 10,
-      "community_name": "migrate dispatch supplier fields",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "navitem"
     },
     {
@@ -32504,8 +32394,8 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "tanstack_frontend_src_components_layout_desktop_sidebar_core_nav",
-      "community": 10,
-      "community_name": "migrate dispatch supplier fields",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "core_nav"
     },
     {
@@ -32515,8 +32405,8 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "tanstack_frontend_src_components_layout_desktop_sidebar_admin_core_nav",
-      "community": 10,
-      "community_name": "migrate dispatch supplier fields",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "admin_core_nav"
     },
     {
@@ -32526,8 +32416,8 @@
       "source_location": "L47",
       "_origin": "ast",
       "id": "tanstack_frontend_src_components_layout_desktop_sidebar_admin_nav",
-      "community": 10,
-      "community_name": "migrate dispatch supplier fields",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "admin_nav"
     },
     {
@@ -32537,8 +32427,8 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "tanstack_frontend_src_components_layout_desktop_sidebar_desktopsidebar",
-      "community": 10,
-      "community_name": "migrate dispatch supplier fields",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "desktopsidebar()"
     },
     {
@@ -32735,8 +32625,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "tanstack_frontend_src_components_requests_customer_dispatch_block_customerdispatchblock",
-      "community": 4,
-      "community_name": "migrate dispatch supplier fields",
+      "community": 1,
+      "community_name": "marketing requests",
       "norm_label": "customerdispatchblock()"
     },
     {
@@ -32757,8 +32647,8 @@
       "source_location": "L49",
       "_origin": "ast",
       "id": "tanstack_frontend_src_components_requests_request_detail_dialog_requestdetaildialogprops",
-      "community": 10,
-      "community_name": "migrate dispatch supplier fields",
+      "community": 9,
+      "community_name": "Layout and Empty State Components",
       "norm_label": "requestdetaildialogprops"
     },
     {
@@ -33780,8 +33670,8 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "tanstack_frontend_src_components_ui_dialog_dialogoverlay",
-      "community": 1,
-      "community_name": "marketing requests",
+      "community": 66,
+      "community_name": "auth.dashboard.dispatch Module",
       "norm_label": "dialogoverlay()"
     },
     {
@@ -34440,8 +34330,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tanstack_frontend_src_components_ui_separator",
-      "community": 1,
-      "community_name": "marketing requests",
+      "community": 239,
+      "community_name": "bom Module",
       "norm_label": "separator.tsx"
     },
     {
@@ -34451,8 +34341,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "tanstack_frontend_src_components_ui_separator_separator",
-      "community": 1,
-      "community_name": "marketing requests",
+      "community": 239,
+      "community_name": "bom Module",
       "norm_label": "separator()"
     },
     {
@@ -34583,8 +34473,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tanstack_frontend_src_components_ui_skeleton",
-      "community": 66,
-      "community_name": "auth.dashboard.dispatch Module",
+      "community": 0,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "skeleton.tsx"
     },
     {
@@ -34594,8 +34484,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "tanstack_frontend_src_components_ui_skeleton_skeleton",
-      "community": 66,
-      "community_name": "auth.dashboard.dispatch Module",
+      "community": 0,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "skeleton()"
     },
     {
@@ -34869,8 +34759,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tanstack_frontend_src_lib_api",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 4,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "api.ts"
     },
     {
@@ -34880,8 +34770,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "tanstack_frontend_src_lib_api_fetchoptions",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 4,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "fetchoptions"
     },
     {
@@ -34891,8 +34781,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "tanstack_frontend_src_lib_api_refreshaccesstoken",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 4,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "refreshaccesstoken()"
     },
     {
@@ -34902,7 +34792,7 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "tanstack_frontend_src_lib_api_apifetch",
-      "community": 4,
+      "community": 0,
       "community_name": "migrate dispatch supplier fields",
       "norm_label": "apifetch()"
     },
@@ -34946,8 +34836,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "tanstack_frontend_src_lib_auth_setaccesstoken",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 4,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "setaccesstoken()"
     },
     {
@@ -35089,8 +34979,8 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "tanstack_frontend_src_lib_print_report_fetchallpages",
-      "community": 26,
-      "community_name": "auth.dashboard.production.time report",
+      "community": 0,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "fetchallpages()"
     },
     {
@@ -35100,8 +34990,8 @@
       "source_location": "L111",
       "_origin": "ast",
       "id": "tanstack_frontend_src_lib_print_report_openprintwindow",
-      "community": 9,
-      "community_name": "Layout and Empty State Components",
+      "community": 26,
+      "community_name": "auth.dashboard.production.time report",
       "norm_label": "openprintwindow()"
     },
     {
@@ -35199,8 +35089,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tanstack_frontend_src_lib_receipts",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 66,
+      "community_name": "auth.dashboard.dispatch Module",
       "norm_label": "receipts.ts"
     },
     {
@@ -35210,8 +35100,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "tanstack_frontend_src_lib_receipts_receiptstatus",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 66,
+      "community_name": "auth.dashboard.dispatch Module",
       "norm_label": "receiptstatus"
     },
     {
@@ -35221,8 +35111,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "tanstack_frontend_src_lib_receipts_receiptitem",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 66,
+      "community_name": "auth.dashboard.dispatch Module",
       "norm_label": "receiptitem"
     },
     {
@@ -35232,8 +35122,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "tanstack_frontend_src_lib_receipts_receipt",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 66,
+      "community_name": "auth.dashboard.dispatch Module",
       "norm_label": "receipt"
     },
     {
@@ -35243,8 +35133,8 @@
       "source_location": "L48",
       "_origin": "ast",
       "id": "tanstack_frontend_src_lib_receipts_createreceiptpayload",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 66,
+      "community_name": "auth.dashboard.dispatch Module",
       "norm_label": "createreceiptpayload"
     },
     {
@@ -35254,8 +35144,8 @@
       "source_location": "L54",
       "_origin": "ast",
       "id": "tanstack_frontend_src_lib_receipts_receiptsapi",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 66,
+      "community_name": "auth.dashboard.dispatch Module",
       "norm_label": "receiptsapi"
     },
     {
@@ -35463,8 +35353,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tanstack_frontend_src_lib_user",
-      "community": 10,
-      "community_name": "migrate dispatch supplier fields",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "user.ts"
     },
     {
@@ -35485,8 +35375,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "tanstack_frontend_src_lib_user_inventorytype",
-      "community": 10,
-      "community_name": "migrate dispatch supplier fields",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "inventorytype"
     },
     {
@@ -35507,8 +35397,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "tanstack_frontend_src_lib_user_currentuser",
-      "community": 10,
-      "community_name": "migrate dispatch supplier fields",
+      "community": 9,
+      "community_name": "Layout and Empty State Components",
       "norm_label": "currentuser"
     },
     {
@@ -35518,8 +35408,8 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "tanstack_frontend_src_lib_user_setcurrentuser",
-      "community": 10,
-      "community_name": "migrate dispatch supplier fields",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "setcurrentuser()"
     },
     {
@@ -35529,8 +35419,8 @@
       "source_location": "L48",
       "_origin": "ast",
       "id": "tanstack_frontend_src_lib_user_getcurrentuser",
-      "community": 10,
-      "community_name": "migrate dispatch supplier fields",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "getcurrentuser()"
     },
     {
@@ -35540,8 +35430,8 @@
       "source_location": "L59",
       "_origin": "ast",
       "id": "tanstack_frontend_src_lib_user_refreshcurrentuser",
-      "community": 10,
-      "community_name": "migrate dispatch supplier fields",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "refreshcurrentuser()"
     },
     {
@@ -35551,8 +35441,8 @@
       "source_location": "L83",
       "_origin": "ast",
       "id": "tanstack_frontend_src_lib_user_clearcurrentuser",
-      "community": 10,
-      "community_name": "migrate dispatch supplier fields",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "clearcurrentuser()"
     },
     {
@@ -35562,8 +35452,8 @@
       "source_location": "L87",
       "_origin": "ast",
       "id": "tanstack_frontend_src_lib_user_isadmin",
-      "community": 9,
-      "community_name": "Layout and Empty State Components",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "isadmin()"
     },
     {
@@ -35584,8 +35474,8 @@
       "source_location": "L96",
       "_origin": "ast",
       "id": "tanstack_frontend_src_lib_user_issuperadmin",
-      "community": 10,
-      "community_name": "migrate dispatch supplier fields",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "issuperadmin()"
     },
     {
@@ -35595,8 +35485,8 @@
       "source_location": "L100",
       "_origin": "ast",
       "id": "tanstack_frontend_src_lib_user_isworker",
-      "community": 10,
-      "community_name": "migrate dispatch supplier fields",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "isworker()"
     },
     {
@@ -35606,8 +35496,8 @@
       "source_location": "L104",
       "_origin": "ast",
       "id": "tanstack_frontend_src_lib_user_ismanager",
-      "community": 10,
-      "community_name": "migrate dispatch supplier fields",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "ismanager()"
     },
     {
@@ -35617,8 +35507,8 @@
       "source_location": "L108",
       "_origin": "ast",
       "id": "tanstack_frontend_src_lib_user_ismanagerorworker",
-      "community": 10,
-      "community_name": "migrate dispatch supplier fields",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "ismanagerorworker()"
     },
     {
@@ -35639,8 +35529,8 @@
       "source_location": "L134",
       "_origin": "ast",
       "id": "tanstack_frontend_src_lib_user_caneditinventory",
-      "community": 0,
-      "community_name": "migrate dispatch supplier fields",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "caneditinventory()"
     },
     {
@@ -35650,8 +35540,8 @@
       "source_location": "L146",
       "_origin": "ast",
       "id": "tanstack_frontend_src_lib_user_canrequestfromdept",
-      "community": 10,
-      "community_name": "migrate dispatch supplier fields",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "canrequestfromdept()"
     },
     {
@@ -35661,8 +35551,8 @@
       "source_location": "L158",
       "_origin": "ast",
       "id": "tanstack_frontend_src_lib_user_canrequestinventory",
-      "community": 10,
-      "community_name": "migrate dispatch supplier fields",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "canrequestinventory()"
     },
     {
@@ -37333,8 +37223,8 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_admin_departments_id_edit_editdepartmentpage",
-      "community": 10,
-      "community_name": "migrate dispatch supplier fields",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "editdepartmentpage()"
     },
     {
@@ -37421,7 +37311,7 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_admin_departments_new_newdepartmentpage",
-      "community": 10,
+      "community": 4,
       "community_name": "migrate dispatch supplier fields",
       "norm_label": "newdepartmentpage()"
     },
@@ -38477,8 +38367,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_history",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 66,
+      "community_name": "auth.dashboard.dispatch Module",
       "norm_label": "_auth.dashboard.history.tsx"
     },
     {
@@ -38499,8 +38389,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_history_dynto",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 66,
+      "community_name": "auth.dashboard.dispatch Module",
       "norm_label": "dynto()"
     },
     {
@@ -38510,8 +38400,8 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_history_historyitem",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 66,
+      "community_name": "auth.dashboard.dispatch Module",
       "norm_label": "historyitem"
     },
     {
@@ -38521,8 +38411,8 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_history_historypage",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 66,
+      "community_name": "auth.dashboard.dispatch Module",
       "norm_label": "historypage"
     },
     {
@@ -38532,8 +38422,8 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_history_tabstate",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 66,
+      "community_name": "auth.dashboard.dispatch Module",
       "norm_label": "tabstate"
     },
     {
@@ -38543,8 +38433,8 @@
       "source_location": "L71",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_history_tabs",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 66,
+      "community_name": "auth.dashboard.dispatch Module",
       "norm_label": "tabs"
     },
     {
@@ -38554,8 +38444,8 @@
       "source_location": "L88",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_history_tabkey",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 66,
+      "community_name": "auth.dashboard.dispatch Module",
       "norm_label": "tabkey"
     },
     {
@@ -38565,8 +38455,8 @@
       "source_location": "L92",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_history_initial_tab_state",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 66,
+      "community_name": "auth.dashboard.dispatch Module",
       "norm_label": "initial_tab_state"
     },
     {
@@ -38576,8 +38466,8 @@
       "source_location": "L101",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_history_fmtdate",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 66,
+      "community_name": "auth.dashboard.dispatch Module",
       "norm_label": "fmtdate()"
     },
     {
@@ -38587,8 +38477,8 @@
       "source_location": "L110",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_history_changetypebadge",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 66,
+      "community_name": "auth.dashboard.dispatch Module",
       "norm_label": "changetypebadge()"
     },
     {
@@ -38598,8 +38488,8 @@
       "source_location": "L126",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_history_deltabadge",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 66,
+      "community_name": "auth.dashboard.dispatch Module",
       "norm_label": "deltabadge()"
     },
     {
@@ -38609,8 +38499,8 @@
       "source_location": "L138",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_history_inventorycolumns",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 66,
+      "community_name": "auth.dashboard.dispatch Module",
       "norm_label": "inventorycolumns()"
     },
     {
@@ -38620,8 +38510,8 @@
       "source_location": "L153",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_history_requestcolumns",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 66,
+      "community_name": "auth.dashboard.dispatch Module",
       "norm_label": "requestcolumns()"
     },
     {
@@ -38631,8 +38521,8 @@
       "source_location": "L168",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_history_schedulecolumns",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 66,
+      "community_name": "auth.dashboard.dispatch Module",
       "norm_label": "schedulecolumns()"
     },
     {
@@ -38642,8 +38532,8 @@
       "source_location": "L182",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_history_qtycolumns",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 66,
+      "community_name": "auth.dashboard.dispatch Module",
       "norm_label": "qtycolumns()"
     },
     {
@@ -38653,8 +38543,8 @@
       "source_location": "L200",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_history_headers",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 66,
+      "community_name": "auth.dashboard.dispatch Module",
       "norm_label": "headers"
     },
     {
@@ -38664,8 +38554,8 @@
       "source_location": "L217",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_history_rowcells",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 66,
+      "community_name": "auth.dashboard.dispatch Module",
       "norm_label": "rowcells()"
     },
     {
@@ -38675,8 +38565,8 @@
       "source_location": "L237",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_history_skeletonrows",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 66,
+      "community_name": "auth.dashboard.dispatch Module",
       "norm_label": "skeletonrows()"
     },
     {
@@ -38686,8 +38576,8 @@
       "source_location": "L255",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_history_historycard",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 66,
+      "community_name": "auth.dashboard.dispatch Module",
       "norm_label": "historycard()"
     },
     {
@@ -38895,7 +38785,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_inventory_id_edit",
-      "community": 4,
+      "community": 0,
       "community_name": "migrate dispatch supplier fields",
       "norm_label": "_auth.dashboard.inventory.$id.edit.tsx"
     },
@@ -38906,7 +38796,7 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_inventory_id_edit_itemdetail",
-      "community": 4,
+      "community": 0,
       "community_name": "migrate dispatch supplier fields",
       "norm_label": "itemdetail"
     },
@@ -39126,7 +39016,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_inventory_attachments",
-      "community": 4,
+      "community": 0,
       "community_name": "migrate dispatch supplier fields",
       "norm_label": "_auth.dashboard.inventory.attachments.tsx"
     },
@@ -39148,7 +39038,7 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_inventory_attachments_attachmentitem",
-      "community": 4,
+      "community": 0,
       "community_name": "migrate dispatch supplier fields",
       "norm_label": "attachmentitem"
     },
@@ -39159,7 +39049,7 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_inventory_attachments_paginated",
-      "community": 4,
+      "community": 0,
       "community_name": "migrate dispatch supplier fields",
       "norm_label": "paginated"
     },
@@ -39170,7 +39060,7 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_inventory_attachments_attachmentdocument",
-      "community": 4,
+      "community": 0,
       "community_name": "migrate dispatch supplier fields",
       "norm_label": "attachmentdocument"
     },
@@ -39181,7 +39071,7 @@
       "source_location": "L70",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_inventory_attachments_historyentry",
-      "community": 4,
+      "community": 0,
       "community_name": "migrate dispatch supplier fields",
       "norm_label": "historyentry"
     },
@@ -39192,7 +39082,7 @@
       "source_location": "L86",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_inventory_attachments_fmtrate",
-      "community": 4,
+      "community": 0,
       "community_name": "migrate dispatch supplier fields",
       "norm_label": "fmtrate()"
     },
@@ -39203,7 +39093,7 @@
       "source_location": "L90",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_inventory_attachments_fmtdate",
-      "community": 4,
+      "community": 0,
       "community_name": "migrate dispatch supplier fields",
       "norm_label": "fmtdate()"
     },
@@ -39214,7 +39104,7 @@
       "source_location": "L94",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_inventory_attachments_blank",
-      "community": 4,
+      "community": 0,
       "community_name": "migrate dispatch supplier fields",
       "norm_label": "blank"
     },
@@ -39225,7 +39115,7 @@
       "source_location": "L96",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_inventory_attachments_displayname",
-      "community": 4,
+      "community": 0,
       "community_name": "migrate dispatch supplier fields",
       "norm_label": "displayname()"
     },
@@ -39236,7 +39126,7 @@
       "source_location": "L102",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_inventory_attachments_attachmentspage",
-      "community": 4,
+      "community": 0,
       "community_name": "migrate dispatch supplier fields",
       "norm_label": "attachmentspage()"
     },
@@ -39874,8 +39764,8 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_inventory_new_route",
-      "community": 37,
-      "community_name": "auth.dashboard.index Module",
+      "community": 4,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "route"
     },
     {
@@ -40908,7 +40798,7 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_production_planning_index_dynto",
-      "community": 4,
+      "community": 0,
       "community_name": "migrate dispatch supplier fields",
       "norm_label": "dynto()"
     },
@@ -40996,7 +40886,7 @@
       "source_location": "L106",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_production_planning_index_planningpage",
-      "community": 4,
+      "community": 0,
       "community_name": "migrate dispatch supplier fields",
       "norm_label": "planningpage()"
     },
@@ -41161,8 +41051,8 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_production_processing_id_index_dynto",
-      "community": 4,
-      "community_name": "migrate dispatch supplier fields",
+      "community": 66,
+      "community_name": "auth.dashboard.dispatch Module",
       "norm_label": "dynto()"
     },
     {
@@ -41260,8 +41150,8 @@
       "source_location": "L104",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_production_processing_id_index_productionorderdetailpage",
-      "community": 4,
-      "community_name": "migrate dispatch supplier fields",
+      "community": 66,
+      "community_name": "auth.dashboard.dispatch Module",
       "norm_label": "productionorderdetailpage()"
     },
     {
@@ -41425,7 +41315,7 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_production_processing_index_dynto",
-      "community": 4,
+      "community": 0,
       "community_name": "migrate dispatch supplier fields",
       "norm_label": "dynto()"
     },
@@ -41524,7 +41414,7 @@
       "source_location": "L119",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_production_processing_index_productionorderspage",
-      "community": 4,
+      "community": 0,
       "community_name": "migrate dispatch supplier fields",
       "norm_label": "productionorderspage()"
     },
@@ -41843,8 +41733,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_purchase_orders",
-      "community": 27,
-      "community_name": "Database Session and Auth Core",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "_auth.dashboard.purchase-orders.tsx"
     },
     {
@@ -41854,8 +41744,8 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_purchase_orders_poitem",
-      "community": 27,
-      "community_name": "Database Session and Auth Core",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "poitem"
     },
     {
@@ -41865,8 +41755,8 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_purchase_orders_purchaseorder",
-      "community": 27,
-      "community_name": "Database Session and Auth Core",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "purchaseorder"
     },
     {
@@ -41876,8 +41766,8 @@
       "source_location": "L53",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_purchase_orders_inventoryitem",
-      "community": 27,
-      "community_name": "Database Session and Auth Core",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "inventoryitem"
     },
     {
@@ -41887,8 +41777,8 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_purchase_orders_apirecord",
-      "community": 27,
-      "community_name": "Database Session and Auth Core",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "apirecord"
     },
     {
@@ -41898,8 +41788,8 @@
       "source_location": "L63",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_purchase_orders_purchaserequestdetail",
-      "community": 27,
-      "community_name": "Database Session and Auth Core",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "purchaserequestdetail"
     },
     {
@@ -41909,8 +41799,8 @@
       "source_location": "L69",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_purchase_orders_purchaserequestoption",
-      "community": 27,
-      "community_name": "Database Session and Auth Core",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "purchaserequestoption"
     },
     {
@@ -41920,8 +41810,8 @@
       "source_location": "L76",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_purchase_orders_status_colors",
-      "community": 27,
-      "community_name": "Database Session and Auth Core",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "status_colors"
     },
     {
@@ -41931,8 +41821,8 @@
       "source_location": "L82",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_purchase_orders_statuses",
-      "community": 27,
-      "community_name": "Database Session and Auth Core",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "statuses"
     },
     {
@@ -41942,8 +41832,8 @@
       "source_location": "L84",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_purchase_orders_inventory_types",
-      "community": 27,
-      "community_name": "Database Session and Auth Core",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "inventory_types"
     },
     {
@@ -41953,8 +41843,8 @@
       "source_location": "L94",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_purchase_orders_inventory_labels",
-      "community": 27,
-      "community_name": "Database Session and Auth Core",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "inventory_labels"
     },
     {
@@ -41964,8 +41854,8 @@
       "source_location": "L104",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_purchase_orders_textvalue",
-      "community": 27,
-      "community_name": "Database Session and Auth Core",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "textvalue()"
     },
     {
@@ -41975,8 +41865,8 @@
       "source_location": "L108",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_purchase_orders_numbervalue",
-      "community": 27,
-      "community_name": "Database Session and Auth Core",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "numbervalue()"
     },
     {
@@ -41986,8 +41876,8 @@
       "source_location": "L112",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_purchase_orders_itemrows",
-      "community": 27,
-      "community_name": "Database Session and Auth Core",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "itemrows()"
     },
     {
@@ -41997,8 +41887,8 @@
       "source_location": "L118",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_purchase_orders_permittedinventorytypes",
-      "community": 27,
-      "community_name": "Database Session and Auth Core",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "permittedinventorytypes()"
     },
     {
@@ -42008,8 +41898,8 @@
       "source_location": "L125",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_purchase_orders_fetchinventoryitems",
-      "community": 27,
-      "community_name": "Database Session and Auth Core",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "fetchinventoryitems()"
     },
     {
@@ -42019,8 +41909,8 @@
       "source_location": "L173",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_purchase_orders_blank_item",
-      "community": 27,
-      "community_name": "Database Session and Auth Core",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "blank_item()"
     },
     {
@@ -42030,8 +41920,8 @@
       "source_location": "L182",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_purchase_orders_blank_form",
-      "community": 27,
-      "community_name": "Database Session and Auth Core",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "blank_form()"
     },
     {
@@ -42052,8 +41942,8 @@
       "source_location": "L203",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_purchase_orders_purchaseorderspage",
-      "community": 27,
-      "community_name": "Database Session and Auth Core",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "purchaseorderspage()"
     },
     {
@@ -42063,8 +41953,8 @@
       "source_location": "L714",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_purchase_orders_poform",
-      "community": 27,
-      "community_name": "Database Session and Auth Core",
+      "community": 56,
+      "community_name": "RequestCustomerDispatch Module",
       "norm_label": "poform()"
     },
     {
@@ -42107,8 +41997,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_receipts",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 66,
+      "community_name": "auth.dashboard.dispatch Module",
       "norm_label": "_auth.dashboard.receipts.tsx"
     },
     {
@@ -42118,8 +42008,8 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_receipts_status_badges",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 66,
+      "community_name": "auth.dashboard.dispatch Module",
       "norm_label": "status_badges"
     },
     {
@@ -42129,8 +42019,8 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_receipts_status_icons",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 66,
+      "community_name": "auth.dashboard.dispatch Module",
       "norm_label": "status_icons"
     },
     {
@@ -42140,8 +42030,8 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_receipts_errormessage",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 66,
+      "community_name": "auth.dashboard.dispatch Module",
       "norm_label": "errormessage()"
     },
     {
@@ -42151,8 +42041,8 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_receipts_receiptsignoffsummary",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 66,
+      "community_name": "auth.dashboard.dispatch Module",
       "norm_label": "receiptsignoffsummary()"
     },
     {
@@ -42162,8 +42052,8 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_receipts_receiptdirectionforuser",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 66,
+      "community_name": "auth.dashboard.dispatch Module",
       "norm_label": "receiptdirectionforuser()"
     },
     {
@@ -42184,8 +42074,8 @@
       "source_location": "L79",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_receipts_receiptspage",
-      "community": 8,
-      "community_name": "Stock Adjustment Module",
+      "community": 66,
+      "community_name": "auth.dashboard.dispatch Module",
       "norm_label": "receiptspage()"
     },
     {
@@ -42426,8 +42316,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_schedule_index",
-      "community": 66,
-      "community_name": "auth.dashboard.dispatch Module",
+      "community": 0,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "_auth.dashboard.schedule.index.tsx"
     },
     {
@@ -42448,8 +42338,8 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_schedule_index_dynto",
-      "community": 66,
-      "community_name": "auth.dashboard.dispatch Module",
+      "community": 0,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "dynto()"
     },
     {
@@ -42459,8 +42349,8 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_schedule_index_scheduleitem",
-      "community": 66,
-      "community_name": "auth.dashboard.dispatch Module",
+      "community": 0,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "scheduleitem"
     },
     {
@@ -42470,8 +42360,8 @@
       "source_location": "L50",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_schedule_index_schedulehistoryentry",
-      "community": 66,
-      "community_name": "auth.dashboard.dispatch Module",
+      "community": 0,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "schedulehistoryentry"
     },
     {
@@ -42481,8 +42371,8 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_schedule_index_paginatedschedules",
-      "community": 66,
-      "community_name": "auth.dashboard.dispatch Module",
+      "community": 0,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "paginatedschedules"
     },
     {
@@ -42492,8 +42382,8 @@
       "source_location": "L70",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_schedule_index_status_color",
-      "community": 66,
-      "community_name": "auth.dashboard.dispatch Module",
+      "community": 0,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "status_color"
     },
     {
@@ -42503,8 +42393,8 @@
       "source_location": "L79",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_schedule_index_status_labels",
-      "community": 66,
-      "community_name": "auth.dashboard.dispatch Module",
+      "community": 0,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "status_labels"
     },
     {
@@ -42514,8 +42404,8 @@
       "source_location": "L88",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_schedule_index_tabs",
-      "community": 66,
-      "community_name": "auth.dashboard.dispatch Module",
+      "community": 0,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "tabs"
     },
     {
@@ -42525,8 +42415,8 @@
       "source_location": "L98",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_schedule_index_fmt",
-      "community": 66,
-      "community_name": "auth.dashboard.dispatch Module",
+      "community": 0,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "fmt()"
     },
     {
@@ -42536,8 +42426,8 @@
       "source_location": "L102",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_schedule_index_fmtdate",
-      "community": 66,
-      "community_name": "auth.dashboard.dispatch Module",
+      "community": 0,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "fmtdate()"
     },
     {
@@ -42547,8 +42437,8 @@
       "source_location": "L107",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_schedule_index_fmtdatetime",
-      "community": 66,
-      "community_name": "auth.dashboard.dispatch Module",
+      "community": 0,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "fmtdatetime()"
     },
     {
@@ -42558,8 +42448,8 @@
       "source_location": "L114",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_schedule_index_schedulepage",
-      "community": 66,
-      "community_name": "auth.dashboard.dispatch Module",
+      "community": 0,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "schedulepage()"
     },
     {
@@ -42690,8 +42580,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_suppliers_id",
-      "community": 66,
-      "community_name": "auth.dashboard.dispatch Module",
+      "community": 4,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "_auth.dashboard.suppliers.$id.tsx"
     },
     {
@@ -42712,8 +42602,8 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_suppliers_id_dynto",
-      "community": 66,
-      "community_name": "auth.dashboard.dispatch Module",
+      "community": 4,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "dynto()"
     },
     {
@@ -42723,8 +42613,8 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_suppliers_id_supplierjob",
-      "community": 66,
-      "community_name": "auth.dashboard.dispatch Module",
+      "community": 4,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "supplierjob"
     },
     {
@@ -42734,8 +42624,8 @@
       "source_location": "L38",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_suppliers_id_supplierdetail",
-      "community": 66,
-      "community_name": "auth.dashboard.dispatch Module",
+      "community": 4,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "supplierdetail"
     },
     {
@@ -42745,8 +42635,8 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_suppliers_id_blank_job",
-      "community": 66,
-      "community_name": "auth.dashboard.dispatch Module",
+      "community": 4,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "blank_job"
     },
     {
@@ -42756,8 +42646,8 @@
       "source_location": "L56",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_suppliers_id_avatarcolor",
-      "community": 66,
-      "community_name": "auth.dashboard.dispatch Module",
+      "community": 4,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "avatarcolor()"
     },
     {
@@ -42767,8 +42657,8 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_suppliers_id_fmt",
-      "community": 66,
-      "community_name": "auth.dashboard.dispatch Module",
+      "community": 4,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "fmt()"
     },
     {
@@ -42778,8 +42668,8 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_suppliers_id_sectionheader",
-      "community": 66,
-      "community_name": "auth.dashboard.dispatch Module",
+      "community": 4,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "sectionheader()"
     },
     {
@@ -42789,8 +42679,8 @@
       "source_location": "L82",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_suppliers_id_supplierdetailpage",
-      "community": 66,
-      "community_name": "auth.dashboard.dispatch Module",
+      "community": 4,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "supplierdetailpage()"
     },
     {
@@ -42800,8 +42690,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_suppliers_index",
-      "community": 66,
-      "community_name": "auth.dashboard.dispatch Module",
+      "community": 4,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "_auth.dashboard.suppliers.index.tsx"
     },
     {
@@ -42822,8 +42712,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_suppliers_index_dynto",
-      "community": 66,
-      "community_name": "auth.dashboard.dispatch Module",
+      "community": 4,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "dynto()"
     },
     {
@@ -42833,8 +42723,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_suppliers_index_supplier",
-      "community": 66,
-      "community_name": "auth.dashboard.dispatch Module",
+      "community": 4,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "supplier"
     },
     {
@@ -42844,8 +42734,8 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_suppliers_index_blank",
-      "community": 66,
-      "community_name": "auth.dashboard.dispatch Module",
+      "community": 4,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "blank"
     },
     {
@@ -42855,8 +42745,8 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_suppliers_index_supplierspage",
-      "community": 66,
-      "community_name": "auth.dashboard.dispatch Module",
+      "community": 4,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "supplierspage()"
     },
     {
@@ -42866,8 +42756,8 @@
       "source_location": "L378",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_suppliers_index_supplierform",
-      "community": 66,
-      "community_name": "auth.dashboard.dispatch Module",
+      "community": 4,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "supplierform()"
     },
     {
@@ -42877,8 +42767,8 @@
       "source_location": "L467",
       "_origin": "ast",
       "id": "tanstack_frontend_src_routes_auth_dashboard_suppliers_index_avatarcolor",
-      "community": 66,
-      "community_name": "auth.dashboard.dispatch Module",
+      "community": 4,
+      "community_name": "migrate dispatch supplier fields",
       "norm_label": "avatarcolor()"
     },
     {
@@ -55363,178 +55253,6 @@
       "_origin": "ast",
       "source": "backend_alembic_versions_0018_rebuild_legacy_receipt_table_upgrade",
       "target": "backend_alembic_versions_0018_rebuild_legacy_receipt_table_drop_legacy_indexes",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0019_rebuild_legacy_inventory_item_table.py",
-      "source_location": "L35",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table",
-      "target": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table_columns",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0019_rebuild_legacy_inventory_item_table.py",
-      "source_location": "L145",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table",
-      "target": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table_downgrade",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0019_rebuild_legacy_inventory_item_table.py",
-      "source_location": "L113",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table",
-      "target": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table_drop_legacy_indexes",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0019_rebuild_legacy_inventory_item_table.py",
-      "source_location": "L44",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table",
-      "target": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table_ensure_unit_table",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0019_rebuild_legacy_inventory_item_table.py",
-      "source_location": "L65",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table",
-      "target": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table_preserve_unit_values",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0019_rebuild_legacy_inventory_item_table.py",
-      "source_location": "L31",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table",
-      "target": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table_tables",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0019_rebuild_legacy_inventory_item_table.py",
-      "source_location": "L120",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table",
-      "target": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table_upgrade",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0019_rebuild_legacy_inventory_item_table.py",
-      "source_location": "L1",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table_rationale_1",
-      "target": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0019_rebuild_legacy_inventory_item_table.py",
-      "source_location": "L36",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table_columns",
-      "target": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table_tables",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0019_rebuild_legacy_inventory_item_table.py",
-      "source_location": "L45",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table_ensure_unit_table",
-      "target": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table_tables",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0019_rebuild_legacy_inventory_item_table.py",
-      "source_location": "L67",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table_preserve_unit_values",
-      "target": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table_columns",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0019_rebuild_legacy_inventory_item_table.py",
-      "source_location": "L121",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table_upgrade",
-      "target": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table_columns",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0019_rebuild_legacy_inventory_item_table.py",
-      "source_location": "L133",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table_upgrade",
-      "target": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table_ensure_unit_table",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0019_rebuild_legacy_inventory_item_table.py",
-      "source_location": "L135",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table_upgrade",
-      "target": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table_preserve_unit_values",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/alembic/versions/0019_rebuild_legacy_inventory_item_table.py",
-      "source_location": "L137",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table_upgrade",
-      "target": "backend_alembic_versions_0019_rebuild_legacy_inventory_item_table_drop_legacy_indexes",
       "confidence_score": 1.0
     },
     {
@@ -69981,18 +69699,6 @@
       "context": "call",
       "confidence": "INFERRED",
       "confidence_score": 0.8,
-      "source_file": "backend/tests/test_legacy_schema_request_repair_migration.py",
-      "source_location": "L261",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_tests_test_legacy_schema_request_repair_migration_test_repair_removes_required_legacy_inventory_unit_for_current_orm_inserts",
-      "target": "backend_app_models_inventory_inventoryitem"
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "INFERRED",
-      "confidence_score": 0.8,
       "source_file": "backend/tests/test_request_completion_deduction.py",
       "source_location": "L245",
       "weight": 1.0,
@@ -75281,7 +74987,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "backend/tests/test_legacy_schema_request_repair_migration.py",
-      "source_location": "L173",
+      "source_location": "L172",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_tests_test_legacy_schema_request_repair_migration_test_repair_rebuilds_legacy_receipt_for_current_orm_inserts",
@@ -116753,7 +116459,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend/tests/test_legacy_schema_request_repair_migration.py",
-      "source_location": "L14",
+      "source_location": "L13",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_tests_test_legacy_schema_request_repair_migration",
@@ -116764,7 +116470,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend/tests/test_legacy_schema_request_repair_migration.py",
-      "source_location": "L20",
+      "source_location": "L19",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_tests_test_legacy_schema_request_repair_migration",
@@ -116775,7 +116481,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend/tests/test_legacy_schema_request_repair_migration.py",
-      "source_location": "L95",
+      "source_location": "L94",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_tests_test_legacy_schema_request_repair_migration",
@@ -116786,18 +116492,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend/tests/test_legacy_schema_request_repair_migration.py",
-      "source_location": "L183",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_tests_test_legacy_schema_request_repair_migration",
-      "target": "backend_tests_test_legacy_schema_request_repair_migration_test_repair_removes_required_legacy_inventory_unit_for_current_orm_inserts",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/tests/test_legacy_schema_request_repair_migration.py",
-      "source_location": "L58",
+      "source_location": "L57",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_tests_test_legacy_schema_request_repair_migration",
@@ -116809,7 +116504,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "backend/tests/test_legacy_schema_request_repair_migration.py",
-      "source_location": "L40",
+      "source_location": "L39",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_tests_test_legacy_schema_request_repair_migration_test_repair_maps_units_without_changing_active_quantity",
@@ -116821,7 +116516,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "backend/tests/test_legacy_schema_request_repair_migration.py",
-      "source_location": "L142",
+      "source_location": "L141",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_tests_test_legacy_schema_request_repair_migration_test_repair_rebuilds_legacy_receipt_for_current_orm_inserts",
@@ -116833,19 +116528,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "backend/tests/test_legacy_schema_request_repair_migration.py",
-      "source_location": "L236",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_tests_test_legacy_schema_request_repair_migration_test_repair_removes_required_legacy_inventory_unit_for_current_orm_inserts",
-      "target": "backend_tests_test_legacy_schema_request_repair_migration_config",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/tests/test_legacy_schema_request_repair_migration.py",
-      "source_location": "L78",
+      "source_location": "L77",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_tests_test_legacy_schema_request_repair_migration_test_repair_restores_legacy_purchase_requests",
@@ -119126,7 +118809,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend/tests/test_startup_migrations.py",
-      "source_location": "L68",
+      "source_location": "L67",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_tests_test_startup_migrations",
@@ -189961,5 +189644,5 @@
       "source_file": "okf/production/production-system.md"
     }
   ],
-  "built_at_commit": "500713362e45440dd2b06a3eb08eb131ab041620"
+  "built_at_commit": "4425257a96e40c4c14a0cc3431927b781e6ab7b3"
 }
