@@ -458,10 +458,26 @@ def get_inventory_summary(
                 SpareItemVariant.is_active == True,  # noqa: E712
             )
         ).one()
+        # Variant-less spare items carry stock directly on the item row — the
+        # dashboard must count them too, or the spares value under-reports.
+        variant_less_ids = select(SpareItemVariant.spare_item_id).where(
+            SpareItemVariant.is_active == True  # noqa: E712
+        )
+        spare_value_manual = session.exec(
+            select(
+                func.sum(
+                    SpareItem.recorded_qty
+                    * func.coalesce(SpareItem.rate, 0)
+                )
+            ).where(
+                SpareItem.is_active == True,  # noqa: E712
+                ~SpareItem.id.in_(variant_less_ids),
+            )
+        ).one()
         types["spare"] = InventoryTypeSummary(
             count=spare_count or 0,
             low_stock=spare_low_count or 0,
-            value=round(spare_value or 0, 2) if admin else None,
+            value=round((spare_value or 0) + (spare_value_manual or 0), 2) if admin else None,
         )
 
     # ── Consumables / Attachments / Weeders — qty × rate_per_unit ───────────

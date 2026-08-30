@@ -118,6 +118,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     _migrate_database_on_startup()
     _auto_seed_if_empty()
+    # Idempotent data-level repair so inventory totals (dashboard/category/sub)
+    # match reality even on databases that predate the zero-on-delete behavior.
+    from app.core.inventory_repair import repair_inventory_values
+    try:
+        repair_inventory_values()
+    except Exception:  # noqa: BLE001
+        logger.exception("Inventory repair failed — continuing startup")
     start_scheduler()
     yield
 

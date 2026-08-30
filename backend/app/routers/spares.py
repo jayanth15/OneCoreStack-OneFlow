@@ -125,6 +125,7 @@ class ItemUpdate(BaseModel):
     variant_model: Optional[str] = None
     rate: Optional[float] = None
     unit_id: Optional[int] = None
+    sub_category_id: Optional[int] = None
     opening_qty: Optional[float] = None
     recorded_qty: Optional[float] = None
     reorder_level: Optional[float] = None
@@ -309,6 +310,24 @@ def _category_out(session: Session, cat: SpareCategory) -> CategoryOut:
             SpareItemVariant.is_active == True,
         )
     ).one()
+    # Items with NO active variants hold stock directly on the item row
+    # (manual/opening qty). Count them via recorded_qty × rate so category
+    # totals match what the item rows display.
+    cat_val_manual = session.exec(
+        select(func.sum(SpareItem.recorded_qty * func.coalesce(SpareItem.rate, 0))).where(
+            SpareItem.category_id == cat.id,
+            SpareItem.is_active == True,
+            ~SpareItem.id.in_(
+                select(SpareItemVariant.spare_item_id).where(
+                    SpareItemVariant.is_active == True,  # noqa: E712
+                )
+            ),
+        )
+    ).one()
+    if cat_val is None and cat_val_manual is None:
+        cat_val_total = None
+    else:
+        cat_val_total = round((cat_val or 0) + (cat_val_manual or 0), 2)
     return CategoryOut(
         id=cat.id,  # type: ignore
         name=cat.name,
@@ -317,7 +336,7 @@ def _category_out(session: Session, cat: SpareCategory) -> CategoryOut:
         sub_category_count=sub_count or 0,
         item_count=total or 0,
         low_stock_count=low or 0,
-        total_value=round(cat_val, 2) if cat_val is not None else None,
+        total_value=cat_val_total,
         created_at=_dt_iso(cat.created_at),
         updated_at=_dt_iso(cat.updated_at),
     )
@@ -347,6 +366,22 @@ def _sub_out(session: Session, sub: SpareSubCategory) -> SubCategoryOut:
             SpareItemVariant.is_active == True,
         )
     ).one()
+    # Variant-less items hold stock on the item row (recorded_qty × rate).
+    sub_val_manual = session.exec(
+        select(func.sum(SpareItem.recorded_qty * func.coalesce(SpareItem.rate, 0))).where(
+            SpareItem.sub_category_id == sub.id,
+            SpareItem.is_active == True,
+            ~SpareItem.id.in_(
+                select(SpareItemVariant.spare_item_id).where(
+                    SpareItemVariant.is_active == True,  # noqa: E712
+                )
+            ),
+        )
+    ).one()
+    if sub_val is None and sub_val_manual is None:
+        sub_val_total = None
+    else:
+        sub_val_total = round((sub_val or 0) + (sub_val_manual or 0), 2)
     return SubCategoryOut(
         id=sub.id,  # type: ignore
         category_id=sub.category_id,
@@ -356,7 +391,7 @@ def _sub_out(session: Session, sub: SpareSubCategory) -> SubCategoryOut:
         is_active=sub.is_active,
         item_count=total or 0,
         low_stock_count=low or 0,
-        total_value=round(sub_val, 2) if sub_val is not None else None,
+        total_value=sub_val_total,
         created_at=_dt_iso(sub.created_at),
         updated_at=_dt_iso(sub.updated_at),
     )
@@ -372,7 +407,10 @@ def _has_active_variants(session: Session, item_id: int) -> bool:
 
 
 def _item_out(item: SpareItem, variant_matched: bool = False, has_variants: bool = True, session: Session | None = None) -> ItemOut:
-    tv = round(item.rate * item.recorded_qty, 2) if (item.rate is not None and has_variants) else None
+    # Variant-less items hold stock directly on the row (manual/opening qty),
+    # so show rate × recorded_qty. Item-with-variants value equals the variant
+    # sum because _sync_item_from_variants keeps rate × recorded_qty == Σ qty×rate.
+    tv = round(item.rate * item.recorded_qty, 2) if item.rate is not None else None
     unit_name = None
     if item.unit_id and session:
         u = session.get(Unit, item.unit_id)
@@ -659,6 +697,14 @@ def update_item(item_id: int, body: ItemUpdate, session: SessionDep, _: AdminUse
     item = _item_or_404(session, item_id)
     for field, value in body.model_dump(exclude_none=True).items():
         setattr(item, field, value)
+    # Moving an item: re-anchor category + sub-category together so the tree
+    # stays consistent regardless of which sub-category the client targets.
+    if body.sub_category_id is not None:
+        target = session.get(SpareSubCategory, body.sub_category_id)
+        if not target:
+            raise HTTPException(status_code=404, detail="Target sub-category not found")
+        item.sub_category_id = target.id
+        item.category_id = target.category_id
     item.updated_at = now()
     session.add(item); session.commit(); session.refresh(item)
     return _item_out(item, has_variants=_has_active_variants(session, item.id), session=session)
@@ -672,6 +718,30 @@ def delete_item(item_id: int, session: SessionDep, current_user: AdminUser) -> N
     item.recorded_qty = 0.0
     item.updated_at = now()
     session.add(item)
+    # Deactivating must also clear the item's active variants; otherwise the
+    # variant stock survives and resurfaces when the item is restored.
+    for variant in session.exec(
+        select(SpareItemVariant).where(
+            SpareItemVariant.spare_item_id == item.id,
+            SpareItemVariant.is_active == True,  # noqa: E712
+        )
+    ).all():
+        variant_qty = variant.qty
+        variant.is_active = False
+        variant.qty = 0.0
+        session.add(variant)
+        session.add(SpareItemHistory(
+            spare_item_id=item.id,
+            spare_item_variant_id=variant.id,
+            changed_by_user_id=current_user.id,
+            changed_by_username=current_user.username,
+            changed_at=item.updated_at,
+            change_type="remove_variant",
+            qty_before=variant_qty,
+            qty_after=0.0,
+            qty_delta=-variant_qty,
+            note="Variant cleared with item deactivation",
+        ))
     session.add(SpareItemHistory(
         spare_item_id=item.id,
         changed_by_user_id=current_user.id,
@@ -811,13 +881,20 @@ def _sync_item_from_variants(session: Session, item: SpareItem, commit: bool = T
 
     This keeps the aggregation columns (used by _category_out / _sub_out) accurate
     whenever variants are added, updated, or removed.
+
+    Items with NO variants at all are manual-stock rows (opening_qty) and must
+    keep their recorded_qty — only zero it when variants actually existed and
+    were all removed/deactivated.
     """
-    rows = session.exec(
+    all_rows = session.exec(
         select(SpareItemVariant).where(
             SpareItemVariant.spare_item_id == item.id,
-            SpareItemVariant.is_active == True,  # noqa: E712
         )
     ).all()
+    if not all_rows:
+        # Never had variants — this is manual stock; leave recorded_qty alone.
+        return
+    rows = [v for v in all_rows if v.is_active]
     if not rows:
         item.recorded_qty = 0
         item.updated_at = now()

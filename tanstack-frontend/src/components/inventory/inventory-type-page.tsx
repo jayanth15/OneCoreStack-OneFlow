@@ -587,11 +587,19 @@ export function InventoryTypePage({ itemType, label, description, basePath }: Pr
                           <History className="size-3.5 text-primary" />
                         </Button>
                       )}
-                      <Button variant="ghost" size="icon"
-                        className="size-7 text-destructive hover:text-destructive"
-                        title="Deactivate" onClick={() => setDeleteId(item.id)}>
-                        <Trash2 className="size-3.5" />
-                      </Button>
+                      {!item.is_active ? (
+                        <Button variant="ghost" size="icon"
+                          className="size-7 text-success hover:text-success"
+                          title="Restore (reactivate)" onClick={() => restoreMutation.mutate(item.id)}>
+                          <RotateCcw className="size-3.5" />
+                        </Button>
+                      ) : (
+                        <Button variant="ghost" size="icon"
+                          className="size-7 text-destructive hover:text-destructive"
+                          title="Deactivate" onClick={() => setDeleteId(item.id)}>
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 )

@@ -99,11 +99,12 @@ interface CategoryRowProps {
   onAddItem: (catId: number) => void
   onEditCat: (cat: WeederCategory) => void
   onDeleteCat: (catId: number) => void
+  onRestoreCat: (catId: number) => void
   renderItemRow: (item: WeederItem, idx: number) => React.ReactNode
   renderItemCard: (item: WeederItem) => React.ReactNode
 }
 
-function CategoryRow({ cat, isOpen, admin, showInactive, onToggle, onAddItem, onEditCat, onDeleteCat, renderItemRow, renderItemCard }: CategoryRowProps) {
+function CategoryRow({ cat, isOpen, admin, showInactive, onToggle, onAddItem, onEditCat, onDeleteCat, onRestoreCat, renderItemRow, renderItemCard }: CategoryRowProps) {
   const itemsQuery = useQuery({
     queryKey: [`/api/v1/weeders/categories/${cat.id}/items?include_inactive=${showInactive}&page_size=500`],
     enabled: isOpen,
@@ -138,9 +139,15 @@ function CategoryRow({ cat, isOpen, admin, showInactive, onToggle, onAddItem, on
             <Button variant="ghost" size="icon" className="size-7" onClick={() => onEditCat(cat)}>
               <Pencil className="size-3.5" />
             </Button>
-            <Button variant="ghost" size="icon" className="size-7 text-destructive hover:text-destructive" onClick={() => onDeleteCat(cat.id)}>
-              <Trash2 className="size-3.5" />
-            </Button>
+            {cat.is_active ? (
+              <Button variant="ghost" size="icon" className="size-7 text-destructive hover:text-destructive" onClick={() => onDeleteCat(cat.id)}>
+                <Trash2 className="size-3.5" />
+              </Button>
+            ) : (
+              <Button variant="ghost" size="icon" className="size-7 text-success hover:text-success" title="Restore (reactivate)" onClick={() => onRestoreCat(cat.id)}>
+                <RotateCcw className="size-3.5" />
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -282,6 +289,18 @@ function WeedersPage() {
       queryClient.invalidateQueries({ queryKey: ['/api/v1/weeders'] })
     },
     onError: (e: unknown) => setCatsMutationError(e instanceof Error ? e.message : 'Delete failed'),
+  })
+
+  const restoreCatMutation = useMutation({
+    mutationFn: (id: number) =>
+      apiFetchJson(`/api/v1/weeders/categories/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ is_active: true }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/v1/weeders'] })
+    },
+    onError: (e: unknown) => setCatsMutationError(e instanceof Error ? e.message : 'Restore failed'),
   })
 
   const saveItemMutation = useMutation({
@@ -760,6 +779,7 @@ function WeedersPage() {
                     onAddItem={openCreateItem}
                     onEditCat={openEditCat}
                     onDeleteCat={setDeleteCatId}
+                    onRestoreCat={(catId) => restoreCatMutation.mutate(catId)}
                     renderItemRow={renderItemRow}
                     renderItemCard={renderItemCard}
                   />

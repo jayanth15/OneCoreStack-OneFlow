@@ -145,7 +145,7 @@ function SparesPage() {
   // edit item sheet
   const [editItemSheet, setEditItemSheet] = useState(false)
   const [editingItem, setEditingItem]     = useState<SpareItem | null>(null)
-  const [itemForm, setItemForm]           = useState({ name:"", part_number:"", part_description:"" })
+  const [itemForm, setItemForm]           = useState({ name:"", part_number:"", part_description:"", sub_category_id: "" })
   // view detail popup
   const [viewSpareItem, setViewSpareItem] = useState<SpareItem | null>(null)
   // view variant detail popup
@@ -581,26 +581,57 @@ function SparesPage() {
     finally { setDeleting(false) }
   }
 
+  async function restoreCat(cat: SpareCategory) {
+    try {
+      await apiFetchJson(`/api/v1/spares/categories/${cat.id}`, {
+        method:"PUT", body:JSON.stringify({ is_active: true }),
+      })
+      await fetchCategories()
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/spares"] })
+    } catch(e:unknown) { setError(e instanceof Error ? e.message : "Restore failed") }
+  }
+
+  async function restoreSub(sub: SpareSubCategory) {
+    try {
+      await apiFetchJson(`/api/v1/spares/sub-categories/${sub.id}`, {
+        method:"PUT", body:JSON.stringify({ is_active: true }),
+      })
+      if (sub.category_id) await refreshSubs(sub.category_id)
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/spares"] })
+    } catch(e:unknown) { setError(e instanceof Error ? e.message : "Restore failed") }
+  }
+
   // ── Item CRUD ────────────────────────────────────────────────────────────────
 
   function openEditItem(item: SpareItem) {
     setEditingItem(item)
-    setItemForm({ name:item.name, part_number:item.part_number??"", part_description:item.part_description??"" })
+    setItemForm({
+      name:item.name,
+      part_number:item.part_number??"",
+      part_description:item.part_description??"",
+      sub_category_id: item.sub_category_id ? String(item.sub_category_id) : "",
+    })
     setItemError(null); setEditItemSheet(true)
   }
   async function saveItem() {
     if (!itemForm.name.trim()) { setItemError("Name required"); return }
     setItemSaving(true); setItemError(null)
+    const targetSubId = itemForm.sub_category_id ? parseInt(itemForm.sub_category_id, 10) : null
     try {
       await apiFetchJson(`/api/v1/spares/items/${editingItem!.id}`, {
         method:"PUT", body:JSON.stringify({
           name:itemForm.name.trim(),
           part_number:itemForm.part_number||null,
           part_description:itemForm.part_description||null,
+          ...(targetSubId ? { sub_category_id: targetSubId } : {}),
         }),
       })
       setEditItemSheet(false)
       if (editingItem!.sub_category_id) await refreshItems(editingItem!.sub_category_id)
+      // If the item was moved, refresh the target sub-category too.
+      if (targetSubId && targetSubId !== editingItem!.sub_category_id) {
+        await refreshItems(targetSubId)
+      }
     } catch(e:unknown) { setItemError(e instanceof Error ? e.message : "Save failed") }
     finally { setItemSaving(false) }
   }
@@ -1054,7 +1085,11 @@ function SparesPage() {
                       {admin && (
                         <span className="flex gap-0.5 ml-1" onClick={e=>e.stopPropagation()}>
                           <Button variant="ghost" size="icon" className="size-7" onClick={()=>openEditCat(cat)}><Pencil className="size-3.5" /></Button>
-                          <Button variant="ghost" size="icon" className="size-7 text-destructive hover:text-destructive" onClick={()=>setDeleteCatId(cat.id)}><Trash2 className="size-3.5" /></Button>
+                          {cat.is_active ? (
+                            <Button variant="ghost" size="icon" className="size-7 text-destructive hover:text-destructive" onClick={()=>setDeleteCatId(cat.id)}><Trash2 className="size-3.5" /></Button>
+                          ) : (
+                            <Button variant="ghost" size="icon" className="size-7 text-success hover:text-success" title="Restore (reactivate)" onClick={()=>restoreCat(cat)}><RotateCcw className="size-3.5" /></Button>
+                          )}
                         </span>
                       )}
                       {catExpanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
@@ -1109,7 +1144,11 @@ function SparesPage() {
                                     {admin && (
                                       <span className="flex gap-0.5 ml-1" onClick={e=>e.stopPropagation()}>
                                         <Button variant="ghost" size="icon" className="size-6" onClick={()=>openEditSub(sub)}><Pencil className="size-3" /></Button>
-                                        <Button variant="ghost" size="icon" className="size-6 text-destructive hover:text-destructive" onClick={()=>setDeleteSubId({id:sub.id,catId:cat.id})}><Trash2 className="size-3" /></Button>
+                                        {sub.is_active ? (
+                                          <Button variant="ghost" size="icon" className="size-6 text-destructive hover:text-destructive" onClick={()=>setDeleteSubId({id:sub.id,catId:cat.id})}><Trash2 className="size-3" /></Button>
+                                        ) : (
+                                          <Button variant="ghost" size="icon" className="size-6 text-success hover:text-success" title="Restore (reactivate)" onClick={()=>restoreSub(sub)}><RotateCcw className="size-3" /></Button>
+                                        )}
                                       </span>
                                     )}
                                     {subExpanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
@@ -1632,6 +1671,34 @@ function SparesPage() {
               <textarea id="ei-desc" rows={2} value={itemForm.part_description}
                 onChange={e=>setItemForm(f=>({...f,part_description:e.target.value}))} disabled={itemSaving}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="ei-sub">Move to Sub-category</Label>
+              <select
+                id="ei-sub"
+                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                value={itemForm.sub_category_id}
+                onChange={e=>setItemForm(f=>({...f,sub_category_id:e.target.value}))}
+                disabled={itemSaving}
+              >
+                <option value="">— Keep current sub-category —</option>
+                {categories.map(cat => {
+                  const subs = subsMap.get(cat.id) ?? []
+                  if (subs.length === 0) return null
+                  return (
+                    <optgroup key={cat.id} label={cat.name}>
+                      {subs.map(sub => (
+                        <option key={sub.id} value={String(sub.id)}>
+                          {sub.name}{sub.is_active ? "" : " (inactive)"}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )
+                })}
+              </select>
+              <p className="text-[11px] text-muted-foreground">
+                Only already-loaded sub-categories are listed. Expand a category first to load its sub-categories, or save without moving.
+              </p>
             </div>
             {itemError && <p className="text-sm text-destructive">{itemError}</p>}
             <div className="flex gap-3 pt-2">

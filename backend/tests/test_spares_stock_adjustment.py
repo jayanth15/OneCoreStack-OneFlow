@@ -146,7 +146,8 @@ def test_category_value_uses_only_active_variants_and_clears_last_deleted_varian
         "/api/v1/spares/categories?include_inactive=false&page_size=100",
         headers={"Authorization": f"Bearer {admin_token}"},
     ).json()["items"][0]
-    assert refreshed["total_value"] is None
+    # Item still exists with a rate; its value is now 0 (qty cleared), not None.
+    assert refreshed["total_value"] == 0.0
 
 
 def test_dashboard_inventory_value_excludes_inactive_items(client, session, admin_token):
