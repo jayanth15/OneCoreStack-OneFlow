@@ -120,11 +120,20 @@ const HISTORY_PAGE_SIZE = 10
 
 const STATUS_COLORS: Record<string, string> = {
   pending:    "bg-warning/15 text-warning",
+  ready:      "bg-primary/10 text-primary",
   dispatched: "bg-primary/10 text-primary",
   delivered:  "bg-success/10 text-success",
   cancelled:  "bg-destructive/10 text-destructive",
 }
-const STATUSES = ["pending", "dispatched", "delivered", "cancelled"]
+const STATUSES = ["pending", "ready", "dispatched", "delivered", "cancelled"]
+// Allowed transitions mirror backend DISPATCH_TRANSITIONS.
+const STATUS_TRANSITIONS: Record<string, string[]> = {
+  pending: ["ready", "dispatched", "delivered", "cancelled"],
+  ready: ["dispatched", "cancelled"],
+  dispatched: ["delivered"],
+  delivered: [],
+  cancelled: [],
+}
 
 const DISPATCH_INV_TYPES = [
   { value: "raw_material",  label: "Raw Material" },
@@ -624,7 +633,7 @@ function DispatchPage() {
                         disabled={statusUpdatingId === d.id}
                         className={`text-xs px-2 py-0.5 rounded-full font-medium border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 ${STATUS_COLORS[d.status] ?? "bg-muted text-muted-foreground"}`}
                       >
-                        {STATUSES.map(s => (
+                        {(STATUS_TRANSITIONS[d.status] ?? []).map(s => (
                           <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
                         ))}
                       </select>
