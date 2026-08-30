@@ -20,6 +20,7 @@ import { isAdminOrAbove, canAccessInventory } from "@/lib/user"
 import {
   PlusIcon, Pencil, Trash2, Search, ImageIcon, ChevronLeft, ChevronRight,
   PackagePlus, PackageMinus, History, Eye, AlertTriangle, Paperclip, Printer, FileText, Upload,
+  RotateCcw,
 } from "lucide-react"
 import { fetchAllPages, openPrintWindow } from "@/lib/print-report"
 
@@ -27,6 +28,7 @@ export const Route = createFileRoute("/_auth/dashboard/inventory/attachments")({
   validateSearch: z.object({
     page: z.coerce.number().optional(),
     search: z.string().optional(),
+    inactive: z.string().optional(),
   }),
   component: AttachmentsPage,
 })
@@ -101,11 +103,12 @@ function displayName(item: AttachmentItem) {
 
 function AttachmentsPage() {
   const navigate = Route.useNavigate()
-  const { page, search } = Route.useSearch()
+  const { page, search, inactive } = Route.useSearch()
   const queryClient = useQueryClient()
 
   const pageNum = Math.max(1, page ?? 1)
   const searchTerm = search ?? ""
+  const showInactive = inactive === "1"
 
   const [admin] = useState(() => isAdminOrAbove())
 
@@ -155,11 +158,11 @@ function AttachmentsPage() {
 
   const listUrl = useMemo(() => {
     const params = new URLSearchParams({
-      page: String(pageNum), page_size: String(PAGE_SIZE), include_inactive: "false",
+      page: String(pageNum), page_size: String(PAGE_SIZE), include_inactive: String(showInactive),
     })
     if (searchTerm) params.set("search", searchTerm)
     return `/api/v1/attachments?${params}`
-  }, [pageNum, searchTerm])
+  }, [pageNum, searchTerm, showInactive])
 
   const listQuery = useQuery({
     queryKey: [listUrl],
@@ -218,6 +221,20 @@ function AttachmentsPage() {
     },
   })
 
+  const restoreMutation = useMutation({
+    mutationFn: (id: number) =>
+      apiFetchJson(`/api/v1/attachments/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({ is_active: true }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/attachments"] })
+    },
+    onError: (e: unknown) => {
+      setMutationError(e instanceof Error ? e.message : "Restore failed")
+    },
+  })
+
   const adjustMutation = useMutation({
     mutationFn: (body: {
       adjustment_type: "add" | "subtract"
@@ -268,13 +285,16 @@ function AttachmentsPage() {
 
   // ── Navigation helpers (search params) ─────────────────────────────────────
   function setPage(n: number) {
-    navigate({ search: { page: n, search: searchTerm || undefined } })
+    navigate({ search: { page: n, search: searchTerm || undefined, inactive: showInactive ? "1" : undefined } })
   }
   function submitSearch() {
-    navigate({ search: { page: 1, search: searchDraft.trim() || undefined } })
+    navigate({ search: { page: 1, search: searchDraft.trim() || undefined, inactive: showInactive ? "1" : undefined } })
   }
   function clearSearch() {
-    navigate({ search: { page: 1, search: undefined } })
+    navigate({ search: { page: 1, search: undefined, inactive: showInactive ? "1" : undefined } })
+  }
+  function toggleInactive(v: boolean) {
+    navigate({ search: { page: 1, search: searchTerm || undefined, inactive: v ? "1" : undefined } })
   }
 
   // ── Open dialog helpers ──────────────────────────────────────────────────────
@@ -570,18 +590,27 @@ function AttachmentsPage() {
               {total > 0 ? `${total} item${total !== 1 ? "s" : ""}` : "Attachment inventory items"}
             </p>
           </div>
-          <form onSubmit={e => { e.preventDefault(); submitSearch() }} className="flex gap-1.5">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
-              <input
-                type="text" value={searchDraft} onChange={e => setSearchDraft(e.target.value)}
-                placeholder="Search SN No. / description…"
-                className="pl-8 pr-3 py-1.5 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring w-56"
-              />
-            </div>
-            <Button type="submit" size="sm" variant="secondary">Search</Button>
-            {searchTerm && <Button type="button" size="sm" variant="ghost" onClick={clearSearch}>Clear</Button>}
-          </form>
+          <div className="flex items-center gap-3 flex-wrap">
+            {admin && (
+              <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+                <input type="checkbox" checked={showInactive}
+                  onChange={(e) => toggleInactive(e.target.checked)} className="size-3 rounded" />
+                Show inactive
+              </label>
+            )}
+            <form onSubmit={e => { e.preventDefault(); submitSearch() }} className="flex gap-1.5">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+                <input
+                  type="text" value={searchDraft} onChange={e => setSearchDraft(e.target.value)}
+                  placeholder="Search SN No. / description…"
+                  className="pl-8 pr-3 py-1.5 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring w-56"
+                />
+              </div>
+              <Button type="submit" size="sm" variant="secondary">Search</Button>
+              {searchTerm && <Button type="button" size="sm" variant="ghost" onClick={clearSearch}>Clear</Button>}
+            </form>
+          </div>
         </div>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
@@ -671,9 +700,15 @@ function AttachmentsPage() {
                               </Button>
                             )}
                             {admin && (
-                              <Button variant="ghost" size="icon" className="size-7 text-destructive hover:text-destructive" onClick={() => setDeleteId(item.id)}>
-                                <Trash2 className="size-3.5" />
-                              </Button>
+                              item.is_active ? (
+                                <Button variant="ghost" size="icon" className="size-7 text-destructive hover:text-destructive" onClick={() => setDeleteId(item.id)}>
+                                  <Trash2 className="size-3.5" />
+                                </Button>
+                              ) : (
+                                <Button variant="ghost" size="icon" className="size-7 text-success hover:text-success" title="Restore (reactivate)" onClick={() => restoreMutation.mutate(item.id)}>
+                                  <RotateCcw className="size-3.5" />
+                                </Button>
+                              )
                             )}
                           </div>
                         </td>
@@ -725,9 +760,15 @@ function AttachmentsPage() {
                         </Button>
                       )}
                       {admin && (
-                        <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive" onClick={() => setDeleteId(item.id)}>
-                          <Trash2 className="size-3.5" />
-                        </Button>
+                        item.is_active ? (
+                          <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive" onClick={() => setDeleteId(item.id)}>
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        ) : (
+                          <Button variant="ghost" size="icon" className="size-8 text-success hover:text-success" title="Restore (reactivate)" onClick={() => restoreMutation.mutate(item.id)}>
+                            <RotateCcw className="size-3.5" />
+                          </Button>
+                        )
                       )}
                     </div>
                   </div>

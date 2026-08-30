@@ -20,7 +20,7 @@ import {
   PlusIcon, Pencil, Trash2, AlertTriangle, PackagePlus,
   PackageMinus, History, TrendingDown, Eye, Search, ChevronLeft, ChevronRight,
   Package, Box, Layers, Wrench, FlaskConical, Paperclip, Scissors, Recycle, Printer,
-  ClipboardCheck,
+  ClipboardCheck, RotateCcw,
 } from "lucide-react"
 import { fetchAllPages, openPrintWindow } from "@/lib/print-report"
 
@@ -401,6 +401,21 @@ function InventoryTable() {
     },
   })
 
+  const restoreMutation = useMutation({
+    mutationFn: (id: number) =>
+      apiFetchJson(`/api/v1/inventory/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({ is_active: true }),
+      }),
+    onSuccess: () => {
+      window.dispatchEvent(new Event("inventory-updated"))
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/inventory"] })
+    },
+    onError: (e: unknown) => {
+      alert(e instanceof Error ? e.message : "Restore failed")
+    },
+  })
+
   // ── Navigation helpers (search params) ─────────────────────────────────────
   function setPage(n: number) {
     navigate({ search: { tab, page: n, inactive, search: searchTerm } })
@@ -655,11 +670,19 @@ function InventoryTable() {
                         <History className="size-3.5 text-primary" />
                       </Button>
                     )}
-                    <Button variant="ghost" size="icon"
-                      className="size-7 text-destructive hover:text-destructive"
-                      title="Deactivate" onClick={() => setDeleteId(item.id)}>
-                      <Trash2 className="size-3.5" />
-                    </Button>
+                    {item.is_active ? (
+                      <Button variant="ghost" size="icon"
+                        className="size-7 text-destructive hover:text-destructive"
+                        title="Deactivate" onClick={() => setDeleteId(item.id)}>
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    ) : (
+                      <Button variant="ghost" size="icon"
+                        className="size-7 text-success hover:text-success"
+                        title="Restore (reactivate)" onClick={() => restoreMutation.mutate(item.id)}>
+                        <RotateCcw className="size-3.5" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               )
@@ -800,11 +823,19 @@ function InventoryTable() {
                                 <History className="size-3.5 text-primary" />
                               </Button>
                             )}
-                            <Button variant="ghost" size="icon"
-                              className="size-7 text-destructive hover:text-destructive"
-                              title="Deactivate" onClick={() => setDeleteId(item.id)}>
-                              <Trash2 className="size-3.5" />
-                            </Button>
+                            {item.is_active ? (
+                              <Button variant="ghost" size="icon"
+                                className="size-7 text-destructive hover:text-destructive"
+                                title="Deactivate" onClick={() => setDeleteId(item.id)}>
+                                <Trash2 className="size-3.5" />
+                              </Button>
+                            ) : (
+                              <Button variant="ghost" size="icon"
+                                className="size-7 text-success hover:text-success"
+                                title="Restore (reactivate)" onClick={() => restoreMutation.mutate(item.id)}>
+                                <RotateCcw className="size-3.5" />
+                              </Button>
+                            )}
                           </div>
                         </td>
                       </tr>

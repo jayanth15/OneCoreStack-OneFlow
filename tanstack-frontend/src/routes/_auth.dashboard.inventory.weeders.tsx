@@ -19,6 +19,7 @@ import { isAdminOrAbove, canAccessInventory, canEditInventory } from '@/lib/user
 import {
   PlusIcon, Pencil, Trash2, Search, ImageIcon, ChevronDown, ChevronRight,
   PackagePlus, PackageMinus, History, Eye, AlertTriangle, Scissors, Folder, Printer,
+  RotateCcw,
 } from 'lucide-react'
 import { fetchAllPages, openPrintWindow } from '@/lib/print-report'
 
@@ -93,6 +94,7 @@ interface CategoryRowProps {
   cat: WeederCategory
   isOpen: boolean
   admin: boolean
+  showInactive: boolean
   onToggle: () => void
   onAddItem: (catId: number) => void
   onEditCat: (cat: WeederCategory) => void
@@ -101,9 +103,9 @@ interface CategoryRowProps {
   renderItemCard: (item: WeederItem) => React.ReactNode
 }
 
-function CategoryRow({ cat, isOpen, admin, onToggle, onAddItem, onEditCat, onDeleteCat, renderItemRow, renderItemCard }: CategoryRowProps) {
+function CategoryRow({ cat, isOpen, admin, showInactive, onToggle, onAddItem, onEditCat, onDeleteCat, renderItemRow, renderItemCard }: CategoryRowProps) {
   const itemsQuery = useQuery({
-    queryKey: [`/api/v1/weeders/categories/${cat.id}/items?include_inactive=false&page_size=500`],
+    queryKey: [`/api/v1/weeders/categories/${cat.id}/items?include_inactive=${showInactive}&page_size=500`],
     enabled: isOpen,
     staleTime: 0,
   })
@@ -194,6 +196,7 @@ function WeedersPage() {
 
   const [search, setSearch] = useState('')
   const [searchDraft, setSearchDraft] = useState('')
+  const [showInactive, setShowInactive] = useState(false)
 
   const [catDialog, setCatDialog] = useState<'create' | 'edit' | null>(null)
   const [editingCat, setEditingCat] = useState<WeederCategory | null>(null)
@@ -241,12 +244,12 @@ function WeedersPage() {
   // ── Fetch ───────────────────────────────────────────────────────────────────
 
   const catsQuery = useQuery({
-    queryKey: ['/api/v1/weeders/categories?include_inactive=false'],
+    queryKey: [`/api/v1/weeders/categories?include_inactive=${showInactive}`],
     staleTime: 0,
   })
 
   const searchQuery = useQuery({
-    queryKey: [`/api/v1/weeders?search=${encodeURIComponent(search)}&page_size=200&include_inactive=false`],
+    queryKey: [`/api/v1/weeders?search=${encodeURIComponent(search)}&page_size=200&include_inactive=${showInactive}`],
     enabled: search !== '',
     staleTime: 0,
   })
@@ -311,6 +314,18 @@ function WeedersPage() {
       queryClient.invalidateQueries({ queryKey: ['/api/v1/weeders'] })
     },
     onError: (e: unknown) => setCatsMutationError(e instanceof Error ? e.message : 'Delete failed'),
+  })
+
+  const restoreMutation = useMutation({
+    mutationFn: (id: number) =>
+      apiFetchJson(`/api/v1/weeders/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ is_active: true }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/v1/weeders'] })
+    },
+    onError: (e: unknown) => setCatsMutationError(e instanceof Error ? e.message : 'Restore failed'),
   })
 
   const adjustMutation = useMutation({
@@ -563,10 +578,19 @@ function WeedersPage() {
             {admin && <Button variant="ghost" size="icon" className="size-7" onClick={() => openEditItem(item)}>
               <Pencil className="size-3.5" />
             </Button>}
-            {admin && <Button variant="ghost" size="icon" className="size-7 text-destructive hover:text-destructive"
-              onClick={() => setDeleteItemId(item.id)}>
-              <Trash2 className="size-3.5" />
-            </Button>}
+            {admin && <>
+              {item.is_active ? (
+                <Button variant="ghost" size="icon" className="size-7 text-destructive hover:text-destructive"
+                  onClick={() => setDeleteItemId(item.id)}>
+                  <Trash2 className="size-3.5" />
+                </Button>
+              ) : (
+                <Button variant="ghost" size="icon" className="size-7 text-success hover:text-success"
+                  title="Restore (reactivate)" onClick={() => restoreMutation.mutate(item.id)}>
+                  <RotateCcw className="size-3.5" />
+                </Button>
+              )}
+            </>}
           </div>
         </td>
       </tr>
@@ -604,8 +628,15 @@ function WeedersPage() {
             </>}
             {admin && <Button variant="ghost" size="icon" className="size-8" onClick={() => openHistory(item)}><History className="size-3.5 text-muted-foreground" /></Button>}
             {admin && <Button variant="ghost" size="icon" className="size-8" onClick={() => openEditItem(item)}><Pencil className="size-3.5" /></Button>}
-            {admin && <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive"
-              onClick={() => setDeleteItemId(item.id)}><Trash2 className="size-3.5" /></Button>}
+            {admin && <>
+              {item.is_active ? (
+                <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive"
+                  onClick={() => setDeleteItemId(item.id)}><Trash2 className="size-3.5" /></Button>
+              ) : (
+                <Button variant="ghost" size="icon" className="size-8 text-success hover:text-success"
+                  title="Restore (reactivate)" onClick={() => restoreMutation.mutate(item.id)}><RotateCcw className="size-3.5" /></Button>
+              )}
+            </>}
           </div>
         </div>
       </div>
@@ -642,16 +673,25 @@ function WeedersPage() {
                 : 'Weeder inventory'}
             </p>
           </div>
-          <form onSubmit={e => { e.preventDefault(); setSearch(searchDraft.trim()) }} className="flex gap-1.5">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
-              <input type="text" value={searchDraft} onChange={e => setSearchDraft(e.target.value)}
-                placeholder="Search items…"
-                className="pl-8 pr-3 py-1.5 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring w-56" />
-            </div>
-            <Button type="submit" size="sm" variant="secondary">Search</Button>
-            {search && <Button type="button" size="sm" variant="ghost" onClick={() => { setSearch(''); setSearchDraft('') }}>Clear</Button>}
-          </form>
+          <div className="flex items-center gap-3 flex-wrap">
+            {admin && (
+              <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+                <input type="checkbox" checked={showInactive}
+                  onChange={(e) => setShowInactive(e.target.checked)} className="size-3 rounded" />
+                Show inactive
+              </label>
+            )}
+            <form onSubmit={e => { e.preventDefault(); setSearch(searchDraft.trim()) }} className="flex gap-1.5">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+                <input type="text" value={searchDraft} onChange={e => setSearchDraft(e.target.value)}
+                  placeholder="Search items…"
+                  className="pl-8 pr-3 py-1.5 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring w-56" />
+              </div>
+              <Button type="submit" size="sm" variant="secondary">Search</Button>
+              {search && <Button type="button" size="sm" variant="ghost" onClick={() => { setSearch(''); setSearchDraft('') }}>Clear</Button>}
+            </form>
+          </div>
         </div>
 
         {catsError && <p className="text-sm text-destructive">{catsError}</p>}
@@ -715,6 +755,7 @@ function WeedersPage() {
                     cat={cat}
                     isOpen={expandedCats.has(cat.id)}
                     admin={admin}
+                    showInactive={showInactive}
                     onToggle={() => toggleCategory(cat.id)}
                     onAddItem={openCreateItem}
                     onEditCat={openEditCat}

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { createFileRoute } from "@tanstack/react-router"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { PageHeader } from "@/components/layout/page-header"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -19,6 +19,7 @@ import { isAdminOrAbove, canAccessInventory, canEditInventory } from "@/lib/user
 import {
   PlusIcon, Pencil, Trash2, AlertTriangle, Wrench, ChevronRight, ChevronDown,
   Search, Printer, PackagePlus, PackageMinus, ImageIcon, Layers, Eye, History, ChevronsDown,
+  RotateCcw,
 } from "lucide-react"
 import { fetchAllPages, openPrintWindow } from "@/lib/print-report"
 
@@ -99,6 +100,7 @@ function highlight(text: string | null | undefined, q: string): React.ReactNode 
 
 function SparesPage() {
   const navigate = Route.useNavigate()
+  const queryClient = useQueryClient()
   const [categories, setCategories] = useState<SpareCategory[]>([])
   const [loading, setLoading] = useState(false)
   const [catMeta, setCatMeta] = useState({ total: 0, page: 1, pages: 1 })
@@ -107,6 +109,7 @@ function SparesPage() {
   const [canEdit] = useState(() => canEditInventory("spare"))
   const [search, setSearch] = useState("")
   const [searchDraft, setSearchDraft] = useState("")
+  const [showInactive, setShowInactive] = useState(false)
 
   // expand states
   const [expandedCats, setExpandedCats] = useState<Set<number>>(new Set())
@@ -226,7 +229,7 @@ function SparesPage() {
   // ── Categories load (TanStack Query, keyed by URL incl. search) ─────────────
 
   const catsUrl = useMemo(() => {
-    const p = new URLSearchParams({ include_inactive: "false", page: "1" })
+    const p = new URLSearchParams({ include_inactive: String(showInactive), page: "1" })
     // When searching fetch all results at once; when browsing use page size
     if (search) {
       p.set("search", search)
@@ -235,7 +238,7 @@ function SparesPage() {
       p.set("page_size", String(CATS_PAGE_SIZE))
     }
     return `/api/v1/spares/categories?${p}`
-  }, [search])
+  }, [search, showInactive])
 
   const catsQuery = useQuery({
     queryKey: [catsUrl],
@@ -275,7 +278,7 @@ function SparesPage() {
         const subsResults = await Promise.all(
           cats.map(c =>
             apiFetchJson<SpareSubCategory[]>(
-              `/api/v1/spares/categories/${c.id}/sub-categories?include_inactive=false`
+              `/api/v1/spares/categories/${c.id}/sub-categories?include_inactive=${showInactive}`
             ).catch(() => [] as SpareSubCategory[])
           )
         )
@@ -287,7 +290,7 @@ function SparesPage() {
         // Fetch items for every sub — pass the search term
         const itemPageResults = await Promise.all(
           allSubs.map(sub => {
-            const sp = new URLSearchParams({ include_inactive: "false", page: "1", page_size: String(ITEMS_PAGE_SIZE) })
+            const sp = new URLSearchParams({ include_inactive: String(showInactive), page: "1", page_size: String(ITEMS_PAGE_SIZE) })
             if (search) sp.set("search", search)
             return apiFetchJson<ItemsPage>(`/api/v1/spares/sub-categories/${sub.id}/items?${sp}`)
               .catch(() => ({ items: [], total: 0, page: 1, pages: 1 }))
@@ -356,7 +359,7 @@ function SparesPage() {
       setVariantMatchedSubs(new Set())
       setSearchVariantsMap(new Map())
     }
-    const p = new URLSearchParams({ include_inactive: "false" })
+    const p = new URLSearchParams({ include_inactive: String(showInactive) })
     p.set("page", String(page))
     // When searching fetch all results at once; when browsing use page size
     if (search) {
@@ -376,7 +379,7 @@ function SparesPage() {
         const subsResults = await Promise.all(
           cats.map(c =>
             apiFetchJson<SpareSubCategory[]>(
-              `/api/v1/spares/categories/${c.id}/sub-categories?include_inactive=false`
+              `/api/v1/spares/categories/${c.id}/sub-categories?include_inactive=${showInactive}`
             ).catch(() => [] as SpareSubCategory[])
           )
         )
@@ -388,7 +391,7 @@ function SparesPage() {
         // Fetch items for every sub — pass the search term
         const itemPageResults = await Promise.all(
           allSubs.map(sub => {
-            const sp = new URLSearchParams({ include_inactive: "false", page: "1", page_size: String(ITEMS_PAGE_SIZE) })
+            const sp = new URLSearchParams({ include_inactive: String(showInactive), page: "1", page_size: String(ITEMS_PAGE_SIZE) })
             if (search) sp.set("search", search)
             return apiFetchJson<ItemsPage>(`/api/v1/spares/sub-categories/${sub.id}/items?${sp}`)
               .catch(() => ({ items: [], total: 0, page: 1, pages: 1 }))
@@ -442,7 +445,7 @@ function SparesPage() {
       setSubsLoading(prev => new Set(prev).add(catId))
       try {
         const subs = await apiFetchJson<SpareSubCategory[]>(
-          `/api/v1/spares/categories/${catId}/sub-categories?include_inactive=false`
+          `/api/v1/spares/categories/${catId}/sub-categories?include_inactive=${showInactive}`
         )
         setSubsMap(prev => new Map(prev).set(catId, subs))
       } catch { /**/ }
@@ -454,7 +457,7 @@ function SparesPage() {
     // Reload all currently visible categories in one call (preserve expand state)
     try {
       const visible = Math.max(categories.length, CATS_PAGE_SIZE)
-      const data = await apiFetchJson<CatsPage>(`/api/v1/spares/categories?include_inactive=false&page=1&page_size=${visible}`)
+      const data = await apiFetchJson<CatsPage>(`/api/v1/spares/categories?include_inactive=${showInactive}&page=1&page_size=${visible}`)
       setCategories(data.items)
       setCatMeta({ total: data.total, page: data.page, pages: data.pages })
     } catch { /**/ }
@@ -462,7 +465,7 @@ function SparesPage() {
 
   async function refreshSubs(catId: number) {
     const subs = await apiFetchJson<SpareSubCategory[]>(
-      `/api/v1/spares/categories/${catId}/sub-categories?include_inactive=false`
+      `/api/v1/spares/categories/${catId}/sub-categories?include_inactive=${showInactive}`
     ).catch(() => null)
     if (subs) setSubsMap(prev => new Map(prev).set(catId, subs))
     await refreshCatCounts()
@@ -471,7 +474,7 @@ function SparesPage() {
   async function loadItemsPage(subId: number, page: number, append = false, searchTerm?: string) {
     setItemsLoading(prev => new Set(prev).add(subId))
     try {
-      const p = new URLSearchParams({ include_inactive: "false", page: String(page), page_size: String(ITEMS_PAGE_SIZE) })
+      const p = new URLSearchParams({ include_inactive: String(showInactive), page: String(page), page_size: String(ITEMS_PAGE_SIZE) })
       if (searchTerm) p.set("search", searchTerm)
       const result = await apiFetchJson<ItemsPage>(`/api/v1/spares/sub-categories/${subId}/items?${p}`)
       setItemsMap(prev => {
@@ -608,8 +611,20 @@ function SparesPage() {
       await apiFetchJson(`/api/v1/spares/items/${deleteItemId.id}`, { method:"DELETE" })
       await refreshItems(deleteItemId.subId)
       setDeleteItemId(null)
+      // Refresh dashboard aggregate (value/low-stock cards).
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/spares"] })
     } catch(e:unknown) { setError(e instanceof Error ? e.message : "Delete failed") }
     finally { setDeleting(false) }
+  }
+
+  async function restoreItem(item: SpareItem) {
+    try {
+      await apiFetchJson(`/api/v1/spares/items/${item.id}`, {
+        method:"PUT", body:JSON.stringify({ is_active: true }),
+      })
+      if (item.sub_category_id) await refreshItems(item.sub_category_id)
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/spares"] })
+    } catch(e:unknown) { setError(e instanceof Error ? e.message : "Restore failed") }
   }
 
   // ── Adjust stock ─────────────────────────────────────────────────────────────
@@ -887,7 +902,7 @@ function SparesPage() {
       const itemsPerSub = await Promise.all(
         subList.map((sub) =>
           apiFetchJson<{ items: { id: number; name: string; recorded_qty: number }[] }>(
-            `/api/v1/spares/sub-categories/${sub.id}/items?page_size=200&include_inactive=false`
+            `/api/v1/spares/sub-categories/${sub.id}/items?page_size=200&include_inactive=${showInactive}`
           ).catch(() => ({ items: [] })),
         ),
       )
@@ -965,19 +980,28 @@ function SparesPage() {
             <h1 className="text-xl font-semibold">Spares</h1>
             <p className="text-sm text-muted-foreground mt-0.5">Category → Sub-category → Items</p>
           </div>
-          <form onSubmit={e=>{e.preventDefault();setSearch(searchDraft.trim())}} className="flex gap-1.5">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
-              <input type="text" value={searchDraft} onChange={e=>setSearchDraft(e.target.value)}
-                placeholder="Search categories…"
-                className="pl-8 pr-3 py-1.5 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring w-48" />
-            </div>
-            <Button type="submit" size="sm" variant="secondary">Search</Button>
-            {search && <Button type="button" size="sm" variant="ghost" onClick={()=>{setSearch("");setSearchDraft("")}}>Clear</Button>}
-          </form>
-          <Button size="sm" variant="outline" onClick={printCycleCount}>
-            <Printer className="size-4 mr-1.5" />Print Cycle Count
-          </Button>
+          <div className="flex items-center gap-3 flex-wrap">
+            {admin && (
+              <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+                <input type="checkbox" checked={showInactive}
+                  onChange={(e) => setShowInactive(e.target.checked)} className="size-3 rounded" />
+                Show inactive
+              </label>
+            )}
+            <form onSubmit={e=>{e.preventDefault();setSearch(searchDraft.trim())}} className="flex gap-1.5">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+                <input type="text" value={searchDraft} onChange={e=>setSearchDraft(e.target.value)}
+                  placeholder="Search categories…"
+                  className="pl-8 pr-3 py-1.5 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring w-48" />
+              </div>
+              <Button type="submit" size="sm" variant="secondary">Search</Button>
+              {search && <Button type="button" size="sm" variant="ghost" onClick={()=>{setSearch("");setSearchDraft("")}}>Clear</Button>}
+            </form>
+            <Button size="sm" variant="outline" onClick={printCycleCount}>
+              <Printer className="size-4 mr-1.5" />Print Cycle Count
+            </Button>
+          </div>
         </div>
 
         {listError && <p className="text-sm text-destructive">{listError}</p>}
@@ -1145,8 +1169,13 @@ function SparesPage() {
                                                     {admin && <Button variant="ghost" size="icon" className="size-6" title="Stock history" onClick={()=>openHistory(item)}><History className="size-3 text-muted-foreground" /></Button>}
                                                     {admin && <>
                                                       <Button variant="ghost" size="icon" className="size-6" onClick={()=>openEditItem(item)}><Pencil className="size-3" /></Button>
-                                                      <Button variant="ghost" size="icon" className="size-6 text-destructive hover:text-destructive"
-                                                        onClick={()=>setDeleteItemId({id:item.id,subId:sub.id})}><Trash2 className="size-3" /></Button>
+                                                      {item.is_active ? (
+                                                        <Button variant="ghost" size="icon" className="size-6 text-destructive hover:text-destructive"
+                                                          onClick={()=>setDeleteItemId({id:item.id,subId:sub.id})}><Trash2 className="size-3" /></Button>
+                                                      ) : (
+                                                        <Button variant="ghost" size="icon" className="size-6 text-success hover:text-success"
+                                                          title="Restore (reactivate)" onClick={()=>restoreItem(item)}><RotateCcw className="size-3" /></Button>
+                                                      )}
                                                     </>}
                                                   </span>
                                                 </div>
