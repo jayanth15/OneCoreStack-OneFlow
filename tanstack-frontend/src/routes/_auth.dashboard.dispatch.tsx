@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog"
 import { apiFetchJson } from "@/lib/api"
 import { getCurrentUser, isAdminOrAbove, refreshCurrentUser } from "@/lib/user"
-import { PackageCheck, Plus, Search, Pencil, Minus, Printer, Trash2, X, History } from "lucide-react"
+import { PackageCheck, Plus, Search, Pencil, Minus, Printer, Trash2, X, History, AlertTriangle } from "lucide-react"
 import { openPrintWindow } from "@/lib/print-report"
 import { SearchCombobox } from "@/components/ui/search-combobox"
 
@@ -135,6 +135,17 @@ const STATUS_TRANSITIONS: Record<string, string[]> = {
   cancelled: [],
 }
 
+// Transitions that can never succeed for this dispatch, filtered out of the
+// dropdown so the user is not offered moves that the backend will 409:
+// supplier dispatches require a linked receipt for dispatched/delivered.
+function availableStatuses(d: Dispatch): string[] {
+  const base = STATUS_TRANSITIONS[d.status] ?? []
+  if (d.party_type === "supplier") {
+    return base.filter(s => (s === "dispatched" || s === "delivered") ? !!d.receipt_id : true)
+  }
+  return base
+}
+
 const DISPATCH_INV_TYPES = [
   { value: "raw_material",  label: "Raw Material" },
   { value: "finished_good", label: "Finished Goods" },
@@ -202,6 +213,7 @@ function DispatchPage() {
 
   const searchRef = useRef<HTMLInputElement>(null)
   const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null)
+  const [statusError, setStatusError] = useState<string | null>(null)
   const [admin] = useState(() => isAdminOrAbove())
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [historyTarget, setHistoryTarget] = useState<Dispatch | null>(null)
@@ -292,7 +304,8 @@ function DispatchPage() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["/api/v1/dispatch"] })
     },
-    onError: () => {
+    onError: (e: unknown) => {
+      setStatusError(e instanceof Error ? e.message : "Failed to update dispatch status")
       void queryClient.invalidateQueries({ queryKey: ["/api/v1/dispatch"] })
     },
     onSettled: () => setStatusUpdatingId(null),
@@ -391,6 +404,7 @@ function DispatchPage() {
   }
 
   function handleStatusChange(dispatchId: number, newStatus: string) {
+    setStatusError(null)
     statusMutation.mutate({ id: dispatchId, status: newStatus })
   }
 
@@ -587,6 +601,12 @@ function DispatchPage() {
       </Dialog>
 
       <div className="p-4 md:p-6 max-w-5xl mx-auto">
+        {statusError && (
+          <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive flex items-start gap-2">
+            <AlertTriangle className="size-4 mt-0.5 shrink-0" />
+            <span>{statusError}</span>
+          </div>
+        )}
         {!loading && (
           <p className="mb-4 text-sm text-muted-foreground">
             <strong className="text-foreground">{total}</strong> dispatch{total !== 1 ? "es" : ""}
@@ -633,7 +653,7 @@ function DispatchPage() {
                         disabled={statusUpdatingId === d.id}
                         className={`text-xs px-2 py-0.5 rounded-full font-medium border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 ${STATUS_COLORS[d.status] ?? "bg-muted text-muted-foreground"}`}
                       >
-                        {(STATUS_TRANSITIONS[d.status] ?? []).map(s => (
+                        {availableStatuses(d).map(s => (
                           <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
                         ))}
                       </select>

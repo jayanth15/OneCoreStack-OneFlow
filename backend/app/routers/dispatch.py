@@ -288,8 +288,21 @@ def update_dispatch(
             raise HTTPException(status_code=422, detail="Dispatch item quantity must be greater than zero")
         ensure_inventory_identity(item.get("inv_type"), item.get("inv_item_id"), label="Dispatch item")
 
-    # Validate receipt reference for supplier dispatches before completing
-    if target_party_type == "supplier" and target_status in ("dispatched", "delivered"):
+    # Validate receipt reference for supplier dispatches before completing.
+    # Receipt-based supplier dispatches (created from a receipt / with
+    # inventory items derived from a receipt) require the receipt on
+    # dispatched/delivered. Item-based supplier dispatches carry their own
+    # stock and complete like vendor dispatches — otherwise legacy dispatches
+    # created before the receipt rule become stuck at "dispatched" forever.
+    has_inventory_items = any(
+        item.get("inv_type") and item.get("inv_item_id") is not None
+        for item in raw_items
+    )
+    if (
+        target_party_type == "supplier"
+        and target_status in ("dispatched", "delivered")
+        and not has_inventory_items
+    ):
         if not linked_receipt:
             raise HTTPException(status_code=409, detail="Supplier dispatch requires a receipt reference")
         _get_dispatch_receipt(session, linked_receipt.id, require_completable=True)
@@ -614,10 +627,12 @@ def _deduct_oem_dispatch_stock(
     target_status: str,
 ) -> None:
     completed_statuses = {"dispatched", "delivered"}
-    if target_party_type != "vendor" or target_status not in completed_statuses:
+    if target_status not in completed_statuses:
         return
     if old_status in completed_statuses or dispatch.inventory_deducted_at is not None:
         return
+    # Only deduct for dispatches that actually carry inventory. Supplier
+    # receipt-based dispatches (no inventory items) do not touch stock.
     deductions = [
         StockDeduction(
             inventory_type=item["inv_type"],
@@ -628,6 +643,8 @@ def _deduct_oem_dispatch_stock(
         for item in raw_items
         if item.get("inv_type") and item.get("inv_item_id") is not None
     ]
+    if not deductions:
+        return
     deduct_request_stock(
         session, deductions, current_user,
         note=f"OEM dispatch {dispatch.dispatch_number}",

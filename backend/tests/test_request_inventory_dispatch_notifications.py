@@ -311,6 +311,9 @@ def test_supplier_dispatch_requires_receipt_and_never_deducts_again(client, sess
     assert created.status_code == 201, created.json()
     assert created.json()["receipt_number"] == receipt.receipt_number
 
+    # Item-based supplier dispatches carry their own stock and deduct on
+    # completion just like vendor dispatches (receipt rule applies only to
+    # supplier dispatches WITHOUT inventory items).
     completed = client.put(
         f"/api/v1/dispatch/{created.json()['id']}",
         json={"status": "dispatched"},
@@ -318,5 +321,46 @@ def test_supplier_dispatch_requires_receipt_and_never_deducts_again(client, sess
     )
     assert completed.status_code == 200, completed.json()
     session.refresh(item)
-    assert item.qty == 4
-    assert completed.json()["inventory_deducted_at"] is None
+    assert item.qty == 2
+    assert completed.json()["inventory_deducted_at"] is not None
+
+    # Delivery must not deduct again.
+    delivered = client.put(
+        f"/api/v1/dispatch/{created.json()['id']}",
+        json={"status": "delivered"},
+        headers=_headers(admin_token),
+    )
+    assert delivered.status_code == 200, delivered.json()
+    session.refresh(item)
+    assert item.qty == 2
+
+
+def test_supplier_dispatch_without_items_still_requires_receipt(client, session, admin_token):
+    """Receipt-less supplier dispatches that carry NO inventory items must keep
+    requiring a receipt reference before dispatched/delivered."""
+    created = client.post(
+        "/api/v1/dispatch",
+        json={
+            "party_type": "supplier",
+            "supplier_name": "NoReceipt Co",
+            "status": "pending",
+            "items": [{"item_name": "Plain goods", "quantity": 1}],
+        },
+        headers=_headers(admin_token),
+    )
+    assert created.status_code == 201, created.json()
+
+    ready = client.put(
+        f"/api/v1/dispatch/{created.json()['id']}",
+        json={"status": "ready"},
+        headers=_headers(admin_token),
+    )
+    assert ready.status_code == 200, ready.json()
+
+    blocked = client.put(
+        f"/api/v1/dispatch/{created.json()['id']}",
+        json={"status": "dispatched"},
+        headers=_headers(admin_token),
+    )
+    assert blocked.status_code == 409
+    assert "receipt reference" in blocked.json()["detail"]
