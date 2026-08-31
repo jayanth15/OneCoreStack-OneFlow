@@ -9,13 +9,13 @@ POST /api/v1/suppliers        — create a new supplier (admin+)
 PUT  /api/v1/suppliers/{id}   — update a supplier (admin+)
 DELETE /api/v1/suppliers/{id} — deactivate a supplier (admin+)
 """
-from datetime import datetime, timezone
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 
 from app.core.database import get_session
+from app.core.timezone import now
 from app.dependencies.auth import get_current_user, require_admin
 from app.models.supplier import Supplier
 from app.models.supplier_job import SupplierJob
