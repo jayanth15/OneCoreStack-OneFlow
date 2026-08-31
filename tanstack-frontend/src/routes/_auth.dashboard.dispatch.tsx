@@ -146,6 +146,15 @@ function availableStatuses(d: Dispatch): string[] {
   return base
 }
 
+// Options for a status <select>: the current status (shown but disabled so the
+// box never renders an option list that omits the present state) followed by
+// the valid next statuses. Used by both the list row and the edit dialog so
+// they always agree.
+function statusOptions(current: string, d?: Dispatch): string[] {
+  const opts = d ? availableStatuses(d) : (STATUS_TRANSITIONS[current] ?? [])
+  return opts.includes(current) ? opts : [current, ...opts]
+}
+
 const DISPATCH_INV_TYPES = [
   { value: "raw_material",  label: "Raw Material" },
   { value: "finished_good", label: "Finished Goods" },
@@ -538,7 +547,8 @@ function DispatchPage() {
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Edit Dispatch</DialogTitle></DialogHeader>
           <DispatchForm form={editForm} vendors={vendors} saving={editSaving}
-            error={editError} onChange={setEditForm} onSubmit={handleEdit} isCreate={false} />
+            error={editError} onChange={setEditForm} onSubmit={handleEdit} isCreate={false}
+            currentStatus={editTarget?.status} dispatch={editTarget ?? undefined} />
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setEditTarget(null)} disabled={editSaving}>Cancel</Button>
             <Button disabled={editSaving} onClick={handleEdit}>
@@ -653,8 +663,8 @@ function DispatchPage() {
                         disabled={statusUpdatingId === d.id}
                         className={`text-xs px-2 py-0.5 rounded-full font-medium border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 ${STATUS_COLORS[d.status] ?? "bg-muted text-muted-foreground"}`}
                       >
-                        {availableStatuses(d).map(s => (
-                          <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                        {statusOptions(d.status, d).map(s => (
+                          <option key={s} value={s} disabled={s === d.status}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
                         ))}
                       </select>
                     </div>
@@ -716,7 +726,7 @@ function DispatchPage() {
 // ── Form ──────────────────────────────────────────────────────────────────────
 
 function DispatchForm({
-  form, vendors, saving, error, onChange, onSubmit, isCreate,
+  form, vendors, saving, error, onChange, onSubmit, isCreate, currentStatus, dispatch,
 }: {
   form: DispatchFormState
   vendors: NameOption[]
@@ -725,6 +735,8 @@ function DispatchForm({
   onChange: (f: DispatchFormState | ((prev: DispatchFormState) => DispatchFormState)) => void
   onSubmit: (e: React.FormEvent) => void
   isCreate: boolean
+  currentStatus?: string
+  dispatch?: Dispatch
 }) {
   const receiptItemsLocked = form.receipt_id !== null
 
@@ -919,8 +931,13 @@ function DispatchForm({
             onChange={(e) => onChange({ ...form, status: e.target.value })}
             disabled={saving}
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
-            {STATUSES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+            {(dispatch ? statusOptions(currentStatus ?? dispatch.status, dispatch) : [currentStatus ?? form.status]).map(s => (
+              <option key={s} value={s} disabled={s === (currentStatus ?? dispatch?.status)}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+            ))}
           </select>
+          {currentStatus && (
+            <p className="text-[11px] text-muted-foreground">Only valid status changes from <strong>{currentStatus}</strong> are listed.</p>
+          )}
         </div>
       )}
       {/* Receipt linkage */}
