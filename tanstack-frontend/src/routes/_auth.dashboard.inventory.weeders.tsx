@@ -286,6 +286,7 @@ function WeedersPage() {
     mutationFn: (id: number) => apiFetchJson(`/api/v1/weeders/categories/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       setDeleteCatId(null)
+      window.dispatchEvent(new Event('inventory-updated'))
       queryClient.invalidateQueries({ queryKey: ['/api/v1/weeders'] })
     },
     onError: (e: unknown) => setCatsMutationError(e instanceof Error ? e.message : 'Delete failed'),
@@ -298,6 +299,7 @@ function WeedersPage() {
         body: JSON.stringify({ is_active: true }),
       }),
     onSuccess: () => {
+      window.dispatchEvent(new Event('inventory-updated'))
       queryClient.invalidateQueries({ queryKey: ['/api/v1/weeders'] })
     },
     onError: (e: unknown) => setCatsMutationError(e instanceof Error ? e.message : 'Restore failed'),
@@ -330,6 +332,7 @@ function WeedersPage() {
     mutationFn: (id: number) => apiFetchJson(`/api/v1/weeders/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       setDeleteItemId(null)
+      window.dispatchEvent(new Event('inventory-updated'))
       queryClient.invalidateQueries({ queryKey: ['/api/v1/weeders'] })
     },
     onError: (e: unknown) => setCatsMutationError(e instanceof Error ? e.message : 'Delete failed'),
@@ -342,6 +345,7 @@ function WeedersPage() {
         body: JSON.stringify({ is_active: true }),
       }),
     onSuccess: () => {
+      window.dispatchEvent(new Event('inventory-updated'))
       queryClient.invalidateQueries({ queryKey: ['/api/v1/weeders'] })
     },
     onError: (e: unknown) => setCatsMutationError(e instanceof Error ? e.message : 'Restore failed'),
@@ -355,6 +359,7 @@ function WeedersPage() {
       }),
     onSuccess: () => {
       setAdjustItem(null)
+      window.dispatchEvent(new Event('inventory-updated'))
       queryClient.invalidateQueries({ queryKey: ['/api/v1/weeders'] })
     },
     onError: (e: unknown) => setAdjustError(e instanceof Error ? e.message : 'Failed'),

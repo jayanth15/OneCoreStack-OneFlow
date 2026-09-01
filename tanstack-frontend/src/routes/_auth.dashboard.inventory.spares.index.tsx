@@ -529,6 +529,8 @@ function SparesPage() {
     try {
       await apiFetchJson(`/api/v1/spares/categories/${deleteCatId}`, { method:"DELETE" })
       setDeleteCatId(null); fetchCategories()
+      window.dispatchEvent(new Event("inventory-updated"))
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/spares"] })
     } catch(e:unknown) { setError(e instanceof Error ? e.message : "Delete failed") }
     finally { setDeleting(false) }
   }
@@ -577,6 +579,8 @@ function SparesPage() {
     try {
       await apiFetchJson(`/api/v1/spares/sub-categories/${deleteSubId.id}`, { method:"DELETE" })
       setDeleteSubId(null); await refreshSubs(deleteSubId.catId)
+      window.dispatchEvent(new Event("inventory-updated"))
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/spares"] })
     } catch(e:unknown) { setError(e instanceof Error ? e.message : "Delete failed") }
     finally { setDeleting(false) }
   }
@@ -587,6 +591,7 @@ function SparesPage() {
         method:"PUT", body:JSON.stringify({ is_active: true }),
       })
       await fetchCategories()
+      window.dispatchEvent(new Event("inventory-updated"))
       queryClient.invalidateQueries({ queryKey: ["/api/v1/spares"] })
     } catch(e:unknown) { setError(e instanceof Error ? e.message : "Restore failed") }
   }
@@ -597,6 +602,7 @@ function SparesPage() {
         method:"PUT", body:JSON.stringify({ is_active: true }),
       })
       if (sub.category_id) await refreshSubs(sub.category_id)
+      window.dispatchEvent(new Event("inventory-updated"))
       queryClient.invalidateQueries({ queryKey: ["/api/v1/spares"] })
     } catch(e:unknown) { setError(e instanceof Error ? e.message : "Restore failed") }
   }
@@ -643,6 +649,7 @@ function SparesPage() {
       await refreshItems(deleteItemId.subId)
       setDeleteItemId(null)
       // Refresh dashboard aggregate (value/low-stock cards).
+      window.dispatchEvent(new Event("inventory-updated"))
       queryClient.invalidateQueries({ queryKey: ["/api/v1/spares"] })
     } catch(e:unknown) { setError(e instanceof Error ? e.message : "Delete failed") }
     finally { setDeleting(false) }
@@ -654,6 +661,7 @@ function SparesPage() {
         method:"PUT", body:JSON.stringify({ is_active: true }),
       })
       if (item.sub_category_id) await refreshItems(item.sub_category_id)
+      window.dispatchEvent(new Event("inventory-updated"))
       queryClient.invalidateQueries({ queryKey: ["/api/v1/spares"] })
     } catch(e:unknown) { setError(e instanceof Error ? e.message : "Restore failed") }
   }
@@ -703,6 +711,8 @@ function SparesPage() {
         setVariantsDialogItem(freshItem)
       }
       setAdjustItem(null)
+      window.dispatchEvent(new Event("inventory-updated"))
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/spares"] })
     } catch(e:unknown) { setAdjustError(e instanceof Error ? e.message : "Failed") }
     finally { setAdjustSaving(false) }
   }
@@ -851,6 +861,8 @@ function SparesPage() {
       const freshItem = await apiFetchJson<SpareItem>(`/api/v1/spares/items/${itemId}`).catch(() => null)
       if (freshItem) setVariantsDialogItem(freshItem)
       if (subId) await refreshItems(subId)
+      window.dispatchEvent(new Event("inventory-updated"))
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/spares"] })
     } catch { /**/ }
   }
 

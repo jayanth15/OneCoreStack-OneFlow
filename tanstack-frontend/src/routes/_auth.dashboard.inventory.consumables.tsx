@@ -196,6 +196,7 @@ function ConsumablesPage() {
     mutationFn: (id: number) => apiFetchJson(`/api/v1/consumables/${id}`, { method: "DELETE" }),
     onSuccess: () => {
       setDeleteId(null)
+      window.dispatchEvent(new Event("inventory-updated"))
       queryClient.invalidateQueries({ queryKey: ["/api/v1/consumables"] })
     },
     onError: (e: unknown) => {
@@ -210,6 +211,7 @@ function ConsumablesPage() {
         body: JSON.stringify({ is_active: true }),
       }),
     onSuccess: () => {
+      window.dispatchEvent(new Event("inventory-updated"))
       queryClient.invalidateQueries({ queryKey: ["/api/v1/consumables"] })
     },
     onError: (e: unknown) => {
@@ -229,6 +231,7 @@ function ConsumablesPage() {
       }),
     onSuccess: () => {
       setAdjustItem(null)
+      window.dispatchEvent(new Event("inventory-updated"))
       queryClient.invalidateQueries({ queryKey: ["/api/v1/consumables"] })
     },
     onError: (e: unknown) => {

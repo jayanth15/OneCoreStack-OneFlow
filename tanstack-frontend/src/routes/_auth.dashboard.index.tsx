@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { Link, createFileRoute } from "@tanstack/react-router"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   Package, Calendar, ClipboardList, Factory, Wrench,
   TrendingUp, ArrowUpRight, ArrowDownRight, Minus, FlaskConical,
@@ -164,6 +164,19 @@ function DashboardPage() {
   }, [])
   const user = useMemo(() => getCurrentUser(), [refreshKey])
 
+  // Inventory deletes/adjustments across the app dispatch 'inventory-updated'
+  // (InventoryTypePage, inventory.index, aux pages). Listen for it so the
+  // dashboard totals (value/low-stock cards) refresh immediately even while
+  // this page stays mounted.
+  const queryClient = useQueryClient()
+  useEffect(() => {
+    const invBump = () => {
+      void queryClient.invalidateQueries({ queryKey: ["/api/v1/dashboard"] })
+    }
+    window.addEventListener("inventory-updated", invBump)
+    return () => window.removeEventListener("inventory-updated", invBump)
+  }, [queryClient])
+
   const admin = user ? user.role === "admin" || user.role === "super_admin" : isAdminOrAbove()
   const canGrn = !!user?.grn_access || admin
   const canDispatch = !!user?.dispatch_access || admin
@@ -176,10 +189,13 @@ function DashboardPage() {
   })
 
   // Inventory overview — active-only aggregate shared with the inventory page.
+  // staleTime 0 + refetchOnWindowFocus: true so a delete anywhere in the app
+  // (which invalidates + dispatches 'inventory-updated') is always reflected
+  // when the user returns here — no 60s stale window.
   const invSummaryQuery = useQuery({
     queryKey: ["/api/v1/dashboard/inventory-summary"],
-    staleTime: 60_000,
-    refetchOnWindowFocus: false,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   })
 
   // ── Needs-action counts (permission-aware) ─────────────────────────────────

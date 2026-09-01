@@ -214,6 +214,7 @@ function AttachmentsPage() {
     mutationFn: (id: number) => apiFetchJson(`/api/v1/attachments/${id}`, { method: "DELETE" }),
     onSuccess: () => {
       setDeleteId(null)
+      window.dispatchEvent(new Event("inventory-updated"))
       queryClient.invalidateQueries({ queryKey: ["/api/v1/attachments"] })
     },
     onError: (e: unknown) => {
@@ -228,6 +229,7 @@ function AttachmentsPage() {
         body: JSON.stringify({ is_active: true }),
       }),
     onSuccess: () => {
+      window.dispatchEvent(new Event("inventory-updated"))
       queryClient.invalidateQueries({ queryKey: ["/api/v1/attachments"] })
     },
     onError: (e: unknown) => {
@@ -247,6 +249,7 @@ function AttachmentsPage() {
       }),
     onSuccess: () => {
       setAdjustItem(null)
+      window.dispatchEvent(new Event("inventory-updated"))
       queryClient.invalidateQueries({ queryKey: ["/api/v1/attachments"] })
     },
     onError: (e: unknown) => {
