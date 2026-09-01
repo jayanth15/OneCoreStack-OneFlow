@@ -136,11 +136,18 @@ const STATUS_TRANSITIONS: Record<string, string[]> = {
 }
 
 // Transitions that can never succeed for this dispatch, filtered out of the
-// dropdown so the user is not offered moves that the backend will 409:
-// supplier dispatches require a linked receipt for dispatched/delivered.
+// dropdown so the user is not offered moves that the backend will 409.
+//
+// Backend rule (dispatch.py): a SUPPIER dispatch requires a linked receipt
+// for dispatched/delivered ONLY when it carries NO inventory items. Item-based
+// supplier dispatches (inv_type + inv_item_id set) complete like vendors — so
+// we must not hide delivered/dispatched for them.
 function availableStatuses(d: Dispatch): string[] {
   const base = STATUS_TRANSITIONS[d.status] ?? []
-  if (d.party_type === "supplier") {
+  const hasInventoryItems = (d.items ?? []).some(
+    i => !!i.inv_type && i.inv_item_id != null,
+  )
+  if (d.party_type === "supplier" && !hasInventoryItems) {
     return base.filter(s => (s === "dispatched" || s === "delivered") ? !!d.receipt_id : true)
   }
   return base
