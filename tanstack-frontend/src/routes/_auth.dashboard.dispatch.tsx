@@ -11,7 +11,8 @@ import {
 } from "@/components/ui/dialog"
 import { apiFetchJson } from "@/lib/api"
 import { getCurrentUser, isAdminOrAbove, refreshCurrentUser } from "@/lib/user"
-import { PackageCheck, Plus, Search, Pencil, Minus, Printer, Trash2, X, History, AlertTriangle } from "lucide-react"
+import * as SelectUI from "@/components/ui/select"
+import { PackageCheck, Plus, Search, Pencil, Minus, Printer, Trash2, X, History, AlertTriangle, Info, LockKeyhole } from "lucide-react"
 import { openPrintWindow } from "@/lib/print-report"
 import { SearchCombobox } from "@/components/ui/search-combobox"
 
@@ -135,31 +136,96 @@ const STATUS_TRANSITIONS: Record<string, string[]> = {
   cancelled: [],
 }
 
-// Transitions that can never succeed for this dispatch, filtered out of the
-// dropdown so the user is not offered moves that the backend will 409.
-//
-// Backend rule (dispatch.py): a SUPPIER dispatch requires a linked receipt
-// for dispatched/delivered ONLY when it carries NO inventory items. Item-based
-// supplier dispatches (inv_type + inv_item_id set) complete like vendors — so
-// we must not hide delivered/dispatched for them.
-function availableStatuses(d: Dispatch): string[] {
-  const base = STATUS_TRANSITIONS[d.status] ?? []
-  const hasInventoryItems = (d.items ?? []).some(
-    i => !!i.inv_type && i.inv_item_id != null,
-  )
-  if (d.party_type === "supplier" && !hasInventoryItems) {
-    return base.filter(s => (s === "dispatched" || s === "delivered") ? !!d.receipt_id : true)
-  }
-  return base
+interface StatusOption {
+  value: string
+  label: string
+  disabled: boolean
+  muted: boolean       // shown but greyed — receives a warning instead of being hidden
+  reason?: string      // why it's muted (hover tooltip)
 }
 
-// Options for a status <select>: the current status (shown but disabled so the
-// box never renders an option list that omits the present state) followed by
-// the valid next statuses. Used by both the list row and the edit dialog so
-// they always agree.
-function statusOptions(current: string, d?: Dispatch): string[] {
-  const opts = d ? availableStatuses(d) : (STATUS_TRANSITIONS[current] ?? [])
-  return opts.includes(current) ? opts : [current, ...opts]
+// Backend rule (dispatch.py): a SUPPLIER dispatch requires a linked receipt
+// for dispatched/delivered ONLY when it carries NO inventory items. Item-based
+// supplier dispatches (inv_type + inv_item_id set) complete like vendors.
+// Blocked transitions are shown MUTED (not hidden) with a warning reason, so
+// the user sees what is possible but understands why it is disabled.
+function statusOptions(current: string | undefined, d?: Dispatch): StatusOption[] {
+  const cur = current || d?.status || ""
+  const base = (d ? STATUS_TRANSITIONS[d.status] : STATUS_TRANSITIONS[cur]) ?? []
+  const hasInventoryItems = (d?.items ?? []).some(
+    i => !!i.inv_type && i.inv_item_id != null,
+  )
+  const needsReceipt =
+    d?.party_type === "supplier" && !hasInventoryItems && !d.receipt_id
+
+  const opts = base.map(s => {
+      const blocked = needsReceipt && (s === "dispatched" || s === "delivered")
+      return {
+        value: s,
+        label: s.charAt(0).toUpperCase() + s.slice(1),
+        disabled: blocked,
+        muted: blocked,
+        reason: blocked ? "Receipt reference required to complete" : undefined,
+      }
+    })
+
+  // Include the current status where it isn't already a target of itself.
+  const list = opts.some(o => o.value === cur) ? opts : [
+    { value: cur, label: cur.charAt(0).toUpperCase() + cur.slice(1), disabled: true, muted: false, reason: undefined },
+    ...opts,
+  ]
+  return list
+}
+
+// Styled status dropdown. `pill` = compact badge-like (list rows);
+// `full` = wide form field (edit dialog). Shows muted/disabled options with a
+// lock + tooltip reason so the user sees the blocked transition and why.
+function StatusSelect({
+  options, value, onChange, disabled, variant = "pill",
+}: {
+  options: StatusOption[]
+  value: string
+  onChange: (v: string) => void
+  disabled?: boolean
+  variant?: "pill" | "full"
+}) {
+  const pill = variant === "pill"
+  return (
+    <SelectUI.Select
+      value={value}
+      onValueChange={(v) => onChange(String(v))}
+      disabled={disabled}
+    >
+      <SelectUI.SelectTrigger
+        size={pill ? "sm" : "default"}
+        className={pill
+          ? `h-6 rounded-full px-2.5 text-xs font-medium border border-transparent ${STATUS_COLORS[value] ?? "bg-muted text-muted-foreground"} focus-visible:ring-1 focus-visible:ring-ring`
+          : "w-full rounded-md border border-input bg-background px-3 py-2 text-sm"}
+      >
+        <span className="capitalize">{value}</span>
+      </SelectUI.SelectTrigger>
+      <SelectUI.SelectContent align="start" alignOffset={-4}>
+        {options.map(o => (
+          <SelectUI.SelectItem
+            key={o.value}
+            value={o.value}
+            disabled={o.disabled}
+            className={o.muted ? "opacity-40" : undefined}
+          >
+            <span className="flex items-center gap-1.5 capitalize">
+              {o.muted && <LockKeyhole className="size-3 text-muted-foreground" />}
+              <span className={pill ? "" : "capitalize"}>{o.label}</span>
+              {o.muted && o.reason && (
+                <span className="ml-1 inline-flex items-center gap-0.5 text-[10px] font-normal text-muted-foreground">
+                  <Info className="size-3" /> {o.reason}
+                </span>
+              )}
+            </span>
+          </SelectUI.SelectItem>
+        ))}
+      </SelectUI.SelectContent>
+    </SelectUI.Select>
+  )
 }
 
 const DISPATCH_INV_TYPES = [
@@ -664,16 +730,23 @@ function DispatchPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-mono font-semibold text-sm">{d.dispatch_number}</span>
-                      <select
+                      <StatusSelect
+                        options={statusOptions(d.status, d)}
                         value={d.status}
-                        onChange={(e) => handleStatusChange(d.id, e.target.value)}
+                        onChange={(v) => handleStatusChange(d.id, v)}
                         disabled={statusUpdatingId === d.id}
-                        className={`text-xs px-2 py-0.5 rounded-full font-medium border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 ${STATUS_COLORS[d.status] ?? "bg-muted text-muted-foreground"}`}
-                      >
-                        {statusOptions(d.status, d).map(s => (
-                          <option key={s} value={s} disabled={s === d.status}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
-                        ))}
-                      </select>
+                        variant="pill"
+                      />
+                      {d.party_type === "supplier" &&
+                        !(d.items ?? []).some(i => !!i.inv_type && i.inv_item_id != null) &&
+                        !d.receipt_id && (
+                          <span
+                            className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-warning/10 text-amber-700 border border-warning/20"
+                            title="Receipt reference required before this dispatch can be marked Dispatched or Delivered"
+                          >
+                            <LockKeyhole className="size-2.5" /> Receipt required
+                          </span>
+                        )}
                     </div>
                     <p className="text-sm font-medium mt-0.5">{itemSummary}</p>
                     <div className="flex flex-wrap gap-x-4 gap-y-0 text-xs text-muted-foreground mt-1">
@@ -934,16 +1007,25 @@ function DispatchForm({
       {!isCreate && (
         <div className="space-y-1.5">
           <Label htmlFor="d-status">Status</Label>
-          <select id="d-status" value={form.status}
-            onChange={(e) => onChange({ ...form, status: e.target.value })}
-            disabled={saving}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
-            {(dispatch ? statusOptions(currentStatus ?? dispatch.status, dispatch) : [currentStatus ?? form.status]).map(s => (
-              <option key={s} value={s} disabled={s === (currentStatus ?? dispatch?.status)}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
-            ))}
-          </select>
+          <div id="d-status" className="flex items-center gap-2">
+            <StatusSelect
+              options={dispatch ? statusOptions(currentStatus ?? dispatch.status, dispatch) : statusOptions(form.status)}
+              value={form.status}
+              onChange={(v) => onChange({ ...form, status: v })}
+              disabled={saving}
+              variant="full"
+            />
+          </div>
           {currentStatus && (
-            <p className="text-[11px] text-muted-foreground">Only valid status changes from <strong>{currentStatus}</strong> are listed.</p>
+            <p className="text-[11px] text-muted-foreground">
+              Only valid status changes from <strong>{currentStatus}</strong> are listed
+              {dispatch?.party_type === "supplier" &&
+                !(dispatch.items ?? []).some(i => !!i.inv_type && i.inv_item_id != null) &&
+                !dispatch.receipt_id && (
+                  <span className="text-amber-600"> — link a receipt to enable Dispatched/Delivered</span>
+                )}
+              .
+            </p>
           )}
         </div>
       )}

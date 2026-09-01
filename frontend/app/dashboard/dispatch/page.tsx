@@ -127,31 +127,43 @@ const STATUS_TRANSITIONS: Record<string, string[]> = {
   cancelled: [],
 };
 
-// Transitions that can never succeed for this dispatch, filtered out of the
-// dropdown so the user is not offered moves that the backend will 409.
-//
-// Backend rule (dispatch.py): a SUPPLIER dispatch requires a linked receipt
-// for dispatched/delivered ONLY when it carries NO inventory items. Item-based
-// supplier dispatches (inv_type + inv_item_id set) complete like vendors — so
-// we must not hide delivered/dispatched for them.
-function availableStatuses(d: Dispatch): string[] {
-  const base = STATUS_TRANSITIONS[d.status] ?? [];
-  const hasInventoryItems = (d.items ?? []).some(
-    i => !!i.inv_type && i.inv_item_id != null,
-  );
-  if (d.party_type === "supplier" && !hasInventoryItems) {
-    return base.filter(s => (s === "dispatched" || s === "delivered") ? !!d.receipt_id : true);
-  }
-  return base;
+interface StatusOption {
+  value: string;
+  label: string;
+  disabled: boolean;
+  muted: boolean;
+  reason?: string;
 }
 
-// Options for a status <select>: the current status (shown but disabled so the
-// box never renders an option list that omits the present state) followed by
-// the valid next statuses. Used by both the list row and the edit dialog so
-// they always agree.
-function statusOptions(current: string, d?: Dispatch): string[] {
-  const opts = d ? availableStatuses(d) : (STATUS_TRANSITIONS[current] ?? []);
-  return opts.includes(current) ? opts : [current, ...opts];
+// Backend rule (dispatch.py): a SUPPLIER dispatch requires a linked receipt
+// for dispatched/delivered ONLY when it carries NO inventory items. Item-based
+// supplier dispatches (inv_type + inv_item_id set) complete like vendors.
+// Blocked transitions are shown MUTED (not hidden) with a reason tooltip.
+function statusOptions(current: string | undefined, d?: Dispatch): StatusOption[] {
+  const cur = current || d?.status || "";
+  const base = (d ? STATUS_TRANSITIONS[d.status] : STATUS_TRANSITIONS[cur]) ?? [];
+  const hasInventoryItems = (d?.items ?? []).some(
+    i => !!i.inv_type && i.inv_item_id != null,
+  );
+  const needsReceipt =
+    d?.party_type === "supplier" && !hasInventoryItems && !d.receipt_id;
+
+  const opts = base.map(s => {
+    const blocked = needsReceipt && (s === "dispatched" || s === "delivered");
+    return {
+      value: s,
+      label: s.charAt(0).toUpperCase() + s.slice(1),
+      disabled: blocked,
+      muted: blocked,
+      reason: blocked ? "Receipt reference required to complete" : undefined,
+    };
+  });
+
+  const list = opts.some(o => o.value === cur) ? opts : [
+    { value: cur, label: cur.charAt(0).toUpperCase() + cur.slice(1), disabled: true, muted: false, reason: undefined },
+    ...opts,
+  ];
+  return list;
 }
 
 const DISPATCH_INV_TYPES = [
@@ -620,12 +632,25 @@ export default function DispatchPage() {
                         value={d.status}
                         onChange={(e) => handleStatusChange(d.id, e.target.value)}
                         disabled={statusUpdatingId === d.id}
+                        title={statusOptions(d.status, d).find(o => o.muted)?.reason ?? ""}
                         className={`text-xs px-2 py-0.5 rounded-full font-medium border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 ${STATUS_COLORS[d.status] ?? "bg-muted text-muted-foreground"}`}
                       >
-                        {statusOptions(d.status, d).map(s => (
-                          <option key={s} value={s} disabled={s === d.status}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                        {statusOptions(d.status, d).map(o => (
+                          <option key={o.value} value={o.value} disabled={o.disabled}>
+                            {o.muted ? `${o.label} (receipt required)` : o.label}
+                          </option>
                         ))}
                       </select>
+                      {d.party_type === "supplier" &&
+                        !(d.items ?? []).some(i => !!i.inv_type && i.inv_item_id != null) &&
+                        !d.receipt_id && (
+                          <span
+                            className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200"
+                            title="Receipt reference required before this dispatch can be marked Dispatched or Delivered"
+                          >
+                            🔒 Receipt required
+                          </span>
+                        )}
                     </div>
                     <p className="text-sm font-medium mt-0.5">{itemSummary}</p>
                     <div className="flex flex-wrap gap-x-4 gap-y-0 text-xs text-muted-foreground mt-1">
@@ -889,13 +914,24 @@ function DispatchForm({
           <select id="d-status" value={form.status}
             onChange={(e) => onChange({ ...form, status: e.target.value })}
             disabled={saving}
+            title={statusOptions(currentStatus ?? dispatch?.status, dispatch).find(o => o.muted)?.reason ?? ""}
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
-            {(dispatch ? statusOptions(currentStatus ?? dispatch.status, dispatch) : [currentStatus ?? form.status]).map(s => (
-              <option key={s} value={s} disabled={s === (currentStatus ?? dispatch?.status)}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+            {(dispatch ? statusOptions(currentStatus ?? dispatch.status, dispatch) : statusOptions(form.status)).map(o => (
+              <option key={o.value} value={o.value} disabled={o.disabled}>
+                {o.muted ? `${o.label} (receipt required)` : o.label}
+              </option>
             ))}
           </select>
           {currentStatus && (
-            <p className="text-[11px] text-muted-foreground">Only valid status changes from <strong>{currentStatus}</strong> are listed.</p>
+            <p className="text-[11px] text-muted-foreground">
+              Only valid status changes from <strong>{currentStatus}</strong> are listed
+              {dispatch?.party_type === "supplier" &&
+                !(dispatch.items ?? []).some(i => !!i.inv_type && i.inv_item_id != null) &&
+                !dispatch.receipt_id && (
+                  <span className="text-amber-600"> — link a receipt to enable Dispatched/Delivered</span>
+                )}
+              .
+            </p>
           )}
         </div>
       )}
