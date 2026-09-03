@@ -25,8 +25,9 @@ class Dispatch(SQLModel, table=True):
     schedule_id: Optional[int] = Field(default=None)
     schedule_number: Optional[str] = None                     # denormalized
 
-    # Linked customer dispatch request (optional)
-    request_id: Optional[int] = Field(default=None)
+    # Linked customer dispatch request (optional, 1:1 — enforced in code and by
+    # unique constraint below; concurrent links are rejected with 409)
+    request_id: Optional[int] = Field(default=None, unique=True)
     request_sn_no: Optional[str] = None                       # denormalized
 
     # Receipt reference for dealer/supplier dispatches
@@ -49,6 +50,6 @@ class Dispatch(SQLModel, table=True):
     driver_name: Optional[str] = None
 
     notes: Optional[str] = None
-    status: str = Field(default="pending")                    # pending | dispatched | delivered | cancelled
+    status: str = Field(default="pending")                    # pending | ready | dispatched | delivered | cancelled | deleted
     created_by: Optional[str] = None
     created_at: Optional[str] = None

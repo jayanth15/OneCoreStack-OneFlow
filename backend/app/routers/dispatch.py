@@ -21,7 +21,7 @@ from app.models.dispatch_history import DispatchHistory
 from app.models.dispatch_item import DispatchItem
 from app.models.receipt import Receipt
 from app.models.receipt_item import ReceiptItem
-from app.models.request import Request, REQUEST_TYPE_CUSTOMER_DISPATCH
+from app.models.request import Request, REQUEST_TYPE_CUSTOMER_DISPATCH, REQUEST_TYPE_INTERNAL_TRANSFER
 from app.models.request_customer_dispatch import RequestCustomerDispatch
 from app.models.request_item import RequestItem
 from app.services.document_numbers import allocate_document_number
@@ -63,6 +63,7 @@ def list_dispatches(
         q = q.where(or_(
             Dispatch.dispatch_number.ilike(s),  # type: ignore[union-attr]
             Dispatch.vendor_name.ilike(s),  # type: ignore[union-attr]
+            Dispatch.supplier_name.ilike(s),  # type: ignore[union-attr]
             Dispatch.product_name.ilike(s),  # type: ignore[union-attr]
         ))
     total = session.exec(select(func.count()).select_from(q.subquery())).one()
@@ -264,7 +265,11 @@ def update_dispatch(
         target_status = target_status.strip() or old_status
     ensure_transition("dispatch", old_status, target_status, DISPATCH_TRANSITIONS)
 
-    linked_request = _linked_request(session, target_request_id, exclude_dispatch_id=dispatch.id)
+    linked_request = _linked_request(
+        session, target_request_id,
+        exclude_dispatch_id=dispatch.id,
+        skip_status_check=target_request_id == old_request_id,
+    )
     linked_receipt = _linked_receipt(session, body.get("receipt_id", dispatch.receipt_id))
     raw_items = _request_dispatch_items(session, linked_request) if linked_request else body.get("items")
     if linked_receipt and raw_items == []:
@@ -288,16 +293,15 @@ def update_dispatch(
             raise HTTPException(status_code=422, detail="Dispatch item quantity must be greater than zero")
         ensure_inventory_identity(item.get("inv_type"), item.get("inv_item_id"), label="Dispatch item")
 
-    # Validate receipt reference for supplier dispatches before completing.
-    # Receipt-based supplier dispatches (created from a receipt / with
-    # inventory items derived from a receipt) require the receipt on
-    # dispatched/delivered. Item-based supplier dispatches carry their own
-    # stock and complete like vendor dispatches — otherwise legacy dispatches
-    # created before the receipt rule become stuck at "dispatched" forever.
+    # Validate receipt reference before completing. Supplier dispatches
+    # without inventory items require a receipt; any dispatch completing with
+    # a linked receipt requires it to be in a dispatchable state.
     has_inventory_items = any(
         item.get("inv_type") and item.get("inv_item_id") is not None
         for item in raw_items
     )
+    if target_status in ("dispatched", "delivered") and linked_receipt is not None:
+        _get_dispatch_receipt(session, linked_receipt.id, require_completable=True)
     if (
         target_party_type == "supplier"
         and target_status in ("dispatched", "delivered")
@@ -305,7 +309,6 @@ def update_dispatch(
     ):
         if not linked_receipt:
             raise HTTPException(status_code=409, detail="Supplier dispatch requires a receipt reference")
-        _get_dispatch_receipt(session, linked_receipt.id, require_completable=True)
 
     if linked_receipt:
         dispatch.receipt_id = linked_receipt.id
@@ -319,6 +322,7 @@ def update_dispatch(
         session, dispatch, raw_items, current_user,
         target_party_type=target_party_type,
         old_status=old_status, target_status=target_status,
+        linked_request=linked_request, linked_receipt=linked_receipt,
     )
     _sync_linked_request(
         session, dispatch, linked_request, current_user, target_status=target_status
@@ -326,15 +330,26 @@ def update_dispatch(
     if old_request_id and old_request_id != target_request_id:
         _release_linked_request(session, old_request_id)
 
+    # Only touch scalar fields explicitly sent by the client. request_sn_no is
+    # denormalized from the linked request below and never client-editable.
+    # product_name/quantity/unit are synced from line items when items change
+    # (see below) so manual header edits are not silently discarded.
     for field in ("party_type", "vendor_id", "vendor_name", "supplier_id", "supplier_name",
-                  "schedule_id", "schedule_number", "request_sn_no",
-                  "product_name", "quantity", "unit_id", "dispatch_date",
-                  "vehicle_number", "driver_name", "notes"):
+                  "schedule_id", "schedule_number",
+                  "dispatch_date", "vehicle_number", "driver_name", "notes"):
         if field in body:
             val = body[field]
             if isinstance(val, str):
                 val = val.strip() or None
             setattr(dispatch, field, val)
+    # Header unit may arrive as a name (frontend sends `unit`, not `unit_id`).
+    if "unit_id" in body or "unit" in body:
+        dispatch.unit_id = resolve_unit_id(session, body.get("unit_id"), body.get("unit"))
+    if "product_name" in body:
+        val = body["product_name"]
+        dispatch.product_name = (val.strip() if isinstance(val, str) else val) or ""
+    if "quantity" in body:
+        dispatch.quantity = float(body["quantity"] or 0)
     dispatch.request_id = target_request_id
     dispatch.request_sn_no = linked_request.sn_no if linked_request else None
     dispatch.status = target_status
@@ -346,7 +361,17 @@ def update_dispatch(
         dispatch.vendor_id = None
         dispatch.vendor_name = None
 
-    if raw_items is not None:
+    # Only rewrite line items when the caller actually changed them. A
+    # status-only PUT ({status}) reconstructs raw_items from existing rows —
+    # deleting/re-inserting them would churn PKs and audit history. A new
+    # request link or an explicit items array (or explicit empty refill from
+    # a receipt) counts as a change; keeping the same link does not.
+    items_changed = (
+        (linked_request is not None and target_request_id != old_request_id)
+        or ("items" in body)
+        or (linked_receipt is not None and body.get("items") == [])
+    )
+    if items_changed:
         old_items = list(session.exec(select(DispatchItem).where(DispatchItem.dispatch_id == dispatch.id)).all())
         for old in old_items:
             session.delete(old)
@@ -366,10 +391,17 @@ def update_dispatch(
             session.add(di)
             new_dis.append(di)
         if new_dis:
+            # Sync header summary from the first line, unless the caller set
+            # header fields explicitly in this same request.
             first_data = raw_items[0]
-            dispatch.product_name = (first_data.get("item_name") or "").strip()
-            dispatch.quantity = float(first_data.get("quantity") or 0)
-            dispatch.unit_id = first_data.get("unit_id") or None
+            if "product_name" not in body:
+                dispatch.product_name = (first_data.get("item_name") or "").strip()
+            if "quantity" not in body:
+                dispatch.quantity = float(first_data.get("quantity") or 0)
+            if "unit_id" not in body and "unit" not in body:
+                dispatch.unit_id = resolve_unit_id(
+                    session, first_data.get("unit_id"), first_data.get("unit")
+                )
 
     session.add(dispatch)
     session.add(DispatchHistory(
@@ -378,14 +410,6 @@ def update_dispatch(
         change_type="status_change" if old_status != target_status else "updated",
         old_status=old_status,
         new_status=target_status,
-    ))
-    session.add(DispatchHistory(
-        dispatch_id=dispatch.id,  # type: ignore[arg-type]
-        changed_by_username=current_user.username,
-        change_type="created",
-        old_status=None,
-        new_status="pending",
-        notes=f"Dispatch created ({dispatch.party_type})",
     ))
     session.commit()
     session.refresh(dispatch)
@@ -478,13 +502,14 @@ def _linked_request(
     request_id: int | None,
     *,
     exclude_dispatch_id: int | None = None,
+    skip_status_check: bool = False,
 ) -> Request | None:
     if not request_id:
         return None
     req = session.get(Request, request_id)
     if not req or not req.is_active:
         raise HTTPException(status_code=404, detail="Request not found")
-    if req.status not in ("approved", "in_progress", "awaiting_signoff", "received"):
+    if not skip_status_check and req.status not in ("approved", "in_progress", "awaiting_signoff"):
         raise HTTPException(
             status_code=409,
             detail=f"Request {req.sn_no} cannot be dispatched in status {req.status!r}",
@@ -556,52 +581,73 @@ def _sync_linked_request(
     current_user: User,
     target_status: str | None = None,
 ) -> None:
-    if not req or req.request_type != REQUEST_TYPE_CUSTOMER_DISPATCH:
+    if not req:
         return
     now_ts = now()
     effective_status = target_status or dispatch.status
 
-    if effective_status in ("dispatched", "delivered") and req.status != "received":
-        old_status = req.status
-        req.status = "received"
-        req.delivered_by_user_id = current_user.id
-        req.delivered_by_username = current_user.username
-        req.delivered_at = now_ts
-        req.updated_at = now_ts
-        log_history(
-            session, req.id,
-            changed_by_user_id=current_user.id,
-            changed_by_username=current_user.username,
-            change_type="dispatched",
-            field_name="status",
-            old_value=old_status,
-            new_value="received",
-            note=f"Fulfilled by dispatch {dispatch.dispatch_number}",
-        )
-        if req.requested_by_user_id:
-            create_notification(
-                session,
-                user_id=req.requested_by_user_id,
-                notif_type="request_delivered",
-                title=f"Request {req.sn_no} dispatched",
-                body=f"Your request was fulfilled by dispatch {dispatch.dispatch_number}.",
-                request_id=req.id,
+    if req.request_type == REQUEST_TYPE_CUSTOMER_DISPATCH:
+        if effective_status in ("dispatched", "delivered") and req.status != "received":
+            old_status = req.status
+            req.status = "received"
+            req.delivered_by_user_id = current_user.id
+            req.delivered_by_username = current_user.username
+            req.delivered_at = now_ts
+            req.updated_at = now_ts
+            log_history(
+                session, req.id,
+                changed_by_user_id=current_user.id,
+                changed_by_username=current_user.username,
+                change_type="dispatched",
+                field_name="status",
+                old_value=old_status,
+                new_value="received",
+                note=f"Fulfilled by dispatch {dispatch.dispatch_number}",
             )
-    elif effective_status == "pending" and req.status == "approved":
-        req.status = "in_progress"
-        req.updated_at = now_ts
-        log_history(
-            session, req.id,
-            changed_by_user_id=current_user.id,
-            changed_by_username=current_user.username,
-            change_type="dispatch_linked",
-            field_name="status",
-            old_value="approved",
-            new_value="in_progress",
-            note=f"Linked to dispatch {dispatch.dispatch_number}",
-        )
-    elif effective_status == "cancelled":
-        _release_linked_request(session, req.id)
+            if req.requested_by_user_id:
+                create_notification(
+                    session,
+                    user_id=req.requested_by_user_id,
+                    notif_type="request_delivered",
+                    title=f"Request {req.sn_no} dispatched",
+                    body=f"Your request was fulfilled by dispatch {dispatch.dispatch_number}.",
+                    request_id=req.id,
+                )
+        elif effective_status == "pending" and req.status == "approved":
+            req.status = "in_progress"
+            req.updated_at = now_ts
+            log_history(
+                session, req.id,
+                changed_by_user_id=current_user.id,
+                changed_by_username=current_user.username,
+                change_type="dispatch_linked",
+                field_name="status",
+                old_value="approved",
+                new_value="in_progress",
+                note=f"Linked to dispatch {dispatch.dispatch_number}",
+            )
+        elif effective_status == "cancelled":
+            _release_linked_request(session, req.id)
+    else:
+        # Non-customer requests (internal_transfer / vendor_purchase): the
+        # receipt flow owns completion, but a dispatch link must still move
+        # approved -> in_progress and must release on cancel/unlink so the
+        # request never gets stuck reserved by a dispatch.
+        if effective_status == "pending" and req.status == "approved":
+            req.status = "in_progress"
+            req.updated_at = now_ts
+            log_history(
+                session, req.id,
+                changed_by_user_id=current_user.id,
+                changed_by_username=current_user.username,
+                change_type="dispatch_linked",
+                field_name="status",
+                old_value="approved",
+                new_value="in_progress",
+                note=f"Linked to dispatch {dispatch.dispatch_number}",
+            )
+        elif effective_status == "cancelled":
+            _release_linked_request(session, req.id)
     session.add(req)
 
 
@@ -625,12 +671,32 @@ def _deduct_oem_dispatch_stock(
     target_party_type: str,
     old_status: str,
     target_status: str,
+    linked_request: Request | None = None,
+    linked_receipt: Receipt | None = None,
 ) -> None:
     completed_statuses = {"dispatched", "delivered"}
     if target_status not in completed_statuses:
         return
     if old_status in completed_statuses or dispatch.inventory_deducted_at is not None:
         return
+    # Lines already moved by the linked receipt must not be subtracted again —
+    # otherwise a receipt-derived dispatch surfaces a false "Insufficient
+    # inventory" error. Only skip lines the receipt actually carries; manual
+    # lines alongside a receipt reference (receipt has no matching lines)
+    # still deduct normally.
+    receipt_moved: set[tuple[Any, Any]] = set()
+    effective_receipt = linked_receipt
+    if effective_receipt is None and dispatch.receipt_id is not None:
+        effective_receipt = session.get(Receipt, dispatch.receipt_id)
+    if effective_receipt is not None:
+        receipt_lines = session.exec(
+            select(ReceiptItem).where(ReceiptItem.receipt_id == effective_receipt.id)
+        ).all()
+        receipt_moved = {
+            (line.item_type, line.inventory_item_id)
+            for line in receipt_lines
+            if line.item_type and line.inventory_item_id is not None
+        }
     # Only deduct for dispatches that actually carry inventory. Supplier
     # receipt-based dispatches (no inventory items) do not touch stock.
     deductions = [
@@ -642,9 +708,30 @@ def _deduct_oem_dispatch_stock(
         )
         for item in raw_items
         if item.get("inv_type") and item.get("inv_item_id") is not None
+        and (item.get("inv_type"), item.get("inv_item_id")) not in receipt_moved
     ]
     if not deductions:
         return
+    if linked_request is not None and linked_request.request_type == REQUEST_TYPE_INTERNAL_TRANSFER:
+        # Internal-transfer lines are deducted by the Deliver / Receipt /
+        # status-override flow and marked delivered. Only deduct lines that
+        # are still pending so a linked dispatch never subtracts twice.
+        req_items = session.exec(
+            select(RequestItem).where(RequestItem.request_id == linked_request.id)
+        ).all()
+        pending_keys = {
+            (item.item_type, item.inventory_item_id)
+            for item in req_items
+            if item.inventory_item_id is not None
+            and item.item_type
+            and item.item_status not in ("delivered", "rejected")
+        }
+        deductions = [
+            d for d in deductions
+            if (d.inventory_type, d.item_id) in pending_keys
+        ]
+        if not deductions:
+            return
     deduct_request_stock(
         session, deductions, current_user,
         note=f"OEM dispatch {dispatch.dispatch_number}",
@@ -663,7 +750,6 @@ def _release_linked_request(session: Session, request_id: int | None) -> None:
     if (
         req
         and req.is_active
-        and req.request_type == REQUEST_TYPE_CUSTOMER_DISPATCH
         and req.status == "in_progress"
     ):
         req.status = "approved"

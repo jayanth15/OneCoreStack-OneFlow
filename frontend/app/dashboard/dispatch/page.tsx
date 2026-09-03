@@ -274,12 +274,9 @@ export default function DispatchPage() {
     const first = validItems[0];
     return {
       party_type: form.party_type,
-      vendor_id: form.party_type === "vendor" ? (vendor?.id ?? null) : null,
-      vendor_name: form.party_type === "vendor" ? form.vendor_name || null : null,
-      supplier_id: null,
-      supplier_name: form.party_type === "supplier" ? form.supplier_name || null : null,
-      schedule_id: null,
-      schedule_number: null,
+      vendor_id: form.party_type === "vendor" ? (vendor?.id ?? null) : undefined,
+      vendor_name: form.party_type === "vendor" ? form.vendor_name || null : undefined,
+      supplier_name: form.party_type === "supplier" ? form.supplier_name || null : undefined,
       receipt_id: form.receipt_id,
       product_name: first?.item_name ?? "",
       quantity: parseFloat(first?.quantity ?? "0") || 0,
@@ -371,9 +368,7 @@ export default function DispatchPage() {
         body: JSON.stringify({ status: newStatus }),
       });
       setStatusError(null);
-      setItems(prev => prev.map(item =>
-        item.id === dispatchId ? { ...item, status: newStatus } : item
-      ));
+      load();
     } catch (err: unknown) {
       setStatusError(err instanceof Error ? err.message : "Failed to update dispatch status");
       load();
@@ -519,7 +514,22 @@ export default function DispatchPage() {
           <DialogHeader><DialogTitle>Edit Dispatch</DialogTitle></DialogHeader>
           <DispatchForm form={editForm} vendors={vendors} saving={editSaving}
             error={editError} onChange={setEditForm} onSubmit={handleEdit} isCreate={false}
-            currentStatus={editTarget?.status} dispatch={editTarget ?? undefined} />
+            currentStatus={editTarget?.status}
+            dispatch={editTarget ? {
+              ...editTarget,
+              party_type: editForm.party_type,
+              receipt_id: editForm.receipt_id,
+              items: editForm.items
+                .filter(it => it.item_name.trim())
+                .map((it, i) => ({
+                  id: -(i + 1),
+                  item_name: it.item_name.trim(),
+                  inv_type: it.inv_type || null,
+                  inv_item_id: it.inv_item_id,
+                  quantity: parseFloat(it.quantity) || 0,
+                  unit: it.unit || null,
+                })),
+            } : undefined} />
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setEditTarget(null)} disabled={editSaving}>Cancel</Button>
             <Button disabled={editSaving} onClick={handleEdit}>
@@ -772,7 +782,7 @@ function DispatchForm({
                 ? "bg-primary text-primary-foreground border-primary"
                 : "bg-background text-foreground border-input hover:bg-muted"
             }`}
-            onClick={() => onChange({ ...form, party_type: "vendor", supplier_name: "", receipt_id: null })}
+            onClick={() => onChange({ ...form, party_type: "vendor", supplier_name: "" })}
             disabled={saving}>
             Vendor (OEM)
           </button>
