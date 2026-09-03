@@ -255,14 +255,64 @@ def update_category(cat_id: int, body: WeederCategoryUpdate, session: SessionDep
 
 
 @router.delete("/categories/{cat_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_category(cat_id: int, session: SessionDep, _: AdminUser) -> None:
+def delete_category(cat_id: int, session: SessionDep, current_user: AdminUser) -> None:
     cat = session.get(WeederCategory, cat_id)
     if not cat:
         raise HTTPException(status_code=404, detail="Category not found")
+    # Cascade deactivation (stock preserved): items under a deleted category
+    # would otherwise stay active with stock (invisible in the UI, still
+    # counted in dashboard totals).
+    for w in session.exec(
+        select(WeederItem).where(
+            WeederItem.category_id == cat.id,
+            WeederItem.is_active == True,  # noqa: E712
+        )
+    ).all():
+        _deactivate_weeder_keep_stock(session, w, current_user, f"Deactivated with category {cat.name}; stock preserved")
     cat.is_active = False
     cat.updated_at = now()
     session.add(cat)
     session.commit()
+
+
+def _deactivate_weeder_keep_stock(session: Session, w: WeederItem, current_user: User, note: str) -> None:
+    """Deactivate a weeder WITHOUT touching quantity. Caller commits."""
+    w.is_active = False
+    w.updated_at = now()
+    session.add(w)
+    session.add(WeederHistory(
+        weeder_id=w.id,
+        changed_by_user_id=current_user.id,
+        changed_by_username=current_user.username,
+        changed_at=w.updated_at,
+        change_type="updated",
+        qty_before=w.qty,
+        qty_after=w.qty,
+        qty_delta=0.0,
+        note=note,
+    ))
+
+
+def _deactivate_weeder(session: Session, w: WeederItem, current_user: User) -> None:
+    """Shared deactivate body for item delete and category cascade deletes.
+    Caller commits.
+    """
+    qty_before = w.qty
+    w.is_active = False
+    w.qty = 0.0
+    w.updated_at = now()
+    session.add(w)
+    session.add(WeederHistory(
+        weeder_id=w.id,
+        changed_by_user_id=current_user.id,
+        changed_by_username=current_user.username,
+        changed_at=w.updated_at,
+        change_type="set",
+        qty_before=qty_before,
+        qty_after=0.0,
+        qty_delta=-qty_before,
+        note="Weeder deactivated; residual stock cleared",
+    ))
 
 
 @router.get("/categories/{cat_id}/items")
@@ -431,22 +481,7 @@ def delete_weeder(item_id: int, session: SessionDep, current_user: AdminUser) ->
     w = session.get(WeederItem, item_id)
     if not w:
         raise HTTPException(status_code=404, detail="Weeder not found")
-    qty_before = w.qty
-    w.is_active = False
-    w.qty = 0.0
-    w.updated_at = now()
-    session.add(w)
-    session.add(WeederHistory(
-        weeder_id=item_id,
-        changed_by_user_id=current_user.id,
-        changed_by_username=current_user.username,
-        changed_at=w.updated_at,
-        change_type="set",
-        qty_before=qty_before,
-        qty_after=0.0,
-        qty_delta=-qty_before,
-        note="Weeder deactivated; residual stock cleared",
-    ))
+    _deactivate_weeder(session, w, current_user)
     session.commit()
 
 

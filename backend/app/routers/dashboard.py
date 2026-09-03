@@ -21,8 +21,11 @@ from app.models.production_order import ProductionOrder
 from app.models.production_plan import ProductionPlan
 from app.models.spare_item import SpareItem
 from app.models.spare_item_variant import SpareItemVariant
+from app.models.spare_category import SpareCategory
+from app.models.spare_sub_category import SpareSubCategory
 from app.models.user import User
 from app.models.weeder_item import WeederItem
+from app.models.weeder_category import WeederCategory
 from app.routers.inventory import _user_inventory_types
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])
@@ -430,6 +433,20 @@ def get_inventory_summary(
             )
 
     # ── Spares (items; value via active variants) ───────────────────────────
+    # Items orphaned under inactive categories (deleted before cascade
+    # deactivation existed) must not count toward totals or value.
+    def _spare_visible():
+        return [
+            ~select(SpareCategory.id).where(
+                SpareCategory.id == SpareItem.category_id,
+                SpareCategory.is_active == False,  # noqa: E712
+            ).exists(),
+            ~select(SpareSubCategory.id).where(
+                SpareSubCategory.id == SpareItem.sub_category_id,
+                SpareSubCategory.is_active == False,  # noqa: E712
+            ).exists(),
+        ]
+
     if allowed("spare"):
         spare_low = case(
             (
@@ -441,7 +458,8 @@ def get_inventory_summary(
         )
         spare_count, spare_low_count = session.exec(
             select(func.count(), func.sum(spare_low)).where(
-                SpareItem.is_active == True  # noqa: E712
+                SpareItem.is_active == True,  # noqa: E712
+                *_spare_visible(),
             )
         ).one()
         spare_value = session.exec(
@@ -456,6 +474,7 @@ def get_inventory_summary(
             .where(
                 SpareItem.is_active == True,  # noqa: E712
                 SpareItemVariant.is_active == True,  # noqa: E712
+                *_spare_visible(),
             )
         ).one()
         # Variant-less spare items carry stock directly on the item row — the
@@ -472,6 +491,7 @@ def get_inventory_summary(
             ).where(
                 SpareItem.is_active == True,  # noqa: E712
                 ~SpareItem.id.in_(variant_less_ids),
+                *_spare_visible(),
             )
         ).one()
         types["spare"] = InventoryTypeSummary(
@@ -481,10 +501,11 @@ def get_inventory_summary(
         )
 
     # ── Consumables / Attachments / Weeders — qty × rate_per_unit ───────────
-    def _simple_summary(model, low_expr, value_expr) -> InventoryTypeSummary:
+    def _simple_summary(model, low_expr, value_expr, extra=()) -> InventoryTypeSummary:
         count, low, value = session.exec(
             select(func.count(), func.sum(low_expr), func.sum(value_expr)).where(
-                model.is_active == True  # noqa: E712
+                model.is_active == True,  # noqa: E712
+                *extra,
             )
         ).one()
         return InventoryTypeSummary(
@@ -520,6 +541,14 @@ def get_inventory_summary(
             AttachmentItem.qty * func.coalesce(AttachmentItem.rate_per_unit, 0),
         )
     if allowed("weeder"):
+        # Exclude items orphaned under inactive categories (deleted before
+        # cascade deactivation existed).
+        weeder_visible = (
+            ~select(WeederCategory.id).where(
+                WeederCategory.id == WeederItem.category_id,
+                WeederCategory.is_active == False,  # noqa: E712
+            ).exists(),
+        )
         types["weeder"] = _simple_summary(
             WeederItem,
             case(
@@ -531,6 +560,7 @@ def get_inventory_summary(
                 else_=0,
             ),
             WeederItem.qty * func.coalesce(WeederItem.rate_per_unit, 0),
+            extra=weeder_visible,
         )
 
     return InventorySummaryResponse(types=types)

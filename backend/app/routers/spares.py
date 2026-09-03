@@ -514,12 +514,71 @@ def update_category(cat_id: int, body: CategoryUpdate, session: SessionDep, _: A
     return _category_out(session, cat)
 
 
+def _deactivate_item_keep_stock(session: Session, item: SpareItem, current_user: User, note: str) -> None:
+    """Deactivate a spare item WITHOUT touching quantities.
+
+    Used by category/sub-category cascade deletes: stock data must survive
+    (soft-delete exists to avoid data loss). The dashboard excludes items
+    under inactive categories, so values still drop. Caller commits.
+    """
+    item.is_active = False
+    item.updated_at = now()
+    session.add(item)
+    for variant in session.exec(
+        select(SpareItemVariant).where(
+            SpareItemVariant.spare_item_id == item.id,
+            SpareItemVariant.is_active == True,  # noqa: E712
+        )
+    ).all():
+        variant.is_active = False
+        variant.updated_at = now()
+        session.add(variant)
+    session.add(SpareItemHistory(
+        spare_item_id=item.id,
+        changed_by_user_id=current_user.id,
+        changed_by_username=current_user.username,
+        changed_at=item.updated_at,
+        change_type="updated",
+        qty_before=item.recorded_qty,
+        qty_after=item.recorded_qty,
+        qty_delta=0.0,
+        note=note,
+    ))
+
+
 @router.delete("/categories/{cat_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_category(cat_id: int, session: SessionDep, _: AdminUser) -> None:
+def delete_category(cat_id: int, session: SessionDep, current_user: AdminUser) -> None:
     cat = _cat_or_404(session, cat_id)
+    # Cascade deactivation (stock preserved): items under a deleted category
+    # would otherwise stay active with stock (invisible in the UI, still
+    # counted in dashboard totals).
+    for sub in session.exec(
+        select(SpareSubCategory).where(
+            SpareSubCategory.category_id == cat.id,
+            SpareSubCategory.is_active == True,  # noqa: E712
+        )
+    ).all():
+        for item in session.exec(
+            select(SpareItem).where(
+                SpareItem.sub_category_id == sub.id,
+                SpareItem.is_active == True,  # noqa: E712
+            )
+        ).all():
+            _deactivate_item_keep_stock(session, item, current_user, f"Deactivated with category {cat.name}; stock preserved")
+        sub.is_active = False
+        sub.updated_at = now()
+        session.add(sub)
+    for item in session.exec(
+        select(SpareItem).where(
+            SpareItem.category_id == cat.id,
+            SpareItem.is_active == True,  # noqa: E712
+        )
+    ).all():
+        _deactivate_item_keep_stock(session, item, current_user, f"Deactivated with category {cat.name}; stock preserved")
     cat.is_active = False
     cat.updated_at = now()
-    session.add(cat); session.commit()
+    session.add(cat)
+    session.commit()
 
 
 # ── Sub-category endpoints ────────────────────────────────────────────────────
@@ -577,11 +636,22 @@ def update_sub_category(
 
 
 @router.delete("/sub-categories/{sub_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_sub_category(sub_id: int, session: SessionDep, _: AdminUser) -> None:
+def delete_sub_category(sub_id: int, session: SessionDep, current_user: AdminUser) -> None:
     sub = _sub_or_404(session, sub_id)
+    # Cascade deactivation (stock preserved): items under a deleted
+    # sub-category would otherwise stay active with stock (invisible in the
+    # UI, still counted in dashboard totals).
+    for item in session.exec(
+        select(SpareItem).where(
+            SpareItem.sub_category_id == sub.id,
+            SpareItem.is_active == True,  # noqa: E712
+        )
+    ).all():
+        _deactivate_item_keep_stock(session, item, current_user, f"Deactivated with sub-category {sub.name}; stock preserved")
     sub.is_active = False
     sub.updated_at = now()
-    session.add(sub); session.commit()
+    session.add(sub)
+    session.commit()
 
 
 # ── Item endpoints (within a sub-category) ───────────────────────────────────
@@ -710,9 +780,13 @@ def update_item(item_id: int, body: ItemUpdate, session: SessionDep, _: AdminUse
     return _item_out(item, has_variants=_has_active_variants(session, item.id), session=session)
 
 
-@router.delete("/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_item(item_id: int, session: SessionDep, current_user: AdminUser) -> None:
-    item = _item_or_404(session, item_id)
+def _deactivate_item_tree(session: Session, item: SpareItem, current_user: User) -> None:
+    """Deactivate a spare item: zero stock, write history, clear variants.
+
+    Shared by item delete and category/sub-category cascade deletes so no
+    path leaves active stock behind (which the dashboard would keep valuing).
+    Caller commits.
+    """
     qty_before = item.recorded_qty
     item.is_active = False
     item.recorded_qty = 0.0
@@ -753,6 +827,12 @@ def delete_item(item_id: int, session: SessionDep, current_user: AdminUser) -> N
         qty_delta=-qty_before,
         note="Spare item deactivated; residual stock cleared",
     ))
+
+
+@router.delete("/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_item(item_id: int, session: SessionDep, current_user: AdminUser) -> None:
+    item = _item_or_404(session, item_id)
+    _deactivate_item_tree(session, item, current_user)
     session.commit()
 
 
