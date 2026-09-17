@@ -21,6 +21,7 @@ Flat item endpoints (backwards-compatible):
   GET    /api/v1/weeders/{item_id}/history        — change history
 """
 from datetime import datetime, timezone
+import re
 from app.core.timezone import APP_TZ, now
 from typing import Annotated, Optional
 
@@ -42,6 +43,39 @@ router = APIRouter(prefix="/api/v1/weeders", tags=["weeders"])
 SessionDep = Annotated[Session, Depends(get_session)]
 CurrentUser = Annotated[User, Depends(get_current_user)]
 AdminUser   = Annotated[User, Depends(require_admin)]
+
+
+# ── Natural sort ──────────────────────────────────────────────────────────────
+# Human ordering for alphanumeric identifiers (SN numbers like "FW001",
+# "FW010", model names like "VIS-500"): digit runs compare numerically, so
+# FW2 < FW10 and VIS-109 < VIS-500 instead of raw lexicographic order.
+
+_RE_NUM = re.compile(r"(\d+)")
+# Sentinel key so missing values sort after any present value.
+_NAT_MISSING: tuple[tuple[int, int, str], ...] = ((2, 0, ""),)
+
+
+def _natural_key(value: Optional[str]) -> tuple[tuple[int, int, str], ...]:
+    """Sort key: digit runs become numbers, text runs compare case-insensitively."""
+    if value is None:
+        return _NAT_MISSING
+    s = value.strip()
+    if not s:
+        return _NAT_MISSING
+    return tuple(
+        (0, int(part), "") if part.isdigit() else (1, 0, part)
+        for part in _RE_NUM.split(s.casefold())
+    )
+
+
+def _weeder_sort_key(w: WeederItem) -> tuple:
+    """SN No. first (natural), then Name, then Description, then creation order."""
+    return (
+        _natural_key(w.sn_no),
+        _natural_key(w.name),
+        _natural_key(w.description),
+        w.id or 0,
+    )
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -338,8 +372,11 @@ def list_category_items(
             WeederItem.description.ilike(pat),       # type: ignore[union-attr]
             WeederItem.storage_location.ilike(pat),  # type: ignore[union-attr]
         ))
-    total = session.exec(select(func.count()).select_from(q.subquery())).one()
-    items = session.exec(q.order_by(WeederItem.name, WeederItem.description).offset((page - 1) * page_size).limit(page_size)).all()
+    rows = list(session.exec(q).all())
+    rows.sort(key=_weeder_sort_key)
+    total = len(rows)
+    start = (max(1, page) - 1) * page_size
+    items = rows[start:start + page_size]
     return {
         "items": [_out(w) for w in items],
         "total": total,
@@ -390,6 +427,15 @@ def list_weeders(
     q = select(WeederItem).distinct()
     if not include_inactive:
         q = q.where(WeederItem.is_active == True)  # noqa: E712
+        # Items orphaned under inactive (deleted) categories must not surface
+        # here — the categories UI hides deleted categories, so these rows
+        # would otherwise appear in search results and pollute list totals.
+        q = q.where(
+            ~select(WeederCategory.id).where(
+                WeederCategory.id == WeederItem.category_id,
+                WeederCategory.is_active == False,  # noqa: E712
+            ).exists(),
+        )
     if category_id is not None:
         q = q.where(WeederItem.category_id == category_id)
     if search:
@@ -400,8 +446,14 @@ def list_weeders(
             WeederItem.storage_location.ilike(pat), # type: ignore[union-attr]
             WeederItem.sn_no.ilike(pat),            # type: ignore[union-attr]
         ))
-    total = session.exec(select(func.count()).select_from(q.subquery())).one()
-    items = session.exec(q.order_by(WeederItem.sn_no).offset((page - 1) * page_size).limit(page_size)).all()
+    # Natural sort in Python (SQLite can't sort digit runs numerically) —
+    # fetch all matching rows, sort, then paginate. Volumes here are small
+    # (single-tenant, a few hundred weeder items).
+    rows = list(session.exec(q).all())
+    rows.sort(key=_weeder_sort_key)
+    total = len(rows)
+    start = (max(1, page) - 1) * page_size
+    items = rows[start:start + page_size]
     return {
         "items": [_out(w) for w in items],
         "total": total,

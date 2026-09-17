@@ -200,44 +200,47 @@ export default function DashboardPage() {
     apiFetchJson<DashboardData>("/api/v1/dashboard", { cache: "no-store" })
       .then((dashboard) => { setData(dashboard); setError(null); setRefreshedAt(new Date()); })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load dashboard"));
+    // ── Aux inventory cards (spares / consumables / attachments / weeders) ──
+    // Single aggregate endpoint: no pagination ceiling, category-aware
+    // (items under deleted categories excluded), and values admin-only —
+    // matching what the cards display. Replaces the old pattern of summing
+    // page_size=500 list responses client-side, which silently truncated
+    // past 500 rows and counted ghost value under deleted categories.
+    type AuxSummary = { types: Record<string, { count: number; low_stock: number; value: number | null }> };
+    const summaryP: Promise<AuxSummary | null> = apiFetchJson<AuxSummary>("/api/v1/dashboard/inventory-summary", { cache: "no-store" }).catch(() => null);
+    summaryP.then((d) => {
+      const t = d?.types ?? {};
+      if (canAccessInventory("consumable")) {
+        setConsumablesTotal(t.consumable?.count ?? 0);
+        setConsumablesValue(t.consumable?.value ?? 0);
+        setConsumablesLowStock(t.consumable?.low_stock ?? 0);
+        setConsumablesLoaded(true);
+      }
+      if (canAccessInventory("attachment")) {
+        setAttachmentsTotal(t.attachment?.count ?? 0);
+        setAttachmentsValue(t.attachment?.value ?? 0);
+        setAttachmentsLowStock(t.attachment?.low_stock ?? 0);
+        setAttachmentsLoaded(true);
+      }
+      if (canAccessInventory("weeder")) {
+        setWeedersTotal(t.weeder?.count ?? 0);
+        setWeedersValue(t.weeder?.value ?? 0);
+        setWeedersLowStock(t.weeder?.low_stock ?? 0);
+        setWeedersLoaded(true);
+      }
+    });
     if (canAccessInventory("spare")) {
-      apiFetchJson<{items: {id: number; item_count: number; total_value: number | null}[]; total: number}>("/api/v1/spares/categories?include_inactive=false&page_size=500")
-        .then(data => setSparesStats({
-          categories: data.total,
-          items: data.items.reduce((s, c) => s + c.item_count, 0),
-          total_value: data.items.reduce((s, c) => s + (c.total_value ?? 0), 0),
-        }))
-        .catch(() => {});
-    }
-    if (canAccessInventory("consumable")) {
-      apiFetchJson<{items: {total_price: number | null; qty: number; reorder_level: number}[], total: number}>("/api/v1/consumables?page_size=500&include_inactive=false")
-        .then(d => {
-          setConsumablesTotal(d.total);
-          setConsumablesValue(d.items.reduce((s, c) => s + (c.total_price ?? 0), 0));
-          setConsumablesLowStock(d.items.filter(c => c.reorder_level > 0 && c.qty <= c.reorder_level).length);
-        })
-        .catch(() => { setConsumablesTotal(0); })
-        .finally(() => { setConsumablesLoaded(true); });
-    }
-    if (canAccessInventory("attachment")) {
-      apiFetchJson<{items: {total_rate: number | null; qty: number; reorder_level: number}[], total: number}>("/api/v1/attachments?page_size=500&include_inactive=false")
-        .then(d => {
-          setAttachmentsTotal(d.total);
-          setAttachmentsValue(d.items.reduce((s, c) => s + (c.total_rate ?? 0), 0));
-          setAttachmentsLowStock(d.items.filter(c => c.reorder_level > 0 && c.qty <= c.reorder_level).length);
-        })
-        .catch(() => { setAttachmentsTotal(0); })
-        .finally(() => { setAttachmentsLoaded(true); });
-    }
-    if (canAccessInventory("weeder")) {
-      apiFetchJson<{items: {total_rate: number | null; qty: number; reorder_level: number}[], total: number}>("/api/v1/weeders?page_size=500&include_inactive=false")
-        .then(d => {
-          setWeedersTotal(d.total);
-          setWeedersValue(d.items.reduce((s, c) => s + (c.total_rate ?? 0), 0));
-          setWeedersLowStock(d.items.filter(c => c.reorder_level > 0 && c.qty <= c.reorder_level).length);
-        })
-        .catch(() => { setWeedersTotal(0); })
-        .finally(() => { setWeedersLoaded(true); });
+      // Category count comes from the categories endpoint (`total` is exact
+      // regardless of page size); items/value come from the summary.
+      const catsP = apiFetchJson<{total: number}>("/api/v1/spares/categories?include_inactive=false&page_size=500").catch(() => null);
+      Promise.all([catsP, summaryP]).then(([cats, d]) => {
+        if (!cats) return;
+        setSparesStats({
+          categories: cats.total,
+          items: d?.types.spare?.count ?? 0,
+          total_value: d?.types.spare?.value ?? 0,
+        });
+      });
     }
   }, []);
 

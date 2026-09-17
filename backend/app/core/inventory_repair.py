@@ -87,6 +87,43 @@ def _repair_simple_domains(conn) -> int:
     return total
 
 
+def _repair_weeder_orphans(conn) -> int:
+    """Deactivate weeder items still sitting under inactive categories.
+
+    Categories deleted before cascade deactivation existed left their items
+    active with stock — invisible in the UI (deleted categories are hidden)
+    but counted by any is_active-only aggregate. Deactivate with stock
+    preserved (mirrors delete_category cascade) so restoring the category
+    brings the items back.
+    """
+    if not _table_exists(conn, "weeder_item") or not _table_exists(conn, "weeder_category"):
+        return 0
+    cols = _cols(conn, "weeder_item")
+    if not {"category_id", "is_active", "updated_at"}.issubset(cols):
+        return 0
+    if _table_exists(conn, "weeder_history"):
+        hcols = _cols(conn, "weeder_history")
+        needed = {"weeder_id", "changed_at", "change_type", "qty_before", "qty_after", "qty_delta"}
+        if needed.issubset(hcols):
+            conn.execute(
+                text(
+                    "INSERT INTO weeder_history "
+                    "(weeder_id, changed_at, change_type, qty_before, qty_after, qty_delta, note) "
+                    "SELECT wi.id, CURRENT_TIMESTAMP, 'updated', wi.qty, wi.qty, 0, :note "
+                    "FROM weeder_item wi JOIN weeder_category wc ON wc.id = wi.category_id "
+                    "WHERE wc.is_active = 0 AND wi.is_active = 1"
+                ),
+                {"note": NOTE + " (item deactivated with deleted category; stock preserved)"},
+            )
+    return conn.execute(
+        text(
+            "UPDATE weeder_item SET is_active = 0, updated_at = CURRENT_TIMESTAMP "
+            "WHERE is_active = 1 AND category_id IN "
+            "(SELECT id FROM weeder_category WHERE is_active = 0)"
+        )
+    ).rowcount
+
+
 def _repair_main_inventory(conn) -> int:
     if not _table_exists(conn, "inventory_item"):
         return 0
@@ -215,7 +252,7 @@ def _repair_spares(conn) -> tuple[int, int, int]:
 
 def repair_inventory_values() -> None:
     """Idempotent startup repair; logs what it changed."""
-    main = simple = 0
+    main = simple = weeder_orphans = 0
     spares = (0, 0, 0)
     with engine.connect() as conn:
         # Alembic startup runs migrations first; guard here regardless.
@@ -223,14 +260,17 @@ def repair_inventory_values() -> None:
             with conn.begin():
                 main = _repair_main_inventory(conn)
                 simple = _repair_simple_domains(conn)
+                weeder_orphans = _repair_weeder_orphans(conn)
                 spares = _repair_spares(conn)
         except Exception:  # noqa: BLE001
             logger.exception("Inventory repair failed — continuing startup")
             return
-    if main or simple or any(spares):
+    if main or simple or weeder_orphans or any(spares):
         logger.info(
-            "Inventory repair: main=%d simple=%d spares(cleared=%d, synced=%d, zeroed=%d)",
-            main, simple, spares[0], spares[1], spares[2],
+            "Inventory repair: main=%d simple=%d weeder_orphans=%d "
+            "spares(cleared=%d, synced=%d, zeroed=%d)",
+            main, simple, weeder_orphans,
+            spares[0], spares[1], spares[2],
         )
     else:
         logger.info("Inventory repair: nothing to fix")

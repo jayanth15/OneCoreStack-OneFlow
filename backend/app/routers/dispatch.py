@@ -65,6 +65,22 @@ def list_dispatches(
             Dispatch.vendor_name.ilike(s),  # type: ignore[union-attr]
             Dispatch.supplier_name.ilike(s),  # type: ignore[union-attr]
             Dispatch.product_name.ilike(s),  # type: ignore[union-attr]
+            # Linked schedule / customer request / receipt references
+            Dispatch.schedule_number.ilike(s),  # type: ignore[union-attr]
+            Dispatch.request_sn_no.ilike(s),  # type: ignore[union-attr]
+            Dispatch.receipt_number.ilike(s),  # type: ignore[union-attr]
+            # Logistics fields
+            Dispatch.vehicle_number.ilike(s),  # type: ignore[union-attr]
+            Dispatch.driver_name.ilike(s),  # type: ignore[union-attr]
+            # Users — who created / who deducted stock
+            Dispatch.created_by.ilike(s),  # type: ignore[union-attr]
+            Dispatch.inventory_deducted_by_username.ilike(s),  # type: ignore[union-attr]
+            # Line items — match dispatches whose items include the text
+            Dispatch.id.in_(
+                select(DispatchItem.dispatch_id).where(
+                    DispatchItem.item_name.ilike(s),  # type: ignore[union-attr]
+                )
+            ),
         ))
     total = session.exec(select(func.count()).select_from(q.subquery())).one()
     page = max(1, page)

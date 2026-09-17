@@ -157,10 +157,24 @@ def get_dashboard(
 
     low_stock_spares = (
         session.exec(
-            select(func.count()).where(
+            select(func.count())
+            .select_from(SpareItemVariant)
+            .join(SpareItem, SpareItemVariant.spare_item_id == SpareItem.id)
+            .where(
                 SpareItemVariant.is_active == True,  # noqa: E712
+                SpareItem.is_active == True,  # noqa: E712
                 SpareItemVariant.reorder_level > 0,
                 SpareItemVariant.qty <= SpareItemVariant.reorder_level,
+                # Exclude items orphaned under inactive categories/sub-categories
+                # (deleted before cascade deactivation existed).
+                ~select(SpareCategory.id).where(
+                    SpareCategory.id == SpareItem.category_id,
+                    SpareCategory.is_active == False,  # noqa: E712
+                ).exists(),
+                ~select(SpareSubCategory.id).where(
+                    SpareSubCategory.id == SpareItem.sub_category_id,
+                    SpareSubCategory.is_active == False,  # noqa: E712
+                ).exists(),
             )
         ).one()
         if aux_allowed("spare") else 0
@@ -187,10 +201,15 @@ def get_dashboard(
     )
     low_stock_weeders = (
         session.exec(
-            select(func.count()).where(
+            select(func.count()).select_from(WeederItem).where(
                 WeederItem.is_active == True,  # noqa: E712
                 WeederItem.reorder_level > 0,
                 WeederItem.qty <= WeederItem.reorder_level,
+                # Exclude items orphaned under inactive categories.
+                ~select(WeederCategory.id).where(
+                    WeederCategory.id == WeederItem.category_id,
+                    WeederCategory.is_active == False,  # noqa: E712
+                ).exists(),
             )
         ).one()
         if aux_allowed("weeder") else 0
@@ -672,12 +691,17 @@ def get_low_stock_summary(
         for a in att_rows
     ]
 
-    # Weeders low stock
+    # Weeders low stock — exclude items under inactive categories (orphaned
+    # by a category delete predating cascade deactivation).
     weed_rows = session.exec(
         select(WeederItem).where(
             WeederItem.is_active == True,  # noqa: E712
             WeederItem.reorder_level > 0,
             WeederItem.qty <= WeederItem.reorder_level,
+            ~select(WeederCategory.id).where(
+                WeederCategory.id == WeederItem.category_id,
+                WeederCategory.is_active == False,  # noqa: E712
+            ).exists(),
         ).order_by(WeederItem.sn_no)
     ).all()
     weeders_out = [
